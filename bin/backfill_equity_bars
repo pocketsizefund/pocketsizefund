@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# fetch, parse, and upload equity
+# bar data to S3
+
+set -e
+
+python3 ./bin/helpers/backfill_equity_bars.py \
+    --location local
