@@ -57,3 +57,31 @@ class Client:
             Bucket=self.s3_data_bucket_name,
             Key=key,
         )
+
+    def list_file_names(
+            self,
+            prefix: str,
+    ) -> list[str]:
+        file_names: list[str] = []
+
+        continuation_token: str = None
+        while True:
+            list_arguments = {
+                'Bucket': self.s3_data_bucket_name,
+                'Prefix': prefix,
+            }
+
+            if continuation_token:
+                list_arguments['ContinuationToken'] = continuation_token
+
+            response = self.s3_client.list_objects_v2(**list_arguments)
+
+            for content in response['Contents']:
+                key = content['Key']
+                file_name = key.rsplit('/', 1)[1]
+                file_names.append(file_name)
+
+            if not response['IsTruncated']:
+                break
+
+        return file_names
