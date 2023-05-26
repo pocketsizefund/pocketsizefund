@@ -1,0 +1,3 @@
+# pocketsizefund 
+
+> Recreational quantitative trading 🍊
