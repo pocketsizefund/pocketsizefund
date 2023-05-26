@@ -1,11 +1,15 @@
+from pkg.data import data  # TEMP
 from concurrent import futures
 import gzip
 import json
+import io
 
 import boto3
+import pandas
 
 
 EQUITY_BARS_RAW_PATH = 'equity/bars/raw/alphavantage'
+EQUITY_BARS_PROCESSED_PATH = 'equity/bars/processed'
 
 
 class Client:
@@ -131,3 +135,146 @@ class Client:
         return {
             file_name: json_object,
         }
+
+    def store_dataframes(
+            self,
+            prefix: str,
+            dataframes: dict[str, pandas.DataFrame],
+    ) -> None:
+        executor = futures.ThreadPoolExecutor()
+
+        executed_futures: list[futures.Future] = []
+        for file_name in dataframes:
+            dataframe = dataframes[file_name]
+
+            key = '{}/{}'.format(prefix, file_name)
+
+            executed_future = executor.submit(
+                self.__put_dataframe,
+                dataframe,
+                key,
+            )
+            executed_futures.append(executed_future)
+
+        for executed_future in futures.as_completed(executed_futures):
+            try:
+                _ = executed_future.result()
+            except Exception as error:
+                raise error
+
+    def __put_dataframe(
+        self,
+        dataframe: pandas.DataFrame,
+        key: str,
+    ) -> None:
+        gzip_buffer = io.BytesIO()
+
+        dataframe.to_csv(
+            gzip_buffer,
+            index=False,
+            header=True,
+            compression='gzip',
+        )
+
+        gzip_buffer.seek(0)
+
+        self.s3_client.put_object(
+            Body=gzip_buffer.getvalue(),
+            Bucket=self.s3_data_bucket_name,
+            Key=key,
+        )
+
+    def load_dataframes(
+        self,
+        prefix: str,
+        file_names: list[str] = [],
+    ) -> dict[str, pandas.DataFrame]:
+        dataframes: dict[str, pandas.DataFrame] = {}
+
+        executor = futures.ThreadPoolExecutor()
+
+        executed_futures: list[futures.Future] = []
+        for file_name in file_names:
+            executed_future = executor.submit(
+                self.__get_dataframe,
+                prefix,
+                file_name,
+            )
+            executed_futures.append(executed_future)
+
+        dataframes: dict[str, pandas.DataFrame] = {}
+        for executed_future in futures.as_completed(executed_futures):
+            try:
+                result = executed_future.result()
+                for key in result.keys():
+                    dataframes[key] = result[key]
+            except Exception as error:
+                raise error
+
+        return dataframes
+
+    def __get_dataframe(
+        self,
+        prefix: str,
+        file_name: str,
+    ) -> pandas.DataFrame:
+        key = '{}/{}'.format(prefix, file_name)
+        response = self.s3_client.get_object(
+            Bucket=self.s3_data_bucket_name,
+            Key=key,
+        )
+
+        dataframe = pandas.read_csv(
+            response['Body'],
+            compression='gzip',
+        )
+
+        if 'timestamp' in dataframe.columns:
+            dataframe['timestamp'] = dataframe['timestamp'].apply(
+                pandas.Timestamp,
+            )
+
+        return {file_name: dataframe}
+
+
+raw_data = {
+    "Meta Data": {
+        "1. Information": "Daily Time Series with Splits and Dividend Events",
+        "2. Symbol": "IBM",
+        "3. Last Refreshed": "2023-05-25",
+        "4. Output Size": "Compact",
+        "5. Time Zone": "US/Eastern"
+    },
+    "Time Series (Daily)": {
+        "2023-05-25": {
+            "1. open": "125.61",
+            "2. high": "127.23",
+            "3. low": "125.01",
+            "4. close": "126.76",
+            "5. adjusted close": "126.76",
+            "6. volume": "4102854",
+            "7. dividend amount": "0.0000",
+            "8. split coefficient": "1.0"
+        },
+        "2023-05-24": {
+            "1. open": "127.82",
+            "2. high": "127.9",
+            "3. low": "125.47",
+            "4. close": "125.68",
+            "5. adjusted close": "125.68",
+            "6. volume": "3915505",
+            "7. dividend amount": "0.0000",
+            "8. split coefficient": "1.0"
+        },
+        "2023-05-23": {
+            "1. open": "127.24",
+            "2. high": "129.09",
+            "3. low": "127.13",
+            "4. close": "128.18",
+            "5. adjusted close": "128.18",
+            "6. volume": "4592280",
+            "7. dividend amount": "0.0000",
+            "8. split coefficient": "1.0"
+        },
+    },
+}
