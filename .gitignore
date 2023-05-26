@@ -1,2 +1,6 @@
 # configurations
 samconfig.toml
+
+# Python resources
+__pycache__/
+*.py[cod]

@@ -1,7 +1,10 @@
 import time
+import datetime
 
 import requests
+import pandas
 
+from pkg.data import bar
 
 # Slightly more restrictive than the default
 # 5 requests per minute
@@ -41,3 +44,29 @@ class Client:
             })
 
         return response.json()
+
+    def convert_equity_raw_bars_to_dataframe(
+        self,
+        equity_raw_bars: dict[any, any],
+    ) -> pandas.DataFrame:
+        daily_bars = equity_raw_bars['Time Series (Daily)']
+
+        print('type: ', type(daily_bars))
+        print('daily_bars', daily_bars)
+
+        bars = [bar.Bar(
+            timestamp=datetime.datetime.strptime(daily_bar[0], '%Y-%m-%d'),
+            ticker=equity_raw_bars['Meta Data']['2. Symbol'],
+            open_price=float(daily_bar[1]['1. open']),
+            high_price=float(daily_bar[1]['2. high']),
+            low_price=float(daily_bar[1]['3. low']),
+            close_price=float(daily_bar[1]['5. adjusted close']),
+            volume=float(daily_bar[1]['6. volume']),
+            source=bar.SOURCE_ALPHA_VANTAGE,
+        ) for daily_bar in daily_bars.items()]
+
+        dataframe = pandas.DataFrame.from_dict(
+            data=[bar.__dict__ for bar in bars],
+        )
+
+        return dataframe
