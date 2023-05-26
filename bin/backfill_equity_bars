@@ -5,5 +5,4 @@
 
 set -e
 
-python3 ./bin/helpers/backfill_equity_bars.py \
-    --location local
+python3 ./bin/helpers/backfill_equity_bars.py
