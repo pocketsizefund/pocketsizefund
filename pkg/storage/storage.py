@@ -7,8 +7,8 @@ import boto3
 import pandas
 
 
-EQUITY_BARS_RAW_PATH = 'equity/bars/raw/alphavantage'
-EQUITY_BARS_PROCESSED_PATH = 'equity/bars/processed'
+PREFIX_EQUITY_BARS_RAW_PATH = 'equity/bars/raw/alphavantage'
+PREFIX_EQUITY_BARS_PROCESSED_PATH = 'equity/bars/processed'
 
 
 class Client:
@@ -28,7 +28,7 @@ class Client:
 
         executed_futures: list[futures.Future] = []
         for json_object in json_objects:
-            if path == EQUITY_BARS_RAW_PATH:
+            if path == PREFIX_EQUITY_BARS_RAW_PATH:
                 ticker = json_object['Meta Data']['2. Symbol']
                 key = '{}/{}.json.gz'.format(path, ticker)
 
