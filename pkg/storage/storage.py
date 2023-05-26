@@ -85,3 +85,50 @@ class Client:
                 break
 
         return file_names
+
+    def load_json_objects(
+        self,
+        prefix: str,
+        file_names: list[str] = [],
+    ) -> dict[str, dict[any, any]]:
+        executor = futures.ThreadPoolExecutor()
+
+        executed_futures: list[futures.Future] = []
+        for file_name in file_names:
+            executed_future = executor.submit(
+                self.__get_json_object,
+                prefix,
+                file_name,
+            )
+            executed_futures.append(executed_future)
+
+            json_objects: dict[str, dict[any, any]] = {}
+            for executed_future in futures.as_completed(executed_futures):
+                try:
+                    result = executed_future.result()
+                    for key in result.keys():
+                        json_objects[key] = result[key]
+                except Exception as error:
+                    raise error
+
+        return json_objects
+
+    def __get_json_object(
+        self,
+        prefix: str,
+        file_name: str,
+    ) -> dict[any, any]:
+        key = '{}/{}'.format(prefix, file_name)
+        response = self.s3_client.get_object(
+            Bucket=self.s3_data_bucket_name,
+            Key=key,
+        )
+
+        json_gzip = gzip.GzipFile(fileobj=response['Body'])
+        json_bytes = json_gzip.read()
+        json_string = json_bytes.decode('utf-8')
+        json_object = json.loads(json_string)
+
+        return {
+            file_name: json_object,
+        }
