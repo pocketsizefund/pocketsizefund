@@ -51,9 +51,6 @@ class Client:
     ) -> pandas.DataFrame:
         daily_bars = equity_raw_bars['Time Series (Daily)']
 
-        print('type: ', type(daily_bars))
-        print('daily_bars', daily_bars)
-
         bars = [bar.Bar(
             timestamp=datetime.datetime.strptime(daily_bar[0], '%Y-%m-%d'),
             ticker=equity_raw_bars['Meta Data']['2. Symbol'],
