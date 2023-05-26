@@ -15,8 +15,10 @@ class Client:
     def __init__(
         self,
         alpha_vantage_api_key: str,
+        log_progress: bool = False,
     ) -> None:
         self.alpha_vantage_api_key = alpha_vantage_api_key
+        self.log_progress = log_progress
 
     def get_equities_raw_bars(
         self,
@@ -27,6 +29,8 @@ class Client:
         """
         equities_bars: list[dict[any, any]] = []
         for ticker in tickers:
+            if self.log_progress:
+                print('getting {} bars'.format(ticker))
             equity_bars = self.get_equity_raw_bars(ticker=ticker)
             equities_bars.append(equity_bars)
             time.sleep(ALPHA_VANTAGE_DELAY_IN_SECONDS)
