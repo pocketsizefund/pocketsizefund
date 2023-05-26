@@ -22,6 +22,9 @@ class Client:
         self,
         tickers: list[str],
     ) -> list[dict[any, any]]:
+        """
+        get_equities_raw_bars is primarily used for backfilling
+        """
         equities_bars: list[dict[any, any]] = []
         for ticker in tickers:
             equity_bars = self.get_equity_raw_bars(ticker=ticker)
@@ -34,6 +37,9 @@ class Client:
         self,
         ticker: str,
     ) -> dict[any, any]:
+        """
+        get_equity_raw_bars is primarily used for backfilling
+        """
         response = requests.get(
             url='https://www.alphavantage.co/query',
             params={
@@ -49,6 +55,10 @@ class Client:
         self,
         equity_raw_bars: dict[any, any],
     ) -> pandas.DataFrame:
+        """
+        convert_equity_raw_bars_to_dataframe is primarily used
+        for backfilling
+        """
         daily_bars = equity_raw_bars['Time Series (Daily)']
 
         bars = [bar.Bar(
