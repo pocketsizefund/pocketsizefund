@@ -1,6 +1,5 @@
 from concurrent import futures
 import gzip
-import io
 import json
 
 import boto3
