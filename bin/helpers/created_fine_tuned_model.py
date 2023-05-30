@@ -137,9 +137,18 @@ while model_id is None:
     for event in openai_fine_tune_list_response['data']:
         message = event['message']
         if 'Uploaded model' in message:
+            with open('fine_tune_model_creation_events.json', 'w') as file:
+                file.write(openai_fine_tune_list_response['data'])
+
             model_id = message.split(': ')[1]
             break
 
+    print('training model...')
     time.sleep(10)
 
-print(model_id)
+with open('fine_tune_model_id.json', 'w') as file:
+    file.write({
+        'model_id': model_id
+    })
+
+print('model id:', model_id)
