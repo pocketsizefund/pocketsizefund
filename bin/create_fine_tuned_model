@@ -7,4 +7,6 @@ set -e
 
 fine_tune_model_id=$(python3 ./bin/helpers/created_fine_tuned_model.py) 
 
+echo '{"fine_tune_model_id": "$fine_tune_model_id"}' >> fine_tune_model_id.json
+
 echo fine tune model id: $fine_tune_model_id

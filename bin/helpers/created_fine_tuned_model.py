@@ -1,5 +1,7 @@
 import json
 import io
+import random
+import time
 
 import pandas
 import openai
@@ -7,6 +9,8 @@ import openai
 from pkg.config import config
 from pkg.storage import storage
 
+
+DAYS_COUNT = 15
 
 samconfig_file = config.SAMConfig('samconfig.toml')
 
@@ -25,56 +29,117 @@ dataframes = storage_client.load_dataframes(
 
 dataframe = pandas.concat(dataframes)
 
-grouped_dataframe = dataframe.groupby(dataframe.ticker)
+grouped_dataframe = dataframe.groupby('ticker')
 
-jsonl_data = []
+jsonl_data: list[dict[str, str]] = []
 for group_name in grouped_dataframe.groups.keys():
     group = grouped_dataframe.get_group(group_name)
 
-    sorted_group = group.sort_values(by='timestamp', ascending=False)
+    sorted_group = group.sort_values(
+        by='timestamp',
+        ascending=False,
+    )
 
-    close_prices = sorted_group['close_price']
-    price_changes = close_prices.diff().tolist()
-    price_changes = price_changes[1:]  # Remove the first value which is NaN
-    price_changes.append(0.0)
-    price_changes = [float(change) for change in price_changes]
+    oldest_timestamp = sorted_group['timestamp'].min()
+    newest_timestamp = sorted_group['timestamp'].max()
 
-    for index, row in sorted_group.iterrows():
-        completion = 'Expected Next Move: {}'
-        change = price_changes[index[1]]
-        if change > 0.0:
-            completion = completion.format('UP')
-        elif change < 0.0:
-            completion = completion.format('DOWN')
-        else:
-            completion = completion.format('FLAT')
+    difference = (newest_timestamp - oldest_timestamp).days
 
-        prompt = row.to_json()
+    # arbitrary minimum number of days to account for weekends and holidays
+    if difference < DAYS_COUNT:
+        continue
+
+    oldest_unix = oldest_timestamp.timestamp()
+    newest_unix = newest_timestamp.timestamp()
+
+    for i in range(0, 3):
+        random_unix = random.uniform(oldest_unix, newest_unix)
+
+        start_timestamp = pandas.Timestamp.fromtimestamp(random_unix)
+        end_timestamp = start_timestamp + pandas.Timedelta(days=DAYS_COUNT)
+
+        if end_timestamp > newest_timestamp:
+            end_timestamp = newest_timestamp
+            start_timestamp = end_timestamp - pandas.Timedelta(days=DAYS_COUNT)
+
+        selected_rows = sorted_group[
+            (sorted_group['timestamp'] >= start_timestamp) &
+            (sorted_group['timestamp'] <= end_timestamp)
+        ]
+
+        selected_rows.reset_index(
+            inplace=True,
+            drop=True,
+        )
+
+        close_prices = selected_rows['close_price']
+        price_changes = close_prices.diff().tolist()
+        # remove the first value which is NaN
+        price_changes = price_changes[1:]
+        price_changes.append(0.0)
+        price_changes = [round(float(change), 2) for change in price_changes]
+
+        completions: list[str] = []
+        for index, row in selected_rows.iloc[:5].iterrows():
+            price_change = price_changes[index]
+
+            if price_change > 0.0:
+                completions.append('up')
+            elif price_change < 0.0:
+                completions.append('down')
+            else:
+                completions.append('flat')
+
+        prompts: list[str] = []
+        for index, row in selected_rows.iloc[5:].iterrows():
+            prompt = 'timestamp: {}, ticker: {}, open_price: {:.2f}, high_price: {:.2f}, low_price: {:.2f}, close_price: {:.2f}, volume: {:.2f}'.format(
+                row['timestamp'],
+                row['ticker'],
+                row['open_price'],
+                row['high_price'],
+                row['low_price'],
+                row['close_price'],
+                row['volume'],
+            )
+
+            prompts.append(prompt)
 
         jsonl_data.append({
-            'prompt': prompt,
-            'completion': completion,
+            'prompt': ', '.join(prompts) + ' -> ',
+            'completion': ' ' + ', '.join(completions) + '\n',
         })
-
-openai.api_key = samconfig_file.get_parameter('OpenAIAPIKey')
 
 jsonl_file = io.StringIO()
 for jsonl_line in jsonl_data:
     json.dump(jsonl_line, jsonl_file)
     jsonl_file.write('\n')
 
+openai.api_key = samconfig_file.get_parameter('OpenAIAPIKey')
 
 openai_file_response = openai.File.create(
-    file=bytes(jsonl_file.getvalue() + '\n', encoding='utf-8'),
+    file=bytes(jsonl_file.getvalue().rstrip('\n'), encoding='utf-8'),
     purpose='fine-tune',
 )
 
 file_id = openai_file_response['id']
 
-openai_fine_tune_response = openai.FineTune.create(
+openai_fine_tune_create_response = openai.FineTune.create(
     training_file=file_id,
+    model='ada',
 )
 
-model_id = openai_fine_tune_response['id']
+fine_tune_id = openai_fine_tune_create_response['id']
+
+model_id = None
+while model_id is None:
+    openai_fine_tune_list_response = openai.FineTune.list_events(fine_tune_id)
+
+    for event in openai_fine_tune_list_response['data']:
+        message = event['message']
+        if 'Uploaded model' in message:
+            model_id = message.split(': ')[1]
+            break
+
+    time.sleep(10)
 
 print(model_id)
