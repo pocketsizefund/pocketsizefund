@@ -4,3 +4,6 @@ samconfig.toml
 # Python resources
 __pycache__/
 *.py[cod]
+
+# editor settings
+.vscode/
