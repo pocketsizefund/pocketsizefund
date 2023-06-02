@@ -10,7 +10,8 @@ from pkg.config import config
 from pkg.storage import storage
 
 
-DAYS_COUNT = 15
+# arbitrary minimum number of days to account for weekends and holidays
+DAYS_COUNT = 30
 
 samconfig_file = config.SAMConfig('samconfig.toml')
 
@@ -45,7 +46,6 @@ for group_name in grouped_dataframe.groups.keys():
 
     difference = (newest_timestamp - oldest_timestamp).days
 
-    # arbitrary minimum number of days to account for weekends and holidays
     if difference < DAYS_COUNT:
         continue
 
@@ -79,34 +79,17 @@ for group_name in grouped_dataframe.groups.keys():
         price_changes.append(0.0)
         price_changes = [round(float(change), 2) for change in price_changes]
 
-        completions: list[str] = []
-        for index, row in selected_rows.iloc[:5].iterrows():
-            price_change = price_changes[index]
-
-            if price_change > 0.0:
-                completions.append('up')
-            elif price_change < 0.0:
-                completions.append('down')
-            else:
-                completions.append('flat')
-
-        prompts: list[str] = []
-        for index, row in selected_rows.iloc[5:].iterrows():
-            prompt = 'timestamp: {}, ticker: {}, open_price: {:.2f}, high_price: {:.2f}, low_price: {:.2f}, close_price: {:.2f}, volume: {:.2f}'.format(
-                row['timestamp'],
-                row['ticker'],
-                row['open_price'],
-                row['high_price'],
-                row['low_price'],
+        inputs: list[str] = []
+        for index, row in selected_rows.iterrows():
+            input = 'timestamp: {}, price: {:.2f}'.format(
+                row['timestamp'].date(),
                 row['close_price'],
-                row['volume'],
             )
-
-            prompts.append(prompt)
+            inputs.append(input)
 
         jsonl_data.append({
-            'prompt': ', '.join(prompts) + ' -> ',
-            'completion': ' ' + ', '.join(completions) + '\n',
+            'prompt': '{} - '.format(group_name) + ', '.join(inputs[5:]) + ' -> ',
+            'completion': ' ' + ', '.join(inputs[:5]) + '\n',
         })
 
 jsonl_file = io.StringIO()
@@ -115,6 +98,9 @@ for jsonl_line in jsonl_data:
     jsonl_file.write('\n')
 
 openai.api_key = samconfig_file.get_parameter('OpenAIAPIKey')
+
+with open('fine_tune_data.jsonl', 'w') as file:
+    file.write(jsonl_file.getvalue().rstrip('\n'))
 
 openai_file_response = openai.File.create(
     file=bytes(jsonl_file.getvalue().rstrip('\n'), encoding='utf-8'),
@@ -138,7 +124,7 @@ while model_id is None:
         message = event['message']
         if 'Uploaded model' in message:
             with open('fine_tune_model_creation_events.json', 'w') as file:
-                file.write(openai_fine_tune_list_response['data'])
+                file.write(json.dumps(openai_fine_tune_list_response['data']))
 
             model_id = message.split(': ')[1]
             break
@@ -147,8 +133,8 @@ while model_id is None:
     time.sleep(10)
 
 with open('fine_tune_model_id.json', 'w') as file:
-    file.write({
+    file.write(json.dumps({
         'model_id': model_id
-    })
+    }))
 
 print('model id:', model_id)
