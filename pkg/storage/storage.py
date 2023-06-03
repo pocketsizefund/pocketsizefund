@@ -8,7 +8,7 @@ import pandas
 
 
 PREFIX_EQUITY_BARS_RAW_PATH = 'equity/bars/raw/alphavantage'
-PREFIX_EQUITY_BARS_PROCESSED_PATH = 'equity/bars/processed'
+PREFIX_EQUITY_BARS_CLEAN_PATH = 'equity/bars/clean'
 
 
 class Client:
