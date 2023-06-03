@@ -1,6 +1,7 @@
 import datetime
 
 SOURCE_ALPHA_VANTAGE = 'ALPHA_VANTAGE'
+SOURCE_ALPACA = 'ALPACA'
 
 
 class Bar:
@@ -39,7 +40,10 @@ class Bar:
         if source is None:
             raise ValueError('source is required')
 
-        if source not in [SOURCE_ALPHA_VANTAGE]:
+        if source not in [
+            SOURCE_ALPHA_VANTAGE,
+            SOURCE_ALPACA,
+        ]:
             raise ValueError('source is invalid')
 
         self.timestamp = timestamp
