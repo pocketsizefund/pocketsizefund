@@ -20,11 +20,11 @@ storage_client = storage.Client(
 )
 
 equities_bars_file_names = storage_client.list_file_names(
-    prefix=storage.PREFIX_EQUITY_BARS_CLEAN_PATH
+    prefix=storage.PREFIX_EQUITY_BARS_PATH
 )
 
 dataframes = storage_client.load_dataframes(
-    prefix=storage.PREFIX_EQUITY_BARS_CLEAN_PATH,
+    prefix=storage.PREFIX_EQUITY_BARS_PATH,
     file_names=equities_bars_file_names,
 )
 

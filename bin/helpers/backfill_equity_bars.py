@@ -54,6 +54,6 @@ for group_name in grouped_dataframe.groups.keys():
     dataframes_by_year[group_year_file_name] = group
 
 storage_client.store_dataframes(
-    prefix=storage.PREFIX_EQUITY_BARS_CLEAN_PATH,
+    prefix=storage.PREFIX_EQUITY_BARS_PATH,
     dataframes=dataframes_by_year,
 )
