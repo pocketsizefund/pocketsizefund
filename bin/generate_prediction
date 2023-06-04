@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-# invoke OpenAI completion endpoint
-
-set -e
-
-python3 ./bin/helpers/generate_prediction.py

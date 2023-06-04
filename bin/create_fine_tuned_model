@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-# create fine-tuned model in
-# OpenAI and return the model ID
-
-set -e
-
-python3 ./bin/helpers/created_fine_tuned_model.py
