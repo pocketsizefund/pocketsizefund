@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# download equity bars data from S3
+
+set -e
+
+python3 ./bin/helpers/get_bars_data.py
