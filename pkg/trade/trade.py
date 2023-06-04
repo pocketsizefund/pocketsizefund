@@ -37,8 +37,21 @@ class Client:
                 asset.tradable and
                 asset.fractionable and
                 asset.shortable and
-                asset.symbol in finnhub_response['constituents']
+                asset.symbol in finnhub_response['constituents'] and
+                '.' not in asset.symbol
             ):
                 tickers.append(asset.symbol)
 
         return tickers
+
+
+client = Client(
+    finnhub_api_key='cgoce2pr01qpst9t98lgcgoce2pr01qpst9t98m0',
+    alpaca_api_key='PK6T1U5I6S00I86PVW96',
+    alpaca_api_secret='FBxHpTaIrQlSwK80Jl4yv8yacEcxN1Xwdf9L6qkV',
+)
+
+tickers = client.get_available_tickers()
+
+print('count:', len(tickers))
+print('tickers:', tickers)
