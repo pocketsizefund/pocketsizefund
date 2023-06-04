@@ -34,6 +34,9 @@ class Client:
 
             response = self.s3_client.list_objects_v2(**list_arguments)
 
+            if response['KeyCount'] == 0:
+                return file_names
+
             for content in response['Contents']:
                 key = content['Key']
                 file_name = key.rsplit('/', 1)[1]
