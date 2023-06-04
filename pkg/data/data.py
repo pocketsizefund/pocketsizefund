@@ -102,6 +102,9 @@ class Client:
         for i in range(0, len(tickers), ALPACA_TICKER_CHUNK_SIZE):
             tickers_chunk = tickers[i:i+ALPACA_TICKER_CHUNK_SIZE]
 
+            if self.print_logs:
+                print('getting {} bars'.format(tickers_chunk))
+
             request: alpaca_data_requests.StockBarsRequest = None
             for j in range(0, difference_in_days, ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS):
                 start_at_chunk = start_at + datetime.timedelta(days=j)
