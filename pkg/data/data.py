@@ -33,11 +33,16 @@ class Client:
             raw_data=True,
         )
         self.print_logs = print_logs
+        self.runtime_start = None
 
     def get_all_equities_bars(
         self,
         tickers: list[str],
     ) -> pandas.DataFrame:
+        if self.print_logs:
+            self.runtime_start = datetime.datetime.now()
+            print('beginning get all data')
+
         bars_list: list[bar.Bar] = []
         for ticker in tickers:
             if self.print_logs:
@@ -75,6 +80,16 @@ class Client:
             data=[bars.__dict__ for bars in bars_list],
         )
 
+        if self.print_logs:
+            runtime_stop = datetime.datetime.now()
+
+            runtime_in_minutes = (
+                runtime_stop - self.runtime_start,
+            ).total_seconds() / 60
+
+            print('ending get all data')
+            print('runtime {} minutes'.format(runtime_in_minutes))
+
         return dataframe
 
     def get_range_equities_bars(
@@ -83,6 +98,10 @@ class Client:
         start_at: datetime.datetime,
         end_at: datetime.datetime,
     ) -> pandas.DataFrame:
+        if self.print_logs:
+            self.runtime_start = datetime.datetime.now()
+            print('beginning get range data')
+
         # adjusted by 30 minutes to account for the
         # Alpaca free tier constraint
         end_at = end_at + datetime.timedelta(minutes=-30)
@@ -152,5 +171,15 @@ class Client:
         dataframe = pandas.DataFrame.from_dict(
             data=[bars.__dict__ for bars in bars_list],
         )
+
+        if self.print_logs:
+            runtime_stop = datetime.datetime.now()
+
+            runtime_in_minutes = (
+                runtime_stop - self.runtime_start,
+            ).total_seconds() / 60
+
+            print('ending get range data')
+            print('runtime {} minutes'.format(runtime_in_minutes))
 
         return dataframe
