@@ -7,8 +7,3 @@ __pycache__/
 
 # editor settings
 .vscode/
-
-# model creation outputs
-fine_tune_model_creation_events.json
-fine_tune_model_id.json
-fine_tune_data.jsonl
