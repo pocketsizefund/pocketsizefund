@@ -7,3 +7,6 @@ __pycache__/
 
 # editor settings
 .vscode/
+
+# data
+bars.csv
