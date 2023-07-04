@@ -7,15 +7,14 @@ from alpaca.data import historical
 from alpaca.data import requests as alpaca_data_requests
 from alpaca.data import timeframe
 
-from pkg.data import bar
 
-# slightly more restrictive than the default
-# 5 requests per minute
-ALPHA_VANTAGE_DELAY_IN_SECONDS = 15
+ALPHA_VANTAGE_DELAY_IN_SECONDS = 15  # within 5 requests/minute API limitation
 ALPACA_TICKER_CHUNK_SIZE = 50
 ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS = 200
-# Alpaca API limitation
-ALPACA_MAXIMUM_DAYS_IN_RANGE = 365 * 2
+ALPACA_MAXIMUM_DAYS_IN_RANGE = 365 * 2  # Alpaca API limitation
+
+SOURCE_ALPHA_VANTAGE = 'ALPHA_VANTAGE'
+SOURCE_ALPACA = 'ALPACA'
 
 
 class Client:
@@ -43,7 +42,7 @@ class Client:
             self.runtime_start = datetime.datetime.now()
             print('beginning get all data')
 
-        bars_list: list[bar.Bar] = []
+        bars: list[dict[str, any]] = []
         for ticker in tickers:
             if self.print_logs:
                 print('getting {} bars'.format(ticker))
@@ -61,23 +60,23 @@ class Client:
             response_json = response.json()
             daily_bars = response_json['Time Series (Daily)']
 
-            bars = [bar.Bar(
-                timestamp=datetime.datetime.strptime(daily_bar[0], '%Y-%m-%d'),
-                ticker=response_json['Meta Data']['2. Symbol'],
-                open_price=float(daily_bar[1]['1. open']),
-                high_price=float(daily_bar[1]['2. high']),
-                low_price=float(daily_bar[1]['3. low']),
-                close_price=float(daily_bar[1]['5. adjusted close']),
-                volume=float(daily_bar[1]['6. volume']),
-                source=bar.SOURCE_ALPHA_VANTAGE,
-            ) for daily_bar in daily_bars.items()]
+            ticker_bars = [{
+                'timestamp': datetime.datetime.strptime(daily_bar[0], '%Y-%m-%d'),
+                'ticker': response_json['Meta Data']['2. Symbol'],
+                'open_price': round(float(daily_bar[1]['1. open']), 2),
+                'high_price': round(float(daily_bar[1]['2. high']), 2),
+                'low_price': round(float(daily_bar[1]['3. low']), 2),
+                'close_price': round(float(daily_bar[1]['5. adjusted close']), 2),
+                'volume': round(float(daily_bar[1]['6. volume']), 2),
+                'source': SOURCE_ALPHA_VANTAGE,
+            } for daily_bar in daily_bars.items()]
 
-            bars_list.extend(bars)
+            bars.extend(ticker_bars)
 
             time.sleep(ALPHA_VANTAGE_DELAY_IN_SECONDS)
 
         dataframe = pandas.DataFrame.from_dict(
-            data=[bars.__dict__ for bars in bars_list],
+            data=bars,
         )
 
         if self.print_logs:
@@ -116,7 +115,7 @@ class Client:
                 ALPACA_MAXIMUM_DAYS_IN_RANGE,
             ))
 
-        bars_list: list[bar.Bar] = []
+        bars: list[dict[str, any]] = []
         # chunking requests due to Alpaca request limitations
         for i in range(0, len(tickers), ALPACA_TICKER_CHUNK_SIZE):
             tickers_chunk = tickers[i:i+ALPACA_TICKER_CHUNK_SIZE]
@@ -147,8 +146,8 @@ class Client:
                 )
 
                 for ticker in response:
-                    bars = [bar.Bar(
-                        timestamp=datetime.datetime.strptime(
+                    ticker_bars = [{
+                        'timestamp': datetime.datetime.strptime(
                             row['t'],
                             '%Y-%m-%dT%H:%M:%SZ',
                         ).replace(
@@ -157,19 +156,19 @@ class Client:
                             minute=0,
                             second=0,
                         ),
-                        ticker=ticker,
-                        open_price=float(row['o']),
-                        high_price=float(row['h']),
-                        low_price=float(row['l']),
-                        close_price=float(row['c']),
-                        volume=float(row['v']),
-                        source=bar.SOURCE_ALPACA,
-                    ) for row in response[ticker]]
+                        'ticker': ticker,
+                        'open_price': round(float(row['o']), 2),
+                        'high_price': round(float(row['h']), 2),
+                        'low_price': round(float(row['l']), 2),
+                        'close_price': round(float(row['c']), 2),
+                        'volume': round(float(row['v']), 2),
+                        'source': SOURCE_ALPACA,
+                    } for row in response[ticker]]
 
-                    bars_list.extend(bars)
+                    bars.extend(ticker_bars)
 
         dataframe = pandas.DataFrame.from_dict(
-            data=[bars.__dict__ for bars in bars_list],
+            data=bars,
         )
 
         if self.print_logs:
