@@ -5,6 +5,10 @@ from alpaca.trading import requests as alpaca_trading_requests
 import finnhub
 
 
+SIDE_BUY = 'buy'
+SIDE_SELL = 'sell'
+
+
 class Client:
     def __init__(
         self,
@@ -54,7 +58,7 @@ class Client:
         return tickers
 
     def get_positions(self) -> list[dict[str, any]]:
-        alpaca_positions = self.alpaca_trading_client.list_positions(
+        alpaca_positions = self.alpaca_broker_client.get_all_positions_for_account(
             account_id=self.alpaca_account_id,
         )
 
@@ -67,3 +71,30 @@ class Client:
             }
 
         return positions
+
+    def execute_trades(
+        self,
+        trades: list[dict[str, any]],
+    ) -> None:
+        for trade in trades:
+            request = alpaca_trading_requests.MarketOrderRequest(
+                symbol=trade['symbol'],
+                qty=trade['quantity'],
+                type=enums.OrderType.MARKET,
+                time_in_force=enums.TimeInForce.DAY,
+            )
+
+            if trade['side'] == SIDE_BUY:
+                request['side'] = enums.OrderSide.BUY
+
+                self.alpaca_broker_client.submit_order_for_account(
+                    account_id=self.alpaca_account_id,
+                    request=request,
+                )
+            elif trade['side'] == SIDE_SELL:
+                request['side'] = enums.OrderSide.SELL
+
+                self.alpaca_broker_client.submit_order_for_account(
+                    account_id=self.alpaca_account_id,
+                    request=request,
+                )
