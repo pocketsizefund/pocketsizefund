@@ -53,13 +53,13 @@ def handler(event: any, context: any) -> dict[str, any]:
         end_at=end_at,
     )
 
-    grouped_new_dataframe = new_dataframe.groupby(
+    new_dataframe_grouped_by_year = new_dataframe.groupby(
         new_dataframe.timestamp.dt.year,
     )
 
     updated_dataframes: dict[str, pandas.DataFrame] = []
-    for year in grouped_new_dataframe.groups:
-        new_dataframe = grouped_new_dataframe.get_group(year)
+    for year in new_dataframe_grouped_by_year.groups:
+        new_dataframe = new_dataframe_grouped_by_year.get_group(year)
 
         if year in old_dataframes:
             old_dataframe = old_dataframes[year]
