@@ -1,4 +1,6 @@
 from alpaca.broker import client as broker_client
+from alpaca.data import requests as alpaca_data_requests
+from alpaca.data import historical
 from alpaca.trading import client as trading_client
 from alpaca.trading import enums
 from alpaca.trading import requests as alpaca_trading_requests
@@ -19,18 +21,19 @@ class Client:
         is_paper: bool = True,
     ) -> None:
         self.finnhub_client = finnhub.Client(api_key=finnhub_api_key)
-
         self.alpaca_trading_client = trading_client.TradingClient(
             api_key=alpaca_api_key,
             secret_key=alpaca_api_secret,
             paper=is_paper,
         )
-
         self.alpaca_broker_client = broker_client.BrokerClient(
             api_key=alpaca_api_key,
             secret_key=alpaca_api_secret,
         )
-
+        self.alpaca_data_client = historical.StockHistoricalDataClient(
+            api_key=alpaca_api_key,
+            secret_key=alpaca_api_secret,
+        )
         self.alpaca_account_id = alpaca_account_id
 
     def get_available_tickers(self) -> list[str]:
@@ -61,6 +64,22 @@ class Client:
         account = self.alpaca_trading_client.get_account()
 
         return int(account.buying_power)
+
+    def get_current_prices(
+        self,
+        tickers: list[str],
+    ) -> dict[str, float]:
+        request = alpaca_data_requests.StockLatestTradeRequest(symbols=tickers)
+
+        response = self.alpaca_data_client.get_stock_latest_trade(request)
+
+        prices: dict[str, dict[str, float]] = {
+            ticker: {
+                'price': float(response[ticker].price),
+            } for ticker in response
+        }
+
+        return prices
 
     def set_positions(
         self,
