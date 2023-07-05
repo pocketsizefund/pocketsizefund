@@ -57,44 +57,38 @@ class Client:
 
         return tickers
 
-    def get_positions(self) -> list[dict[str, any]]:
-        alpaca_positions = self.alpaca_broker_client.get_all_positions_for_account(
-            account_id=self.alpaca_account_id,
-        )
+    def get_buying_power(self) -> int:
+        account = self.alpaca_trading_client.get_account()
 
-        positions: dict[str, dict[str, any]] = {}
-        for alpaca_position in alpaca_positions:
-            positions[alpaca_position.symbol] = {
-                'quantity': alpaca_position.qty,
-                'side': alpaca_position.side,
-                'value': alpaca_position.market_value,
-            }
+        return int(account.buying_power)
 
-        return positions
-
-    def execute_trades(
+    def set_positions(
         self,
-        trades: list[dict[str, any]],
+        positions: list[dict[str, any]],
     ) -> None:
-        for trade in trades:
+        for position in positions:
             request = alpaca_trading_requests.MarketOrderRequest(
-                symbol=trade['symbol'],
-                qty=trade['quantity'],
+                symbol=position['symbol'],
+                qty=position['quantity'],
                 type=enums.OrderType.MARKET,
                 time_in_force=enums.TimeInForce.DAY,
             )
 
-            if trade['side'] == SIDE_BUY:
+            if position['side'] == SIDE_BUY:
                 request['side'] = enums.OrderSide.BUY
 
                 self.alpaca_broker_client.submit_order_for_account(
                     account_id=self.alpaca_account_id,
                     request=request,
                 )
-            elif trade['side'] == SIDE_SELL:
+
+            elif position['side'] == SIDE_SELL:
                 request['side'] = enums.OrderSide.SELL
 
                 self.alpaca_broker_client.submit_order_for_account(
                     account_id=self.alpaca_account_id,
                     request=request,
                 )
+
+    def clear_positions(self) -> None:
+        self.alpaca_trading_client.close_all_positions()
