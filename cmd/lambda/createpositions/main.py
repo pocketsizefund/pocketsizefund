@@ -52,7 +52,7 @@ def handler(event: any, context: any) -> dict[str, any]:
         alpaca_api_key_id=os.getenv('ALPACA_API_KEY_ID'),
         alpaca_api_secret_key=os.getenv('ALPACA_API_SECRET_KEY'),
         alpaca_account_id=os.getenv('ALPACA_ACCOUNT_ID'),
-        is_paper=os.getenv('IS_PAPER'),
+        is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
     )
 
     available_tickers = trade_client.get_available_tickers()
