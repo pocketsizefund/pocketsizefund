@@ -87,7 +87,7 @@ class Client:
     ) -> None:
         for position in positions:
             request = alpaca_trading_requests.MarketOrderRequest(
-                symbol=position['symbol'],
+                symbol=position['ticker'],
                 qty=position['quantity'],
                 type=enums.OrderType.MARKET,
                 time_in_force=enums.TimeInForce.DAY,
