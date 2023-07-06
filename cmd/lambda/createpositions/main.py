@@ -45,7 +45,7 @@ def handler(event: any, context: any) -> dict[str, any]:
 
     model_client = model.Client()
 
-    model_client.load_model(os.getenv('MODEL_NAME'))
+    model_client.load_model(os.getenv('MODEL_FILE_NAME'))
 
     trade_client = trade.Client(
         finnhub_api_key=os.getenv('FINNHUB_API_KEY'),

@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Core infrastructure definitions
+Parameters:
+  S3DataBucketName:
+    Type: String
+    Default: pocketsizefund-data
+    Description: Model training data storage
+  AlpacaAPIKey:
+    Type: String
+    Description: Data and trading Alpaca API key
+  AlpacaAPISecret:
+    Type: String
+    Description: Data and trading Alpaca API secret
+  AlpacaAccountID:
+    Type: String
+    Description: Data and trading Alpaca account ID
+  FinnhubAPIKey:
+    Type: String
+    Description: Data Finnhub API key
+  AlphaVantageAPIKey:
+    Type: String
+    Description: Data AlphaVantage API key
+  FetchDataScheduleState:
+    Type: String
+    Description: Active state for data schedule
+    Default: DISABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+  CreateAndClearTradeScheduleState:
+    Type: String
+    Description: Active state for trade schedule
+    Default: DISABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+Resources:
+  fetchDataFunction:
+    Type: AWS::Serverless::Function
+      Architectures:
+        - arm64
+      Description: Collects and processes training data
+      Environment:
+        Variables:
+          S3_DATA_BUCKET_NAME:
+            Ref: S3DataBucketName
+          ALPACA_PAPER_API_KEY:
+            Ref: AlpacaAPIKey
+          ALPACA_PAPER_API_SECRET:
+            Ref: AlpacaAPISecret
+          ALPACA_ACCOUNT_ID:
+            Ref: AlpacaAccountID
+          FINNHUB_API_KEY:
+            Ref: FinnhubAPIKey
+          ALPHA_VANTAGE_API_KEY:
+            Ref: AlphaVantageAPIKey
+          IS_PAPER: 'true'
+      Events:
+        DailyFetch:
+          Properties:
+            ScheduleExpression: cron(0 23 ? * MON-FRI *)
+            State:
+              Ref: DataScheduleState
+          Type: ScheduleV2
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-fetch-data
+      ImageUri: 468628870724.dkr.ecr.us-east-1.amazonaws.com/fetch-data:latest
+      MemorySize: 768
+      PackageType: Image
+      Role:
+        Fn::GetAtt:
+          - lambdaFunctionRole
+          - Arn
+      Tags:
+        pocketsizefund: function
+      Timeout: 240
+  createPositionsFunction:
+    Type: AWS::Serverless::Function
+      Architectures:
+        - arm64
+      Description: Generates predictions and executes trades
+      Environment:
+        Variables:
+          S3_DATA_BUCKET_NAME:
+            Ref: S3DataBucketName
+          MODEL_FILE_NAME:
+            Ref: ModelFileName
+          ALPACA_PAPER_API_KEY:
+            Ref: AlpacaAPIKey
+          ALPACA_PAPER_API_SECRET:
+            Ref: AlpacaAPISecret
+          ALPACA_ACCOUNT_ID:
+            Ref: AlpacaAccountID
+          FINNHUB_API_KEY:
+            Ref: FinnhubAPIKey
+          IS_PAPER: 'true'
+      Events:
+        DailyFetch:
+          Properties:
+            ScheduleExpression: cron(5 9 ? * MON-FRI *) # 5 minutes after market open
+            State:
+              Ref: CreateAndClearTradeScheduleState
+          Type: ScheduleV2
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-create-positions
+      ImageUri: 468628870724.dkr.ecr.us-east-1.amazonaws.com/create-positions:latest
+      MemorySize: 128
+      PackageType: Image
+      Role:
+        Fn::GetAtt:
+          - lambdaFunctionRole
+          - Arn
+      Tags:
+        pocketsizefund: function
+      Timeout: 120
+  clearPositionsFunction:
+    Type: AWS::Serverless::Function
+      Architectures:
+        - arm64
+      Description: Executes closing trades
+      Environment:
+        Variables:
+          ALPACA_PAPER_API_KEY:
+            Ref: AlpacaAPIKey
+          ALPACA_PAPER_API_SECRET:
+            Ref: AlpacaAPISecret
+          ALPACA_ACCOUNT_ID:
+            Ref: AlpacaAccountID
+          FINNHUB_API_KEY:
+            Ref: FinnhubAPIKey
+          IS_PAPER: 'true'
+      Events:
+        DailyFetch:
+          Properties:
+            ScheduleExpression: cron(55 15 ? * MON-FRI *) # 5 minutes before market close
+            State:
+              Ref: CreateAndClearTradeScheduleState
+          Type: ScheduleV2
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-clear-positions
+      ImageUri: 468628870724.dkr.ecr.us-east-1.amazonaws.com/clear-positions:latest
+      MemorySize: 128
+      PackageType: Image
+      Role:
+        Fn::GetAtt:
+          - lambdaFunctionRole
+          - Arn
+      Tags:
+        pocketsizefund: function
+      Timeout: 60
+  lambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Shared role for stack functions
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Policies:
+        - PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - s3:ListBucket
+                Effect: Allow
+                Resource:
+                  Fn::Sub: arn:aws:s3:::${S3DataBucketName}
+              - Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Effect: Allow
+                Resource:
+                  Fn::Sub: arn:aws:s3:::${S3DataBucketName}/*
+          PolicyName:
+            Fn::Sub: ${AWS::StackName}-lambda-function-policy
+      Tags:
+        - Key: pocketsizefund
+          Value: role
