@@ -16,15 +16,17 @@ storage_client = storage.Client(
 
 data_client = data.Client(
     alpha_vantage_api_key=samconfig_file.get_parameter('AlphaVantageAPIKey'),
-    alpaca_api_key=samconfig_file.get_parameter('AlpacaPaperAPIKey'),
-    alpaca_api_secret=samconfig_file.get_parameter('AlpacaPaperAPISecret'),
+    alpaca_api_key=samconfig_file.get_parameter('AlpacaAPIKey'),
+    alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
+    alpaca_account_id=samconfig_file.get_parameter('AlpacaAccountID'),
     print_logs=True,
 )
 
 trade_client = trade.Client(
     finnhub_api_key=samconfig_file.get_parameter('FinnhubAPIKey'),
-    alpaca_api_key=samconfig_file.get_parameter('AlpacaPaperAPIKey'),
-    alpaca_api_secret=samconfig_file.get_parameter('AlpacaPaperAPISecret'),
+    alpaca_api_key=samconfig_file.get_parameter('AlpacaAPIKey'),
+    alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
+    alpaca_account_id=samconfig_file.get_parameter('AlpacaAccountID'),
     is_paper=True,
 )
 
