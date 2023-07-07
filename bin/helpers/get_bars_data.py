@@ -4,7 +4,10 @@ from pkg.storage import storage
 from pkg.config import config
 
 
-samconfig_file = config.SAMConfig('samconfig.toml')
+samconfig_file = config.SAMConfig(
+    'samconfig.toml',
+    config.ENVIRONMENT_DEVELOPMENT,
+)
 
 storage_client = storage.Client(
     s3_data_bucket_name=samconfig_file.get_parameter('S3DataBucketName'),
