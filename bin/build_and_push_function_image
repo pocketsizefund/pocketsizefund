@@ -26,7 +26,7 @@ aws ecr get-login-password \
 image_name=$(python3 ./bin/helpers/rename_resource.py ${directory_name})
 
 copy_model=false
-if [[ "$2" == "copy_model" ]]; then
+if [[ "$directory_name" == "fetchdata" ]]; then
     copy_model=true
 fi
 
