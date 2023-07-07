@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# creates and starts up SAM resources in the
+# AWS account
+
+set -e
+
+sam deploy --no-confirm-changeset --resolve-image-repos --on-failure DELETE

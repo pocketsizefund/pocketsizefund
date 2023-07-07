@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# removes the stack from AWS
+
+set -e
+
+aws cloudformation delete-stack --stack-name pocketsizefund-production
