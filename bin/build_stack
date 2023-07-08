@@ -4,9 +4,4 @@
 
 set -e
 
-environment="development"
-if [[ "$1" == "production" ]]; then
-    environment="production"
-fi
-
-sam build --use-container --cached --parallel --config-env $environment
+sam build --use-container --cached --parallel

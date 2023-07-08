@@ -42,6 +42,7 @@ Parameters:
 Resources:
   fetchDataFunction:
     Type: AWS::Serverless::Function
+    Properties:
       Architectures:
         - arm64
       Description: Collects and processes training data
@@ -65,7 +66,7 @@ Resources:
           Properties:
             ScheduleExpression: cron(0 23 ? * MON-FRI *)
             State:
-              Ref: DataScheduleState
+              Ref: FetchDataScheduleState
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-fetch-data
@@ -81,6 +82,7 @@ Resources:
       Timeout: 240
   createPositionsFunction:
     Type: AWS::Serverless::Function
+    Properties:
       Architectures:
         - arm64
       Description: Generates predictions and executes trades
@@ -120,6 +122,7 @@ Resources:
       Timeout: 120
   clearPositionsFunction:
     Type: AWS::Serverless::Function
+    Properties:
       Architectures:
         - arm64
       Description: Executes closing trades

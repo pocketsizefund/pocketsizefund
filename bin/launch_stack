@@ -5,4 +5,13 @@
 
 set -e
 
-sam deploy --no-confirm-changeset --resolve-image-repos --on-failure DELETE
+environment="development"
+if [[ "$1" == "production" ]]; then
+    environment="production"
+fi
+
+sam deploy \
+    --no-confirm-changeset \
+    --resolve-image-repos \
+    --on-failure DELETE \
+    --config-env $environment

@@ -13,3 +13,6 @@ bars.csv
 
 # model
 lstm_model.h5
+
+# infrastucture
+.aws-sam/
