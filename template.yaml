@@ -21,6 +21,10 @@ Parameters:
   AlphaVantageAPIKey:
     Type: String
     Description: Data AlphaVantage API key
+  ModelFileName:
+    Type: String
+    Description: Model file name
+    Default: lstm_model.h5
   FetchDataScheduleState:
     Type: String
     Description: Active state for data schedule
