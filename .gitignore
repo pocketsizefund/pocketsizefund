@@ -10,3 +10,6 @@ __pycache__/
 
 # data
 bars.csv
+
+# model
+lstm_model.h5
