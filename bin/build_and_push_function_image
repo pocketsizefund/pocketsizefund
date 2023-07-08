@@ -25,16 +25,10 @@ aws ecr get-login-password \
 
 image_name=$(python3 ./bin/helpers/rename_resource.py ${directory_name})
 
-copy_model=false
-if [[ "$directory_name" == "fetchdata" ]]; then
-    copy_model=true
-fi
-
 tag=${image_name}:latest
 
 docker build \
     --build-arg FUNCTION_NAME=${directory_name} \
-    --build-arg COPY_MODEL=${copy_model} \
     --platform linux/arm64 \
     --tag ${tag} .
 

@@ -10,13 +10,11 @@ ARG FUNCTION_NAME
 
 COPY requirements.txt ${FUNCTION_DIRECTORY}
 
-COPY lambda/${FUNCTION_NAME}/main.py ${FUNCTION_DIRECTORY}
+COPY cmd/lambda/${FUNCTION_NAME}/main.py ${FUNCTION_DIRECTORY}
 
 COPY pkg ${FUNCTION_DIRECTORY}/pkg
 
-ARG COPY_MODEL=false
-
-RUN if [ "$COPY_MODEL" = "true" ]; then cp lstm_model.h5 ${FUNCTION_DIRECTORY}/; fi
+COPY lstm_model.h5 ${FUNCTION_DIRECTORY}/
 
 WORKDIR ${FUNCTION_DIRECTORY}
 
