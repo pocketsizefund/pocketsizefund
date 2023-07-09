@@ -1,22 +1,33 @@
 <template>
     <body>
-        <div class="container">
-            <div class="top">
-                <div class="logo">
-                    psf
+        <div class='container'>
+            <div class='top'>
+                <div class='logo'>
+                    <span>
+                        psf
+                    </span>
                 </div>
-                <div class="link-twitter">
+                <div class='link-twitter'>
                     <a 
-                        href="https://twitter.com/pocketsizefund" 
-                        target="_blank"
+                        href='https://twitter.com/pocketsizefund' 
+                        target='_blank'
                     >
                         Twitter
                     </a>
                 </div>
             </div>
-            <div class="middle">
-                <div class="introduction">
+            <div class='middle'>
+                <h1 class='introduction'>
                     Recreational quantitative trading 🍊
+                </h1>
+                <div class='performance'>
+                    <h2>Performance</h2>
+                    <br/>
+                    <table v-if='errorMessage === ""'>
+                    </table>
+                    <span v-if='errorMessage !== ""'>
+                        {{ errorMessage }}
+                    </span>
                 </div>
             </div>
         </div>
@@ -24,8 +35,33 @@
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
-    name: "LandingPage",
+    name: 'LandingPage',
+    data: function() {
+        return {
+            errorMessage: '',
+        };
+    },
+    created: function () {
+        const url = process.env.VUE_APP_GET_PERFORMANCE_API_ENDPOINT;
+
+        const config = {
+            headers: {
+                'x-pocket-size-fund-api-key': process.env.VUE_APP_API_KEY,
+            }
+        }
+
+        axios.get(url, config)
+            .then((/*response*/) => {
+                // TODO: implement after backend is complete
+            })
+            .catch(() => {
+                this.$data.errorMessage = 'Data is not available yet.';
+            }
+        );
+    },
 };
 </script>
 
@@ -38,6 +74,7 @@ body {
     background-attachment: fixed;
     height: 100%;
     width: 100%;
+    color: #ffffff;
 }
 
 .container {
@@ -55,7 +92,6 @@ body {
 .logo {
     font-size: 3rem;
     font-weight: 900;
-    color: #ffffff;
 }
 
 .link-twitter {
@@ -79,8 +115,12 @@ a:active {
 .introduction {
     font-size: 4rem;
     font-weight: 900;
-    color: #ffffff;
     align-content: center;
+}
+
+.performance {
+    padding-top: 2rem;
+    font-size: 1.5rem;
 }
 
 @media screen and (max-width: 580px) {
@@ -94,9 +134,6 @@ a:active {
 
     .introduction {
         font-size: 2.5rem;
-        font-weight: 900;
-        color: #ffffff;
-        align-content: center;
     }
 }
 </style>
