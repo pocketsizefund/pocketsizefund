@@ -16,3 +16,8 @@ lstm_model.h5
 
 # infrastucture
 .aws-sam/
+
+# JavaScript
+.DS_Store
+node_modules
+/dist
