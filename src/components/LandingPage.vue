@@ -20,7 +20,7 @@
                 <h1 class='introduction'>
                     Recreational quantitative trading 🍊
                 </h1>
-                <div class='performance'>
+                <!-- <div class='performance'>
                     <h2>Performance</h2>
                     <br/>
                     <table v-if='errorMessage === ""'>
@@ -28,7 +28,7 @@
                     <span v-if='errorMessage !== ""'>
                         {{ errorMessage }}
                     </span>
-                </div>
+                </div> -->
             </div>
         </div>
     </body>
