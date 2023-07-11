@@ -31,6 +31,7 @@ class Client:
             secret_key=alpaca_api_secret,
             raw_data=True,
         )
+        self.http_client = requests
         self.print_logs = print_logs
         self.runtime_start = None
 
@@ -47,7 +48,7 @@ class Client:
             if self.print_logs:
                 print('getting {} bars'.format(ticker))
 
-            response = requests.get(
+            response = self.http_client.get(
                 url='https://www.alphavantage.co/query',
                 params={
                     'function': 'TIME_SERIES_DAILY_ADJUSTED',
