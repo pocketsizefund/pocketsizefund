@@ -56,18 +56,18 @@ class Client:
 
     def save_model(
         self,
-        path: str,
+        file_path: str,
     ) -> None:
         if self.model is None:
             raise NO_MODEL_EXCEPTION
 
-        self.model.save(path)
+        self.model.save(file_path)
 
     def load_model(
         self,
-        path: str,
+        file_path: str,
     ) -> None:
-        model = keras.models.load_model(path)
+        model = keras.models.load_model(file_path)
 
         self.model = model
 
