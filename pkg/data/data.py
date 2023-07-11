@@ -25,7 +25,11 @@ class Client:
         alpaca_api_secret: str,
         print_logs: bool = False,
     ) -> None:
+        self.alpha_vantage_delay_in_seconds = ALPHA_VANTAGE_DELAY_IN_SECONDS
         self.alpha_vantage_api_key = alpha_vantage_api_key
+        self.alpaca_ticker_chunk_size = ALPACA_TICKER_CHUNK_SIZE
+        self.alpaca_datetime_chunk_size_in_days = ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS
+        self.alpaca_maximum_days_in_range = ALPACA_MAXIMUM_DAYS_IN_RANGE
         self.alpaca_historical_client = historical.StockHistoricalDataClient(
             api_key=alpaca_api_key,
             secret_key=alpaca_api_secret,
@@ -74,7 +78,7 @@ class Client:
 
             bars.extend(ticker_bars)
 
-            time.sleep(ALPHA_VANTAGE_DELAY_IN_SECONDS)
+            time.sleep(self.alpha_vantage_delay_in_seconds)
 
         dataframe = pandas.DataFrame.from_dict(
             data=bars,
@@ -111,24 +115,24 @@ class Client:
 
         difference_in_days = (end_at - start_at).days
 
-        if difference_in_days > ALPACA_MAXIMUM_DAYS_IN_RANGE:
+        if difference_in_days > self.alpaca_maximum_days_in_range:
             raise Exception('range must be within {} days'.format(
-                ALPACA_MAXIMUM_DAYS_IN_RANGE,
+                self.alpaca_maximum_days_in_range,
             ))
 
         bars: list[dict[str, any]] = []
         # chunking requests due to Alpaca request limitations
-        for i in range(0, len(tickers), ALPACA_TICKER_CHUNK_SIZE):
-            tickers_chunk = tickers[i:i+ALPACA_TICKER_CHUNK_SIZE]
+        for i in range(0, len(tickers), self.alpaca_ticker_chunk_size):
+            tickers_chunk = tickers[i:i+self.alpaca_ticker_chunk_size]
 
             if self.print_logs:
                 print('getting {} bars'.format(tickers_chunk))
 
             request: alpaca_data_requests.StockBarsRequest = None
-            for j in range(0, difference_in_days, ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS):
+            for j in range(0, difference_in_days, self.alpaca_datetime_chunk_size_in_days):
                 start_at_chunk = start_at + datetime.timedelta(days=j)
                 end_at_chunk = start_at_chunk + datetime.timedelta(
-                    days=ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS,
+                    days=self.alpaca_datetime_chunk_size_in_days,
                 )
 
                 if end_at_chunk > end_at:
