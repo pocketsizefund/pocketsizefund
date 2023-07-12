@@ -21,7 +21,6 @@ data_client = data.Client(
     alpha_vantage_api_key=samconfig_file.get_parameter('AlphaVantageAPIKey'),
     alpaca_api_key=samconfig_file.get_parameter('AlpacaAPIKey'),
     alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
-    alpaca_account_id=samconfig_file.get_parameter('AlpacaAccountID'),
     print_logs=True,
 )
 
@@ -34,6 +33,8 @@ trade_client = trade.Client(
 )
 
 available_tickers = trade_client.get_available_tickers()
+
+print('tickers count: ', len(available_tickers))
 
 file_names = storage_client.list_file_names(
     prefix=storage.PREFIX_EQUITY_BARS_PATH,
@@ -76,7 +77,11 @@ else:
         rows_not_in_tickers['timestamp'].min(),
     )
 
+    print('start at: ', start_at)
+
     end_at = datetime.datetime.today()
+
+    print('end at: ', end_at)
 
     update_tickers = tickers_in_rows['ticker'].tolist() \
         + rows_not_in_tickers['ticker'].tolist()
@@ -97,7 +102,7 @@ else:
         updated_bars,
     ]).drop_duplicates(
         subset=[
-            'tickers',
+            'ticker',
             'timestamp',
         ],
     )

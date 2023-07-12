@@ -88,7 +88,7 @@ class Client:
             runtime_stop = datetime.datetime.now()
 
             runtime_in_minutes = (
-                runtime_stop - self.runtime_start,
+                runtime_stop - self.runtime_start
             ).total_seconds() / 60
 
             print('ending get all data')
@@ -180,10 +180,10 @@ class Client:
             runtime_stop = datetime.datetime.now()
 
             runtime_in_minutes = (
-                runtime_stop - self.runtime_start,
+                runtime_stop - self.runtime_start
             ).total_seconds() / 60
 
             print('ending get range data')
-            print('runtime {} minutes'.format(runtime_in_minutes))
+            print('runtime {} minutes'.format(round(runtime_in_minutes, 2)))
 
         return dataframe
