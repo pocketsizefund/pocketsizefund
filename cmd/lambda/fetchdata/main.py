@@ -13,6 +13,20 @@ def handler(event: any, context: any) -> dict[str, any]:
         s3_data_bucket=os.getenv('S3_DATA_BUCKET_NAME')
     )
 
+    trade_client = trade.Client(
+        finnhub_api_key=os.getenv('FINNHUB_API_KEY'),
+        alpaca_api_key_id=os.getenv('ALPACA_API_KEY_ID'),
+        alpaca_api_secret_key=os.getenv('ALPACA_API_SECRET_KEY'),
+        alpaca_account_id=os.getenv('ALPACA_ACCOUNT_ID'),
+        is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
+    )
+
+    data_client = data.Client(
+        alpha_vantage_api_key=os.getenv('ALPHA_VANTAGE_API_KEY'),
+        alpaca_api_key=os.getenv('ALPACA_API_KEY'),
+        alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
+    )
+
     file_names = storage_client.list_file_names(
         prefix=storage.PREFIX_EQUITY_BARS_PATH,
     )
@@ -32,21 +46,7 @@ def handler(event: any, context: any) -> dict[str, any]:
 
     end_at = datetime.datetime.today()
 
-    trade_client = trade.Client(
-        finnhub_api_key=os.getenv('FINNHUB_API_KEY'),
-        alpaca_api_key_id=os.getenv('ALPACA_API_KEY_ID'),
-        alpaca_api_secret_key=os.getenv('ALPACA_API_SECRET_KEY'),
-        alpaca_account_id=os.getenv('ALPACA_ACCOUNT_ID'),
-        is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
-    )
-
     tickers = trade_client.get_available_tickers()
-
-    data_client = data.Client(
-        alpha_vantage_api_key=os.getenv('ALPHA_VANTAGE_API_KEY'),
-        alpaca_api_key=os.getenv('ALPACA_API_KEY'),
-        alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
-    )
 
     new_dataframe = data_client.get_equity_bars(
         tickers=tickers,
