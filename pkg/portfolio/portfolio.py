@@ -1,37 +1,33 @@
+import copy
+
 from finquant import portfolio
 import pandas
 
 
 class Client():
-    def __init__(
+    def __init__(self):
+        pass
+
+    def calculate_weights(
         self,
-        data: pandas.DataFrame
-    ):
-        self.data = data.pivot(
+        data: pandas.DataFrame,
+    ) -> dict[str, float]:
+        copied_data = copy.deepcopy(data)
+
+        copied_data.pivot(
             index='timestamp',
             columns='ticker',
             values='close_price',
         ).reset_index().fillna(0.0).rename_axis(mapper=None, axis=1)
 
-        self.data.rename(
+        copied_data.rename(
             columns={'timestamp': 'Date'},
             inplace=True,
         )
 
-    def calculate_weights(
-        self,
-        tickers: list[str],
-    ) -> dict[str, float]:
-        columns = ['Date'] + tickers
+        numreric_data = copied_data.select_dtypes(include=[float, int])
 
-        ticker_data = self.data[columns]
-        ticker_data_numeric = ticker_data.select_dtypes(
-            include=[float, int],
-        )
-
-        ticker_portfolio = portfolio.build_portfolio(
-            data=ticker_data_numeric,
-        )
+        ticker_portfolio = portfolio.build_portfolio(data=numreric_data)
 
         weights = ticker_portfolio.ef_efficient_return(target=0.25)
 
