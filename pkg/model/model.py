@@ -12,8 +12,13 @@ DAYS_TO_PREDICT = 5
 
 
 class Client:
-    def __init__(self):
-        self.model: keras.models.Sequential = None
+    def __init__(
+        self,
+        file_path: str,
+    ) -> None:
+        self.model = keras.models.Sequential = keras.models.load_model(
+            file_path,
+        )
 
     def train_model(
         self,
@@ -62,14 +67,6 @@ class Client:
             raise NO_MODEL_EXCEPTION
 
         self.model.save(file_path)
-
-    def load_model(
-        self,
-        file_path: str,
-    ) -> None:
-        model = keras.models.load_model(file_path)
-
-        self.model = model
 
     def get_model_predictions(
         self,
