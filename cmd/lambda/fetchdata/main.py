@@ -35,48 +35,48 @@ def handler(event: any, context: any) -> dict[str, any]:
 
     most_recent_file_name = file_names[0]
 
-    old_dataframes = storage_client.load_dataframes(
+    all_old_bars = storage_client.load_dataframes(
         prefix=storage.PREFIX_EQUITY_BARS_PATH,
         file_names=[most_recent_file_name],
     )
 
-    most_recent_dataframe = old_dataframes[most_recent_file_name]
+    most_recent_bars = all_old_bars[most_recent_file_name]
 
-    start_at = most_recent_dataframe['timestamp'].max()
+    start_at = most_recent_bars['timestamp'].max()
 
     end_at = datetime.datetime.today()
 
     tickers = trade_client.get_available_tickers()
 
-    new_dataframe = data_client.get_equity_bars(
+    new_bars = data_client.get_equity_bars(
         tickers=tickers,
         start_at=start_at,
         end_at=end_at,
     )
 
-    new_dataframe_grouped_by_year = new_dataframe.groupby(
-        new_dataframe.timestamp.dt.year,
+    new_bars_grouped_by_year = new_bars.groupby(
+        new_bars.timestamp.dt.year,
     )
 
-    updated_dataframes: dict[str, pandas.DataFrame] = []
-    for year in new_dataframe_grouped_by_year.groups:
-        new_dataframe = new_dataframe_grouped_by_year.get_group(year)
+    all_updated_bars: dict[str, pandas.DataFrame] = []
+    for year in new_bars_grouped_by_year.groups:
+        new_bars = new_bars_grouped_by_year.get_group(year)
 
-        if year in old_dataframes:
-            old_dataframe = old_dataframes[year]
+        if year in all_old_bars:
+            old_bars = all_old_bars[year]
 
-            updated_dataframe = pandas.concat(
-                objs=[old_dataframe, new_dataframe],
+            updated_bars = pandas.concat(
+                objs=[old_bars, new_bars],
                 ignore_index=True,
             )
-            updated_dataframe.drop_duplicates(inplace=True)
+            updated_bars.drop_duplicates(inplace=True)
 
-            updated_dataframes[year] = updated_dataframe
+            all_updated_bars[year] = updated_bars
 
         else:
-            updated_dataframes[year] = new_dataframe
+            all_updated_bars[year] = new_bars
 
     storage_client.save_dataframes(
         prefix=storage.PREFIX_EQUITY_BARS_PATH,
-        dataframes=updated_dataframes,
+        dataframes=all_updated_bars,
     )
