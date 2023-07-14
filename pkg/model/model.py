@@ -74,7 +74,7 @@ class Client:
     def get_model_predictions(
         self,
         data: pandas.DataFrame,
-    ) -> dict[str, dict[str, any]]:
+    ) -> dict[str, any]:
         if self.model is None:
             return NO_MODEL_EXCEPTION
 
@@ -86,8 +86,7 @@ class Client:
         target_data = data['close_price'].values
         target_data_scaled = scaler.fit_transform(target_data.reshape(-1, 1))
 
-        predictions: dict[str, dict[str, any]] = {}
-
+        predictions: dict[str, any] = {}
         for ticker in data['ticker'].unique():
             ticker_data = data[data['ticker'] == ticker]
             ticker_target_data_scaled = target_data_scaled[ticker_data.index]
@@ -106,8 +105,6 @@ class Client:
                 numpy.array(predicted_outputs).reshape(-1, 1),
             )
 
-            predictions[ticker] = {
-                'predicted_closing_prices': predicted_outputs_scaled.flatten().tolist(),
-            }
+            predictions[ticker] = predicted_outputs_scaled.flatten().tolist(),
 
         return predictions
