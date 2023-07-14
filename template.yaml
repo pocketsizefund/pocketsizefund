@@ -111,7 +111,7 @@ Resources:
       FunctionName:
         Fn::Sub: ${AWS::StackName}-create-positions
       ImageUri: 468628870724.dkr.ecr.us-east-1.amazonaws.com/create-positions:latest
-      MemorySize: 128
+      MemorySize: 768
       PackageType: Image
       Role:
         Fn::GetAtt:
