@@ -14,7 +14,11 @@ COPY cmd/lambda/${FUNCTION_NAME}/main.py ${FUNCTION_DIRECTORY}
 
 COPY pkg ${FUNCTION_DIRECTORY}/pkg
 
-COPY lstm_model.h5 ${FUNCTION_DIRECTORY}/
+COPY lstm_model.h5 /tmp/lstm_model.h5
+
+RUN if [ "$FUNCTION_NAME" = "createpositions" ]; then \
+        cp /tmp/lstm_model.h5 ${FUNCTION_DIRECTORY}/ ; \
+    fi
 
 WORKDIR ${FUNCTION_DIRECTORY}
 
