@@ -80,7 +80,7 @@ class Client:
 
             time.sleep(self.alpha_vantage_delay_in_seconds)
 
-        dataframe = pandas.DataFrame.from_dict(
+        all_bars = pandas.DataFrame.from_dict(
             data=bars,
         )
 
@@ -94,7 +94,7 @@ class Client:
             print('ending get all data')
             print('runtime {} minutes'.format(runtime_in_minutes))
 
-        return dataframe
+        return all_bars
 
     def get_range_equities_bars(
         self,
@@ -172,7 +172,7 @@ class Client:
 
                     bars.extend(ticker_bars)
 
-        dataframe = pandas.DataFrame.from_dict(
+        all_bars = pandas.DataFrame.from_dict(
             data=bars,
         )
 
@@ -186,4 +186,4 @@ class Client:
             print('ending get range data')
             print('runtime {} minutes'.format(round(runtime_in_minutes, 2)))
 
-        return dataframe
+        return all_bars
