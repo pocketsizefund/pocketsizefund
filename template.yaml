@@ -64,7 +64,9 @@ Resources:
       Events:
         DailyFetch:
           Properties:
-            ScheduleExpression: cron(0 23 ? * MON-FRI *)
+            # Run day after each trading day to ensure data is available
+            # due to data request being chunked by day
+            ScheduleExpression: cron(0 1 ? * TUE-SAT *)
             State:
               Ref: FetchDataScheduleState
           Type: ScheduleV2
