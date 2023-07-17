@@ -48,11 +48,14 @@ def handler(event: any, context: any) -> dict[str, any]:
 
     tickers = trade_client.get_available_tickers()
 
-    new_bars = data_client.get_equity_bars(
+    new_bars = data_client.get_range_equities_bars(
         tickers=tickers,
         start_at=start_at,
         end_at=end_at,
     )
+
+    if new_bars.empty:
+        raise Exception('no new bars')
 
     new_bars_grouped_by_year = new_bars.groupby(
         new_bars.timestamp.dt.year,
