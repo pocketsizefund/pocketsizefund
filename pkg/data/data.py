@@ -106,10 +106,6 @@ class Client:
             self.runtime_start = datetime.datetime.now()
             print('beginning get range data')
 
-        # adjusted by 30 minutes to account for the
-        # Alpaca free tier constraint
-        end_at = end_at + datetime.timedelta(minutes=-30)
-
         start_at = start_at.replace(hour=0, minute=0, second=0)
         end_at = end_at.replace(hour=0, minute=0, second=0)
 
