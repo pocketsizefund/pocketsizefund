@@ -4,4 +4,9 @@
 
 set -e
 
-aws cloudformation delete-stack --stack-name pocketsizefund-production
+environment="development"
+if [[ "$2" == "production" ]]; then
+    environment="production"
+fi
+
+aws cloudformation delete-stack --stack-name pocketsizefund-$environment
