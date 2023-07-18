@@ -25,7 +25,7 @@ data_client = data.Client(
 )
 
 trade_client = trade.Client(
-    finnhub_api_key=samconfig_file.get_parameter('FinnhubAPIKey'),
+    darqube_api_key=samconfig_file.get_parameter('DarqubeAPIKey'),
     alpaca_api_key=samconfig_file.get_parameter('AlpacaAPIKey'),
     alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
     alpaca_account_id=samconfig_file.get_parameter('AlpacaAccountID'),

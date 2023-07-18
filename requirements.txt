@@ -3,7 +3,6 @@ pandas
 toml
 requests
 boto3
-finnhub-python
 tensorflow
 keras
 scikit-learn

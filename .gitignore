@@ -21,3 +21,6 @@ lstm_model.h5
 .DS_Store
 node_modules
 /dist
+
+# general
+etc/

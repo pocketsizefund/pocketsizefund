@@ -1,10 +1,11 @@
+import requests
+
 from alpaca.broker import client as broker_client
 from alpaca.data import requests as alpaca_data_requests
 from alpaca.data import historical
 from alpaca.trading import client as trading_client
 from alpaca.trading import enums
 from alpaca.trading import requests as alpaca_trading_requests
-import finnhub
 
 
 SIDE_BUY = 'buy'
@@ -14,13 +15,14 @@ SIDE_SELL = 'sell'
 class Client:
     def __init__(
         self,
-        finnhub_api_key: str,
+        darqube_api_key: str,
         alpaca_api_key: str,
         alpaca_api_secret: str,
         alpaca_account_id: str,
         is_paper: bool = True,
     ) -> None:
-        self.finnhub_client = finnhub.Client(api_key=finnhub_api_key)
+        self.darqube_api_key = darqube_api_key
+        self.http_client = requests
         self.alpaca_trading_client = trading_client.TradingClient(
             api_key=alpaca_api_key,
             secret_key=alpaca_api_secret,
@@ -38,7 +40,19 @@ class Client:
 
     def get_available_tickers(self) -> list[str]:
         # GSPC is the S&P 500
-        finnhub_response = self.finnhub_client.indices_const(symbol="^GSPC")
+        darqube_response = self.http_client.get(
+            url='https://api.darqube.com/data-api/fundamentals/indexes/index_constituents/GSPC',
+            params={
+                'token': self.darqube_api_key,
+            },
+        )
+
+        darqube_response_json = darqube_response.json()
+
+        constituents = [
+            darqube_response_json[key]["Code"]
+            for key in darqube_response_json
+        ]
 
         request = alpaca_trading_requests.GetAssetsRequest(
             status=enums.AssetStatus.ACTIVE,
@@ -53,7 +67,7 @@ class Client:
                 asset.tradable and
                 asset.fractionable and
                 asset.shortable and
-                asset.symbol in finnhub_response['constituents'] and
+                asset.symbol in constituents and
                 '.' not in asset.symbol
             ):
                 tickers.append(asset.symbol)

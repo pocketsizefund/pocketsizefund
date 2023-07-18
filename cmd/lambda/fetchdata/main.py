@@ -10,13 +10,13 @@ from pkg.data import data
 
 def handler(event: any, context: any) -> dict[str, any]:
     storage_client = storage.Client(
-        s3_data_bucket=os.getenv('S3_DATA_BUCKET_NAME')
+        s3_data_bucket_name=os.getenv('S3_DATA_BUCKET_NAME')
     )
 
     trade_client = trade.Client(
-        finnhub_api_key=os.getenv('FINNHUB_API_KEY'),
-        alpaca_api_key_id=os.getenv('ALPACA_API_KEY_ID'),
-        alpaca_api_secret_key=os.getenv('ALPACA_API_SECRET_KEY'),
+        darqube_api_key=os.getenv('DARQUBE_API_KEY'),
+        alpaca_api_key=os.getenv('ALPACA_API_KEY'),
+        alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
         alpaca_account_id=os.getenv('ALPACA_ACCOUNT_ID'),
         is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
     )
@@ -33,16 +33,18 @@ def handler(event: any, context: any) -> dict[str, any]:
 
     file_names.sort(reverse=True)
 
-    most_recent_file_name = file_names[0]
+    first_stored_file_name = file_names[0]
+    second_stored_file_name = file_names[1]
 
-    all_old_bars = storage_client.load_dataframes(
+    old_bars_by_year = storage_client.load_dataframes(
         prefix=storage.PREFIX_EQUITY_BARS_PATH,
-        file_names=[most_recent_file_name],
+        file_names=[
+            first_stored_file_name,
+            second_stored_file_name,
+        ]
     )
 
-    most_recent_bars = all_old_bars[most_recent_file_name]
-
-    start_at = most_recent_bars['timestamp'].max()
+    start_at = old_bars_by_year[first_stored_file_name]['timestamp'].max()
 
     end_at = datetime.datetime.today()
 
@@ -61,25 +63,27 @@ def handler(event: any, context: any) -> dict[str, any]:
         new_bars.timestamp.dt.year,
     )
 
-    all_updated_bars: dict[str, pandas.DataFrame] = []
+    updated_bars_by_year: dict[str, pandas.DataFrame] = {}
     for year in new_bars_grouped_by_year.groups:
-        new_bars = new_bars_grouped_by_year.get_group(year)
+        year_string = str(year)
 
-        if year in all_old_bars:
-            old_bars = all_old_bars[year]
+        new_bars_group = new_bars_grouped_by_year.get_group(year)
+
+        if year_string in old_bars_by_year.keys():
+            old_bars = old_bars_by_year[year_string]
 
             updated_bars = pandas.concat(
-                objs=[old_bars, new_bars],
+                objs=[old_bars, new_bars_group],
                 ignore_index=True,
             )
             updated_bars.drop_duplicates(inplace=True)
 
-            all_updated_bars[year] = updated_bars
+            updated_bars_by_year[year_string] = updated_bars
 
         else:
-            all_updated_bars[year] = new_bars
+            updated_bars_by_year[year_string] = new_bars_group
 
-    storage_client.save_dataframes(
+    storage_client.store_dataframes(
         prefix=storage.PREFIX_EQUITY_BARS_PATH,
-        dataframes=all_updated_bars,
+        dataframes=updated_bars_by_year,
     )

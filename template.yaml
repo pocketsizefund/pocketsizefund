@@ -15,9 +15,9 @@ Parameters:
   AlpacaAccountID:
     Type: String
     Description: Data and trading Alpaca account ID
-  FinnhubAPIKey:
+  DarqubeAPIKey:
     Type: String
-    Description: Data Finnhub API key
+    Description: Data Darqube API key
   AlphaVantageAPIKey:
     Type: String
     Description: Data AlphaVantage API key
@@ -50,14 +50,14 @@ Resources:
         Variables:
           S3_DATA_BUCKET_NAME:
             Ref: S3DataBucketName
-          ALPACA_PAPER_API_KEY:
+          ALPACA_API_KEY:
             Ref: AlpacaAPIKey
-          ALPACA_PAPER_API_SECRET:
+          ALPACA_API_SECRET:
             Ref: AlpacaAPISecret
           ALPACA_ACCOUNT_ID:
             Ref: AlpacaAccountID
-          FINNHUB_API_KEY:
-            Ref: FinnhubAPIKey
+          DARQUBE_API_KEY:
+            Ref: DarqubeAPIKey
           ALPHA_VANTAGE_API_KEY:
             Ref: AlphaVantageAPIKey
           IS_PAPER: 'true'
@@ -94,14 +94,14 @@ Resources:
             Ref: S3DataBucketName
           MODEL_FILE_NAME:
             Ref: ModelFileName
-          ALPACA_PAPER_API_KEY:
+          ALPACA_API_KEY:
             Ref: AlpacaAPIKey
-          ALPACA_PAPER_API_SECRET:
+          ALPACA_API_SECRET:
             Ref: AlpacaAPISecret
           ALPACA_ACCOUNT_ID:
             Ref: AlpacaAccountID
-          FINNHUB_API_KEY:
-            Ref: FinnhubAPIKey
+          DARQUBE_API_KEY:
+            Ref: DarqubeAPIKey
           IS_PAPER: 'true'
       Events:
         DailyFetch:
@@ -130,14 +130,14 @@ Resources:
       Description: Executes closing trades
       Environment:
         Variables:
-          ALPACA_PAPER_API_KEY:
+          ALPACA_API_KEY:
             Ref: AlpacaAPIKey
-          ALPACA_PAPER_API_SECRET:
+          ALPACA_API_SECRET:
             Ref: AlpacaAPISecret
           ALPACA_ACCOUNT_ID:
             Ref: AlpacaAccountID
-          FINNHUB_API_KEY:
-            Ref: FinnhubAPIKey
+          DARQUBE_API_KEY:
+            Ref: DarqubeAPIKey
           IS_PAPER: 'true'
       Events:
         DailyFetch:
