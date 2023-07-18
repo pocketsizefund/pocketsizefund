@@ -74,10 +74,10 @@ class Client:
 
         return tickers
 
-    def get_buying_power(self) -> int:
+    def get_available_cash(self) -> int:
         account = self.alpaca_trading_client.get_account()
 
-        return int(account.buying_power)
+        return int(account.cash)
 
     def get_current_prices(
         self,

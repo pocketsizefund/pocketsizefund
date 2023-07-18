@@ -10,7 +10,6 @@ from pkg.portfolio import portfolio
 
 
 POSITIONS_COUNT = 10
-BUYING_POWER_PERCENTAGE = 0.95  # preventing overspend
 
 
 def handler(event: any, context: any) -> dict[str, any]:
@@ -85,12 +84,12 @@ def handler(event: any, context: any) -> dict[str, any]:
         data=portfolio_data,
     )
 
-    buying_power = trade_client.get_buying_power() * BUYING_POWER_PERCENTAGE
+    available_cash = trade_client.get_available_cash()
 
     positions: list[dict[str, any]] = [
         {
             'ticker': ticker,
-            'quantity': (buying_power * weight) / current_prices_by_ticker[ticker],
+            'quantity': (available_cash * weight) / current_prices_by_ticker[ticker],
             'side': trade.SIDE_BUY,
         }
         for ticker, weight in weights_by_ticker.items()
