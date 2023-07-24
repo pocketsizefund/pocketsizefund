@@ -83,7 +83,9 @@ class Client:
         self,
         tickers: list[str],
     ) -> dict[str, float]:
-        request = alpaca_data_requests.StockLatestTradeRequest(symbols=tickers)
+        request = alpaca_data_requests.StockLatestTradeRequest(
+            symbol_or_symbols=tickers,
+        )
 
         response = self.alpaca_data_client.get_stock_latest_trade(request)
 
@@ -110,18 +112,13 @@ class Client:
             if position['side'] == SIDE_BUY:
                 request['side'] = enums.OrderSide.BUY
 
-                self.alpaca_broker_client.submit_order_for_account(
-                    account_id=self.alpaca_account_id,
-                    request=request,
-                )
-
             elif position['side'] == SIDE_SELL:
                 request['side'] = enums.OrderSide.SELL
 
-                self.alpaca_broker_client.submit_order_for_account(
-                    account_id=self.alpaca_account_id,
-                    request=request,
-                )
+            self.alpaca_broker_client.submit_order_for_account(
+                account_id=self.alpaca_account_id,
+                order_data=request,
+            )
 
     def clear_positions(self) -> None:
         self.alpaca_trading_client.close_all_positions()
