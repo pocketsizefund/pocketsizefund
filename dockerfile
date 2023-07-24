@@ -44,6 +44,10 @@ ENV DARQUBE_API_KEY=""
 
 ENV ALPHA_VANTAGE_API_KEY=""
 
+ENV MODEL_FILE_PATH=""
+
+ENV IS_PAPER=""
+
 WORKDIR ${FUNCTION_DIRECTORY}
 
 ENTRYPOINT [ "/usr/local/bin/python", "-m", "awslambdaric" ]
