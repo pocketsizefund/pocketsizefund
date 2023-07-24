@@ -21,7 +21,7 @@ Parameters:
   AlphaVantageAPIKey:
     Type: String
     Description: Data AlphaVantage API key
-  ModelFileName:
+  ModelFilePath:
     Type: String
     Description: Model file name
     Default: lstm_model.h5
@@ -92,8 +92,8 @@ Resources:
         Variables:
           S3_DATA_BUCKET_NAME:
             Ref: S3DataBucketName
-          MODEL_FILE_NAME:
-            Ref: ModelFileName
+          MODEL_FILE_PATH:
+            Ref: ModelFilePath
           ALPACA_API_KEY:
             Ref: AlpacaAPIKey
           ALPACA_API_SECRET:
