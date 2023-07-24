@@ -6,6 +6,8 @@ import pandas
 
 class Client():
     def __init__(self):
+        # os.environ['MPLCONFIGDIR'] = '/tmp/matplotlib' # suppress warning log
+
         pass
 
     def calculate_weights(
@@ -14,20 +16,27 @@ class Client():
     ) -> dict[str, float]:
         copied_data = copy.deepcopy(data)
 
-        copied_data.pivot(
+        copied_data.drop_duplicates(
+            subset=['timestamp', 'ticker'],
+            inplace=True,
+        )
+
+        pivoted_data = copied_data.pivot(
             index='timestamp',
             columns='ticker',
             values='close_price',
-        ).reset_index().fillna(0.0).rename_axis(mapper=None, axis=1)
+        )
+        pivoted_data.reset_index(inplace=True)
+        pivoted_data.rename_axis(mapper=None, axis=1, inplace=True)
 
-        copied_data.rename(
+        pivoted_data.rename(
             columns={'timestamp': 'Date'},
             inplace=True,
         )
 
-        numreric_data = copied_data.select_dtypes(include=[float, int])
+        numeric_data = pivoted_data.select_dtypes(include=[float, int])
 
-        ticker_portfolio = portfolio.build_portfolio(data=numreric_data)
+        ticker_portfolio = portfolio.build_portfolio(data=numeric_data)
 
         weights = ticker_portfolio.ef_efficient_return(target=0.25)
 
