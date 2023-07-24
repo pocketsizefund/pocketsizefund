@@ -76,7 +76,10 @@ def handler(event: any, context: any) -> dict[str, any]:
                 objs=[old_bars, new_bars_group],
                 ignore_index=True,
             )
-            updated_bars.drop_duplicates(inplace=True)
+            updated_bars.drop_duplicates(
+                subset=['timestamp', 'ticker'],
+                inplace=True,
+            )
 
             updated_bars_by_year[year_string] = updated_bars
 
