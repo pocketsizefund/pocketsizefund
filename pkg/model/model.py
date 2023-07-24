@@ -3,12 +3,15 @@ from sklearn import preprocessing
 import numpy
 import keras
 
+from concurrent import futures
+
 
 NO_MODEL_EXCEPTION = Exception('no model loaded on client')
 NOT_ENOUGH_DATA_EXCEPTION = Exception('not enough data to make prediction')
 
 DAYS_TO_TRAIN = 30
-DAYS_TO_PREDICT = 5
+# DAYS_TO_PREDICT = 5
+DAYS_TO_PREDICT = 1
 
 
 class Client:
@@ -25,7 +28,7 @@ class Client:
         data: pandas.DataFrame,
     ) -> None:
         target_data = data.groupby(
-            'ticker',
+            by='ticker',
         )['close_price'].apply(numpy.array).values
 
         scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
@@ -78,30 +81,46 @@ class Client:
         if len(data) < DAYS_TO_TRAIN:
             raise NOT_ENOUGH_DATA_EXCEPTION
 
-        scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
-
-        target_data = data['close_price'].values
-        target_data_scaled = scaler.fit_transform(target_data.reshape(-1, 1))
-
         predictions: dict[str, any] = {}
-        for ticker in data['ticker'].unique():
-            ticker_data = data[data['ticker'] == ticker]
-            ticker_target_data_scaled = target_data_scaled[ticker_data.index]
 
-            inputs = ticker_target_data_scaled[-DAYS_TO_TRAIN:]
+        executor = futures.ThreadPoolExecutor()
 
-            predicted_outputs = []
-            for _ in range(DAYS_TO_PREDICT):
-                input_reshaped = numpy.reshape(inputs, (1, DAYS_TO_TRAIN, 1))
-                prediction = self.model.predict(input_reshaped)[0][0]
-                predicted_outputs.append(prediction)
+        executor_arguments = [
+            (ticker_data['close_price'].values)
+            for _, ticker_data in data.groupby('ticker')
+        ]
 
-                inputs = numpy.append(inputs[1:], prediction)
+        executed_futures = {
+            ticker: executor.submit(self.__predict_ticker, *arguments)
+            for ticker, arguments in zip(data['ticker'].unique(), executor_arguments)
+        }
 
-            predicted_outputs_scaled = scaler.inverse_transform(
-                numpy.array(predicted_outputs).reshape(-1, 1),
-            )
-
-            predictions[ticker] = predicted_outputs_scaled.flatten().tolist(),
+        for ticker, executed_future in executed_futures.items():
+            predictions[ticker] = {
+                'prices': executed_future.result(),
+            }
 
         return predictions
+
+    def __predict_ticker(
+        self,
+        ticker_data: numpy.ndarray,
+    ):
+        scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
+        scaler.fit(ticker_data.reshape(-1, 1))
+
+        inputs = ticker_data[-DAYS_TO_TRAIN:]
+
+        predicted_outputs = []
+        for _ in range(DAYS_TO_PREDICT):
+            input_reshaped = numpy.reshape(inputs, (1, DAYS_TO_TRAIN, 1))
+
+            prediction = self.model.predict(input_reshaped)[0][0]
+            predicted_outputs.append(prediction)
+            inputs = numpy.append(inputs[1:], prediction)
+
+        predicted_outputs_scaled = scaler.inverse_transform(
+            numpy.array(predicted_outputs).reshape(-1, 1),
+        )
+
+        return predicted_outputs_scaled.flatten().tolist()
