@@ -1,6 +1,5 @@
 import requests
 
-from alpaca.broker import client as broker_client
 from alpaca.data import requests as alpaca_data_requests
 from alpaca.data import historical
 from alpaca.trading import client as trading_client
@@ -27,10 +26,6 @@ class Client:
             secret_key=alpaca_api_secret,
             paper=is_paper,
         )
-        self.alpaca_broker_client = broker_client.BrokerClient(
-            api_key=alpaca_api_key,
-            secret_key=alpaca_api_secret,
-        )
         self.alpaca_data_client = historical.StockHistoricalDataClient(
             api_key=alpaca_api_key,
             secret_key=alpaca_api_secret,
@@ -54,7 +49,7 @@ class Client:
         darqube_response_json = darqube_response.json()
 
         constituents = [
-            darqube_response_json[key]["Code"]
+            darqube_response_json[key]['Code']
             for key in darqube_response_json
         ]
 
@@ -78,10 +73,10 @@ class Client:
 
         return tickers
 
-    def get_available_cash(self) -> int:
+    def get_available_cash(self) -> float:
         account = self.alpaca_trading_client.get_account()
 
-        return int(account.cash)
+        return float(account.cash)
 
     def get_current_prices(
         self,

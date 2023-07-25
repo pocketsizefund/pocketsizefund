@@ -6,7 +6,7 @@ from alpaca.data import requests as alpaca_data_requests
 from pkg.data import data
 
 
-class MockHTTPResponse:
+class MockHTTPTimeSeriesDailyAdjustedResponse:
     def __init__(
         self,
         data: dict[str, any],
@@ -20,7 +20,7 @@ class MockHTTPResponse:
 class MockHTTPClient:
     def __init__(
         self,
-        response: MockHTTPResponse,
+        response: MockHTTPTimeSeriesDailyAdjustedResponse,
     ) -> None:
         self.response = response
 
@@ -41,7 +41,7 @@ class TestGetAllEquitiesBars(unittest.TestCase):
         )
 
         client.http_client = MockHTTPClient(
-            response=MockHTTPResponse(
+            response=MockHTTPTimeSeriesDailyAdjustedResponse(
                 data={
                     'Meta Data': {
                         '2. Symbol': 'TICKER',
