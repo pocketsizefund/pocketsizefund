@@ -64,6 +64,8 @@ Resources:
             ScheduleExpression: cron(0 1 ? * TUE-SAT *)
             State:
               Ref: FetchDataScheduleState
+            RetryPolicy:
+              MaximumRetryAttempts: 0
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-fetch-data
@@ -99,9 +101,11 @@ Resources:
       Events:
         DailyFetch:
           Properties:
-            ScheduleExpression: cron(5 9 ? * MON-FRI *) # 5 minutes after market open
+            ScheduleExpression: cron(35 9 ? * MON-FRI *) # 5 minutes after market open
             State:
               Ref: CreateAndClearTradeScheduleState
+            RetryPolicy:
+              MaximumRetryAttempts: 0
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-create-positions
@@ -136,6 +140,8 @@ Resources:
             ScheduleExpression: cron(55 15 ? * MON-FRI *) # 5 minutes before market close
             State:
               Ref: CreateAndClearTradeScheduleState
+            RetryPolicy:
+              MaximumRetryAttempts: 0
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-clear-positions
