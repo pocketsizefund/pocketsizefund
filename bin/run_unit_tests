@@ -7,3 +7,4 @@ set -e
 
 echo 'test pkg/data' && python3 -m unittest discover pkg/data
 echo 'test pkg/trade' && python3 -m unittest discover pkg/trade
+echo 'test pkg/storage' && python3 -m unittest discover pkg/storage
