@@ -12,9 +12,6 @@ Parameters:
   AlpacaAPISecret:
     Type: String
     Description: Data and trading Alpaca API secret
-  AlpacaAccountID:
-    Type: String
-    Description: Data and trading Alpaca account ID
   DarqubeAPIKey:
     Type: String
     Description: Data Darqube API key
@@ -54,8 +51,6 @@ Resources:
             Ref: AlpacaAPIKey
           ALPACA_API_SECRET:
             Ref: AlpacaAPISecret
-          ALPACA_ACCOUNT_ID:
-            Ref: AlpacaAccountID
           DARQUBE_API_KEY:
             Ref: DarqubeAPIKey
           ALPHA_VANTAGE_API_KEY:
@@ -98,8 +93,6 @@ Resources:
             Ref: AlpacaAPIKey
           ALPACA_API_SECRET:
             Ref: AlpacaAPISecret
-          ALPACA_ACCOUNT_ID:
-            Ref: AlpacaAccountID
           DARQUBE_API_KEY:
             Ref: DarqubeAPIKey
           IS_PAPER: 'true'
@@ -113,7 +106,7 @@ Resources:
       FunctionName:
         Fn::Sub: ${AWS::StackName}-create-positions
       ImageUri: 468628870724.dkr.ecr.us-east-1.amazonaws.com/create-positions:latest
-      MemorySize: 768
+      MemorySize: 1536
       PackageType: Image
       Role:
         Fn::GetAtt:
@@ -121,7 +114,7 @@ Resources:
           - Arn
       Tags:
         pocketsizefund: function
-      Timeout: 120
+      Timeout: 300
   clearPositionsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -134,8 +127,6 @@ Resources:
             Ref: AlpacaAPIKey
           ALPACA_API_SECRET:
             Ref: AlpacaAPISecret
-          ALPACA_ACCOUNT_ID:
-            Ref: AlpacaAccountID
           DARQUBE_API_KEY:
             Ref: DarqubeAPIKey
           IS_PAPER: 'true'

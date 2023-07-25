@@ -2,7 +2,6 @@ import pandas
 from sklearn import preprocessing
 import numpy
 import keras
-
 from concurrent import futures
 
 
@@ -86,12 +85,12 @@ class Client:
         executor = futures.ThreadPoolExecutor()
 
         executor_arguments = [
-            (ticker_data['close_price'].values)
+            ticker_data['close_price'].values
             for _, ticker_data in data.groupby('ticker')
         ]
 
         executed_futures = {
-            ticker: executor.submit(self.__predict_ticker, *arguments)
+            ticker: executor.submit(self.__predict_ticker, arguments)
             for ticker, arguments in zip(data['ticker'].unique(), executor_arguments)
         }
 
@@ -115,7 +114,10 @@ class Client:
         for _ in range(DAYS_TO_PREDICT):
             input_reshaped = numpy.reshape(inputs, (1, DAYS_TO_TRAIN, 1))
 
-            prediction = self.model.predict(input_reshaped)[0][0]
+            prediction = self.model.predict(
+                x=input_reshaped,
+                verbose=0,
+            )[0][0]
             predicted_outputs.append(prediction)
             inputs = numpy.append(inputs[1:], prediction)
 

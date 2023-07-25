@@ -1,12 +1,10 @@
 import os
-import heapq
 
 import pandas
 
 from pkg.storage import storage
 from pkg.trade import trade
 from pkg.model import model
-from pkg.portfolio import portfolio
 
 
 POSITIONS_COUNT = 10
@@ -21,15 +19,12 @@ def handler(event: any, context: any) -> dict[str, any]:
         darqube_api_key=os.getenv('DARQUBE_API_KEY'),
         alpaca_api_key=os.getenv('ALPACA_API_KEY'),
         alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
-        alpaca_account_id=os.getenv('ALPACA_ACCOUNT_ID'),
         is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
     )
 
     model_client = model.Client(
         file_path=os.getenv('MODEL_FILE_PATH'),
     )
-
-    portfolio_client = portfolio.Client()
 
     file_names = storage_client.list_file_names(
         prefix=storage.PREFIX_EQUITY_BARS_PATH,
@@ -51,48 +46,55 @@ def handler(event: any, context: any) -> dict[str, any]:
     )
 
     prediction_data_filtered = prediction_data[
-        prediction_data['ticker'].isin(available_tickers),
+        prediction_data['ticker'].isin(available_tickers)
     ]
 
     predictions_by_ticker = model_client.get_model_predictions(
         data=prediction_data_filtered,
     )
 
+    del prediction_data
+    del prediction_data_filtered
+
     current_prices_by_ticker = trade_client.get_current_prices(
         tickers=list(predictions_by_ticker.keys()),
     )
 
     moves_by_ticker = {
-        ticker: predictions_by_ticker[ticker][0] -
-        current_prices_by_ticker[ticker]
+        ticker: predictions_by_ticker[ticker]['prices'][0] -
+        current_prices_by_ticker[ticker]['price']
         for ticker in predictions_by_ticker
     }
 
-    highest_moves_by_ticker = heapq.nlargest(
-        n=POSITIONS_COUNT,
-        iterable=moves_by_ticker.items(),
-        key=lambda item: item[1],
-    )
+    sorted_moves_by_ticker = dict(sorted(
+        moves_by_ticker.items(),
+        key=lambda item: item[1], reverse=True,
+    ))
+
+    del moves_by_ticker
+
+    highest_moves_by_ticker = {
+        k: sorted_moves_by_ticker[k]
+        for k in list(sorted_moves_by_ticker)[:POSITIONS_COUNT]
+    }
 
     highest_moves_tickers = highest_moves_by_ticker.keys()
 
-    portfolio_data = old_bars_grouped_by_ticker.filter(
-        lambda x: x['ticker'].iloc[0] in highest_moves_tickers,
-    )
-
-    weights_by_ticker = portfolio_client.calculate_weights(
-        data=portfolio_data,
-    )
+    weights_by_ticker = {
+        ticker: 1 / POSITIONS_COUNT
+        for ticker in highest_moves_tickers
+    }
 
     available_cash = trade_client.get_available_cash()
 
     positions: list[dict[str, any]] = [
         {
-            'ticker': ticker,
-            'quantity': (available_cash * weight) / current_prices_by_ticker[ticker],
+            'ticker': ticker_weight[0],
+            'quantity': (available_cash * ticker_weight[1]) /
+            current_prices_by_ticker[ticker_weight[0]]['price'],
             'side': trade.SIDE_BUY,
         }
-        for ticker, weight in weights_by_ticker.items()
+        for ticker_weight in weights_by_ticker.items()
     ]
 
     trade_client.set_positions(positions)
