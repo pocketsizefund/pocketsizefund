@@ -36,6 +36,12 @@ class Client:
             secret_key=alpaca_api_secret,
         )
 
+    def get_market_status(self) -> dict[str, any]:
+        clock = self.alpaca_trading_client.get_clock()
+        return {
+            'is_market_open': clock.is_open,
+        }
+
     def get_available_tickers(self) -> list[str]:
         # GSPC is the S&P 500
         darqube_response = self.http_client.get(
