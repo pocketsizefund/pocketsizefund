@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# run_unit_tests runs all package-level
+# unit tests
+
+set -e
+
+echo 'test pkg/data' && python3 -m unittest discover pkg/data
