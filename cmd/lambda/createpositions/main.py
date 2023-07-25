@@ -26,6 +26,10 @@ def handler(event: any, context: any) -> dict[str, any]:
         file_path=os.getenv('MODEL_FILE_PATH'),
     )
 
+    market_status = trade_client.get_market_status()
+    if not market_status['is_market_open']:
+        raise Exception('market is closed')
+
     file_names = storage_client.list_file_names(
         prefix=storage.PREFIX_EQUITY_BARS_PATH,
     )
