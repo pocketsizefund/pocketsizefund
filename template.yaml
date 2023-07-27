@@ -62,6 +62,7 @@ Resources:
             # Run day after each trading day to ensure data is available
             # due to data request being chunked by day
             ScheduleExpression: cron(0 1 ? * TUE-SAT *)
+            ScheduleExpressionTimezone: America/New_York
             State:
               Ref: FetchDataScheduleState
             RetryPolicy:
@@ -102,6 +103,7 @@ Resources:
         DailyFetch:
           Properties:
             ScheduleExpression: cron(35 9 ? * MON-FRI *) # 5 minutes after market open
+            ScheduleExpressionTimezone: America/New_York
             State:
               Ref: CreateAndClearTradeScheduleState
             RetryPolicy:
@@ -138,6 +140,7 @@ Resources:
         DailyFetch:
           Properties:
             ScheduleExpression: cron(55 15 ? * MON-FRI *) # 5 minutes before market close
+            ScheduleExpressionTimezone: America/New_York
             State:
               Ref: CreateAndClearTradeScheduleState
             RetryPolicy:
