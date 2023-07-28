@@ -36,6 +36,9 @@ Parameters:
     AllowedValues:
       - ENABLED
       - DISABLED
+  SNSErrorsTopicARN:
+    Type: String
+    Description: SNS topic ARN for Lambda error alerts
 Resources:
   fetchDataFunction:
     Type: AWS::Serverless::Function
@@ -56,6 +59,8 @@ Resources:
           ALPHA_VANTAGE_API_KEY:
             Ref: AlphaVantageAPIKey
           IS_PAPER: 'true'
+          SNS_ERRORS_TOPIC_ARN:
+            Ref: SNSErrorsTopicARN
       Events:
         DailyFetch:
           Properties:
@@ -99,6 +104,8 @@ Resources:
           DARQUBE_API_KEY:
             Ref: DarqubeAPIKey
           IS_PAPER: 'true'
+          SNS_ERRORS_TOPIC_ARN:
+            Ref: SNSErrorsTopicARN
       Events:
         DailyFetch:
           Properties:
@@ -136,6 +143,8 @@ Resources:
           DARQUBE_API_KEY:
             Ref: DarqubeAPIKey
           IS_PAPER: 'true'
+          SNS_ERRORS_TOPIC_ARN:
+            Ref: SNSErrorsTopicARN
       Events:
         DailyFetch:
           Properties:
