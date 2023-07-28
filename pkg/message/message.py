@@ -11,8 +11,8 @@ class Client:
 
     def send_message(
         self,
-        message: str,
         subject: str,
+        message: str,
     ):
         self.sns_client.publish(
             TopicArn=self.topic_arn,
