@@ -36,6 +36,13 @@ Parameters:
     AllowedValues:
       - ENABLED
       - DISABLED
+  IsPaper:
+    Type: String
+    Description: Paper trading flag
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
   SNSErrorsTopicARN:
     Type: String
     Description: SNS topic ARN for Lambda error alerts
@@ -58,7 +65,8 @@ Resources:
             Ref: DarqubeAPIKey
           ALPHA_VANTAGE_API_KEY:
             Ref: AlphaVantageAPIKey
-          IS_PAPER: 'true'
+          IS_PAPER:
+            Ref: IsPaper
           SNS_ERRORS_TOPIC_ARN:
             Ref: SNSErrorsTopicARN
       Events:
@@ -103,7 +111,8 @@ Resources:
             Ref: AlpacaAPISecret
           DARQUBE_API_KEY:
             Ref: DarqubeAPIKey
-          IS_PAPER: 'true'
+          IS_PAPER:
+            Ref: IsPaper
           SNS_ERRORS_TOPIC_ARN:
             Ref: SNSErrorsTopicARN
       Events:
@@ -142,7 +151,8 @@ Resources:
             Ref: AlpacaAPISecret
           DARQUBE_API_KEY:
             Ref: DarqubeAPIKey
-          IS_PAPER: 'true'
+          IS_PAPER:
+            Ref: IsPaper
           SNS_ERRORS_TOPIC_ARN:
             Ref: SNSErrorsTopicARN
       Events:
