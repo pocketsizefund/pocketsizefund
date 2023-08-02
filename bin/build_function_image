@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+# build function image
+
+set -e
+
+directory_name=$1
+
+if [[ -z "$directory_name" ]]; then
+    echo "valid directory name required:"
+    echo ""
+    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
+    echo ""
+    exit 0
+fi
+
+account_id=$(aws sts get-caller-identity --query Account --output text)
+
+image_name=$(python3 ./bin/helpers/rename_resource.py ${directory_name})
+
+tag=${image_name}:latest
+
+docker build \
+    --build-arg FUNCTION_NAME=${directory_name} \
+    --platform linux/arm64 \
+    --tag ${tag} .
+
+target_image=${account_id}.dkr.ecr.us-east-1.amazonaws.com/${tag}
+
+docker tag ${image_name} ${target_image}
