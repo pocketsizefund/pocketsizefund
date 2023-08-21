@@ -210,3 +210,14 @@ Resources:
       Tags:
         - Key: pocketsizefund
           Value: role
+  usersTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+      TableName:
+        Fn::Sub: ${AWS::StackName}-users
+      Tags:
+        pocketsizefund: table
+
