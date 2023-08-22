@@ -16,6 +16,7 @@ lstm_model.h5
 
 # infrastucture
 .aws-sam/
+users_table_parameters.json
 
 # JavaScript
 .DS_Store

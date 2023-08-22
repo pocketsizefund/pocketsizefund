@@ -15,3 +15,9 @@ sam deploy \
     --resolve-image-repos \
     --on-failure DELETE \
     --config-env $environment
+
+aws dynamodb import-table \
+    --s3-bucket-source S3Bucket=pocketsizefund-artifacts,S3KeyPrefix=users_table_data \
+    --input-format DYNAMODB_JSON \
+    --table-creation-parameters file://users_table_parameters.json \
+    --no-paginate
