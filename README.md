@@ -10,14 +10,12 @@ Data management, model development, infrastructure design, and investment decisi
 
 [@forstmeier](https://github.com/forstmeier) can be reached via [direct message](https://twitter.com/messages/compose?recipient_id=168005768).  
 
-## Design
+## Infrastructure
 
-This project is intended to be a single instance managing a single fund but feel free to spin up separate instances for development and testing. Currently, the infrastructure is in [@forstmeier](https://twitter.com/@forstmeier)'s personal AWS account. Future updates will be dictated by the community.  
+This project is intended to be a single instance managing a single fund hosted on the infrastructure currently in [@forstmeier](https://twitter.com/@forstmeier)'s personal AWS account. If you're interested in testing things out in your own account, you'll need to configure the AWS CLI, add a `samconfig.toml` file, and use the scripts in the `bin` directory.  
 
 ## Roadmap
 
-Checkout the [organization Projects](https://github.com/orgs/pocketsizefund/projects) for the current roadmap and progress.  
+Checkout the [organization Projects](https://github.com/orgs/pocketsizefund/projects) for outstanding tasks, the ongoing roadmap, and current progress.  
 
-Community input is welcome and encouraged. If you are interested in features like multi-strategy support, better infrastructure design, a helper CLI, co-investing account management, etc, open an issue and let's discuss! 🚀  
-
-
+Community input is welcome and encouraged! Start a [discussion](https://github.com/pocketsizefund/pocketsizefund/discussions) for any ideas you have and we can add them to the roadmap. 🚀  
