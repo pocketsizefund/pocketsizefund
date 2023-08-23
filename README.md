@@ -18,7 +18,7 @@ This project is intended to be a single instance managing a single fund hosted o
 
 Here are some places to get started:  
 
-1. [Specific larger initiatives](https://github.com/pocketsizefund/pocketsizefund/milestones) we're currently working  
+1. [Specific larger initiatives](https://github.com/pocketsizefund/pocketsizefund/milestones) we're currently working on  
 2. [All issues by status](https://github.com/orgs/pocketsizefund/projects/2/views/1) to see ongoing progress  
 3. [Forum for questions and discussions](https://github.com/pocketsizefund/pocketsizefund/discussions) for everything else  
 
