@@ -5,12 +5,12 @@ class User:
     def __init__(
         self,
         id: str,
-        invite_url: str,
+        invite_code: str,
         accepted_invite: bool,
         authorization_token: str,
     ) -> None:
         self.id = id
-        self.invite_url = invite_url
+        self.invite_code = invite_code
         self.accepted_invite = accepted_invite
         self.authorization_token = authorization_token
 
@@ -33,8 +33,8 @@ class Client:
                 'id': {
                     'S': user.id,
                 },
-                'invite_url': {
-                    'S': user.invite_url,
+                'invite_code': {
+                    'S': user.invite_code,
                 },
                 'accepted_invite': {
                     'BOOL': False,
@@ -64,7 +64,7 @@ class Client:
             users.append(
                 User(
                     id=item['id']['S'],
-                    invite_url=item['invite_url']['S'],
+                    invite_code=item['invite_code']['S'],
                     authorization_token=item['authorization_token']['S'],
                     accepted_invite=item['accepted_invite']['BOOL'],
                 )

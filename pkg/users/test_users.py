@@ -42,7 +42,7 @@ class TestAddUser(unittest.TestCase):
         client.add_user(
             user=users.User(
                 id='id',
-                invite_url='invite_url',
+                invite_code='invite_code',
                 accepted_invite=False,
                 authorization_token='authorization_token',
             ),
@@ -62,8 +62,8 @@ class TestListUsers(unittest.TestCase):
                         'id': {
                             'S': 'id',
                         },
-                        'invite_url': {
-                            'S': 'invite_url',
+                        'invite_code': {
+                            'S': 'invite_code',
                         },
                         'accepted_invite': {
                             'BOOL': False,
@@ -80,7 +80,7 @@ class TestListUsers(unittest.TestCase):
 
         self.assertEqual(1, len(users_list))
         self.assertEqual('id', users_list[0].id)
-        self.assertEqual('invite_url', users_list[0].invite_url)
+        self.assertEqual('invite_code', users_list[0].invite_code)
         self.assertEqual(False, users_list[0].accepted_invite)
         self.assertEqual(
             'authorization_token',
