@@ -6,8 +6,8 @@ class User:
         self,
         id: str,
         invite_code: str,
-        accepted_invite: bool,
-        authorization_token: str,
+        accepted_invite: bool = False,
+        authorization_token: str = '',
     ) -> None:
         self.id = id
         self.invite_code = invite_code
