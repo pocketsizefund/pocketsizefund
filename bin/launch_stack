@@ -19,5 +19,20 @@ sam deploy \
 aws dynamodb import-table \
     --s3-bucket-source S3Bucket=pocketsizefund-artifacts,S3KeyPrefix=users_table_data \
     --input-format DYNAMODB_JSON \
-    --table-creation-parameters file://users_table_parameters.json \
+    --table-creation-parameters '{
+        "TableName": "pocketsizefund-'$environment'-users",
+        "KeySchema": [
+            {
+                "AttributeName": "id",
+                "KeyType": "HASH"
+            }
+        ],
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "id",
+                "AttributeType": "S"
+            }
+        ],
+        "BillingMode": "PAY_PER_REQUEST"
+    }' \
     --no-paginate
