@@ -222,4 +222,8 @@ Resources:
         Fn::Sub: ${AWS::StackName}-users
       Tags:
         pocketsizefund: table
-
+Outputs:
+  UsersTable:
+    Description: Table containing user data
+    Value:
+      Ref: usersTable
