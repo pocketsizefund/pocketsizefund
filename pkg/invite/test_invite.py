@@ -34,8 +34,8 @@ class MockHTTPClient:
         return self.response
 
 
-class TestGenerateInviteCode(unittest.TestCase):
-    def test_generate_invite_code_success(self):
+class TestHashValue(unittest.TestCase):
+    def test_hash_value_success(self):
         client = invite.Client(
             secret_key='secret_key',
             base_url='https://base_url.com',
@@ -43,15 +43,15 @@ class TestGenerateInviteCode(unittest.TestCase):
             client_secret='client_secret',
         )
 
-        code = client.generate_invite_code(
-            user_id='user_id',
+        code = client.hash_value(
+            input='user_id',
         )
 
         self.assertEqual(len(code), 64)
 
 
-class TestGenerateInviteURL(unittest.TestCase):
-    def test_generate_invite_url_success(self):
+class TestGetRedirectURL(unittest.TestCase):
+    def test_get_redirect_url_success(self):
         client = invite.Client(
             secret_key='secret_key',
             base_url='https://base_url.com',
@@ -59,35 +59,16 @@ class TestGenerateInviteURL(unittest.TestCase):
             client_secret='client_secret',
         )
 
-        invite_url = client.generate_invite_url(
-            invite_code='invite_code',
-        )
-
-        self.assertEqual(
-            invite_url,
-            'https://base_url.com/accept_invite?invite_code=invite_code',
-        )
-
-
-class TestGenerateRedirectURL(unittest.TestCase):
-    def test_generate_redirect_url_success(self):
-        client = invite.Client(
-            secret_key='secret_key',
-            base_url='https://base_url.com',
-            client_id='client_id',
-            client_secret='client_secret',
-        )
-
-        redirect_url = client.generate_redirect_url()
+        redirect_url = client.get_redirect_url()
 
         self.assertEqual(
             redirect_url,
-            'https://base_url.com/complete',
+            'https%3A//base_url.com/complete_invite',
         )
 
 
-class TestRedirectToAuthorizeURL(unittest.TestCase):
-    def test_redirect_to_authorize_url_success(self):
+class TestGetAuthorizeURL(unittest.TestCase):
+    def test_get_authorize_url_success(self):
         client = invite.Client(
             secret_key='secret_key',
             base_url='https://base_url.com',
@@ -101,9 +82,14 @@ class TestRedirectToAuthorizeURL(unittest.TestCase):
             )
         )
 
-        client.redirect_to_authorize_url(
+        authorize_url = client.get_authorize_url(
             redirect_url='redirect_url',
             state='state',
+        )
+
+        self.assertEqual(
+            authorize_url,
+            'https://app.alpaca.markets/oauth/authorize?response_type=code&client_id=client_id&redirect_uri=redirect_url&state=state&scope=account:write%20trading',
         )
 
 

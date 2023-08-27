@@ -5,14 +5,14 @@ class User:
     def __init__(
         self,
         id: str,
-        invite_code: str,
+        state: str,
         accepted_invite: bool = False,
-        authorization_token: str = '',
+        access_token: str = '',
     ) -> None:
         self.id = id
-        self.invite_code = invite_code
+        self.state = state
         self.accepted_invite = accepted_invite
-        self.authorization_token = authorization_token
+        self.access_token = access_token
 
 
 class Client:
@@ -33,13 +33,13 @@ class Client:
                 'id': {
                     'S': user.id,
                 },
-                'invite_code': {
-                    'S': user.invite_code,
+                'state': {
+                    'S': user.state,
                 },
                 'accepted_invite': {
                     'BOOL': False,
                 },
-                'authorization_token': {
+                'access_token': {
                     'S': 'NONE',
                 },
             },
@@ -64,26 +64,26 @@ class Client:
             users.append(
                 User(
                     id=item['id']['S'],
-                    invite_code=item['invite_code']['S'],
-                    authorization_token=item['authorization_token']['S'],
+                    state=item['state']['S'],
                     accepted_invite=item['accepted_invite']['BOOL'],
+                    access_token=item['access_token']['S'],
                 )
             )
 
         return users
 
-    def set_user_accepted_invite_and_authorization_token(
+    def set_user_accepted_invite_and_access_token(
         self,
         id: str,
-        authorization_token: str,
+        access_token: str,
     ) -> None:
-        update_expression = 'SET accepted_invite = :invite_value, authorization_token = :token_value'
+        update_expression = 'SET accepted_invite = :invite_value, access_token = :token_value'
         expression_attribute_values = {
             ':invite_value': {
                 'BOOL': True,
             },
             ':token_value': {
-                'S': authorization_token,
+                'S': access_token,
             },
         }
 

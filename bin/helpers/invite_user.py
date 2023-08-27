@@ -24,23 +24,26 @@ users_client = users.Client(
     dynamodb_table_name=users_table,
 )
 
-user_id = id.generate_id()
+user_id = id.new_id()
 
-invite_code = invite_client.generate_invite_code(
-    user_id=user_id,
+state = invite_client.hash_value(
+    input=user_id,
 )
 
-invite_url = invite_client.generate_invite_url(
-    invite_code=invite_code,
+redirect_url = invite_client.get_redirect_url()
+
+authorize_url = invite_client.get_authorize_url(
+    redirect_url=redirect_url,
+    state=state,
 )
 
 user = users.User(
     id=user_id,
-    invite_code=invite_code,
+    state=state,
 )
 
 users_client.add_user(
     user=user,
 )
 
-print(invite_url)
+print(authorize_url)

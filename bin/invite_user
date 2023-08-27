@@ -16,6 +16,6 @@ users_table=$(aws cloudformation describe-stacks \
     --query 'Stacks[0].Outputs[?OutputKey==`UsersTable`].OutputValue' \
     --output text)
 
-invite_url=$(python3 ./bin/helpers/invite_user.py $users_table)
+authorize_url=$(python3 ./bin/helpers/invite_user.py $users_table)
 
-echo "invite url: $invite_url"
+echo "authorize url: $authorize_url"
