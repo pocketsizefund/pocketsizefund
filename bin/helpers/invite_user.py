@@ -6,7 +6,8 @@ from pkg.id import id
 from pkg.invite import invite
 
 
-users_table = sys.argv[1]
+manage_users_function_url = sys.argv[1]
+users_table = sys.argv[2]
 
 samconfig_file = config.SAMConfig(
     'samconfig.toml',
@@ -15,7 +16,7 @@ samconfig_file = config.SAMConfig(
 
 invite_client = invite.Client(
     secret_key=samconfig_file.get_parameter('InviteSecretKey'),
-    base_url=samconfig_file.get_parameter('InviteBaseURL'),
+    base_url=manage_users_function_url,
     client_id=samconfig_file.get_parameter('AlpacaOAuthClientID'),
     client_secret=samconfig_file.get_parameter('AlpacaOAuthClientSecret'),
 )

@@ -17,6 +17,8 @@ class Client:
             'utf-8',
         )
         self.base_url = base_url
+        if base_url.endswith('/'):
+            self.base_url = base_url[:-1]
         self.client_id = client_id
         self.client_secret = client_secret
         self.http_client = requests

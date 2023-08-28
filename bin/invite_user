@@ -11,11 +11,16 @@ if [[ "$1" == "production" ]]; then
     environment="production"
 fi
 
+complete_invite_function_url=$(aws cloudformation describe-stacks \
+    --stack-name pocketsizefund-$environment \
+    --query 'Stacks[0].Outputs[?OutputKey==`CompleteInviteFunctionURL`].OutputValue' \
+    --output text)
+
 users_table=$(aws cloudformation describe-stacks \
     --stack-name pocketsizefund-$environment \
     --query 'Stacks[0].Outputs[?OutputKey==`UsersTable`].OutputValue' \
     --output text)
 
-authorize_url=$(python3 ./bin/helpers/invite_user.py $users_table)
+authorize_url=$(python3 ./bin/helpers/invite_user.py $complete_invite_function_url $users_table)
 
 echo "authorize url: $authorize_url"

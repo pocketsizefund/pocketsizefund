@@ -12,6 +12,12 @@ Parameters:
   AlpacaAPISecret:
     Type: String
     Description: Data and trading Alpaca API secret
+  AlpacaOAuthClientID:
+    Type: String
+    Description: Alpaca OAuth application client ID
+  AlpacaOAuthClientSecret:
+    Type: String
+    Description: Alpaca OAuth application client secret
   DarqubeAPIKey:
     Type: String
     Description: Data Darqube API key
@@ -46,6 +52,9 @@ Parameters:
   SNSErrorsTopicARN:
     Type: String
     Description: SNS topic ARN for Lambda error alerts
+  InviteSecretKey:
+    Type: String
+    Description: Secret key for user invite links
 Resources:
   fetchDataFunction:
     Type: AWS::Serverless::Function
@@ -83,7 +92,8 @@ Resources:
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-fetch-data
-      ImageUri: 468628870724.dkr.ecr.us-east-1.amazonaws.com/fetch-data:latest
+      ImageUri:
+        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fetch-data:latest
       MemorySize: 768
       PackageType: Image
       Role:
@@ -127,7 +137,8 @@ Resources:
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-create-positions
-      ImageUri: 468628870724.dkr.ecr.us-east-1.amazonaws.com/create-positions:latest
+      ImageUri:
+        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-positions:latest
       MemorySize: 1536
       PackageType: Image
       Role:
@@ -167,7 +178,8 @@ Resources:
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-clear-positions
-      ImageUri: 468628870724.dkr.ecr.us-east-1.amazonaws.com/clear-positions:latest
+      ImageUri:
+        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/clear-positions:latest
       MemorySize: 128
       PackageType: Image
       Role:
@@ -177,6 +189,43 @@ Resources:
       Tags:
         pocketsizefund: function
       Timeout: 60
+  completeInviteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Architectures:
+        - arm64
+      Description: Handles user invites
+      Environment:
+        Variables:
+          INVITE_SECRET_KEY:
+            Ref: InviteSecretKey
+          ALPACA_OAUTH_CLIENT_ID:
+            Ref: AlpacaOAuthClientID
+          ALPACA_OAUTH_CLIENT_SECRET:
+            Ref: AlpacaOAuthClientSecret
+          USERS_TABLE_NAME:
+            Ref: usersTable
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-complete-invite
+      ImageUri:
+        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
+      MemorySize: 128
+      PackageType: Image
+      Role:
+        Fn::GetAtt:
+          - lambdaFunctionRole
+          - Arn
+      Tags:
+        pocketsizefund: function
+      Timeout: 15
+  completeInviteFunctionURL:
+    Type: AWS::Lambda::Url
+    Properties: 
+      AuthType: NONE
+      TargetFunctionArn:
+        Fn::GetAtt:
+          - completeInviteFunction
+          - Arn
   lambdaFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -205,6 +254,13 @@ Resources:
                 Effect: Allow
                 Resource:
                   Fn::Sub: arn:aws:s3:::${S3DataBucketName}/*
+              - Action:
+                  - dynamodb:PutItem
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Effect: Allow
+                Resource:
+                  Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
           PolicyName:
             Fn::Sub: ${AWS::StackName}-lambda-function-policy
       Tags:
@@ -227,3 +283,9 @@ Outputs:
     Description: Table containing user data
     Value:
       Ref: usersTable
+  CompleteInviteFunctionURL:
+    Description: URL for user management function
+    Value:
+      Fn::GetAtt:
+        - completeInviteFunctionURL
+        - FunctionUrl

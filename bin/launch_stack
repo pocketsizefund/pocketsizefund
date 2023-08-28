@@ -16,6 +16,8 @@ sam deploy \
     --on-failure DELETE \
     --config-env $environment
 
+python3 ./bin/helpers/set_invite_base_url_environment_variable.py $environment
+
 aws dynamodb import-table \
     --s3-bucket-source S3Bucket=pocketsizefund-artifacts,S3KeyPrefix=users_table_data \
     --input-format DYNAMODB_JSON \

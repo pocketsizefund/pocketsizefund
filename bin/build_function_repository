@@ -10,7 +10,7 @@ directory_name=$1
 if [[ -z "$directory_name" ]]; then
     echo "valid directory name required:"
     echo ""
-    ls -li lambda | awk '{print $NF}' | tail -n +2
+    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
     echo ""
     exit 0
 fi
