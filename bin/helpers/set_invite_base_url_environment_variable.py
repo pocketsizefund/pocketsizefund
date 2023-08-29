@@ -18,7 +18,7 @@ stack_outputs = describe_stacks_response['Stacks'][0]['Outputs']
 
 complete_invite_function_url = ''
 for output in stack_outputs:
-    if output['OutputKey'] == 'CompleteInviteFunctionUrl':
+    if output['OutputKey'] == 'CompleteInviteFunctionURL':
         complete_invite_function_url = output['OutputValue']
 
 lambda_client = boto3.client('lambda')
