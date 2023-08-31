@@ -11,7 +11,7 @@ fi
 
 account_id=$(aws sts get-caller-identity --query 'Account' --output text)
 
-aws dynamodb export-table-to-point-in-time \
+AWS_PAGER="" aws dynamodb export-table-to-point-in-time \
     --table-arn arn:aws:dynamodb:us-east-1:$account_id:table/pocketsizefund-$environment-users \
     --s3-bucket pocketsizefund-artifacts \
     --s3-prefix users_table_data \
