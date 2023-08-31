@@ -22,7 +22,7 @@ AWS_PAGER="" aws dynamodb import-table \
     --s3-bucket-source S3Bucket=pocketsizefund-artifacts,S3KeyPrefix=users_table_data \
     --input-format DYNAMODB_JSON \
     --table-creation-parameters '{
-        "TableName": "pocketsizefund-'$environment'-users",
+        "TableName": "pocketsizefund-'${environment}'-users",
         "KeySchema": [
             {
                 "AttributeName": "id",

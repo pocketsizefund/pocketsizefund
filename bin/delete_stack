@@ -14,10 +14,10 @@ account_id=$(aws sts get-caller-identity --query 'Account' --output text)
 account_region=$(aws --profile default configure get region)
 
 AWS_PAGER="" aws dynamodb export-table-to-point-in-time \
-    --table-arn arn:aws:dynamodb:$account_region:$account_id:table/pocketsizefund-$environment-users \
+    --table-arn arn:aws:dynamodb:${account_region}:${account_id}:table/pocketsizefund-${environment}-users \
     --s3-bucket pocketsizefund-artifacts \
     --s3-prefix users_table_data \
     --export-format DYNAMODB_JSON \
     --no-paginate
 
-aws cloudformation delete-stack --stack-name pocketsizefund-$environment
+aws cloudformation delete-stack --stack-name pocketsizefund-${environment}

@@ -20,6 +20,6 @@ region=$(aws --profile default configure get region)
 repository_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)
 
 AWS_PAGER="" aws ecr create-repository \
-    --repository-name ${repository_name} \
-    --region ${region} \
+    --repository-name $repository_name \
+    --region $region \
     --no-paginate

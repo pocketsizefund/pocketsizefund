@@ -26,7 +26,7 @@ model_file_path=$(python3 ./bin/helpers/get_parameter.py ModelFilePath)
 is_paper=$(python3 ./bin/helpers/get_parameter.py IsPaper)
 sns_errors_topic_arn=$(python3 ./bin/helpers/get_parameter.py SNSErrorsTopicARN)
 
-image_name=$(python3 ./bin/helpers/rename_resource.py ${directory_name})
+image_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)
 
 docker run \
     --publish 9000:8080 \
