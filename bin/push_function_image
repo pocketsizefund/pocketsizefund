@@ -17,16 +17,18 @@ fi
 
 account_id=$(aws sts get-caller-identity --query Account --output text)
 
+account_region=$(aws --profile default configure get region)
+
 aws ecr get-login-password \
-    --region us-east-1 | \
+    --region ${account_region} | \
     docker login \
     --username AWS \
-    --password-stdin ${account_id}.dkr.ecr.us-east-1.amazonaws.com
+    --password-stdin ${account_id}.dkr.ecr.${account_region}.amazonaws.com
 
 image_name=$(python3 ./bin/helpers/rename_resource.py ${directory_name})
 
 tag=${image_name}:latest
 
-target_image=${account_id}.dkr.ecr.us-east-1.amazonaws.com/${tag}
+target_image=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${tag}
 
 docker push ${target_image}

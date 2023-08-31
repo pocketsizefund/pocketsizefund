@@ -15,9 +15,11 @@ if [[ -z "$directory_name" ]]; then
     exit 0
 fi
 
+region=$(aws --profile default configure get region)
+
 repository_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)
 
 AWS_PAGER="" aws ecr create-repository \
     --repository-name ${repository_name} \
-    --region us-east-1 \
+    --region ${region} \
     --no-paginate
