@@ -12,16 +12,18 @@ if [[ "$2" == "production" ]]; then
     environment="production"
 fi
 
-function_name=$(python3 ./bin/helpers/rename_resource.py ${function_name})
+function_name=$(python3 ./bin/helpers/rename_resource.py $function_name)
 
 account_id=$(aws sts get-caller-identity --query Account --output text)
 
 function_arn=${account_id}:function:pocketsizefund-${environment}-${function_name}
 
-repository_arn=${account_id}.dkr.ecr.us-east-1.amazonaws.com/${function_name}:latest
+account_region=$(aws --profile default configure get region)
+
+repository_arn=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${function_name}:latest
 
 aws lambda update-function-code \
-    --function-name ${function_arn} \
-    --image-uri ${repository_arn} \
+    --function-name $function_arn \
+    --image-uri $repository_arn \
     --publish \
     --no-paginate

@@ -16,23 +16,11 @@ sam deploy \
     --on-failure DELETE \
     --config-env $environment
 
-aws dynamodb import-table \
-    --s3-bucket-source S3Bucket=pocketsizefund-artifacts,S3KeyPrefix=users_table_data \
-    --input-format DYNAMODB_JSON \
-    --table-creation-parameters '{
-        "TableName": "pocketsizefund-'$environment'-users",
-        "KeySchema": [
-            {
-                "AttributeName": "id",
-                "KeyType": "HASH"
-            }
-        ],
-        "AttributeDefinitions": [
-            {
-                "AttributeName": "id",
-                "AttributeType": "S"
-            }
-        ],
-        "BillingMode": "PAY_PER_REQUEST"
-    }' \
-    --no-paginate
+python3 ./bin/helpers/set_invite_base_url_environment_variable.py $environment
+
+users_table=$(aws cloudformation describe-stacks \
+    --stack-name pocketsizefund-${environment} \
+    --query 'Stacks[0].Outputs[?OutputKey==`UsersTable`].OutputValue' \
+    --output text)
+
+python3 ./bin/helpers/upload_users_table.py $environment $users_table

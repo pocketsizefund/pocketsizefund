@@ -25,6 +25,8 @@ docker build \
     --platform linux/arm64 \
     --tag ${tag} .
 
-target_image=${account_id}.dkr.ecr.us-east-1.amazonaws.com/${tag}
+account_region=$(aws --profile default configure get region)
+
+target_image=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${tag}
 
 docker tag ${image_name} ${target_image}

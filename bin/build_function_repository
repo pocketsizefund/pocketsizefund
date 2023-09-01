@@ -10,14 +10,16 @@ directory_name=$1
 if [[ -z "$directory_name" ]]; then
     echo "valid directory name required:"
     echo ""
-    ls -li lambda | awk '{print $NF}' | tail -n +2
+    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
     echo ""
     exit 0
 fi
 
+region=$(aws --profile default configure get region)
+
 repository_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)
 
 AWS_PAGER="" aws ecr create-repository \
-    --repository-name ${repository_name} \
-    --region us-east-1 \
+    --repository-name $repository_name \
+    --region $region \
     --no-paginate

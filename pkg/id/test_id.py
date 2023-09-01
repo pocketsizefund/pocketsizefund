@@ -4,8 +4,8 @@ from pkg.id import id
 
 
 class TestGenerateId(unittest.TestCase):
-    def test_generate_id_success(self):
-        result = id.generate_id()
+    def test_new_id_success(self):
+        result = id.new_id()
 
         self.assertIsInstance(
             result,

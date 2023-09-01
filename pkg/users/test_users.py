@@ -42,9 +42,9 @@ class TestAddUser(unittest.TestCase):
         client.add_user(
             user=users.User(
                 id='id',
-                invite_code='invite_code',
+                state='state',
                 accepted_invite=False,
-                authorization_token='authorization_token',
+                access_token='access_token',
             ),
         )
 
@@ -62,14 +62,14 @@ class TestListUsers(unittest.TestCase):
                         'id': {
                             'S': 'id',
                         },
-                        'invite_code': {
-                            'S': 'invite_code',
+                        'state': {
+                            'S': 'state',
                         },
                         'accepted_invite': {
                             'BOOL': False,
                         },
-                        'authorization_token': {
-                            'S': 'authorization_token',
+                        'access_token': {
+                            'S': 'access_token',
                         },
                     },
                 ]
@@ -80,16 +80,16 @@ class TestListUsers(unittest.TestCase):
 
         self.assertEqual(1, len(users_list))
         self.assertEqual('id', users_list[0].id)
-        self.assertEqual('invite_code', users_list[0].invite_code)
+        self.assertEqual('state', users_list[0].state)
         self.assertEqual(False, users_list[0].accepted_invite)
         self.assertEqual(
-            'authorization_token',
-            users_list[0].authorization_token,
+            'access_token',
+            users_list[0].access_token,
         )
 
 
-class TestSetUserAcceptedInviteAndAuthorizationToken(unittest.TestCase):
-    def test_set_user_accepted_invite_and_authorization_token_success(self):
+class TestSetUserAcceptedInviteAndAccessToken(unittest.TestCase):
+    def test_set_user_accepted_invite_and_access_token_success(self):
         client = users.Client(
             dynamodb_table_name='dynamodb_table_name',
         )
@@ -98,7 +98,7 @@ class TestSetUserAcceptedInviteAndAuthorizationToken(unittest.TestCase):
             users={},
         )
 
-        client.set_user_accepted_invite_and_authorization_token(
+        client.set_user_accepted_invite_and_access_token(
             id='id',
-            authorization_token='authorization_token',
+            access_token='access_token',
         )
