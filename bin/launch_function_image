@@ -25,6 +25,14 @@ darqube_api_key=$(python3 ./bin/helpers/get_parameter.py DarqubeAPIKey)
 model_file_path=$(python3 ./bin/helpers/get_parameter.py ModelFilePath)
 is_paper=$(python3 ./bin/helpers/get_parameter.py IsPaper)
 sns_errors_topic_arn=$(python3 ./bin/helpers/get_parameter.py SNSErrorsTopicARN)
+alpaca_oauth_client_id=$(python3 ./bin/helpers/get_parameter.py AlpacaOAuthClientID)
+alpaca_oauth_client_secret=$(python3 ./bin/helpers/get_parameter.py AlpacaOAuthClientSecret)
+invite_secret_key=$(python3 ./bin/helpers/get_parameter.py InviteSecretKey)
+
+users_table=$(aws cloudformation describe-stacks \
+    --stack-name pocketsizefund-${environment} \
+    --query 'Stacks[0].Outputs[?OutputKey==`UsersTable`].OutputValue' \
+    --output text)
 
 image_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)
 
@@ -41,4 +49,8 @@ docker run \
     --env DARQUBE_API_KEY=${darqube_api_key} \
     --env IS_PAPER=${is_paper} \
     --env SNS_ERRORS_TOPIC_ARN=${sns_errors_topic_arn} \
+    --env ALPACA_OAUTH_CLIENT_ID=${alpaca_oauth_client_id} \
+    --env ALPACA_OAUTH_CLIENT_SECRET=${alpaca_oauth_client_secret} \
+    --env INVITE_SECRET_KEY=${invite_secret_key} \
+    --env USERS_TABLE_NAME=${users_table} \
     ${image_name}:latest
