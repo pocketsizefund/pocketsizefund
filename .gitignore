@@ -10,6 +10,9 @@ __pycache__/
 
 # data
 bars.csv
+development_users_table.json
+production_users_table.json
+
 
 # model
 lstm_model.h5
