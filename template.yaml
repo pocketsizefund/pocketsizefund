@@ -274,8 +274,6 @@ Resources:
   usersTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
       PrimaryKey:
         Name: id
         Type: String
