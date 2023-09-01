@@ -261,6 +261,11 @@ Resources:
                 Effect: Allow
                 Resource:
                   Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
+              - Action:
+                  - sns:Publish
+                Effect: Allow
+                Resource:
+                  Ref: SNSErrorsTopicARN
           PolicyName:
             Fn::Sub: ${AWS::StackName}-lambda-function-policy
       Tags:
