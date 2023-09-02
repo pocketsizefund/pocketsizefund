@@ -89,6 +89,10 @@ Resources:
               Ref: FetchDataScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
+            RoleArn:
+              Fn::GetAtt:
+                - functionSchedulerRole
+                - Arn
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-fetch-data
@@ -98,7 +102,7 @@ Resources:
       PackageType: Image
       Role:
         Fn::GetAtt:
-          - lambdaFunctionRole
+          - functionRole
           - Arn
       Tags:
         pocketsizefund: function
@@ -134,6 +138,10 @@ Resources:
               Ref: CreateAndClearTradeScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
+            RoleArn:
+              Fn::GetAtt:
+                - functionSchedulerRole
+                - Arn
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-create-positions
@@ -143,7 +151,7 @@ Resources:
       PackageType: Image
       Role:
         Fn::GetAtt:
-          - lambdaFunctionRole
+          - functionRole
           - Arn
       Tags:
         pocketsizefund: function
@@ -175,6 +183,10 @@ Resources:
               Ref: CreateAndClearTradeScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
+            RoleArn:
+              Fn::GetAtt:
+                - functionSchedulerRole
+                - Arn
           Type: ScheduleV2
       FunctionName:
         Fn::Sub: ${AWS::StackName}-clear-positions
@@ -184,7 +196,7 @@ Resources:
       PackageType: Image
       Role:
         Fn::GetAtt:
-          - lambdaFunctionRole
+          - functionRole
           - Arn
       Tags:
         pocketsizefund: function
@@ -213,7 +225,7 @@ Resources:
       PackageType: Image
       Role:
         Fn::GetAtt:
-          - lambdaFunctionRole
+          - functionRole
           - Arn
       Tags:
         pocketsizefund: function
@@ -226,7 +238,7 @@ Resources:
         Fn::GetAtt:
           - completeInviteFunction
           - Arn
-  lambdaFunctionRole:
+  functionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -268,6 +280,51 @@ Resources:
                   Ref: SNSErrorsTopicARN
           PolicyName:
             Fn::Sub: ${AWS::StackName}-lambda-function-policy
+      RoleName:
+        Fn::Sub: ${AWS::StackName}-lambda-function-role
+      Tags:
+        - Key: pocketsizefund
+          Value: role
+  functionSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: scheduler.amazonaws.com
+          Action: sts:AssumeRole
+      Description: Shared role for function schedulers
+      Policies:
+        - PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - lambda:InvokeFunction
+                Effect: Allow
+                Resource:
+                  Fn::GetAtt:
+                    - fetchDataFunction
+                    - Arn
+              - Action:
+                  - lambda:InvokeFunction
+                Effect: Allow
+                Resource:
+                  Fn::GetAtt:
+                    - createPositionsFunction
+                    - Arn
+              - Action:
+                  - lambda:InvokeFunction
+                Effect: Allow
+                Resource:
+                  Fn::GetAtt:
+                    - clearPositionsFunction
+                    - Arn
+          PolicyName:
+            Fn::Sub: ${AWS::StackName}-function-scheduler-policy
+      RoleName:
+        Fn::Sub: ${AWS::StackName}-function-scheduler-role
       Tags:
         - Key: pocketsizefund
           Value: role
