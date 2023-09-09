@@ -16,6 +16,15 @@ ALPACA_MAXIMUM_DAYS_IN_RANGE = 365 * 2  # Alpaca API limitation
 SOURCE_ALPHA_VANTAGE = 'ALPHA_VANTAGE'
 SOURCE_ALPACA = 'ALPACA'
 
+COLUMN_TIMESTAMP = 'timestamp'
+COLUMN_TICKER = 'ticker'
+COLUMN_OPEN_PRICE = 'open_price'
+COLUMN_HIGH_PRICE = 'high_price'
+COLUMN_LOW_PRICE = 'low_price'
+COLUMN_CLOSE_PRICE = 'close_price'
+COLUMN_VOLUME = 'volume'
+COLUMN_SOURCE = 'source'
+
 
 class Client:
     def __init__(
@@ -66,14 +75,14 @@ class Client:
             daily_bars = response_json['Time Series (Daily)']
 
             ticker_bars = [{
-                'timestamp': datetime.datetime.strptime(daily_bar[0], '%Y-%m-%d'),
-                'ticker': response_json['Meta Data']['2. Symbol'],
-                'open_price': round(float(daily_bar[1]['1. open']), 2),
-                'high_price': round(float(daily_bar[1]['2. high']), 2),
-                'low_price': round(float(daily_bar[1]['3. low']), 2),
-                'close_price': round(float(daily_bar[1]['5. adjusted close']), 2),
-                'volume': round(float(daily_bar[1]['6. volume']), 2),
-                'source': SOURCE_ALPHA_VANTAGE,
+                COLUMN_TIMESTAMP: datetime.datetime.strptime(daily_bar[0], '%Y-%m-%d'),
+                COLUMN_TICKER: response_json['Meta Data']['2. Symbol'],
+                COLUMN_OPEN_PRICE: round(float(daily_bar[1]['1. open']), 2),
+                COLUMN_HIGH_PRICE: round(float(daily_bar[1]['2. high']), 2),
+                COLUMN_LOW_PRICE: round(float(daily_bar[1]['3. low']), 2),
+                COLUMN_CLOSE_PRICE: round(float(daily_bar[1]['5. adjusted close']), 2),
+                COLUMN_VOLUME: round(float(daily_bar[1]['6. volume']), 2),
+                COLUMN_SOURCE: SOURCE_ALPHA_VANTAGE,
             } for daily_bar in daily_bars.items()]
 
             bars.extend(ticker_bars)
@@ -147,7 +156,7 @@ class Client:
 
                 for ticker in response:
                     ticker_bars = [{
-                        'timestamp': datetime.datetime.strptime(
+                        COLUMN_TIMESTAMP: datetime.datetime.strptime(
                             row['t'],
                             '%Y-%m-%dT%H:%M:%SZ',
                         ).replace(
@@ -156,13 +165,13 @@ class Client:
                             minute=0,
                             second=0,
                         ),
-                        'ticker': ticker,
-                        'open_price': round(float(row['o']), 2),
-                        'high_price': round(float(row['h']), 2),
-                        'low_price': round(float(row['l']), 2),
-                        'close_price': round(float(row['c']), 2),
-                        'volume': round(float(row['v']), 2),
-                        'source': SOURCE_ALPACA,
+                        COLUMN_TICKER: ticker,
+                        COLUMN_OPEN_PRICE: round(float(row['o']), 2),
+                        COLUMN_HIGH_PRICE: round(float(row['h']), 2),
+                        COLUMN_LOW_PRICE: round(float(row['l']), 2),
+                        COLUMN_CLOSE_PRICE: round(float(row['c']), 2),
+                        COLUMN_VOLUME: round(float(row['v']), 2),
+                        COLUMN_SOURCE: SOURCE_ALPACA,
                     } for row in response[ticker]]
 
                     bars.extend(ticker_bars)
