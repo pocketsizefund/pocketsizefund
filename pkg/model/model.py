@@ -27,7 +27,7 @@ class Client:
         self,
         data: pandas.DataFrame,
         training_percentage: float,
-    ) -> dict[str: numpy.ndarray]:
+    ) -> dict[str: dict[str: numpy.ndarray]]:
         data = data.drop(
             columns=self.drop_columns,
             axis=1,
@@ -92,10 +92,7 @@ class Client:
 
         return preprocessed_data
 
-    def train_model(
-        self,
-        data: pandas.DataFrame,
-    ) -> None:
+    def train_model(self) -> None:
         model = tensorflow.keras.models.Sequential()
 
         feature_count = len(self.scale_columns)
@@ -139,3 +136,18 @@ class Client:
             raise Exception('no model to save')
 
         self.model.save(filepath=directory_path)
+
+    def evaluate_model(
+        self,
+        test_data: numpy.ndarray,
+        target_data: numpy.ndarray,
+    ) -> dict[str, any]:
+        loss, accuracy = self.model.evaluate(
+            test_data,
+            target_data,
+        )
+
+        return {
+            'loss': loss,
+            'accuracy': accuracy,
+        }
