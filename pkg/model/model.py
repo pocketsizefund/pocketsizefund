@@ -130,3 +130,12 @@ class Client:
         )
 
         self.model = model
+
+    def save_model(
+        self,
+        directory_path: str,
+    ) -> None:
+        if self.model is None:
+            raise Exception('no model to save')
+
+        self.model.save(filepath=directory_path)
