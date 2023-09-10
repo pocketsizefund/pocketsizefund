@@ -1,3 +1,5 @@
+import pickle
+
 import pandas
 from sklearn import preprocessing
 import numpy
@@ -15,12 +17,14 @@ class Client:
         scale_columns: list[str],
         group_column: str,  # ticker
         target_column: str,  # close_price
+        scalers: dict[str: preprocessing.MinMaxScaler],
     ) -> None:
         self.sort_column = sort_column
         self.drop_columns = drop_columns
         self.scale_columns = scale_columns
         self.group_column = group_column
         self.target_column = target_column
+        self.scalers = scalers
         self.model = None
 
     def preprocess_data(
@@ -60,7 +64,7 @@ class Client:
             training_data = ticker_data[:split]
             testing_data = ticker_data[split:]
 
-            scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
+            scaler = self.scalers[ticker]
 
             scaled_training_data: pandas.DataFrame = training_data.copy()
             scaled_testing_data: pandas.DataFrame = testing_data.copy()
@@ -92,7 +96,11 @@ class Client:
 
         return preprocessed_data
 
-    def train_model(self) -> None:
+    def train_model(
+        self,
+        training_data: dict[str: numpy.ndarray],
+        targeting_data: dict[str: numpy.ndarray],
+    ) -> None:
         model = tensorflow.keras.models.Sequential()
 
         feature_count = len(self.scale_columns)
@@ -126,6 +134,14 @@ class Client:
             optimizer='adam',
         )
 
+        self.model.fit(
+            numpy.concatenate(training_data.values()),
+            numpy.concatenate(targeting_data.values()),
+            epochs=30,
+            batch_size=1,
+            verbose=1,  # progress bar
+        )
+
         self.model = model
 
     def save_model(
@@ -139,15 +155,37 @@ class Client:
 
     def evaluate_model(
         self,
-        test_data: numpy.ndarray,
-        target_data: numpy.ndarray,
+        testing_data: dict[str: numpy.ndarray],
+        targeting_data: dict[str: numpy.ndarray],
     ) -> dict[str, any]:
+        if self.model is None:
+            raise Exception('no model to evaluate')
+
         loss, accuracy = self.model.evaluate(
-            test_data,
-            target_data,
+            numpy.concatenate(testing_data.values()),
+            numpy.concatenate(targeting_data.values()),
         )
 
         return {
             'loss': loss,
             'accuracy': accuracy,
         }
+
+    def invoke_model(
+        self,
+        data: dict[str: numpy.ndarray],
+    ) -> dict[str: float]:
+        if self.model is None:
+            raise Exception('no model to invoke')
+
+        predictions: dict[str: float] = {}
+
+        for ticker, ticker_data in data.items():
+            prediction = self.model.predict(ticker_data)
+
+            scaler = self.scalers[ticker]
+            unscaled_prediction = scaler.inverse_transform(prediction)
+
+            predictions[ticker] = unscaled_prediction
+
+        return predictions
