@@ -65,14 +65,9 @@ class Client:
             scaler = self.scalers[ticker]
 
             scaled_training_data: pandas.DataFrame = training_data.copy()
-            scaled_testing_data: pandas.DataFrame = testing_data.copy()
 
             scaled_training_data[self.scale_columns] = scaler.fit_transform(
                 training_data[self.scale_columns]
-            )
-
-            scaled_testing_data[self.scale_columns] = scaler.transform(
-                testing_data[self.scale_columns]
             )
 
             input_training_data, output_training_data = create_sequence(
@@ -80,17 +75,25 @@ class Client:
                 DAYS_TO_TRAIN,
             )
 
-            input_testing_data, output_testing_data = create_sequence(
-                scaled_testing_data,
-                DAYS_TO_TRAIN,
-            )
-
             preprocessed_data[ticker] = {
                 'input_training_data': input_training_data,
                 'output_training_data': output_training_data,
-                'input_testing_data': input_testing_data,
-                'output_testing_data': output_testing_data,
             }
+
+            if len(testing_data) == 0:
+                scaled_testing_data: pandas.DataFrame = testing_data.copy()
+
+                scaled_testing_data[self.scale_columns] = scaler.transform(
+                    testing_data[self.scale_columns]
+                )
+
+                input_testing_data, output_testing_data = create_sequence(
+                    scaled_testing_data,
+                    DAYS_TO_TRAIN,
+                )
+
+                preprocessed_data[ticker]['input_testing_data'] = input_testing_data
+                preprocessed_data[ticker]['output_testing_data'] = output_testing_data
 
         return preprocessed_data
 
