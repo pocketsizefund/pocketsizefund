@@ -1,5 +1,3 @@
-import pickle
-
 import pandas
 from sklearn import preprocessing
 import numpy
