@@ -80,7 +80,7 @@ class Client:
                 'output_training_data': output_training_data,
             }
 
-            if len(testing_data) == 0:
+            if len(testing_data) > 0:
                 scaled_testing_data: pandas.DataFrame = testing_data.copy()
 
                 scaled_testing_data[self.scale_columns] = scaler.transform(
