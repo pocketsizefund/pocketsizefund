@@ -8,7 +8,7 @@ from pkg.model import model
 
 class TestPreprocessData(unittest.TestCase):
     def test_preprocess_data_succes(self):
-        input_data = pandas.read_csv('pkg/model/test_data_2.csv')
+        input_data = pandas.read_csv('pkg/model/test_data.csv')
 
         scalers: dict[str: preprocessing.MinMaxScaler] = {}
 
