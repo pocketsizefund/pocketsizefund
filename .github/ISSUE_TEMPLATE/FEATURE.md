@@ -8,10 +8,10 @@ labels: feature
 
 ### Description
 
-<!-- Write a few sentences for context for new proposed behavior and benefits -->
+<!-- Write a few sentences for context for new proposed behavior and benefits. -->
 
 ### Specifics
 
-<!-- Provide bullet points details with code changes and work proposal -->
+<!-- Provide bullet point details with code changes and work proposal. -->
 
 Hey, @forstmeier - here's a feature to review!  
