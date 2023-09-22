@@ -21,15 +21,20 @@ class Client:
     ) -> None:
         self.darqube_api_key = darqube_api_key
         self.http_client = requests
-        self.alpaca_trading_client = trading_client.TradingClient(
-            api_key=alpaca_api_key,
-            secret_key=alpaca_api_secret,
-            paper=is_paper,
-        )
-        self.alpaca_data_client = historical.StockHistoricalDataClient(
-            api_key=alpaca_api_key,
-            secret_key=alpaca_api_secret,
-        )
+
+        try:
+            self.alpaca_trading_client = trading_client.TradingClient(
+                api_key=alpaca_api_key,
+                secret_key=alpaca_api_secret,
+                paper=is_paper,
+            )
+            self.alpaca_data_client = historical.StockHistoricalDataClient(
+                api_key=alpaca_api_key,
+                secret_key=alpaca_api_secret,
+            )
+        except Exception as e:
+            logging.error("Failed to initialize Alpaca Client")
+            raise e
 
     def get_market_status(self) -> dict[str, any]:
         clock = self.alpaca_trading_client.get_clock()
