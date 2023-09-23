@@ -77,7 +77,7 @@ class TestTrade(unittest.TestCase):
             ),
         )
 
-        current_prices = client.get_current_prices(
+        current_prices = self.client.get_current_prices(
             tickers=['TICKER'],
         )
 
