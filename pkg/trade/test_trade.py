@@ -2,6 +2,113 @@ import unittest
 
 from pkg.trade import trade
 
+class TestTrade(unittest.TestCase):
+
+    def setUp(self):
+        self.client = trade.Client(
+            darqube_api_key='darqube_api_key',
+            alpaca_api_key='alpaca_api_key',
+            alpaca_api_secret='alpaca_api_secret',
+        )
+
+    def tearDown(self):
+        pass
+
+
+    def test_get_market_status_success(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaGetClockResponse(
+                is_open=True,
+            ),
+        )
+
+        market_status = self.client.get_market_status()
+
+        self.assertEqual(True, market_status['is_market_open'])
+
+
+    def test_get_available_tickers_success(self):
+        self.client.http_client = MockHTTPClient(
+            response=MockDarqubeGetTickersResponse(
+                data={
+                    '0': {
+                        'Code': 'TICKER',
+                    },
+                },
+            ),
+        )
+
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaGetAllAssetsResponse(
+                data=[
+                    MockAlpacaAsset(
+                        symbol='TICKER',
+                    ),
+                ],
+            ),
+        )
+
+        tickers = self.client.get_available_tickers()
+
+        self.assertEqual(1, len(tickers))
+        self.assertEqual('TICKER', tickers[0])
+
+
+    def test_get_available_cash_success(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaAccount(
+                cash=100.0,
+            ),
+        )
+
+        available_cash = self.client.get_available_cash()
+
+        self.assertEqual(100.0, available_cash)
+
+
+    def test_get_current_prices_success(self):
+        self.client.alpaca_data_client = MockAlpacaDataClient(
+            response=MockAlpacaGetStockLatestTradesResponse(
+                data={
+                    'TICKER': MockAlpacaTrade(
+                        price=5.0,
+                    ),
+                },
+            ),
+        )
+
+        current_prices = client.get_current_prices(
+            tickers=['TICKER'],
+        )
+
+        self.assertEqual(1, len(current_prices))
+        self.assertEqual(5.0, current_prices['TICKER']['price'])
+
+
+    def test_set_position_success(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=None,
+        )
+
+        self.client.set_positions(
+            positions=[
+                {
+                    'ticker': 'TICKER',
+                    'quantity': 10.0,
+                    'side': trade.SIDE_BUY,
+                },
+            ],
+        )
+
+
+    def test_clear_positions_success(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=None,
+        )
+
+        self.client.clear_positions()
+
+
 
 class MockAlpacaGetClockResponse:
     def __init__(
@@ -9,25 +116,6 @@ class MockAlpacaGetClockResponse:
         is_open: bool,
     ) -> None:
         self.is_open = is_open
-
-
-class TestGetMarketStatus(unittest.TestCase):
-    def test_get_market_status_success(self):
-        client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-        )
-
-        client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=MockAlpacaGetClockResponse(
-                is_open=True,
-            ),
-        )
-
-        market_status = client.get_market_status()
-
-        self.assertEqual(True, market_status['is_market_open'])
 
 
 class MockDarqubeGetTickersResponse:
@@ -125,60 +213,7 @@ class MockAlpacaTradingClient:
         cancel_orders: bool,
     ) -> any:
         return self.response
-
-
-class TestGetAvailableTickers(unittest.TestCase):
-    def test_get_available_tickers_success(self):
-        client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-        )
-
-        client.http_client = MockHTTPClient(
-            response=MockDarqubeGetTickersResponse(
-                data={
-                    '0': {
-                        'Code': 'TICKER',
-                    },
-                },
-            ),
-        )
-
-        client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=MockAlpacaGetAllAssetsResponse(
-                data=[
-                    MockAlpacaAsset(
-                        symbol='TICKER',
-                    ),
-                ],
-            ),
-        )
-
-        tickers = client.get_available_tickers()
-
-        self.assertEqual(1, len(tickers))
-        self.assertEqual('TICKER', tickers[0])
-
-
-class TestGetAvailableCash(unittest.TestCase):
-    def test_get_available_cash_success(self):
-        client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-        )
-
-        client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=MockAlpacaAccount(
-                cash=100.0,
-            ),
-        )
-
-        available_cash = client.get_available_cash()
-
-        self.assertEqual(100.0, available_cash)
-
+    
 
 class MockAlpacaTrade:
     def __init__(
@@ -227,67 +262,3 @@ class MockAlpacaDataClient:
         request: any,
     ) -> any:
         return self.response
-
-
-class TestGetCurrentPrices(unittest.TestCase):
-    def test_get_current_prices_success(self):
-        client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-        )
-
-        client.alpaca_data_client = MockAlpacaDataClient(
-            response=MockAlpacaGetStockLatestTradesResponse(
-                data={
-                    'TICKER': MockAlpacaTrade(
-                        price=5.0,
-                    ),
-                },
-            ),
-        )
-
-        current_prices = client.get_current_prices(
-            tickers=['TICKER'],
-        )
-
-        self.assertEqual(1, len(current_prices))
-        self.assertEqual(5.0, current_prices['TICKER']['price'])
-
-
-class TestSetPositions(unittest.TestCase):
-    def test_set_position_success(self):
-        client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-        )
-
-        client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=None,
-        )
-
-        client.set_positions(
-            positions=[
-                {
-                    'ticker': 'TICKER',
-                    'quantity': 10.0,
-                    'side': trade.SIDE_BUY,
-                },
-            ],
-        )
-
-
-class TestClearPositions(unittest.TestCase):
-    def test_clear_positions_success(self):
-        client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-        )
-
-        client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=None,
-        )
-
-        client.clear_positions()
