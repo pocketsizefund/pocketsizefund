@@ -4,14 +4,14 @@ from pkg.trade import trade
 
 class TestTrade(unittest.TestCase):
 
-    def setUp(self):
+    def setup(self):
         self.client = trade.Client(
             darqube_api_key='darqube_api_key',
             alpaca_api_key='alpaca_api_key',
             alpaca_api_secret='alpaca_api_secret',
         )
 
-    def tearDown(self):
+    def teardown(self):
         pass
 
 
