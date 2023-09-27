@@ -90,7 +90,7 @@ class TestTrade(unittest.TestCase):
             response=None,
         )
 
-        self.client.set_positions(
+        market_order = self.client.set_positions(
             positions=[
                 {
                     'ticker': 'TICKER',
@@ -99,6 +99,11 @@ class TestTrade(unittest.TestCase):
                 },
             ],
         )
+
+        self.assertIsNotNone(market_order)
+        self.assertEqual(market_order['symbol'] == 'TICKER')
+        self.assertEqual(market_order['qty'] == 10)
+        self.assertEqual(market_order['side'] == SIDE_BUY)
 
 
     def test_clear_positions_success(self):
@@ -221,6 +226,18 @@ class MockAlpacaTrade:
         price: float,
     ) -> None:
         self.price = price
+
+
+class MockAlpacaOrderResponse:
+    def __init__(
+        self,
+        symbol: str,
+        qty: float,
+        side: str
+    )
+        self.symbol = symbol
+        self.qty = qty
+        self.side = side
 
 
 class MockAlpacaGetStockLatestTradesResponse:
