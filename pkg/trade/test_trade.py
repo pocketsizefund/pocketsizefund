@@ -101,9 +101,9 @@ class TestTrade(unittest.TestCase):
         )
 
         self.assertIsNotNone(market_order)
-        self.assertEqual(market_order.symbol, 'TICKER')
-        self.assertEqual(market_order.qty, 10)
-        self.assertEqual(market_order.side, SIDE_BUY)
+        self.assertEqual(market_order['TICKER']['symbol'], 'TICKER')
+        self.assertEqual(market_order['TICKER']['qty'], 10)
+        self.assertEqual(market_order['TICKER']['side'], 'buy')
 
 
     def test_clear_positions_success(self):
@@ -211,7 +211,11 @@ class MockAlpacaTradingClient:
         self,
         request: any,
     ) -> any:
-        return self.response
+        return {
+            'symbol': request.symbol,
+            'qty': request.qty,
+            'side': request.side,
+        }
 
     def close_all_positions(
         self,

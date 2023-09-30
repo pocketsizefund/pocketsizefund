@@ -99,7 +99,8 @@ class Client:
     def set_positions(
         self,
         positions: list[dict[str, any]],
-    ) -> dict:
+    ):
+        pos_set = {}
         for position in positions:
             side: enums.OrderSide = None
 
@@ -117,8 +118,8 @@ class Client:
                 time_in_force=enums.TimeInForce.DAY,
             )
 
-            market_order = self.alpaca_trading_client.submit_order(request)
-        return market_order
+            pos_set[position['ticker']] = self.alpaca_trading_client.submit_order(request)
+        return pos_set
 
     def clear_positions(self) -> None:
         self.alpaca_trading_client.close_all_positions(
