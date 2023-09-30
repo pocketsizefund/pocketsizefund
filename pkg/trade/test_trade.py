@@ -111,7 +111,20 @@ class TestTrade(unittest.TestCase):
             response=None,
         )
 
+        self.client.set_positions(
+            positions=[
+                {
+                    'ticker': 'TICKER',
+                    'quantity': 10.0,
+                    'side': trade.SIDE_BUY,
+                },
+            ],
+        )
+
         self.client.clear_positions()
+        
+        positions = self.client.get_positions()  
+        self.assertEqual(positions, {})
 
 
 
@@ -188,6 +201,12 @@ class MockAlpacaGetAllAssetsResponse:
             raise StopIteration
 
 
+class MockAlpacaPosition:
+    def __init__(self, symbol: str, qty: float) -> None:
+        self.symbol = symbol
+        self.qty = qty
+
+
 class MockAlpacaTradingClient:
     def __init__(
         self,
@@ -216,6 +235,9 @@ class MockAlpacaTradingClient:
             'qty': request.qty,
             'side': request.side,
         }
+
+    def get_all_positions(self) -> list[MockAlpacaPosition]:
+        return []
 
     def close_all_positions(
         self,

@@ -110,6 +110,7 @@ class Client:
             elif position['side'] == SIDE_SELL:
                 side = enums.OrderSide.SELL
 
+            #market order
             request = alpaca_trading_requests.MarketOrderRequest(
                 symbol=position['ticker'],
                 qty=round(position['quantity'], 2),
@@ -118,8 +119,22 @@ class Client:
                 time_in_force=enums.TimeInForce.DAY,
             )
 
+            #prepare limit order
+
+            #limit order
+
             pos_set[position['ticker']] = self.alpaca_trading_client.submit_order(request)
         return pos_set
+
+
+    def get_positions(self) -> dict[str, float]:
+        portfolio = self.alpaca_trading_client.get_all_positions()
+        port = {}
+
+        for position in portfolio:
+            port[position.symbol] = position.qty
+
+        return port
 
     def clear_positions(self) -> None:
         self.alpaca_trading_client.close_all_positions(
