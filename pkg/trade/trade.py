@@ -110,6 +110,11 @@ class Client:
             elif position['side'] == SIDE_SELL:
                 side = enums.OrderSide.SELL
 
+            # make sure quantity is positive
+            quantity = position['quantity']
+            if quantity <= 0:
+                raise ValueError('Quantity must be a positive number.')
+
             #market order
             request = alpaca_trading_requests.MarketOrderRequest(
                 symbol=position['ticker'],
