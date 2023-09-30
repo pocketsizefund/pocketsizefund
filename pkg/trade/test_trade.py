@@ -106,7 +106,7 @@ class TestTrade(unittest.TestCase):
         self.assertEqual(market_order['TICKER']['side'], 'buy')
 
         # if quantity is not positive
-        invalid_positions = [
+        invalid_positions1 = [
             {
                 'ticker': 'TICKER',
                 'quantity': -10.0,
@@ -116,12 +116,31 @@ class TestTrade(unittest.TestCase):
 
         with self.assertRaises(ValueError) as context:
             self.client.set_positions(
-                positions=invalid_positions)
+                positions=invalid_positions1)
 
         self.assertEqual(str(context.exception), 'Quantity must be a positive number.')
 
         # what happens when input is an empty dictionary?
         # CODE
+
+        # if theres multiple positions needed to be set
+
+
+
+        # if the ticker input is invalid
+        invalid_positions3 = [
+            {
+                'ticker': 'INVALID',
+                'quantity': 10,
+                'side': trade.SIDE_BUY
+            }
+        ]
+
+        with self.assertRaises(ValueError) as context:
+            self.client.set_positions(
+                positions=invalid_positions3)
+
+        self.assertEqual(str(context.exception), f"Invalid ticker: {invalid_positions3['ticker']}")
 
     def test_clear_positions_success(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
