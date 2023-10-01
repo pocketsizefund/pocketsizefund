@@ -102,6 +102,7 @@ class Client:
     ):
         pos_set = {}
         available_tickers = self.get_available_tickers()
+
         for position in positions:
             side: enums.OrderSide = None
 
@@ -111,16 +112,14 @@ class Client:
             elif position['side'] == SIDE_SELL:
                 side = enums.OrderSide.SELL
 
-            # make sure quantity is positive
             quantity = position['quantity']
             if quantity <= 0:
-                raise ValueError('Quantity must be a positive number.')
+                raise Exception('Quantity must be a positive number.')
 
-            # check if ticker is valid
             if position['ticker'] not in available_tickers:
-                raise InvalidTicketError(f"Invalid ticker: {position['ticker']}")
+                raise Exception(f"Invalid ticker: {position['ticker']}")
 
-            #market order
+            
             request = alpaca_trading_requests.MarketOrderRequest(
                 symbol=position['ticker'],
                 qty=round(position['quantity'], 2),
@@ -128,10 +127,6 @@ class Client:
                 side=side,
                 time_in_force=enums.TimeInForce.DAY,
             )
-
-            #prepare limit order
-
-            #limit order
 
             pos_set[position['ticker']] = self.alpaca_trading_client.submit_order(request)
         return pos_set
