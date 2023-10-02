@@ -37,7 +37,7 @@ class Client:
             'is_market_open': clock.is_open,
         }
 
-    def get_available_tickers(self) -> list[str]:
+    def _get_available_tickers(self) -> list[str]:
         # GSPC is the S&P 500
         darqube_response = self.http_client.get(
             url='https://api.darqube.com/data-api/fundamentals/indexes/index_constituents/GSPC',
@@ -73,6 +73,9 @@ class Client:
 
         return tickers
 
+    def get_available_tickers(self) -> list[str]:
+        return self._get_available_tickers()
+
     def get_available_cash(self) -> float:
         account = self.alpaca_trading_client.get_account()
 
@@ -101,7 +104,7 @@ class Client:
         positions: list[dict[str, any]],
     ):
         pos_set = {}
-        available_tickers = self.get_available_tickers()
+        available_tickers = self._get_available_tickers()
 
         for position in positions:
             side: enums.OrderSide = None
