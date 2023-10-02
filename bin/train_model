@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-# trains and generates a
-# model file
-
-set -e
-
-python3 ./bin/helpers/train_model.py
