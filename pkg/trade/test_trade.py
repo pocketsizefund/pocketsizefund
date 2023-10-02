@@ -90,7 +90,7 @@ class TestTrade(unittest.TestCase):
             response=None,
         )
 
-        market_order = self.client.set_positions(
+        self.client.set_positions(
             positions=[
                 {
                     'ticker': 'TICKER',
@@ -100,10 +100,11 @@ class TestTrade(unittest.TestCase):
             ],
         )
 
-        self.assertIsNotNone(market_order)
-        self.assertEqual(market_order['TICKER']['symbol'], 'TICKER')
-        self.assertEqual(market_order['TICKER']['qty'], 10)
-        self.assertEqual(market_order['TICKER']['side'], 'buy')
+        last_request = self.client.alpaca_trading_client.last_request
+        self.assertIsNotNone(last_request)
+        self.assertEqual(last_request.symbol, 'TICKER')
+        self.assertEqual(last_request.qty, 10)
+        self.assertEqual(last_request.side, 'buy')
 
         # if quantity is not positive
         invalid_positions1 = [
@@ -130,7 +131,7 @@ class TestTrade(unittest.TestCase):
 
         with self.assertRaises(Exception) as context:
             self.client.set_positions(
-                positions=invalid_positions3)
+                positions=invalid_positions2)
 
         self.assertEqual(str(context.exception), f"Invalid ticker: {invalid_positions2['ticker']}")
 
@@ -151,7 +152,7 @@ class TestTrade(unittest.TestCase):
 
         self.client.clear_positions()
         
-        positions = self.client.get_positions()  
+        positions = self.client.get_portfolio()  
         self.assertEqual(positions, {})
 
 
@@ -241,6 +242,7 @@ class MockAlpacaTradingClient:
         response: any,
     ) -> None:
         self.response = response
+        self.last_request = None
 
     def get_all_assets(
         self,
@@ -258,6 +260,7 @@ class MockAlpacaTradingClient:
         self,
         request: any,
     ) -> any:
+        self.last_request = request
         return {
             'symbol': request.symbol,
             'qty': request.qty,

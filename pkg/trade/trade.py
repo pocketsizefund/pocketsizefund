@@ -102,8 +102,8 @@ class Client:
     def set_positions(
         self,
         positions: list[dict[str, any]],
-    ):
-        pos_set = {}
+    ) -> None:
+        
         available_tickers = self._get_available_tickers()
 
         for position in positions:
@@ -131,11 +131,11 @@ class Client:
                 time_in_force=enums.TimeInForce.DAY,
             )
 
-            pos_set[position['ticker']] = self.alpaca_trading_client.submit_order(request)
-        return pos_set
+            self.alpaca_trading_client.submit_order(request)
+        
 
 
-    def get_positions(self) -> dict[str, float]:
+    def _get_positions(self) -> dict[str, float]:
         portfolio = self.alpaca_trading_client.get_all_positions()
         port = {}
 
@@ -143,6 +143,9 @@ class Client:
             port[position.symbol] = position.qty
 
         return port
+
+    def get_portfolio(self) -> dict[str, float]:
+        return self._get_positions()
 
     def clear_positions(self) -> None:
         self.alpaca_trading_client.close_all_positions(
