@@ -152,7 +152,7 @@ class Client:
     def store_scalers(
         self,
         prefix: str,
-        scalers: dict[str, preprocessing.MinMaxScaler],
+        scalers: dict[int, dict[str, preprocessing.MinMaxScaler]],
     ) -> None:
         data = pickle.dumps(scalers)
 
@@ -167,7 +167,7 @@ class Client:
     def load_scalers(
         self,
         prefix: str,
-    ) -> dict[str, preprocessing.MinMaxScaler]:
+    ) -> dict[int, dict[str, preprocessing.MinMaxScaler]]:
         key = '{}/scalers.pickle'.format(prefix)
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,
