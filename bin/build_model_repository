@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# create a repository in ECR
+# to store the model image
+
+set -e
+
+directory_name=$1
+
+if [[ -z "$directory_name" ]]; then
+    echo "valid directory name required:"
+    echo ""
+    ls -li exp | awk '{print $NF}' | tail -n +2
+    echo ""
+    exit 0
+fi
+
+region=$(aws --profile default configure get region)
+
+repository_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)
+
+AWS_PAGER="" aws ecr create-repository \
+    --repository-name $repository_name \
+    --region $region \
+    --no-paginate
