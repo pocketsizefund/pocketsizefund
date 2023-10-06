@@ -16,6 +16,9 @@ elif original_name == 'clearpositions':
 elif original_name == 'completeinvite':
     updated_name = 'complete-invite'
 
+elif original_name == 'lstm':
+    updated_name = 'model-lstm'
+
 else:
     exit('"{}" package name not found'.format(original_name))
 
