@@ -322,9 +322,9 @@ Resources:
                     - clearPositionsFunction
                     - Arn
           PolicyName:
-            Fn::Sub: ${AWS::StackName}-function-scheduler-policy
+            Fn::Sub: ${AWS::StackName}-lambda-function-scheduler-policy
       RoleName:
-        Fn::Sub: ${AWS::StackName}-function-scheduler-role
+        Fn::Sub: ${AWS::StackName}-lambda-function-scheduler-role
       Tags:
         - Key: pocketsizefund
           Value: role
