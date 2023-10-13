@@ -103,7 +103,6 @@ class Client:
         self,
         positions: list[dict[str, any]],
     ) -> None:
-        
         available_tickers = self._get_available_tickers()
 
         for position in positions:
@@ -117,23 +116,22 @@ class Client:
 
             quantity = position['quantity']
             if quantity <= 0:
-                raise Exception('Quantity must be a positive number.')
+                raise Exception('quantity must be a positive number')
 
             if position['ticker'] not in available_tickers:
-                raise Exception(f"Invalid ticker: {position['ticker']}")
+                raise Exception(
+                    'invalid ticker "{}"'.format(position['ticker'])
+                )
 
-            
             request = alpaca_trading_requests.MarketOrderRequest(
                 symbol=position['ticker'],
-                qty=round(position['quantity'], 2),
+                qty=round(quantity, 2),
                 type=enums.OrderType.MARKET,
                 side=side,
                 time_in_force=enums.TimeInForce.DAY,
             )
 
             self.alpaca_trading_client.submit_order(request)
-        
-
 
     def _get_positions(self) -> dict[str, float]:
         portfolio = self.alpaca_trading_client.get_all_positions()

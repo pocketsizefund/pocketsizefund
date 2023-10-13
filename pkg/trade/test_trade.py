@@ -2,8 +2,8 @@ import unittest
 
 from pkg.trade import trade
 
-class TestTrade(unittest.TestCase):
 
+class TestTrade(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
             darqube_api_key='darqube_api_key',
@@ -13,7 +13,6 @@ class TestTrade(unittest.TestCase):
 
     def tearDown(self):
         pass
-
 
     def test_get_market_status_success(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -25,7 +24,6 @@ class TestTrade(unittest.TestCase):
         market_status = self.client.get_market_status()
 
         self.assertEqual(True, market_status['is_market_open'])
-
 
     def test_get_available_tickers_success(self):
         self.client.http_client = MockHTTPClient(
@@ -53,7 +51,6 @@ class TestTrade(unittest.TestCase):
         self.assertEqual(1, len(tickers))
         self.assertEqual('TICKER', tickers[0])
 
-
     def test_get_available_cash_success(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             response=MockAlpacaAccount(
@@ -64,7 +61,6 @@ class TestTrade(unittest.TestCase):
         available_cash = self.client.get_available_cash()
 
         self.assertEqual(100.0, available_cash)
-
 
     def test_get_current_prices_success(self):
         self.client.alpaca_data_client = MockAlpacaDataClient(
@@ -84,10 +80,25 @@ class TestTrade(unittest.TestCase):
         self.assertEqual(1, len(current_prices))
         self.assertEqual(5.0, current_prices['TICKER']['price'])
 
-
     def test_set_position_success(self):
+        self.client.http_client = MockHTTPClient(
+            response=MockDarqubeGetTickersResponse(
+                data={
+                    '0': {
+                        'Code': 'TICKER',
+                    },
+                },
+            ),
+        )
+
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=None,
+            response=MockAlpacaGetAllAssetsResponse(
+                data=[
+                    MockAlpacaAsset(
+                        symbol='TICKER',
+                    ),
+                ],
+            ),
         )
 
         self.client.set_positions(
@@ -106,8 +117,7 @@ class TestTrade(unittest.TestCase):
         self.assertEqual(last_request.qty, 10)
         self.assertEqual(last_request.side, 'buy')
 
-        # if quantity is not positive
-        invalid_positions1 = [
+        negative_position = [
             {
                 'ticker': 'TICKER',
                 'quantity': -10.0,
@@ -115,13 +125,15 @@ class TestTrade(unittest.TestCase):
             },
         ]
 
-        with self.assertRaises(ValueError) as context:
-            self.client.set_positions(
-                positions=invalid_positions1)
+        with self.assertRaises(Exception) as context:
+            self.client.set_positions(positions=negative_position)
 
-        self.assertEqual(str(context.exception), 'Quantity must be a positive number.')
+        self.assertEqual(
+            str(context.exception),
+            'quantity must be a positive number',
+        )
 
-        invalid_positions2 = [
+        non_ticker_position = [
             {
                 'ticker': 'INVALID',
                 'quantity': 10,
@@ -130,14 +142,32 @@ class TestTrade(unittest.TestCase):
         ]
 
         with self.assertRaises(Exception) as context:
-            self.client.set_positions(
-                positions=invalid_positions2)
+            self.client.set_positions(positions=non_ticker_position)
 
-        self.assertEqual(str(context.exception), f"Invalid ticker: {invalid_positions2['ticker']}")
+        self.assertEqual(
+            str(context.exception),
+            'invalid ticker "{}"'.format(non_ticker_position[0]['ticker']),
+        )
 
     def test_clear_positions_success(self):
+        self.client.http_client = MockHTTPClient(
+            response=MockDarqubeGetTickersResponse(
+                data={
+                    '0': {
+                        'Code': 'TICKER',
+                    },
+                },
+            ),
+        )
+
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=None,
+            response=MockAlpacaGetAllAssetsResponse(
+                data=[
+                    MockAlpacaAsset(
+                        symbol='TICKER',
+                    ),
+                ],
+            ),
         )
 
         self.client.set_positions(
@@ -151,10 +181,9 @@ class TestTrade(unittest.TestCase):
         )
 
         self.client.clear_positions()
-        
-        positions = self.client.get_portfolio()  
-        self.assertEqual(positions, {})
 
+        positions = self.client.get_portfolio()
+        self.assertEqual(positions, {})
 
 
 class MockAlpacaGetClockResponse:
@@ -275,7 +304,7 @@ class MockAlpacaTradingClient:
         cancel_orders: bool,
     ) -> any:
         return self.response
-    
+
 
 class MockAlpacaTrade:
     def __init__(

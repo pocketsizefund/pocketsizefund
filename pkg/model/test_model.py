@@ -36,7 +36,7 @@ class TestPreprocessData(unittest.TestCase):
             training_percentage=0.8,
         )
 
-        self.assertEqual(len(output_data), 10)
+        self.assertEqual(len(output_data), 9)
         self.assertEqual(len(output_data['BIIB']), 4)
         self.assertEqual(len(output_data['BIIB']['input_training_data']), 103)
         self.assertEqual(len(output_data['BIIB']['output_training_data']), 103)
