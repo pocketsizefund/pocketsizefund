@@ -89,21 +89,13 @@ Resources:
               Ref: FetchDataScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
-            RoleArn:
-              Fn::GetAtt:
-                - functionSchedulerRole
-                - Arn
+            RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName:
-        Fn::Sub: ${AWS::StackName}-fetch-data
-      ImageUri:
-        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fetch-data:latest
+      FunctionName: !Sub ${AWS::StackName}-fetch-data
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fetch-data:latest
       MemorySize: 768
       PackageType: Image
-      Role:
-        Fn::GetAtt:
-          - functionRole
-          - Arn
+      Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 240
@@ -138,21 +130,13 @@ Resources:
               Ref: CreateAndClearTradeScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
-            RoleArn:
-              Fn::GetAtt:
-                - functionSchedulerRole
-                - Arn
+            RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName:
-        Fn::Sub: ${AWS::StackName}-create-positions
-      ImageUri:
-        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-positions:latest
+      FunctionName: !Sub ${AWS::StackName}-create-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-positions:latest
       MemorySize: 1536
       PackageType: Image
-      Role:
-        Fn::GetAtt:
-          - functionRole
-          - Arn
+      Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 300
@@ -183,21 +167,13 @@ Resources:
               Ref: CreateAndClearTradeScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
-            RoleArn:
-              Fn::GetAtt:
-                - functionSchedulerRole
-                - Arn
+            RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName:
-        Fn::Sub: ${AWS::StackName}-clear-positions
-      ImageUri:
-        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/clear-positions:latest
+      FunctionName: !Sub ${AWS::StackName}-clear-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/clear-positions:latest
       MemorySize: 128
       PackageType: Image
-      Role:
-        Fn::GetAtt:
-          - functionRole
-          - Arn
+      Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 60
@@ -217,16 +193,11 @@ Resources:
             Ref: AlpacaOAuthClientSecret
           USERS_TABLE_NAME:
             Ref: usersTable
-      FunctionName:
-        Fn::Sub: ${AWS::StackName}-complete-invite
-      ImageUri:
-        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
+      FunctionName: !Sub ${AWS::StackName}-complete-invite
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
       MemorySize: 128
       PackageType: Image
-      Role:
-        Fn::GetAtt:
-          - functionRole
-          - Arn
+      Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 15
@@ -234,10 +205,7 @@ Resources:
     Type: AWS::Lambda::Url
     Properties: 
       AuthType: NONE
-      TargetFunctionArn:
-        Fn::GetAtt:
-          - completeInviteFunction
-          - Arn
+      TargetFunctionArn: !GetAtt completeInviteFunction.Arn
   functionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -258,30 +226,25 @@ Resources:
               - Action:
                   - s3:ListBucket
                 Effect: Allow
-                Resource:
-                  Fn::Sub: arn:aws:s3:::${S3DataBucketName}
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}
               - Action:
                   - s3:PutObject
                   - s3:GetObject
                 Effect: Allow
-                Resource:
-                  Fn::Sub: arn:aws:s3:::${S3DataBucketName}/*
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}/*
               - Action:
                   - dynamodb:PutItem
                   - dynamodb:Scan
                   - dynamodb:UpdateItem
                 Effect: Allow
-                Resource:
-                  Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
               - Action:
                   - sns:Publish
                 Effect: Allow
                 Resource:
                   Ref: SNSErrorsTopicARN
-          PolicyName:
-            Fn::Sub: ${AWS::StackName}-lambda-function-policy
-      RoleName:
-        Fn::Sub: ${AWS::StackName}-lambda-function-role
+          PolicyName: !Sub ${AWS::StackName}-lambda-function-policy
+      RoleName: !Sub ${AWS::StackName}-lambda-function-role
       Tags:
         - Key: pocketsizefund
           Value: role
@@ -303,28 +266,17 @@ Resources:
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow
-                Resource:
-                  Fn::GetAtt:
-                    - fetchDataFunction
-                    - Arn
+                Resource: !GetAtt fetchDataFunction.Arn
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow
-                Resource:
-                  Fn::GetAtt:
-                    - createPositionsFunction
-                    - Arn
+                Resource: !GetAtt createPositionsFunction.Arn
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow
-                Resource:
-                  Fn::GetAtt:
-                    - clearPositionsFunction
-                    - Arn
-          PolicyName:
-            Fn::Sub: ${AWS::StackName}-lambda-function-scheduler-policy
-      RoleName:
-        Fn::Sub: ${AWS::StackName}-lambda-function-scheduler-role
+                Resource: !GetAtt clearPositionsFunction.Arn
+          PolicyName: !Sub ${AWS::StackName}-lambda-function-scheduler-policy
+      RoleName: !Sub ${AWS::StackName}-lambda-function-scheduler-role
       Tags:
         - Key: pocketsizefund
           Value: role
@@ -334,8 +286,7 @@ Resources:
       PrimaryKey:
         Name: id
         Type: String
-      TableName:
-        Fn::Sub: ${AWS::StackName}-users
+      TableName: !Sub ${AWS::StackName}-users
       Tags:
         pocketsizefund: table
 Outputs:
@@ -345,7 +296,4 @@ Outputs:
       Ref: usersTable
   CompleteInviteFunctionURL:
     Description: URL for user management function
-    Value:
-      Fn::GetAtt:
-        - completeInviteFunctionURL
-        - FunctionUrl
+    Value: !GetAtt completeInviteFunctionURL.FunctionUrl
