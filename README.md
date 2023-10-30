@@ -6,6 +6,15 @@
 
 **pocketsizefund** holds the main resources for the fund platform including data pipelines, model tooling, trading engine, and frontend resources.
 
+## Goals
+
+> Make money and learn things 💡
+
+Accountability for these goals is enforced by:
+
+1. **Publishing performance** on a regular, automated basis
+2. **Write whitepapers** for every significant initiative
+
 ## Development
 
 Here are some places to get started: 
