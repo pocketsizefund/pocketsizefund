@@ -13,7 +13,7 @@
 Accountability for these goals is enforced by:
 
 1. **Publishing performance** on a regular, automated basis
-2. **Write whitepapers** for every significant initiative
+2. **Writing whitepapers** for every significant initiative
 
 ## Development
 
