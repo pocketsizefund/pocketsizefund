@@ -64,20 +64,13 @@ Resources:
       Description: Collects and processes training data
       Environment:
         Variables:
-          S3_DATA_BUCKET_NAME:
-            Ref: S3DataBucketName
-          ALPACA_API_KEY:
-            Ref: AlpacaAPIKey
-          ALPACA_API_SECRET:
-            Ref: AlpacaAPISecret
-          DARQUBE_API_KEY:
-            Ref: DarqubeAPIKey
-          ALPHA_VANTAGE_API_KEY:
-            Ref: AlphaVantageAPIKey
-          IS_PAPER:
-            Ref: IsPaper
-          SNS_ERRORS_TOPIC_ARN:
-            Ref: SNSErrorsTopicARN
+          S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
+          IS_PAPER: !Ref IsPaper
+          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
         DailyFetch:
           Properties:
@@ -85,8 +78,7 @@ Resources:
             # due to data request being chunked by day
             ScheduleExpression: cron(0 1 ? * TUE-SAT *)
             ScheduleExpressionTimezone: America/New_York
-            State:
-              Ref: FetchDataScheduleState
+            State: !Ref FetchDataScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
@@ -107,27 +99,19 @@ Resources:
       Description: Generates predictions and executes trades
       Environment:
         Variables:
-          S3_DATA_BUCKET_NAME:
-            Ref: S3DataBucketName
-          MODEL_FILE_PATH:
-            Ref: ModelFilePath
-          ALPACA_API_KEY:
-            Ref: AlpacaAPIKey
-          ALPACA_API_SECRET:
-            Ref: AlpacaAPISecret
-          DARQUBE_API_KEY:
-            Ref: DarqubeAPIKey
-          IS_PAPER:
-            Ref: IsPaper
-          SNS_ERRORS_TOPIC_ARN:
-            Ref: SNSErrorsTopicARN
+          S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
+          MODEL_FILE_PATH: !Ref ModelFilePath
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          IS_PAPER: !Ref IsPaper
+          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
         DailyFetch:
           Properties:
             ScheduleExpression: cron(35 9 ? * MON-FRI *) # 5 minutes after market open
             ScheduleExpressionTimezone: America/New_York
-            State:
-              Ref: CreateAndClearTradeScheduleState
+            State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
@@ -148,23 +132,17 @@ Resources:
       Description: Executes closing trades
       Environment:
         Variables:
-          ALPACA_API_KEY:
-            Ref: AlpacaAPIKey
-          ALPACA_API_SECRET:
-            Ref: AlpacaAPISecret
-          DARQUBE_API_KEY:
-            Ref: DarqubeAPIKey
-          IS_PAPER:
-            Ref: IsPaper
-          SNS_ERRORS_TOPIC_ARN:
-            Ref: SNSErrorsTopicARN
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          IS_PAPER: !Ref IsPaper
+          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
         DailyFetch:
           Properties:
             ScheduleExpression: cron(55 15 ? * MON-FRI *) # 5 minutes before market close
             ScheduleExpressionTimezone: America/New_York
-            State:
-              Ref: CreateAndClearTradeScheduleState
+            State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
@@ -185,14 +163,10 @@ Resources:
       Description: Handles user invites
       Environment:
         Variables:
-          INVITE_SECRET_KEY:
-            Ref: InviteSecretKey
-          ALPACA_OAUTH_CLIENT_ID:
-            Ref: AlpacaOAuthClientID
-          ALPACA_OAUTH_CLIENT_SECRET:
-            Ref: AlpacaOAuthClientSecret
-          USERS_TABLE_NAME:
-            Ref: usersTable
+          INVITE_SECRET_KEY: !Ref InviteSecretKey
+          ALPACA_OAUTH_CLIENT_ID: !Ref AlpacaOAuthClientID
+          ALPACA_OAUTH_CLIENT_SECRET: !Ref AlpacaOAuthClientSecret
+          USERS_TABLE_NAME: !Ref usersTable
       FunctionName: !Sub ${AWS::StackName}-complete-invite
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
       MemorySize: 128
@@ -241,8 +215,7 @@ Resources:
               - Action:
                   - sns:Publish
                 Effect: Allow
-                Resource:
-                  Ref: SNSErrorsTopicARN
+                Resource: !Ref SNSErrorsTopicARN
           PolicyName: !Sub ${AWS::StackName}-lambda-function-policy
       RoleName: !Sub ${AWS::StackName}-lambda-function-role
       Tags:
@@ -292,8 +265,7 @@ Resources:
 Outputs:
   UsersTable:
     Description: Table containing user data
-    Value:
-      Ref: usersTable
+    Value: !Ref usersTable
   CompleteInviteFunctionURL:
     Description: URL for user management function
     Value: !GetAtt completeInviteFunctionURL.FunctionUrl
