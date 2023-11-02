@@ -8,6 +8,7 @@ from sklearn import preprocessing
 
 
 PREFIX_EQUITY_BARS_PATH = 'equity/bars'
+PREFIX_EQUITY_SCALERS_PATH = 'equity/scalers'
 
 
 class Client:
