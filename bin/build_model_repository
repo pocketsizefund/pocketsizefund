@@ -23,3 +23,7 @@ AWS_PAGER="" aws ecr create-repository \
     --repository-name $repository_name \
     --region $region \
     --no-paginate
+
+AWS_PAGER="" aws ecr put-lifecycle-policy \
+    --repository-name $repository_name \
+    --lifecycle-policy-text "file://helpers/ecr_lifecycle_policy.json"
