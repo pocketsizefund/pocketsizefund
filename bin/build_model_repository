@@ -15,9 +15,20 @@ if [[ -z "$directory_name" ]]; then
     exit 0
 fi
 
+directory_suffix=$2
+
+if [[ -z "$directory_suffix" ]]; then
+    echo "valid directory name required:"
+    echo ""
+    echo "train"
+    echo "invoke"
+    echo ""
+    exit 0
+fi
+
 region=$(aws --profile default configure get region)
 
-repository_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)
+repository_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)-$directory_suffix
 
 AWS_PAGER="" aws ecr create-repository \
     --repository-name $repository_name \
@@ -26,4 +37,4 @@ AWS_PAGER="" aws ecr create-repository \
 
 AWS_PAGER="" aws ecr put-lifecycle-policy \
     --repository-name $repository_name \
-    --lifecycle-policy-text "file://helpers/ecr_lifecycle_policy.json"
+    --lifecycle-policy-text "file://bin/helpers/ecr_lifecycle_policy.json"

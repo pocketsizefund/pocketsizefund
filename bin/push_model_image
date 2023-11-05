@@ -15,6 +15,17 @@ if [[ -z "$directory_name" ]]; then
     exit 0
 fi
 
+directory_suffix=$2
+
+if [[ -z "$directory_suffix" ]]; then
+    echo "valid directory name required:"
+    echo ""
+    echo "train"
+    echo "invoke"
+    echo ""
+    exit 0
+fi
+
 account_id=$(aws sts get-caller-identity --query Account --output text)
 
 account_region=$(aws --profile default configure get region)
@@ -25,7 +36,7 @@ aws ecr get-login-password \
     --username AWS \
     --password-stdin ${account_id}.dkr.ecr.${account_region}.amazonaws.com
 
-image_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)
+image_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)-$directory_suffix
 
 tag=${image_name}:latest
 
