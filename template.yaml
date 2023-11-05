@@ -227,10 +227,10 @@ Resources:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-        - Effect: Allow
-          Principal:
-            Service: scheduler.amazonaws.com
-          Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
       Description: Shared role for function schedulers
       Policies:
         - PolicyDocument:
@@ -253,6 +253,33 @@ Resources:
       Tags:
         - Key: pocketsizefund
           Value: role
+  sageMakerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Role for SageMaker model training and endpoint creation
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+      Policies:
+        - PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}/*
+          PolicyName: !Sub ${AWS::StackName}-sagemaker-policy
+      RoleName: !Sub ${AWS::StackName}-sagemaker-role
+      Tags:
+        - Key: pocketsizefund
+          Value: role
   usersTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
@@ -269,3 +296,6 @@ Outputs:
   CompleteInviteFunctionURL:
     Description: URL for user management function
     Value: !GetAtt completeInviteFunctionURL.FunctionUrl
+  SageMakerIAMRoleARN:
+    Description: Role for SageMaker model training and endpoint creation
+    Value: !GetAtt sageMakerRole.Arn
