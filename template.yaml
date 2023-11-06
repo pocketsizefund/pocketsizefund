@@ -6,6 +6,10 @@ Parameters:
     Type: String
     Default: pocketsizefund-data
     Description: Model training data storage
+  S3ArtifactBucketName:
+    Type: String
+    Default: pocketsizefund-artifacts
+    Description: Stack and model artifact storage
   AlpacaAPIKey:
     Type: String
     Description: Data and trading Alpaca API key
@@ -264,8 +268,6 @@ Resources:
               Service: sagemaker.amazonaws.com
             Action: sts:AssumeRole
       Description: Role for SageMaker model training and endpoint creation
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
       Policies:
         - PolicyDocument:
             Version: '2012-10-17'
@@ -275,6 +277,35 @@ Resources:
                   - s3:PutObject
                   - s3:GetObject
                 Resource: !Sub arn:aws:s3:::${S3DataBucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:AbortMultipartUpload
+                Resource: !Sub arn:aws:s3:::${S3ArtifactBucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:PutObjectAcl
+                Resource: !Sub arn:aws:s3:::${S3ArtifactBucketName}
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketCors
+                  - s3:PutBucketCors
+                Resource: arn:aws:s3:::*
+              - Effect: Allow
+                Action:
+                  - sagemaker:*
+                Resource: arn:aws:sagemaker:*:*:*
+              - Effect: Allow
+                Action:
+                  - ecr:*
+                Resource: '*'
           PolicyName: !Sub ${AWS::StackName}-sagemaker-policy
       RoleName: !Sub ${AWS::StackName}-sagemaker-role
       Tags:
