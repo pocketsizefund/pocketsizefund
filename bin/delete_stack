@@ -14,6 +14,6 @@ users_table=$(aws cloudformation describe-stacks \
     --query 'Stacks[0].Outputs[?OutputKey==`UsersTable`].OutputValue' \
     --output text)
 
-python3 ./bin/helpers/download_users_table.py $environment $users_table
+python3 ./bin/helpers/download_users_table.py ${environment} ${users_table}
 
 aws cloudformation delete-stack --stack-name pocketsizefund-${environment}

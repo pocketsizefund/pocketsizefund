@@ -28,13 +28,13 @@ fi
 
 region=$(aws --profile default configure get region)
 
-repository_name=$(python3 ./bin/helpers/rename_resource.py $directory_name)-$directory_suffix
+repository_name=$(python3 ./bin/helpers/rename_resource.py ${directory_name})-${directory_suffix}
 
 AWS_PAGER="" aws ecr create-repository \
-    --repository-name $repository_name \
-    --region $region \
+    --repository-name ${repository_name} \
+    --region ${region} \
     --no-paginate
 
 AWS_PAGER="" aws ecr put-lifecycle-policy \
-    --repository-name $repository_name \
+    --repository-name ${repository_name} \
     --lifecycle-policy-text "file://bin/helpers/ecr_lifecycle_policy.json"
