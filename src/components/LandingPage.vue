@@ -18,22 +18,13 @@
                 </h2>
                 <br/>   
                 <h2 class='call-to-action'>
-                    Follow our progress and performance on <a 
+                    <a 
                         href='https://twitter.com/pocketsizefund' 
                         target='_blank'
-                    >Twitter</a>
+                    >More coming soon</a>
                 </h2>
                 <br/>
                 <br/>
-                <!-- <div class='performance'>
-                    <h2>Performance</h2>
-                    <br/>
-                    <table v-if='errorMessage === ""'>
-                    </table>
-                    <span v-if='errorMessage !== ""'>
-                        {{ errorMessage }}
-                    </span>
-                </div> -->
             </div>
         </div>
     </body>
