@@ -15,7 +15,7 @@ production_users_table.json
 
 
 # model
-lstm_model.h5
+model.tar.gz
 
 # infrastucture
 .aws-sam/
