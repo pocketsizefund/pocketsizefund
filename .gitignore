@@ -16,6 +16,7 @@ production_users_table.json
 
 # model
 model.tar.gz
+lstm.keras
 
 # infrastucture
 .aws-sam/
