@@ -5,7 +5,7 @@
 set -e
 
 environment="development"
-if [[ "$2" == "production" ]]; then
+if [[ "$1" == "production" ]]; then
     environment="production"
 fi
 
