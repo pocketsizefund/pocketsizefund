@@ -34,7 +34,7 @@ tag=${image_name}:latest
 # note the platform amd64
 docker build \
     --file ./exp/${directory_name}/dockerfile_${directory_suffix} \
-    --platform linux/amd64 \
+    --platform linux/amd64  \
     --tag ${tag} .
 
 account_region=$(aws --profile default configure get region)

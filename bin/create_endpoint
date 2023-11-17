@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# create inference endpoint
+# for model in SageMaker
+
+set -e
+
+environment="development"
+if [[ "$1" == "production" ]]; then
+    environment="production"
+fi
+
+latest_model_artifact_path=$(python3 ./bin/helpers/get_latest_model_artifact_path.py)
+
+model_data=s3://pocketsizefund-artifacts/${latest_model_artifact_path}
+
+sagemaker_iam_role_arn=$(aws cloudformation describe-stacks \
+    --stack-name pocketsizefund-${environment} \
+    --query 'Stacks[0].Outputs[?OutputKey==`SageMakerIAMRoleARN`].OutputValue' \
+    --output text)
+
+account_id=$(aws sts get-caller-identity --query Account --output text)
+
+account_region=$(aws --profile default configure get region)
+
+model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/model-lstm-invoke:latest
+
+python3 exp/lstm/create_sagemaker_endpoint.py \
+    ${model_data} \
+    ${sagemaker_iam_role_arn} \
+    ${model_image_uri}
