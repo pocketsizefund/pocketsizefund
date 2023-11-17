@@ -6,7 +6,7 @@
 set -e
 
 if [[ "$1" == "remote" ]]; then
-    python3 ./bin/helpers/invoke_endpoint.py
+    python3 ./bin/helpers/invoke_remote_endpoint.py
 elif [[ "$1" == "local" ]]; then
     python3 ./bin/helpers/invoke_local_endpoint.py
 fi
