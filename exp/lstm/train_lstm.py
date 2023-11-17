@@ -1,4 +1,6 @@
 import argparse
+import os
+import pickle
 
 import pandas
 from sklearn import preprocessing
@@ -206,12 +208,17 @@ model.fit(
 )
 
 model.save(
-    filepath=arguments.model_dir+'/lstm.keras',
+    filepath=os.path.join(arguments.model_dir, 'lstm.keras'),
 )
 
-storage_client.store_scalers(
-    prefix=storage.PREFIX_EQUITY_SCALERS_PATH,
-    scalers=scalers,
+scalers_file = open(
+    file=os.path.join(arguments.model_dir, 'scalers.pkl'),
+    mode='wb',
+)
+
+pickle.dump(
+    obj=scalers,
+    file=scalers_file,
 )
 
 for ticker, ticker_data in preprocessed_testing_data.items():
