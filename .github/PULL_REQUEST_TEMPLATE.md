@@ -2,7 +2,7 @@
 
 <!-- 
 Provide bullet point details.
-Include "fixes <#pr_number>" to link to an outstanding issue.
+Include "fixes <#issue_number>" to link to an outstanding issue.
 -->
 
 ### Comments
