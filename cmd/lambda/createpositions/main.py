@@ -22,7 +22,7 @@ trade_client = trade.Client(
 )
 
 model_client = model.Client(
-    file_path=os.getenv('MODEL_FILE_PATH'),
+    model_endpoint_name=os.getenv('MODEL_ENDPOINT_NAME'),
 )
 
 message_client = message.Client(
@@ -59,7 +59,7 @@ def handler(event: any, context: any) -> dict[str, any]:
             prediction_data['ticker'].isin(available_tickers)
         ]
 
-        predictions_by_ticker = model_client.get_model_predictions(
+        predictions_by_ticker = model_client.generate_predictions(
             data=prediction_data_filtered,
         )
 
@@ -71,7 +71,7 @@ def handler(event: any, context: any) -> dict[str, any]:
         )
 
         moves_by_ticker = {
-            ticker: predictions_by_ticker[ticker]['prices'][0] -
+            ticker: predictions_by_ticker[ticker][0][0] -
             current_prices_by_ticker[ticker]['price']
             for ticker in predictions_by_ticker
         }

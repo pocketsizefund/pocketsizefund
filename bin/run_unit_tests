@@ -13,3 +13,4 @@ echo 'test pkg/twitter' && python3 -m unittest discover pkg/twitter
 echo 'test pkg/id' && python3 -m unittest discover pkg/id
 echo 'test pkg/users' && python3 -m unittest discover pkg/users
 echo 'test pkg/invite' && python3 -m unittest discover pkg/invite
+echo 'test pkg/model' && python3 -m unittest discover pkg/model

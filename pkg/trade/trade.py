@@ -37,7 +37,7 @@ class Client:
             'is_market_open': clock.is_open,
         }
 
-    def get_available_tickers(self) -> list[str]:
+    def _get_available_tickers(self) -> list[str]:
         # GSPC is the S&P 500
         darqube_response = self.http_client.get(
             url='https://api.darqube.com/data-api/fundamentals/indexes/index_constituents/GSPC',
@@ -73,6 +73,9 @@ class Client:
 
         return tickers
 
+    def get_available_tickers(self) -> list[str]:
+        return self._get_available_tickers()
+
     def get_available_cash(self) -> float:
         account = self.alpaca_trading_client.get_account()
 
@@ -100,6 +103,8 @@ class Client:
         self,
         positions: list[dict[str, any]],
     ) -> None:
+        available_tickers = self._get_available_tickers()
+
         for position in positions:
             side: enums.OrderSide = None
 
@@ -109,15 +114,36 @@ class Client:
             elif position['side'] == SIDE_SELL:
                 side = enums.OrderSide.SELL
 
+            quantity = position['quantity']
+            if quantity <= 0:
+                raise Exception('quantity must be a positive number')
+
+            if position['ticker'] not in available_tickers:
+                raise Exception(
+                    'invalid ticker "{}"'.format(position['ticker'])
+                )
+
             request = alpaca_trading_requests.MarketOrderRequest(
                 symbol=position['ticker'],
-                qty=round(position['quantity'], 2),
+                qty=round(quantity, 2),
                 type=enums.OrderType.MARKET,
                 side=side,
                 time_in_force=enums.TimeInForce.DAY,
             )
 
             self.alpaca_trading_client.submit_order(request)
+
+    def _get_positions(self) -> dict[str, float]:
+        portfolio = self.alpaca_trading_client.get_all_positions()
+        port = {}
+
+        for position in portfolio:
+            port[position.symbol] = position.qty
+
+        return port
+
+    def get_portfolio(self) -> dict[str, float]:
+        return self._get_positions()
 
     def clear_positions(self) -> None:
         self.alpaca_trading_client.close_all_positions(

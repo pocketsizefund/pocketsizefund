@@ -8,8 +8,6 @@ COPY pkg ${LAMBDA_TASK_ROOT}/pkg
 
 COPY cmd/lambda/${FUNCTION_NAME}/main.py ${LAMBDA_TASK_ROOT}
 
-RUN if [ "$FUNCTION_NAME" = "createpositions" ]; then cp lstm_model.h5 ${LAMBDA_TASK_ROOT}/ ; fi
-
 RUN yum update -y && yum install -y libxml2-devel libxslt-devel gcc
 
 RUN pip3 install --requirement requirements.txt --target "${LAMBDA_TASK_ROOT}"
@@ -39,5 +37,7 @@ ENV ALPACA_OAUTH_CLIENT_ID=""
 ENV ALPACA_OAUTH_CLIENT_SECRET=""
 
 ENV USERS_TABLE_NAME=""
+
+ENV MODEL_ENDPOINT_NAME=""
 
 CMD [ "main.handler" ]

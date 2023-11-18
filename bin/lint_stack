@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# lints the CloudFormation
+# template
+
+set -e
+
+cfn-lint template.yaml

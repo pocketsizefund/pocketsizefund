@@ -6,6 +6,10 @@ Parameters:
     Type: String
     Default: pocketsizefund-data
     Description: Model training data storage
+  S3ArtifactBucketName:
+    Type: String
+    Default: pocketsizefund-artifacts
+    Description: Stack and model artifact storage
   AlpacaAPIKey:
     Type: String
     Description: Data and trading Alpaca API key
@@ -55,6 +59,10 @@ Parameters:
   InviteSecretKey:
     Type: String
     Description: Secret key for user invite links
+  ModelEndpointName:
+    Type: String
+    Description: SageMaker model endpoint name
+    Default: pocketsizefund-lstm
 Resources:
   fetchDataFunction:
     Type: AWS::Serverless::Function
@@ -64,20 +72,13 @@ Resources:
       Description: Collects and processes training data
       Environment:
         Variables:
-          S3_DATA_BUCKET_NAME:
-            Ref: S3DataBucketName
-          ALPACA_API_KEY:
-            Ref: AlpacaAPIKey
-          ALPACA_API_SECRET:
-            Ref: AlpacaAPISecret
-          DARQUBE_API_KEY:
-            Ref: DarqubeAPIKey
-          ALPHA_VANTAGE_API_KEY:
-            Ref: AlphaVantageAPIKey
-          IS_PAPER:
-            Ref: IsPaper
-          SNS_ERRORS_TOPIC_ARN:
-            Ref: SNSErrorsTopicARN
+          S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
+          IS_PAPER: !Ref IsPaper
+          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
         DailyFetch:
           Properties:
@@ -85,25 +86,16 @@ Resources:
             # due to data request being chunked by day
             ScheduleExpression: cron(0 1 ? * TUE-SAT *)
             ScheduleExpressionTimezone: America/New_York
-            State:
-              Ref: FetchDataScheduleState
+            State: !Ref FetchDataScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
-            RoleArn:
-              Fn::GetAtt:
-                - functionSchedulerRole
-                - Arn
+            RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName:
-        Fn::Sub: ${AWS::StackName}-fetch-data
-      ImageUri:
-        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fetch-data:latest
+      FunctionName: !Sub ${AWS::StackName}-fetch-data
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fetch-data:latest
       MemorySize: 768
       PackageType: Image
-      Role:
-        Fn::GetAtt:
-          - functionRole
-          - Arn
+      Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 240
@@ -115,44 +107,29 @@ Resources:
       Description: Generates predictions and executes trades
       Environment:
         Variables:
-          S3_DATA_BUCKET_NAME:
-            Ref: S3DataBucketName
-          MODEL_FILE_PATH:
-            Ref: ModelFilePath
-          ALPACA_API_KEY:
-            Ref: AlpacaAPIKey
-          ALPACA_API_SECRET:
-            Ref: AlpacaAPISecret
-          DARQUBE_API_KEY:
-            Ref: DarqubeAPIKey
-          IS_PAPER:
-            Ref: IsPaper
-          SNS_ERRORS_TOPIC_ARN:
-            Ref: SNSErrorsTopicARN
+          S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
+          MODEL_FILE_PATH: !Ref ModelFilePath
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          IS_PAPER: !Ref IsPaper
+          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
+          MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
       Events:
         DailyFetch:
           Properties:
             ScheduleExpression: cron(35 9 ? * MON-FRI *) # 5 minutes after market open
             ScheduleExpressionTimezone: America/New_York
-            State:
-              Ref: CreateAndClearTradeScheduleState
+            State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
-            RoleArn:
-              Fn::GetAtt:
-                - functionSchedulerRole
-                - Arn
+            RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName:
-        Fn::Sub: ${AWS::StackName}-create-positions
-      ImageUri:
-        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-positions:latest
+      FunctionName: !Sub ${AWS::StackName}-create-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-positions:latest
       MemorySize: 1536
       PackageType: Image
-      Role:
-        Fn::GetAtt:
-          - functionRole
-          - Arn
+      Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 300
@@ -164,40 +141,26 @@ Resources:
       Description: Executes closing trades
       Environment:
         Variables:
-          ALPACA_API_KEY:
-            Ref: AlpacaAPIKey
-          ALPACA_API_SECRET:
-            Ref: AlpacaAPISecret
-          DARQUBE_API_KEY:
-            Ref: DarqubeAPIKey
-          IS_PAPER:
-            Ref: IsPaper
-          SNS_ERRORS_TOPIC_ARN:
-            Ref: SNSErrorsTopicARN
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          IS_PAPER: !Ref IsPaper
+          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
         DailyFetch:
           Properties:
             ScheduleExpression: cron(55 15 ? * MON-FRI *) # 5 minutes before market close
             ScheduleExpressionTimezone: America/New_York
-            State:
-              Ref: CreateAndClearTradeScheduleState
+            State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:
               MaximumRetryAttempts: 0
-            RoleArn:
-              Fn::GetAtt:
-                - functionSchedulerRole
-                - Arn
+            RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName:
-        Fn::Sub: ${AWS::StackName}-clear-positions
-      ImageUri:
-        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/clear-positions:latest
+      FunctionName: !Sub ${AWS::StackName}-clear-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/clear-positions:latest
       MemorySize: 128
       PackageType: Image
-      Role:
-        Fn::GetAtt:
-          - functionRole
-          - Arn
+      Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 60
@@ -209,24 +172,15 @@ Resources:
       Description: Handles user invites
       Environment:
         Variables:
-          INVITE_SECRET_KEY:
-            Ref: InviteSecretKey
-          ALPACA_OAUTH_CLIENT_ID:
-            Ref: AlpacaOAuthClientID
-          ALPACA_OAUTH_CLIENT_SECRET:
-            Ref: AlpacaOAuthClientSecret
-          USERS_TABLE_NAME:
-            Ref: usersTable
-      FunctionName:
-        Fn::Sub: ${AWS::StackName}-complete-invite
-      ImageUri:
-        Fn::Sub: ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
+          INVITE_SECRET_KEY: !Ref InviteSecretKey
+          ALPACA_OAUTH_CLIENT_ID: !Ref AlpacaOAuthClientID
+          ALPACA_OAUTH_CLIENT_SECRET: !Ref AlpacaOAuthClientSecret
+          USERS_TABLE_NAME: !Ref usersTable
+      FunctionName: !Sub ${AWS::StackName}-complete-invite
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
       MemorySize: 128
       PackageType: Image
-      Role:
-        Fn::GetAtt:
-          - functionRole
-          - Arn
+      Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 15
@@ -234,10 +188,7 @@ Resources:
     Type: AWS::Lambda::Url
     Properties: 
       AuthType: NONE
-      TargetFunctionArn:
-        Fn::GetAtt:
-          - completeInviteFunction
-          - Arn
+      TargetFunctionArn: !GetAtt completeInviteFunction.Arn
   functionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -258,30 +209,24 @@ Resources:
               - Action:
                   - s3:ListBucket
                 Effect: Allow
-                Resource:
-                  Fn::Sub: arn:aws:s3:::${S3DataBucketName}
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}
               - Action:
                   - s3:PutObject
                   - s3:GetObject
                 Effect: Allow
-                Resource:
-                  Fn::Sub: arn:aws:s3:::${S3DataBucketName}/*
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}/*
               - Action:
                   - dynamodb:PutItem
                   - dynamodb:Scan
                   - dynamodb:UpdateItem
                 Effect: Allow
-                Resource:
-                  Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
               - Action:
                   - sns:Publish
                 Effect: Allow
-                Resource:
-                  Ref: SNSErrorsTopicARN
-          PolicyName:
-            Fn::Sub: ${AWS::StackName}-lambda-function-policy
-      RoleName:
-        Fn::Sub: ${AWS::StackName}-lambda-function-role
+                Resource: !Ref SNSErrorsTopicARN
+          PolicyName: !Sub ${AWS::StackName}-lambda-function-policy
+      RoleName: !Sub ${AWS::StackName}-lambda-function-role
       Tags:
         - Key: pocketsizefund
           Value: role
@@ -291,10 +236,10 @@ Resources:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-        - Effect: Allow
-          Principal:
-            Service: scheduler.amazonaws.com
-          Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
       Description: Shared role for function schedulers
       Policies:
         - PolicyDocument:
@@ -303,28 +248,71 @@ Resources:
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow
-                Resource:
-                  Fn::GetAtt:
-                    - fetchDataFunction
-                    - Arn
+                Resource: !GetAtt fetchDataFunction.Arn
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow
-                Resource:
-                  Fn::GetAtt:
-                    - createPositionsFunction
-                    - Arn
+                Resource: !GetAtt createPositionsFunction.Arn
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow
-                Resource:
-                  Fn::GetAtt:
-                    - clearPositionsFunction
-                    - Arn
-          PolicyName:
-            Fn::Sub: ${AWS::StackName}-function-scheduler-policy
-      RoleName:
-        Fn::Sub: ${AWS::StackName}-function-scheduler-role
+                Resource: !GetAtt clearPositionsFunction.Arn
+          PolicyName: !Sub ${AWS::StackName}-lambda-function-scheduler-policy
+      RoleName: !Sub ${AWS::StackName}-lambda-function-scheduler-role
+      Tags:
+        - Key: pocketsizefund
+          Value: role
+  sageMakerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Role for SageMaker model training and endpoint creation
+      Policies:
+        - PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: !Sub arn:aws:s3:::${S3ArtifactBucketName}/models/*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:PutObjectAcl
+                Resource: !Sub arn:aws:s3:::${S3ArtifactBucketName}
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketCors
+                  - s3:PutBucketCors
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sagemaker:*
+                Resource: arn:aws:sagemaker:*:*:*
+              - Effect: Allow
+                Action:
+                  - ecr:*
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: '*'
+          PolicyName: !Sub ${AWS::StackName}-sagemaker-policy
+      RoleName: !Sub ${AWS::StackName}-sagemaker-role
       Tags:
         - Key: pocketsizefund
           Value: role
@@ -334,18 +322,16 @@ Resources:
       PrimaryKey:
         Name: id
         Type: String
-      TableName:
-        Fn::Sub: ${AWS::StackName}-users
+      TableName: !Sub ${AWS::StackName}-users
       Tags:
         pocketsizefund: table
 Outputs:
   UsersTable:
     Description: Table containing user data
-    Value:
-      Ref: usersTable
+    Value: !Ref usersTable
   CompleteInviteFunctionURL:
     Description: URL for user management function
-    Value:
-      Fn::GetAtt:
-        - completeInviteFunctionURL
-        - FunctionUrl
+    Value: !GetAtt completeInviteFunctionURL.FunctionUrl
+  SageMakerIAMRoleARN:
+    Description: Role for SageMaker model training and endpoint creation
+    Value: !GetAtt sageMakerRole.Arn

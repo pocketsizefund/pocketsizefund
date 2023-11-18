@@ -1,11 +1,14 @@
 from concurrent import futures
 import io
+import pickle
 
 import boto3
 import pandas
+from sklearn import preprocessing
 
 
 PREFIX_EQUITY_BARS_PATH = 'equity/bars'
+PREFIX_EQUITY_SCALERS_PATH = 'equity/scalers'
 
 
 class Client:
@@ -48,9 +51,9 @@ class Client:
         return file_names
 
     def store_dataframes(
-            self,
-            prefix: str,
-            dataframes: dict[str, pandas.DataFrame],
+        self,
+        prefix: str,
+        dataframes: dict[str, pandas.DataFrame],
     ) -> None:
         executor = futures.ThreadPoolExecutor()
 
@@ -146,3 +149,34 @@ class Client:
             )
 
         return {file_name: dataframe}
+
+    def store_scalers(
+        self,
+        prefix: str,
+        scalers: dict[int, dict[str, preprocessing.MinMaxScaler]],
+    ) -> None:
+        data = pickle.dumps(scalers)
+
+        key = '{}/scalers.pickle'.format(prefix)
+
+        self.s3_client.put_object(
+            Body=data,
+            Bucket=self.s3_data_bucket_name,
+            Key=key,
+        )
+
+    def load_scalers(
+        self,
+        prefix: str,
+    ) -> dict[int, dict[str, preprocessing.MinMaxScaler]]:
+        key = '{}/scalers.pickle'.format(prefix)
+        response = self.s3_client.get_object(
+            Bucket=self.s3_data_bucket_name,
+            Key=key,
+        )
+
+        data = response['Body'].read()
+
+        scalers = pickle.loads(data)
+
+        return scalers

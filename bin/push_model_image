@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# push function image to
+# push model image to
 # ECR repository
 
 set -e
@@ -10,7 +10,18 @@ directory_name=$1
 if [[ -z "$directory_name" ]]; then
     echo "valid directory name required:"
     echo ""
-    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
+    ls -li exp | awk '{print $NF}' | tail -n +2
+    echo ""
+    exit 0
+fi
+
+directory_suffix=$2
+
+if [[ -z "$directory_suffix" ]]; then
+    echo "valid directory name required:"
+    echo ""
+    echo "train"
+    echo "invoke"
     echo ""
     exit 0
 fi
@@ -25,7 +36,7 @@ aws ecr get-login-password \
     --username AWS \
     --password-stdin ${account_id}.dkr.ecr.${account_region}.amazonaws.com
 
-image_name=$(python3 ./bin/helpers/rename_resource.py ${directory_name})
+image_name=$(python3 ./bin/helpers/rename_resource.py ${directory_name})-${directory_suffix}
 
 tag=${image_name}:latest
 
