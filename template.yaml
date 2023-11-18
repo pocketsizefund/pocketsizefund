@@ -59,6 +59,10 @@ Parameters:
   InviteSecretKey:
     Type: String
     Description: Secret key for user invite links
+  ModelEndpointName:
+    Type: String
+    Description: SageMaker model endpoint name
+    Default: pocketsizefund-lstm
 Resources:
   fetchDataFunction:
     Type: AWS::Serverless::Function
@@ -110,6 +114,7 @@ Resources:
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
           SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
+          MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
       Events:
         DailyFetch:
           Properties:

@@ -1,5 +1,6 @@
 import sys
 
+import boto3
 from sagemaker import tensorflow
 
 from pkg.config import config
@@ -13,6 +14,22 @@ samconfig_file = config.SAMConfig(
     'samconfig.toml',
     config.ENVIRONMENT_DEVELOPMENT,
 )
+
+sagemaker_client = boto3.client('sagemaker')
+
+endpoints = sagemaker_client.list_endpoints(
+    NameContains='pocketsizefund-lstm',
+)
+
+for endpoint in endpoints['Endpoints']:
+    if endpoint['EndpointName'] == 'pocketsizefund-lstm':
+        sagemaker_client.delete_endpoint_config(
+            EndpointConfigName='pocketsizefund-lstm',
+        )
+
+        sagemaker_client.delete_endpoint(
+            EndpointName='pocketsizefund-lstm',
+        )
 
 model = tensorflow.TensorFlowModel(
     model_data=model_data,
@@ -30,5 +47,5 @@ model = tensorflow.TensorFlowModel(
 predictor = model.deploy(
     initial_instance_count=1,
     instance_type='ml.m5.large',
-    # endpoint_name='lstm-endpoint',
+    endpoint_name='pocketsizefund-lstm',
 )

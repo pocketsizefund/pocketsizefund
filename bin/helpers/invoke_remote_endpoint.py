@@ -1,6 +1,5 @@
 import datetime
 
-import boto3
 from sagemaker import tensorflow
 
 from pkg.config import config
@@ -25,17 +24,8 @@ trade_client = trade.Client(
     alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
 )
 
-sagemaker_client = boto3.client('sagemaker')
-
-response = sagemaker_client.list_endpoints(
-    SortBy='CreationTime',
-    NameContains='model-lstm-invoke',
-)
-
-endpoint_name = response['Endpoints'][0]['EndpointName']
-
 predictor = tensorflow.TensorFlowPredictor(
-    endpoint_name=endpoint_name,
+    endpoint_name='pocketsizefund-lstm',
 )
 
 available_tickers = trade_client.get_available_tickers()
