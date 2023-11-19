@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-# compiles SAM template resources
-
-set -e
-
-sam build --use-container --cached --parallel
