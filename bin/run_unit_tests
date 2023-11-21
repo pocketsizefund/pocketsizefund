@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# run_unit_tests runs all package-level
+# run all package-level
 # unit tests
 
 set -e

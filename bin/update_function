@@ -5,18 +5,26 @@
 
 set -e
 
-function_name=$1
+name=$1
+
+if [[ -z "$name" ]]; then
+    echo "valid name required:"
+    echo ""
+    echo "functions":
+    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
+    exit 0
+fi
 
 environment="development"
-if [[ "$1" == "production" ]]; then
+if [[ "$2" == "production" ]]; then
     environment="production"
 fi
 
-function_name=$(python3 ./bin/helpers/rename_resource.py ${function_name})
+function_name=$(python3 ./bin/helpers/get_name.py ${name})
 
 account_id=$(aws sts get-caller-identity --query Account --output text)
 
-function_arn=${account_id}:function:pocketsizefund-${environment}-${function_name}
+function_arn=${account_id}:function:${function_name}
 
 account_region=$(aws --profile default configure get region)
 

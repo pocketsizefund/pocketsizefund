@@ -18,11 +18,14 @@ account_id=$(aws sts get-caller-identity --query Account --output text)
 
 account_region=$(aws --profile default configure get region)
 
-model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/model-lstm-train:latest
+model_name=$(python3 ./bin/helpers/get_name.py trainlstm)
 
-python3 exp/lstm/create_sagemaker_model.py \
+model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${model_name}:latest
+
+current_timestamp=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+
+python3 ./exp/lstm/sagemaker_train_model.py \
     --iam-role ${sagemaker_iam_role_arn} \
     --model-image-uri ${model_image_uri} \
     --s3-data-bucket-name pocketsizefund-data \
     --s3-artifacts-bucket-name pocketsizefund-artifacts
-    

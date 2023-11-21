@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # create inference endpoint
-# for model in SageMaker
+# for the model in SageMaker
 
 set -e
 
@@ -10,9 +10,9 @@ if [[ "$1" == "production" ]]; then
     environment="production"
 fi
 
-latest_model_artifact_path=$(python3 ./bin/helpers/get_latest_model_artifact_path.py)
+latest_model=$(python3 ./bin/helpers/get_latest_model.py)
 
-model_data=s3://pocketsizefund-artifacts/${latest_model_artifact_path}
+model_data=s3://pocketsizefund-artifacts/${latest_model}
 
 sagemaker_iam_role_arn=$(aws cloudformation describe-stacks \
     --stack-name pocketsizefund-${environment} \
@@ -23,9 +23,11 @@ account_id=$(aws sts get-caller-identity --query Account --output text)
 
 account_region=$(aws --profile default configure get region)
 
-model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/model-lstm-invoke:latest
+image_name=$(python3 ./bin/helpers/get_name.py predictlstm)
 
-python3 exp/lstm/create_sagemaker_endpoint.py \
-    ${model_data} \
-    ${sagemaker_iam_role_arn} \
-    ${model_image_uri}
+model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
+
+python3 ./exp/lstm/sagemaker_deploy_model.py \
+    --model-data ${model_data} \
+    --iam-role ${sagemaker_iam_role_arn} \
+    --model-image-uri ${model_image_uri}

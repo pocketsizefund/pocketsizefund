@@ -1,4 +1,4 @@
-import sys
+import argparse
 
 import boto3
 from sagemaker import tensorflow
@@ -6,9 +6,30 @@ from sagemaker import tensorflow
 from pkg.config import config
 
 
-model_data = sys.argv[1]
-role = sys.argv[2]
-image_uri = sys.argv[3]
+parser = argparse.ArgumentParser(
+    prog='sagemaker deploy script',
+    description='deploy the lstm model on sagemaker',
+)
+
+parser.add_argument(
+    '--model-data',
+    type=str,
+    dest='model_data',
+)
+
+parser.add_argument(
+    '--iam-role',
+    type=str,
+    dest='iam_role',
+)
+
+parser.add_argument(
+    '--model-image-uri',
+    type=str,
+    dest='model_image_uri',
+)
+
+arguments = parser.parse_args()
 
 samconfig_file = config.SAMConfig(
     'samconfig.toml',
@@ -32,9 +53,9 @@ for endpoint in endpoints['Endpoints']:
         )
 
 model = tensorflow.TensorFlowModel(
-    model_data=model_data,
-    role=role,
-    image_uri=image_uri,
+    model_data=arguments.model_data,
+    role=arguments.iam_role,
+    image_uri=arguments.model_image_uri,
     env={
         'S3_DATA_BUCKET_NAME': samconfig_file.get_parameter('S3DataBucketName'),
         'ALPHA_VANTAGE_API_KEY': samconfig_file.get_parameter('AlphaVantageAPIKey'),
@@ -46,6 +67,6 @@ model = tensorflow.TensorFlowModel(
 
 predictor = model.deploy(
     initial_instance_count=1,
-    instance_type='ml.m5.large',
+    instance_type='m4.xlarge',
     endpoint_name='pocketsizefund-lstm',
 )

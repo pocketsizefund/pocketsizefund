@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# build Docker image
+
+set -e
+
+name=$1
+dockerfile=$2
+
+if [[ -z "$name" ]]; then
+    echo "valid name required:"
+    echo ""
+    echo "functions":
+    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
+    echo ""
+    echo "models:"
+    echo "trainlstm"
+    echo "predictlstm"
+    exit 0
+fi
+
+if [[ -z "$dockerfile" ]]; then
+    echo "valid dockerfile required:"
+    exit 0
+fi
+
+account_id=$(aws sts get-caller-identity --query Account --output text)
+
+image_name=$(python3 ./bin/helpers/get_name.py ${name})
+
+account_region=$(aws --profile default configure get region)
+
+tag=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
+
+if [[ $image_name == *"function"* ]]; then
+    docker build \
+        --build-arg FUNCTION_NAME=${name} \
+        --file ${dockerfile} \
+        --platform linux/arm64 \
+        --tag ${tag} .
+else
+    docker build \
+        --file ${dockerfile} \
+        --platform linux/amd64 \
+        --tag ${tag} .
+fi

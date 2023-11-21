@@ -8,6 +8,6 @@ COPY requirements.txt .
 
 COPY pkg/storage pkg/storage
 
-COPY exp/lstm/train_lstm.py .
+COPY exp/lstm/entrypoint_train.py .
 
-ENV SAGEMAKER_PROGRAM train_lstm.py
+ENV SAGEMAKER_PROGRAM entrypoint_train.py

@@ -1,3 +1,4 @@
+import argparse
 import datetime
 
 import pandas
@@ -8,9 +9,23 @@ from pkg.data import data
 from pkg.trade import trade
 
 
+parser = argparse.ArgumentParser(
+    prog='backfill data helper script',
+    description='update s3 data bucket with training data',
+)
+
+parser.add_argument(
+    '--samconfig-file-path',
+    type=str,
+    required=True,
+    dest='samconfig_file_path',
+)
+
+arguments = parser.parse_args()
+
 samconfig_file = config.SAMConfig(
-    'samconfig.toml',
-    config.ENVIRONMENT_DEVELOPMENT,
+    file_path=arguments.samconfig_file_path,
+    environment=config.ENVIRONMENT_DEVELOPMENT,
 )
 
 storage_client = storage.Client(

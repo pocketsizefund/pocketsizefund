@@ -6,7 +6,7 @@ COPY pkg/storage pkg/storage
 
 COPY pkg/data pkg/data
 
-COPY exp/lstm/invoke_lstm.py .
+COPY exp/lstm/entrypoint_predict.py .
 
 # conditionally copy model artifact for local builds
 COPY lstm.kera[s] model/
@@ -17,6 +17,6 @@ RUN pip3 install sagemaker-inference Flask
 
 EXPOSE 8080
 
-ENTRYPOINT ["python3", "invoke_lstm.py"]
+ENTRYPOINT ["python3", "entrypoint_predict.py"]
 
 CMD ["serve"]

@@ -91,7 +91,7 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-fetch-data
+      FunctionName: !Sub ${AWS::StackName}-function-fetch-data
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fetch-data:latest
       MemorySize: 768
       PackageType: Image
@@ -125,7 +125,7 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-create-positions
+      FunctionName: !Sub ${AWS::StackName}-function-create-positions
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-positions:latest
       MemorySize: 1536
       PackageType: Image
@@ -156,7 +156,7 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-clear-positions
+      FunctionName: !Sub ${AWS::StackName}-function-clear-positions
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/clear-positions:latest
       MemorySize: 128
       PackageType: Image
@@ -176,7 +176,7 @@ Resources:
           ALPACA_OAUTH_CLIENT_ID: !Ref AlpacaOAuthClientID
           ALPACA_OAUTH_CLIENT_SECRET: !Ref AlpacaOAuthClientSecret
           USERS_TABLE_NAME: !Ref usersTable
-      FunctionName: !Sub ${AWS::StackName}-complete-invite
+      FunctionName: !Sub ${AWS::StackName}-function-complete-invite
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
       MemorySize: 128
       PackageType: Image

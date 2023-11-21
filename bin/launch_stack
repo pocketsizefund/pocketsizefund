@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# lint, build, and launch
+# the CloudFormation stack
+
+set -e
+
+environment="development"
+if [[ "$1" == "production" ]]; then
+    environment="production"
+fi
+
+cfn-lint template.yaml
+
+sam build --use-container --cached --parallel
+
+sam deploy \
+    --no-confirm-changeset \
+    --resolve-image-repos \
+    --on-failure DELETE \
+    --config-env ${environment}
