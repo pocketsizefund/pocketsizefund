@@ -11,7 +11,7 @@ if [[ -z "$name" ]]; then
     echo "valid name required:"
     echo ""
     echo "functions":
-    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
+    ls -ld cmd/lambda/*/ | awk '{print $NF}' | xargs -I {} basename {}
     exit 0
 fi
 
@@ -20,7 +20,7 @@ if [[ "$2" == "production" ]]; then
     environment="production"
 fi
 
-function_name=$(python3 ./bin/helpers/get_name.py ${name})
+function_name=$(python3 ./bin/helpers/get_name.py ${name} ${environment})
 
 account_id=$(aws sts get-caller-identity --query Account --output text)
 
@@ -30,7 +30,7 @@ account_region=$(aws --profile default configure get region)
 
 repository_arn=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${function_name}:latest
 
-aws lambda update-function-code \
+AWS_PAGER="" aws lambda update-function-code \
     --function-name ${function_arn} \
     --image-uri ${repository_arn} \
     --publish \
