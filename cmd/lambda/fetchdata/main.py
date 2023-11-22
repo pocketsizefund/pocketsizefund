@@ -21,7 +21,6 @@ trade_client = trade.Client(
 )
 
 data_client = data.Client(
-    alpha_vantage_api_key=os.getenv('ALPHA_VANTAGE_API_KEY'),
     alpaca_api_key=os.getenv('ALPACA_API_KEY'),
     alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
 )

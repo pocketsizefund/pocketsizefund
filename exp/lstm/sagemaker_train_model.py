@@ -32,25 +32,18 @@ parser.add_argument(
     dest='s3_artifacts_bucket_name',
 )
 
-
 arguments = parser.parse_args()
-
-# hyperparameters
-training_split = 0.8
-epochs = 1
 
 estimator = tensorflow.TensorFlow(
     entry_point='',
     role=arguments.iam_role,
     instance_count=1,
-    instance_type='ml.m5.large',
+    instance_type='ml.m4.xlarge',
     source_dir='',
     image_uri=arguments.model_image_uri,
     model_dir='/opt/ml/model',  # this is the required value
     hyperparameters={
         's3-data-bucket-name': arguments.s3_data_bucket_name,
-        'training-split': training_split,
-        'epochs': epochs,
     },
     output_path='s3://{}/models'.format(arguments.s3_artifacts_bucket_name),
 )

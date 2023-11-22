@@ -22,7 +22,6 @@ scalers_file = open(os.getenv('MODEL_DIR')+'/scalers.pkl', 'rb')
 scalers = pickle.load(scalers_file)
 
 data_client = data.Client(
-    alpha_vantage_api_key=os.getenv('ALPHA_VANTAGE_API_KEY'),
     alpaca_api_key=os.getenv('ALPACA_API_KEY'),
     alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
 )
@@ -73,7 +72,7 @@ def invocations() -> flask.Response:
         )
 
         if ticker not in scalers:
-            continue  # TEMP
+            continue
 
         scaled_ticker_data = scalers[ticker]['input'].fit_transform(
             X=ticker_data.values,

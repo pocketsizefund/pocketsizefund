@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-# train model on SageMaker
+# create inference endpoint
+# for the model in SageMaker
 
 set -e
 
@@ -8,6 +9,10 @@ environment="development"
 if [[ "$1" == "production" ]]; then
     environment="production"
 fi
+
+latest_model=$(python3 ./bin/helpers/get_latest_model.py)
+
+model_data=s3://pocketsizefund-artifacts/${latest_model}
 
 sagemaker_iam_role_arn=$(aws cloudformation describe-stacks \
     --stack-name pocketsizefund-${environment} \
@@ -18,14 +23,12 @@ account_id=$(aws sts get-caller-identity --query Account --output text)
 
 account_region=$(aws --profile default configure get region)
 
-model_name=$(python3 ./bin/helpers/get_name.py trainlstm ${environment})
+image_name=$(python3 ./bin/helpers/get_name.py predictlstm ${environment})
 
-model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${model_name}:latest
+model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
 
-current_timestamp=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
-
-python3 ./exp/lstm/sagemaker_train_model.py \
+python3 ./exp/lstm/sagemaker_deploy_model.py \
+    --environment ${environment} \
+    --model-data ${model_data} \
     --iam-role ${sagemaker_iam_role_arn} \
-    --model-image-uri ${model_image_uri} \
-    --s3-data-bucket-name pocketsizefund-data \
-    --s3-artifacts-bucket-name pocketsizefund-artifacts
+    --model-image-uri ${model_image_uri}

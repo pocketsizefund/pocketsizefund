@@ -22,24 +22,15 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    '--training-split',
-    type=float,
-    dest='training_split',
-)
-
-parser.add_argument(
-    '--epochs',
-    type=int,
-    dest='epochs',
-)
-
-parser.add_argument(
     '--model_dir',
     type=str,
     dest='model_dir',
 )
 
 arguments = parser.parse_args()
+
+hyperparameter_epochs = 1
+hyperparameter_training_split = 0.8
 
 storage_client = storage.Client(
     s3_data_bucket_name=arguments.s3_data_bucket_name,
@@ -125,7 +116,7 @@ for ticker, ticker_input_data in input_data_grouped_by_ticker:
         X=ticker_output_data.values
     )
 
-    split = int(len(scaled_ticker_input_data) * arguments.training_split)
+    split = int(len(scaled_ticker_input_data) * hyperparameter_training_split)
 
     scaled_training_input_data = scaled_ticker_input_data[:split]
     scaled_training_output_data = scaled_ticker_output_data[:split]
@@ -201,7 +192,7 @@ model.compile(
 model.fit(
     x=training_input_data,
     y=training_output_data,
-    epochs=arguments.epochs,
+    epochs=hyperparameter_epochs,
     # validation_data=(testing_input_data, testing_output_data),
     shuffle=False,
     verbose=0,

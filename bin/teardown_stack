@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# tears down the
+# CloudFormation stack
+
+set -e
+
+environment="development"
+if [[ "$1" == "production" ]]; then
+    environment="production"
+fi
+
+aws cloudformation delete-stack --stack-name pocketsizefund-${environment}

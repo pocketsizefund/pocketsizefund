@@ -25,13 +25,6 @@ Parameters:
   DarqubeAPIKey:
     Type: String
     Description: Data Darqube API key
-  AlphaVantageAPIKey:
-    Type: String
-    Description: Data AlphaVantage API key
-  ModelFilePath:
-    Type: String
-    Description: Model file name
-    Default: lstm_model.h5
   FetchDataScheduleState:
     Type: String
     Description: Active state for data schedule
@@ -62,7 +55,7 @@ Parameters:
   ModelEndpointName:
     Type: String
     Description: SageMaker model endpoint name
-    Default: pocketsizefund-lstm
+    Default: pocketsizefund-development-lstm
 Resources:
   fetchDataFunction:
     Type: AWS::Serverless::Function
@@ -76,7 +69,6 @@ Resources:
           ALPACA_API_KEY: !Ref AlpacaAPIKey
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
-          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
           IS_PAPER: !Ref IsPaper
           SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
@@ -91,8 +83,8 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-fetch-data
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fetch-data:latest
+      FunctionName: !Sub ${AWS::StackName}-function-fetch-data
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-fetch-data:latest
       MemorySize: 768
       PackageType: Image
       Role: !GetAtt functionRole.Arn
@@ -108,7 +100,6 @@ Resources:
       Environment:
         Variables:
           S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
-          MODEL_FILE_PATH: !Ref ModelFilePath
           ALPACA_API_KEY: !Ref AlpacaAPIKey
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
@@ -125,8 +116,8 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-create-positions
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-positions:latest
+      FunctionName: !Sub ${AWS::StackName}-function-create-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-create-positions:latest
       MemorySize: 1536
       PackageType: Image
       Role: !GetAtt functionRole.Arn
@@ -156,8 +147,8 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-clear-positions
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/clear-positions:latest
+      FunctionName: !Sub ${AWS::StackName}-function-clear-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-clear-positions:latest
       MemorySize: 128
       PackageType: Image
       Role: !GetAtt functionRole.Arn
@@ -176,8 +167,8 @@ Resources:
           ALPACA_OAUTH_CLIENT_ID: !Ref AlpacaOAuthClientID
           ALPACA_OAUTH_CLIENT_SECRET: !Ref AlpacaOAuthClientSecret
           USERS_TABLE_NAME: !Ref usersTable
-      FunctionName: !Sub ${AWS::StackName}-complete-invite
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
+      FunctionName: !Sub ${AWS::StackName}-function-complete-invite
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-complete-invite:latest
       MemorySize: 128
       PackageType: Image
       Role: !GetAtt functionRole.Arn

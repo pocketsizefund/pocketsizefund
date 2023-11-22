@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-# invoke locally running
-# function container
-
-set -e
-
-curl "http://localhost:9000/2015-03-31/functions/function/invocations" --data '{}'
