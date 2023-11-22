@@ -5,4 +5,4 @@
 
 set -e
 
-python3 ./bin/helpers/backfill_data.py
+python3 ./bin/helpers/backfill_data.py --samconfig-file-path samconfig.toml

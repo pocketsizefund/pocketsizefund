@@ -6,75 +6,6 @@ from alpaca.data import requests as alpaca_data_requests
 from pkg.data import data
 
 
-class MockHTTPTimeSeriesDailyAdjustedResponse:
-    def __init__(
-        self,
-        data: dict[str, any],
-    ) -> None:
-        self.data = data
-
-    def json(self) -> dict[str, any]:
-        return self.data
-
-
-class MockHTTPClient:
-    def __init__(
-        self,
-        response: MockHTTPTimeSeriesDailyAdjustedResponse,
-    ) -> None:
-        self.response = response
-
-    def get(
-        self,
-        url: str,
-        params: dict[str, any],
-    ) -> any:
-        return self.response
-
-
-class TestGetAllEquitiesBars(unittest.TestCase):
-    def test_get_all_equities_bars_success(self):
-        client = data.Client(
-            alpha_vantage_api_key='alpha_vantage_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-        )
-
-        client.http_client = MockHTTPClient(
-            response=MockHTTPTimeSeriesDailyAdjustedResponse(
-                data={
-                    'Meta Data': {
-                        '2. Symbol': 'TICKER',
-                    },
-                    'Time Series (Daily)': {
-                        '2021-01-01': {
-                            '1. open': '5.0',
-                            '2. high': '6.0',
-                            '3. low': '4.0',
-                            '5. adjusted close': '5.0',
-                            '6. volume': '100.0',
-                        },
-                    },
-                },
-            ),
-        )
-
-        client.alpha_vantage_delay_in_seconds = 0
-
-        all_equities_bars = client.get_all_equities_bars(
-            tickers=['TICKER'],
-        )
-
-        self.assertEqual(1, len(all_equities_bars))
-        self.assertEqual('TICKER', all_equities_bars.iloc[0]['ticker'])
-        self.assertEqual(5.0, all_equities_bars.iloc[0]['open_price'])
-        self.assertEqual(6.0, all_equities_bars.iloc[0]['high_price'])
-        self.assertEqual(4.0, all_equities_bars.iloc[0]['low_price'])
-        self.assertEqual(5.0, all_equities_bars.iloc[0]['close_price'])
-        self.assertEqual(100.0, all_equities_bars.iloc[0]['volume'])
-        self.assertEqual('ALPHA_VANTAGE', all_equities_bars.iloc[0]['source'])
-
-
 class MockAlpacaHistoricalResponse:
     def __init__(
         self,
@@ -119,7 +50,6 @@ class MockAlpacaHistoricalClient:
 class TestGetRangeEquitiesBars(unittest.TestCase):
     def test_get_range_equities_bars_success(self):
         client = data.Client(
-            alpha_vantage_api_key='alpha_vantage_api_key',
             alpaca_api_key='alpaca_api_key',
             alpaca_api_secret='alpaca_api_secret',
         )
