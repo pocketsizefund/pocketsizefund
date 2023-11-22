@@ -23,11 +23,12 @@ account_id=$(aws sts get-caller-identity --query Account --output text)
 
 account_region=$(aws --profile default configure get region)
 
-image_name=$(python3 ./bin/helpers/get_name.py predictlstm)
+image_name=$(python3 ./bin/helpers/get_name.py predictlstm ${environment})
 
 model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
 
 python3 ./exp/lstm/sagemaker_deploy_model.py \
+    --environment ${environment} \
     --model-data ${model_data} \
     --iam-role ${sagemaker_iam_role_arn} \
     --model-image-uri ${model_image_uri}

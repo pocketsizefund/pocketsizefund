@@ -12,6 +12,12 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument(
+    '--environment',
+    type=str,
+    dest='environment',
+)
+
+parser.add_argument(
     '--model-data',
     type=str,
     dest='model_data',
@@ -38,18 +44,20 @@ samconfig_file = config.SAMConfig(
 
 sagemaker_client = boto3.client('sagemaker')
 
+endpoint_name = 'pocketsizefund-{}-lstm'.format(arguments.environment)
+
 endpoints = sagemaker_client.list_endpoints(
-    NameContains='pocketsizefund-lstm',
+    NameContains=endpoint_name,
 )
 
 for endpoint in endpoints['Endpoints']:
-    if endpoint['EndpointName'] == 'pocketsizefund-lstm':
+    if endpoint['EndpointName'] == endpoint_name:
         sagemaker_client.delete_endpoint_config(
-            EndpointConfigName='pocketsizefund-lstm',
+            EndpointConfigName=endpoint_name,
         )
 
         sagemaker_client.delete_endpoint(
-            EndpointName='pocketsizefund-lstm',
+            EndpointName=endpoint_name,
         )
 
 model = tensorflow.TensorFlowModel(
@@ -58,7 +66,6 @@ model = tensorflow.TensorFlowModel(
     image_uri=arguments.model_image_uri,
     env={
         'S3_DATA_BUCKET_NAME': samconfig_file.get_parameter('S3DataBucketName'),
-        'ALPHA_VANTAGE_API_KEY': samconfig_file.get_parameter('AlphaVantageAPIKey'),
         'ALPACA_API_KEY': samconfig_file.get_parameter('AlpacaAPIKey'),
         'ALPACA_API_SECRET': samconfig_file.get_parameter('AlpacaAPISecret'),
         'MODEL_DIR': '/opt/ml/model',
@@ -67,6 +74,6 @@ model = tensorflow.TensorFlowModel(
 
 predictor = model.deploy(
     initial_instance_count=1,
-    instance_type='m4.xlarge',
-    endpoint_name='pocketsizefund-lstm',
+    instance_type='ml.m4.xlarge',
+    endpoint_name=endpoint_name,
 )

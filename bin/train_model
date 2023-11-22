@@ -18,7 +18,7 @@ account_id=$(aws sts get-caller-identity --query Account --output text)
 
 account_region=$(aws --profile default configure get region)
 
-model_name=$(python3 ./bin/helpers/get_name.py trainlstm)
+model_name=$(python3 ./bin/helpers/get_name.py trainlstm ${environment})
 
 model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${model_name}:latest
 

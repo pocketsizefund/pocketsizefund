@@ -55,7 +55,7 @@ Parameters:
   ModelEndpointName:
     Type: String
     Description: SageMaker model endpoint name
-    Default: pocketsizefund-lstm
+    Default: pocketsizefund-development-lstm
 Resources:
   fetchDataFunction:
     Type: AWS::Serverless::Function
