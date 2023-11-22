@@ -12,7 +12,7 @@ if [[ -z "$name" ]]; then
     echo "valid name required:"
     echo ""
     echo "functions":
-    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
+    ls -ld cmd/lambda/*/ | awk '{print $NF}' | xargs -I {} basename {}
     echo ""
     echo "models:"
     echo "trainlstm"
@@ -20,7 +20,12 @@ if [[ -z "$name" ]]; then
     exit 0
 fi
 
-repository_name=$(python3 ./bin/helpers/get_name.py ${name})
+environment="development"
+if [[ "$2" == "production" ]]; then
+    environment="production"
+fi
+
+repository_name=$(python3 ./bin/helpers/get_name.py ${name} ${environment})
 
 account_region=$(aws --profile default configure get region)
 
@@ -34,7 +39,7 @@ if [ "$(echo "$describe_output" | jq length)" -eq 0 ]; then
 
     AWS_PAGER="" aws ecr put-lifecycle-policy \
         --repository-name ${repository_name} \
-        --lifecycle-policy-text "file://helpers/ecr_lifecycle_policy.json"
+        --lifecycle-policy-text "file://bin/helpers/ecr_lifecycle_policy.json"
 
 fi
 
