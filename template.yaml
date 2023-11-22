@@ -25,9 +25,6 @@ Parameters:
   DarqubeAPIKey:
     Type: String
     Description: Data Darqube API key
-  AlphaVantageAPIKey:
-    Type: String
-    Description: Data AlphaVantage API key
   ModelFilePath:
     Type: String
     Description: Model file name
@@ -76,7 +73,6 @@ Resources:
           ALPACA_API_KEY: !Ref AlpacaAPIKey
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
-          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
           IS_PAPER: !Ref IsPaper
           SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
@@ -92,7 +88,7 @@ Resources:
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
       FunctionName: !Sub ${AWS::StackName}-function-fetch-data
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fetch-data:latest
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/pocketsizefund-function-fetch-data:latest
       MemorySize: 768
       PackageType: Image
       Role: !GetAtt functionRole.Arn
@@ -126,7 +122,7 @@ Resources:
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
       FunctionName: !Sub ${AWS::StackName}-function-create-positions
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-positions:latest
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/pocketsizefund-function-create-positions:latest
       MemorySize: 1536
       PackageType: Image
       Role: !GetAtt functionRole.Arn
@@ -157,7 +153,7 @@ Resources:
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
       FunctionName: !Sub ${AWS::StackName}-function-clear-positions
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/clear-positions:latest
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/pocketsizefund-function-clear-positions:latest
       MemorySize: 128
       PackageType: Image
       Role: !GetAtt functionRole.Arn
@@ -177,7 +173,7 @@ Resources:
           ALPACA_OAUTH_CLIENT_SECRET: !Ref AlpacaOAuthClientSecret
           USERS_TABLE_NAME: !Ref usersTable
       FunctionName: !Sub ${AWS::StackName}-function-complete-invite
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/complete-invite:latest
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/pocketsizefund-function-complete-invite:latest
       MemorySize: 128
       PackageType: Image
       Role: !GetAtt functionRole.Arn
