@@ -2,7 +2,7 @@ FROM public.ecr.aws/lambda/python:3.10-arm64
 
 ARG FUNCTION_NAME
 
-COPY requirements.txt ${LAMBDA_TASK_ROOT}
+COPY cmd/lambda/requirements.txt ${LAMBDA_TASK_ROOT}
 
 COPY pkg ${LAMBDA_TASK_ROOT}/pkg
 
@@ -19,8 +19,6 @@ ENV ALPACA_API_KEY=""
 ENV ALPACA_API_SECRET=""
 
 ENV DARQUBE_API_KEY=""
-
-ENV MODEL_FILE_PATH=""
 
 ENV IS_PAPER=""
 

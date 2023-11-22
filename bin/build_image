@@ -11,7 +11,7 @@ if [[ -z "$name" ]]; then
     echo "valid name required:"
     echo ""
     echo "functions":
-    ls -li cmd/lambda | awk '{print $NF}' | tail -n +2
+    ls -ld cmd/lambda/*/ | awk '{print $NF}' | xargs -I {} basename {}
     echo ""
     echo "models:"
     echo "trainlstm"
@@ -24,9 +24,14 @@ if [[ -z "$dockerfile" ]]; then
     exit 0
 fi
 
+environment="development"
+if [[ "$3" == "production" ]]; then
+    environment="production"
+fi
+
 account_id=$(aws sts get-caller-identity --query Account --output text)
 
-image_name=$(python3 ./bin/helpers/get_name.py ${name})
+image_name=$(python3 ./bin/helpers/get_name.py ${name} ${environment})
 
 account_region=$(aws --profile default configure get region)
 

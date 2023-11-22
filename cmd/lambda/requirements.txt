@@ -1,0 +1,4 @@
+alpaca-py
+pandas
+requests
+boto3
