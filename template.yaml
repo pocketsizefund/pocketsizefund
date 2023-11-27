@@ -25,13 +25,6 @@ Parameters:
   DarqubeAPIKey:
     Type: String
     Description: Data Darqube API key
-  FetchDataScheduleState:
-    Type: String
-    Description: Active state for data schedule
-    Default: DISABLED
-    AllowedValues:
-      - ENABLED
-      - DISABLED
   CreateAndClearTradeScheduleState:
     Type: String
     Description: Active state for trade schedule
@@ -57,40 +50,6 @@ Parameters:
     Description: SageMaker model endpoint name
     Default: pocketsizefund-development-lstm
 Resources:
-  fetchDataFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Architectures:
-        - arm64
-      Description: Collects and processes training data
-      Environment:
-        Variables:
-          S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
-          ALPACA_API_KEY: !Ref AlpacaAPIKey
-          ALPACA_API_SECRET: !Ref AlpacaAPISecret
-          DARQUBE_API_KEY: !Ref DarqubeAPIKey
-          IS_PAPER: !Ref IsPaper
-          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
-      Events:
-        DailyFetch:
-          Properties:
-            # Run day after each trading day to ensure data is available
-            # due to data request being chunked by day
-            ScheduleExpression: cron(0 1 ? * TUE-SAT *)
-            ScheduleExpressionTimezone: America/New_York
-            State: !Ref FetchDataScheduleState
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-            RoleArn: !GetAtt functionSchedulerRole.Arn
-          Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-function-fetch-data
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-fetch-data:latest
-      MemorySize: 768
-      PackageType: Image
-      Role: !GetAtt functionRole.Arn
-      Tags:
-        pocketsizefund: function
-      Timeout: 240
   createPositionsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -107,7 +66,7 @@ Resources:
           SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
           MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
       Events:
-        DailyFetch:
+        DailyCreatePositions:
           Properties:
             ScheduleExpression: cron(35 9 ? * MON-FRI *) # 5 minutes after market open
             ScheduleExpressionTimezone: America/New_York
@@ -138,7 +97,7 @@ Resources:
           IS_PAPER: !Ref IsPaper
           SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
-        DailyFetch:
+        DailyClearPositions:
           Properties:
             ScheduleExpression: cron(55 15 ? * MON-FRI *) # 5 minutes before market close
             ScheduleExpressionTimezone: America/New_York
@@ -236,10 +195,6 @@ Resources:
         - PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Action:
-                  - lambda:InvokeFunction
-                Effect: Allow
-                Resource: !GetAtt fetchDataFunction.Arn
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow

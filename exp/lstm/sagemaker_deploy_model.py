@@ -2,6 +2,7 @@ import argparse
 
 import boto3
 from sagemaker import tensorflow
+from sagemaker.serverless import serverless_inference_config
 
 from pkg.config import config
 
@@ -76,4 +77,21 @@ predictor = model.deploy(
     initial_instance_count=1,
     instance_type='ml.m4.xlarge',
     endpoint_name=endpoint_name,
+    serverless_inference_config=serverless_inference_config.ServerlessInferenceConfig(
+        memory_size_in_mb=2048,  # default
+    ),
 )
+
+cloudwatch_client = boto3.client('logs')
+
+endpoint_name = 'pocketsizefund-{}-lstm'.format(arguments.environment)
+
+log_groups = cloudwatch_client.describe_log_groups(
+    logGroupNamePrefix='/aws/sagemaker/Endpoints/{}'.format(endpoint_name),
+)['logGroups']
+
+for log_group in log_groups:
+    cloudwatch_client.response = cloudwatch_client.put_retention_policy(
+        logGroupName=log_group['logGroupName'],
+        retentionInDays=3,
+    )
