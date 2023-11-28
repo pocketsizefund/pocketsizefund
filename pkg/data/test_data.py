@@ -37,17 +37,42 @@ class MockAlpacaHistoricalClient:
     def __init__(
         self,
         response: MockAlpacaHistoricalResponse,
+        exception: Exception,
     ) -> None:
         self.response = response
+        self.exception = exception
 
     def get_stock_bars(
         self,
         request: alpaca_data_requests.StockBarsRequest,
     ) -> any:
+        if self.exception is not None:
+            raise self.exception
+
         return self.response
 
 
 class TestGetRangeEquitiesBars(unittest.TestCase):
+    def test_get_range_equities_bars_alpaca_get_stock_bars_error(self):
+        client = data.Client(
+            alpaca_api_key='alpaca_api_key',
+            alpaca_api_secret='alpaca_api_secret',
+        )
+
+        client.alpaca_historical_client = MockAlpacaHistoricalClient(
+            response=None,
+            exception=Exception('get stock bars error'),
+        )
+
+        with self.assertRaises(Exception) as context:
+            _ = client.get_range_equities_bars(
+                tickers=['TICKER'],
+                start_at=datetime.datetime.strptime('1977-05-25', '%Y-%m-%d'),
+                end_at=datetime.datetime.strptime('1977-05-28', '%Y-%m-%d'),
+            )
+
+        self.assertEqual('get stock bars error', str(context.exception))
+
     def test_get_range_equities_bars_success(self):
         client = data.Client(
             alpaca_api_key='alpaca_api_key',
@@ -85,6 +110,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
                     ]
                 },
             ),
+            exception=None,
         )
 
         range_equities_bars = client.get_range_equities_bars(
