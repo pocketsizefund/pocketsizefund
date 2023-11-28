@@ -133,18 +133,6 @@ class Client:
 
             self.alpaca_trading_client.submit_order(request)
 
-    def _get_positions(self) -> dict[str, float]:
-        portfolio = self.alpaca_trading_client.get_all_positions()
-        port = {}
-
-        for position in portfolio:
-            port[position.symbol] = position.qty
-
-        return port
-
-    def get_portfolio(self) -> dict[str, float]:
-        return self._get_positions()
-
     def clear_positions(self) -> None:
         self.alpaca_trading_client.close_all_positions(
             cancel_orders=True,

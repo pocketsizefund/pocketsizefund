@@ -3,189 +3,6 @@ import unittest
 from pkg.trade import trade
 
 
-class TestTrade(unittest.TestCase):
-    def setUp(self):
-        self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-        )
-
-    def tearDown(self):
-        pass
-
-    def test_get_market_status_success(self):
-        self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=MockAlpacaGetClockResponse(
-                is_open=True,
-            ),
-        )
-
-        market_status = self.client.get_market_status()
-
-        self.assertEqual(True, market_status['is_market_open'])
-
-    def test_get_available_tickers_success(self):
-        self.client.http_client = MockHTTPClient(
-            response=MockDarqubeGetTickersResponse(
-                data={
-                    '0': {
-                        'Code': 'TICKER',
-                    },
-                },
-            ),
-        )
-
-        self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=MockAlpacaGetAllAssetsResponse(
-                data=[
-                    MockAlpacaAsset(
-                        symbol='TICKER',
-                    ),
-                ],
-            ),
-        )
-
-        tickers = self.client.get_available_tickers()
-
-        self.assertEqual(1, len(tickers))
-        self.assertEqual('TICKER', tickers[0])
-
-    def test_get_available_cash_success(self):
-        self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=MockAlpacaAccount(
-                cash=100.0,
-            ),
-        )
-
-        available_cash = self.client.get_available_cash()
-
-        self.assertEqual(100.0, available_cash)
-
-    def test_get_current_prices_success(self):
-        self.client.alpaca_data_client = MockAlpacaDataClient(
-            response=MockAlpacaGetStockLatestTradesResponse(
-                data={
-                    'TICKER': MockAlpacaTrade(
-                        price=5.0,
-                    ),
-                },
-            ),
-        )
-
-        current_prices = self.client.get_current_prices(
-            tickers=['TICKER'],
-        )
-
-        self.assertEqual(1, len(current_prices))
-        self.assertEqual(5.0, current_prices['TICKER']['price'])
-
-    def test_set_position_success(self):
-        self.client.http_client = MockHTTPClient(
-            response=MockDarqubeGetTickersResponse(
-                data={
-                    '0': {
-                        'Code': 'TICKER',
-                    },
-                },
-            ),
-        )
-
-        self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=MockAlpacaGetAllAssetsResponse(
-                data=[
-                    MockAlpacaAsset(
-                        symbol='TICKER',
-                    ),
-                ],
-            ),
-        )
-
-        self.client.set_positions(
-            positions=[
-                {
-                    'ticker': 'TICKER',
-                    'quantity': 10.0,
-                    'side': trade.SIDE_BUY,
-                },
-            ],
-        )
-
-        last_request = self.client.alpaca_trading_client.last_request
-        self.assertIsNotNone(last_request)
-        self.assertEqual(last_request.symbol, 'TICKER')
-        self.assertEqual(last_request.qty, 10)
-        self.assertEqual(last_request.side, 'buy')
-
-        negative_position = [
-            {
-                'ticker': 'TICKER',
-                'quantity': -10.0,
-                'side': trade.SIDE_BUY,
-            },
-        ]
-
-        with self.assertRaises(Exception) as context:
-            self.client.set_positions(positions=negative_position)
-
-        self.assertEqual(
-            str(context.exception),
-            'quantity must be a positive number',
-        )
-
-        non_ticker_position = [
-            {
-                'ticker': 'INVALID',
-                'quantity': 10,
-                'side': trade.SIDE_BUY
-            }
-        ]
-
-        with self.assertRaises(Exception) as context:
-            self.client.set_positions(positions=non_ticker_position)
-
-        self.assertEqual(
-            str(context.exception),
-            'invalid ticker "{}"'.format(non_ticker_position[0]['ticker']),
-        )
-
-    def test_clear_positions_success(self):
-        self.client.http_client = MockHTTPClient(
-            response=MockDarqubeGetTickersResponse(
-                data={
-                    '0': {
-                        'Code': 'TICKER',
-                    },
-                },
-            ),
-        )
-
-        self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            response=MockAlpacaGetAllAssetsResponse(
-                data=[
-                    MockAlpacaAsset(
-                        symbol='TICKER',
-                    ),
-                ],
-            ),
-        )
-
-        self.client.set_positions(
-            positions=[
-                {
-                    'ticker': 'TICKER',
-                    'quantity': 10.0,
-                    'side': trade.SIDE_BUY,
-                },
-            ],
-        )
-
-        self.client.clear_positions()
-
-        positions = self.client.get_portfolio()
-        self.assertEqual(positions, {})
-
-
 class MockAlpacaGetClockResponse:
     def __init__(
         self,
@@ -209,14 +26,19 @@ class MockHTTPClient:
     def __init__(
         self,
         response: MockDarqubeGetTickersResponse,
+        exception: Exception,
     ) -> None:
         self.response = response
+        self.exception = exception
 
     def get(
         self,
         url: str,
         params: any,
     ) -> any:
+        if self.exception is not None:
+            raise self.exception
+
         return self.response
 
 
@@ -269,8 +91,10 @@ class MockAlpacaTradingClient:
     def __init__(
         self,
         response: any,
+        exception: Exception,
     ) -> None:
         self.response = response
+        self.exception = exception
         self.last_request = None
 
     def get_all_assets(
@@ -280,15 +104,24 @@ class MockAlpacaTradingClient:
         return self.response
 
     def get_clock(self) -> any:
+        if self.exception is not None:
+            raise self.exception
+
         return self.response
 
     def get_account(self) -> any:
+        if self.exception is not None:
+            raise self.exception
+
         return self.response
 
     def submit_order(
         self,
         request: any,
     ) -> any:
+        if self.exception is not None:
+            raise self.exception
+
         self.last_request = request
         return {
             'symbol': request.symbol,
@@ -345,11 +178,273 @@ class MockAlpacaDataClient:
     def __init__(
         self,
         response: any,
+        exception: Exception = None,
     ) -> None:
         self.response = response
+        self.exception = exception
 
     def get_stock_latest_trade(
         self,
         request: any,
     ) -> any:
+        if self.exception is not None:
+            raise self.exception
+
         return self.response
+
+
+class TestTrade(unittest.TestCase):
+    def setUp(self):
+        self.client = trade.Client(
+            darqube_api_key='darqube_api_key',
+            alpaca_api_key='alpaca_api_key',
+            alpaca_api_secret='alpaca_api_secret',
+        )
+
+    def tearDown(self):
+        pass
+
+    def test_get_market_status_alpaca_get_clock_error(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=None,
+            exception=Exception('alpaca get clock error'),
+        )
+
+        with self.assertRaises(Exception) as context:
+            self.client.get_market_status()
+
+        self.assertEqual(
+            str(context.exception),
+            'alpaca get clock error',
+        )
+
+    def test_get_market_status_success(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaGetClockResponse(
+                is_open=True,
+            ),
+            exception=None,
+        )
+
+        market_status = self.client.get_market_status()
+
+        self.assertEqual(True, market_status['is_market_open'])
+
+    def test_get_available_tickers_darqube_get_tickers_error(self):
+        self.client.http_client = MockHTTPClient(
+            response=None,
+            exception=Exception('darqube get tickers error'),
+        )
+
+        with self.assertRaises(Exception) as context:
+            self.client.get_available_tickers()
+
+        self.assertEqual(
+            str(context.exception),
+            'darqube get tickers error',
+        )
+
+    def test_get_available_tickers_success(self):
+        self.client.http_client = MockHTTPClient(
+            response=MockDarqubeGetTickersResponse(
+                data={
+                    '0': {
+                        'Code': 'TICKER',
+                    },
+                },
+            ),
+            exception=None,
+        )
+
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaGetAllAssetsResponse(
+                data=[
+                    MockAlpacaAsset(
+                        symbol='TICKER',
+                    ),
+                ],
+            ),
+            exception=None,
+        )
+
+        tickers = self.client.get_available_tickers()
+
+        self.assertEqual(1, len(tickers))
+        self.assertEqual('TICKER', tickers[0])
+
+    def test_get_available_cash_alpaca_get_account_error(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=None,
+            exception=Exception('alpaca get account error'),
+        )
+
+        with self.assertRaises(Exception) as context:
+            self.client.get_available_cash()
+
+        self.assertEqual(
+            str(context.exception),
+            'alpaca get account error',
+        )
+
+    def test_get_available_cash_success(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaAccount(
+                cash=100.0,
+            ),
+            exception=None,
+        )
+
+        available_cash = self.client.get_available_cash()
+
+        self.assertEqual(100.0, available_cash)
+
+    def test_get_current_prices_alpaca_get_stock_latest_trade_error(self):
+        self.client.alpaca_data_client = MockAlpacaDataClient(
+            response=None,
+            exception=Exception('alpaca get stock latest trade error'),
+        )
+
+        with self.assertRaises(Exception) as context:
+            self.client.get_current_prices(
+                tickers=['TICKER'],
+            )
+
+        self.assertEqual(
+            str(context.exception),
+            'alpaca get stock latest trade error',
+        )
+
+    def test_get_current_prices_success(self):
+        self.client.alpaca_data_client = MockAlpacaDataClient(
+            response=MockAlpacaGetStockLatestTradesResponse(
+                data={
+                    'TICKER': MockAlpacaTrade(
+                        price=5.0,
+                    ),
+                },
+            ),
+        )
+
+        current_prices = self.client.get_current_prices(
+            tickers=['TICKER'],
+        )
+
+        self.assertEqual(1, len(current_prices))
+        self.assertEqual(5.0, current_prices['TICKER']['price'])
+
+    def test_set_positions_negative_quantity_error(self):
+        self.client.http_client = MockHTTPClient(
+            response=MockDarqubeGetTickersResponse(
+                data={
+                    '0': {
+                        'Code': 'TICKER',
+                    },
+                },
+            ),
+            exception=None,
+        )
+
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaGetAllAssetsResponse(
+                data=[
+                    MockAlpacaAsset(
+                        symbol='TICKER',
+                    ),
+                ],
+            ),
+            exception=None,
+        )
+
+        negative_position = [
+            {
+                'ticker': 'TICKER',
+                'quantity': -10.0,
+                'side': trade.SIDE_BUY,
+            },
+        ]
+
+        with self.assertRaises(Exception) as context:
+            self.client.set_positions(positions=negative_position)
+
+        self.assertEqual(
+            str(context.exception),
+            'quantity must be a positive number',
+        )
+
+    def test_set_positions_invalid_ticker_error(self):
+        self.client.http_client = MockHTTPClient(
+            response=MockDarqubeGetTickersResponse(
+                data={
+                    '0': {
+                        'Code': 'TICKER',
+                    },
+                },
+            ),
+            exception=None,
+        )
+
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaGetAllAssetsResponse(
+                data=[
+                    MockAlpacaAsset(
+                        symbol='TICKER',
+                    ),
+                ],
+            ),
+            exception=None,
+        )
+
+        non_ticker_position = [
+            {
+                'ticker': 'INVALID',
+                'quantity': 10,
+                'side': trade.SIDE_BUY
+            }
+        ]
+
+        with self.assertRaises(Exception) as context:
+            self.client.set_positions(positions=non_ticker_position)
+
+        self.assertEqual(
+            str(context.exception),
+            'invalid ticker "{}"'.format(non_ticker_position[0]['ticker']),
+        )
+
+    def test_set_positions_success(self):
+        self.client.http_client = MockHTTPClient(
+            response=MockDarqubeGetTickersResponse(
+                data={
+                    '0': {
+                        'Code': 'TICKER',
+                    },
+                },
+            ),
+            exception=None,
+        )
+
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response=MockAlpacaGetAllAssetsResponse(
+                data=[
+                    MockAlpacaAsset(
+                        symbol='TICKER',
+                    ),
+                ],
+            ),
+            exception=None,
+        )
+
+        self.client.set_positions(
+            positions=[
+                {
+                    'ticker': 'TICKER',
+                    'quantity': 10.0,
+                    'side': trade.SIDE_BUY,
+                },
+            ],
+        )
+
+        last_request = self.client.alpaca_trading_client.last_request
+        self.assertIsNotNone(last_request)
+        self.assertEqual(last_request.symbol, 'TICKER')
+        self.assertEqual(last_request.qty, 10)
+        self.assertEqual(last_request.side, 'buy')

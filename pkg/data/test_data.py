@@ -36,8 +36,8 @@ class MockAlpacaHistoricalResponse:
 class MockAlpacaHistoricalClient:
     def __init__(
         self,
-        response: MockAlpacaHistoricalResponse = None,
-        exception: Exception = None,
+        response: MockAlpacaHistoricalResponse,
+        exception: Exception,
     ) -> None:
         self.response = response
         self.exception = exception
