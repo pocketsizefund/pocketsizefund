@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# evaluate trained model
+# performance
+
+set -e
+
+environment="development"
+if [[ "$1" == "production" ]]; then
+    environment="production"
+fi
+
+latest_model_bucket=pocketsizefund-artifacts
+
+latest_model_key=$(python3 ./bin/helpers/get_latest_model.py)
+
+account_id=$(aws sts get-caller-identity --query Account --output text)
+
+account_region=$(aws --profile default configure get region)
+
+image_name=$(python3 ./bin/helpers/get_name.py evaluatelstm ${environment})
+
+full_image_name=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
+
+access_key_id=$(grep 'aws_access_key_id' ~/.aws/credentials | awk '{print $3}')
+
+secret_access_key=$(grep 'aws_secret_access_key' ~/.aws/credentials | awk '{print $3}')
+
+docker run \
+    --volume ${HOME}/pocketsizefund/pocketsizefund/exp/lstm/metrics:/metrics \
+    --env AWS_ACCESS_KEY_ID=${access_key_id} \
+    --env AWS_SECRET_ACCESS_KEY=${secret_access_key} \
+    ${full_image_name} \
+    --bucket-name ${latest_model_bucket} \
+    --key-name ${latest_model_key}

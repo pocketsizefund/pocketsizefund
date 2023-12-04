@@ -13,10 +13,12 @@ bars.csv
 development_users_table.json
 production_users_table.json
 
-
 # model
 model.tar.gz
 lstm.keras
+scalers.pkl
+testing_data.pkl
+exp/lstm/metrics/*
 
 # infrastucture
 .aws-sam/

@@ -16,11 +16,12 @@ if [[ -z "$name" ]]; then
     echo "models:"
     echo "trainlstm"
     echo "predictlstm"
+    echo "evaluatelstm"
     exit 0
 fi
 
 if [[ -z "$dockerfile" ]]; then
-    echo "valid dockerfile required:"
+    echo "valid dockerfile required"
     exit 0
 fi
 
@@ -37,7 +38,7 @@ account_region=$(aws --profile default configure get region)
 
 tag=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
 
-if [[ $image_name == *"function"* ]]; then
+if [[ $image_name == *"function"* || $image_name == *"evaluate"* ]]; then
     docker build \
         --build-arg FUNCTION_NAME=${name} \
         --file ${dockerfile} \

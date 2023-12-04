@@ -187,13 +187,17 @@ model = models.Sequential(
 model.compile(
     loss='mean_squared_error',
     optimizer='adam',
+    metrics=[
+        'accuracy',
+        'mse',
+        'mae',
+    ],
 )
 
 model.fit(
     x=training_input_data,
     y=training_output_data,
     epochs=hyperparameter_epochs,
-    # validation_data=(testing_input_data, testing_output_data),
     shuffle=False,
     verbose=0,
 )
@@ -212,32 +216,12 @@ pickle.dump(
     file=scalers_file,
 )
 
-for ticker, ticker_data in preprocessed_testing_data.items():
-    testing_input_data = ticker_data['input']
-    testing_output_data = ticker_data['output']
+testing_data_file = open(
+    file=os.path.join(arguments.model_dir, 'testing_data.pkl'),
+    mode='wb',
+)
 
-    testing_input_data = testing_input_data.reshape(
-        testing_input_data.shape[0],
-        1,
-        testing_input_data.shape[1],
-    )
-
-    testing_output_data = testing_output_data.reshape(
-        testing_output_data.shape[0],
-        1,
-        testing_output_data.shape[1],
-    )
-
-    predictions = model.predict(
-        x=testing_input_data,
-        verbose=0,
-    )
-
-    scaler = scalers[ticker]['output']
-
-    unscaled_predictions = scaler.inverse_transform(
-        X=numpy.squeeze(
-            a=predictions,
-            axis=1,
-        ),
-    )
+pickle.dump(
+    obj=preprocessed_testing_data,
+    file=testing_data_file,
+)

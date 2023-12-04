@@ -23,6 +23,9 @@ elif original_name == 'trainlstm':
 elif original_name == 'predictlstm':
     updated_name = 'model-predict-lstm'
 
+elif original_name == 'evaluatelstm':
+    updated_name = 'model-evaluate-lstm'
+
 else:
     exit('"{}" name not found'.format(original_name))
 

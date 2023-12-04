@@ -1,6 +1,6 @@
 FROM python:3.11.6
 
-COPY requirements.txt .
+COPY exp/lstm/requirements.txt .
 
 COPY pkg/storage pkg/storage
 
