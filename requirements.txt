@@ -10,3 +10,4 @@ scikit-learn
 keras
 Flask
 tensorflow
+coverage

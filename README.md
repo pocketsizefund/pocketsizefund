@@ -2,6 +2,8 @@
 
 > Recreational quantitative trading 🍊  
 
+[![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund)  
+
 ## About
 
 **pocketsizefund** holds the main resources for the fund platform including data pipelines, trading engine, and frontend resources.  
