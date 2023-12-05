@@ -1,5 +1,9 @@
 name: Python packages
 on: [push, pull_request]
+env:
+  AWS_ACCESS_KEY_ID: ''
+  AWS_SECRET_ACCESS_KEY: ''
+  AWS_DEFAULT_REGION: us-east-1
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -9,4 +13,7 @@ jobs:
         with:
           python-version: '3.11.6'
       - run: pip3 install -r requirements.txt
+  test:
+    runs-on: ubuntu-latest
+    steps:
       - run: ./bin/run_unit_tests
