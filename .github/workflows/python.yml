@@ -14,4 +14,7 @@ jobs:
           python-version: '3.11.6'
       - run: pip3 install -r requirements.txt
       - run: ./bin/run_unit_tests
+      - run: coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
       - uses: coverallsapp/github-action@v2
+        with:
+          path-to-lcov: coverage.xml
