@@ -14,3 +14,4 @@ jobs:
           python-version: '3.11.6'
       - run: pip3 install -r requirements.txt
       - run: ./bin/run_unit_tests
+      - uses: coverallsapp/github-action@v2
