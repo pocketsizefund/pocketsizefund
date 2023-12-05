@@ -14,7 +14,10 @@
                 </h1>
                 <br/>
                 <h2 class='subtitle'>
-                    Pocket Size Fund is a quantitative proprietary trading firm being built on nights and weekends
+                    Pocket Size Fund is an <a 
+                        href='https://github.com/pocketsizefund' 
+                        target='_blank'
+                    >open source</a> quantitative proprietary trading firm being built on nights and weekends
                 </h2>
                 <br/>   
                 <h2 class='call-to-action'>
