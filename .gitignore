@@ -14,6 +14,7 @@ development_users_table.json
 production_users_table.json
 
 # model
+exp/
 model.tar.gz
 lstm.keras
 scalers.pkl
