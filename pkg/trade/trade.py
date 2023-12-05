@@ -1,5 +1,4 @@
 import requests
-
 from alpaca.data import requests as alpaca_data_requests
 from alpaca.data import historical
 from alpaca.trading import client as trading_client
