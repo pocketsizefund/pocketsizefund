@@ -1,5 +1,5 @@
 name: Python packages
-on: [push, pull_request]
+on: [push]
 env:
   AWS_ACCESS_KEY_ID: ''
   AWS_SECRET_ACCESS_KEY: ''
