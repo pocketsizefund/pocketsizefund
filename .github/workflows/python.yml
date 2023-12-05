@@ -16,4 +16,5 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - run: ./bin/run_unit_tests
