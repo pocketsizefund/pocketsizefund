@@ -15,11 +15,6 @@ Include references to external research, previous experiments, proposed data sou
 
 ### Specifics
 
-- [ ] add a findings file to the `experiments` directory
-    - [ ] use GitHub flavored Markdown
-    - [ ] use lowercase and underscores in file name
-- [ ] add implementation feature requests as needed
-
 <!-- 
 Provide bullet point details with work proposal and exploration steps.
 Include the default bullet(s) above.
