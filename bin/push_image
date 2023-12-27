@@ -54,3 +54,6 @@ aws ecr get-login-password \
 tag=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${repository_name}:latest
 
 docker push ${tag}
+
+echo "pushed image: ${tag}"
+echo "image can now be used in cloud environment"

@@ -50,3 +50,6 @@ else
         --platform linux/amd64 \
         --tag ${tag} .
 fi
+
+echo "built image: ${tag}"
+echo "push image to use in cloud environment"

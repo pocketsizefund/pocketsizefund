@@ -33,3 +33,5 @@ docker run \
     ${full_image_name} \
     --bucket-name ${latest_model_bucket} \
     --key-name ${latest_model_key}
+
+echo "evaluated model: ${image_name}"

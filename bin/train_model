@@ -29,3 +29,5 @@ python3 ./exp/lstm/sagemaker_train_model.py \
     --model-image-uri ${model_image_uri} \
     --s3-data-bucket-name pocketsizefund-data \
     --s3-artifacts-bucket-name pocketsizefund-artifacts
+
+echo "trained model: ${model_name}"
