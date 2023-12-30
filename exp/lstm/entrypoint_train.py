@@ -3,12 +3,13 @@ import os
 import pickle
 
 import pandas
-from sklearn import preprocessing
-import numpy
-from keras import models, layers
+from keras import models, layers, losses, optimizers, metrics
 
 from pkg.storage import storage
+import entrypoint_helpers
 
+
+HYPERPARAMETER_EPOCHS = 10
 
 parser = argparse.ArgumentParser(
     prog='model training script',
@@ -29,9 +30,6 @@ parser.add_argument(
 
 arguments = parser.parse_args()
 
-hyperparameter_epochs = 1
-hyperparameter_training_split = 0.8
-
 storage_client = storage.Client(
     s3_data_bucket_name=arguments.s3_data_bucket_name,
 )
@@ -45,161 +43,44 @@ equity_bars_by_year = storage_client.load_dataframes(
     file_names=file_names,
 )
 
-input_data = pandas.concat(
+equity_bars = pandas.concat(
     list(equity_bars_by_year.values()),
 )
 
-input_data.set_index(
-    keys='timestamp',
-    inplace=True,
-)
-
-input_data.drop(
-    columns=['source'],
-    inplace=True,
-)
-
-
-def convert_ticker_to_integer(ticker: str) -> int:
-    return int.from_bytes(ticker.encode(), 'little')
-
-
-input_data['ticker'] = input_data['ticker'].apply(convert_ticker_to_integer)
-
-scalers: dict[int, dict[str, preprocessing.MinMaxScaler]] = {}
-
-preprocessed_training_data: dict[str, list[numpy.ndarray]] = {
-    'input': [],
-    'output': [],
-}
-
-preprocessed_testing_data: dict[int, dict[str, numpy.ndarray]] = {}
-
-input_data_grouped_by_ticker = input_data.groupby(
-    by='ticker',
-    dropna=True,
-)
-
-for ticker, ticker_input_data in input_data_grouped_by_ticker:
-    ticker_output_data = ticker_input_data[['close_price']].copy()
-
-    ticker_input_data.sort_index(
-        ascending=True,
-        inplace=True,
-    )
-
-    ticker_input_data.drop(
-        index=ticker_input_data.index[0],
-        inplace=True,
-    )
-
-    ticker_output_data.sort_index(
-        ascending=True,
-        inplace=True,
-    )
-
-    ticker_output_data.drop(
-        index=ticker_output_data.index[-1],
-        inplace=True,
-    )
-
-    scalers[ticker] = {
-        'input': preprocessing.MinMaxScaler(feature_range=(0, 1)),
-        'output': preprocessing.MinMaxScaler(feature_range=(0, 1)),
-    }
-
-    scaled_ticker_input_data = scalers[ticker]['input'].fit_transform(
-        X=ticker_input_data.values,
-    )
-
-    scaled_ticker_output_data = scalers[ticker]['output'].fit_transform(
-        X=ticker_output_data.values
-    )
-
-    split = int(len(scaled_ticker_input_data) * hyperparameter_training_split)
-
-    scaled_training_input_data = scaled_ticker_input_data[:split]
-    scaled_training_output_data = scaled_ticker_output_data[:split]
-    scaled_testing_input_data = scaled_ticker_input_data[split:]
-    scaled_testing_output_data = scaled_ticker_output_data[split:]
-
-    preprocessed_training_data['input'].append(
-        scaled_training_input_data
-    )
-    preprocessed_training_data['output'].append(
-        scaled_training_output_data
-    )
-
-    preprocessed_testing_data[ticker] = {
-        'input': scaled_testing_input_data,
-        'output': scaled_testing_output_data,
-    }
-
-training_input_data = numpy.concatenate(
-    preprocessed_training_data['input'],
-    axis=0,
-)
-
-training_input_data = training_input_data.reshape(
-    training_input_data.shape[0],
-    1,
-    training_input_data.shape[1],
-)
-
-training_output_data = numpy.concatenate(
-    preprocessed_training_data['output'],
-    axis=0,
-)
-
-training_output_data = training_output_data.reshape(
-    training_output_data.shape[0],
-    1,
-    training_output_data.shape[1],
+preprocessed_data = entrypoint_helpers.preprocess_training_data(
+    data=equity_bars,
 )
 
 model = models.Sequential(
     layers=[
         layers.LSTM(
-            units=100,
-            return_sequences=True,
-            input_shape=(
-                training_input_data.shape[1],
-                training_input_data.shape[2],
-            ),
+            units=32,
+            return_sequences=False,
         ),
-        layers.LSTM(
-            units=50,
-            return_sequences=True,
+        layers.Dense(
+            # features * days
+            units=1 * entrypoint_helpers.WINDOW_OUTPUT_LENGTH,
         ),
-        layers.LSTM(
-            units=50,
-            return_sequences=True,
+        layers.Reshape(
+            # days, features
+            target_shape=(entrypoint_helpers.WINDOW_OUTPUT_LENGTH, 1),
         ),
-        layers.LSTM(
-            units=50,
-            return_sequences=True,
-        ),
-        layers.Dense(units=1),
     ],
     name='basic_lstm',
 )
 
 model.compile(
-    loss='mean_squared_error',
-    optimizer='adam',
+    loss=losses.MeanSquaredError(),
+    optimizer=optimizers.Adam(),
     metrics=[
-        'accuracy',
-        'mse',
-        'mae',
+        metrics.MeanAbsoluteError(),
     ],
 )
 
 model.fit(
-    x=training_input_data,
-    y=training_output_data,
-    epochs=hyperparameter_epochs,
-    shuffle=False,
-    verbose=0,
+    x=preprocessed_data['data']['training'],
+    epochs=HYPERPARAMETER_EPOCHS,
+    validation_data=preprocessed_data['data']['validating'],
 )
 
 model.save(
@@ -212,16 +93,11 @@ scalers_file = open(
 )
 
 pickle.dump(
-    obj=scalers,
+    obj=preprocessed_data['scalers'],
     file=scalers_file,
 )
 
-testing_data_file = open(
-    file=os.path.join(arguments.model_dir, 'testing_data.pkl'),
-    mode='wb',
-)
-
-pickle.dump(
-    obj=preprocessed_testing_data,
-    file=testing_data_file,
+preprocessed_data['data']['testing'].save(
+    path=os.path.join(arguments.model_dir, 'testing_data'),
+    compression='GZIP',
 )

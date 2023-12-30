@@ -47,19 +47,17 @@ sagemaker_client = boto3.client('sagemaker')
 
 endpoint_name = 'pocketsizefund-{}-lstm'.format(arguments.environment)
 
-endpoints = sagemaker_client.list_endpoints(
-    NameContains=endpoint_name,
-)
+try:
+    sagemaker_client.delete_endpoint_config(
+        EndpointConfigName=endpoint_name,
+    )
 
-for endpoint in endpoints['Endpoints']:
-    if endpoint['EndpointName'] == endpoint_name:
-        sagemaker_client.delete_endpoint_config(
-            EndpointConfigName=endpoint_name,
-        )
+    sagemaker_client.delete_endpoint(
+        EndpointName=endpoint_name,
+    )
 
-        sagemaker_client.delete_endpoint(
-            EndpointName=endpoint_name,
-        )
+except Exception as exception:
+    pass
 
 model = tensorflow.TensorFlowModel(
     model_data=arguments.model_data,
