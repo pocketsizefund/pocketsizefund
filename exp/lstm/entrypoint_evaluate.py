@@ -1,13 +1,13 @@
 import argparse
 import tarfile
 import io
-import pickle
 import os
 import json
 from datetime import datetime
 
 import boto3
 from keras import models
+import tensorflow
 
 
 parser = argparse.ArgumentParser(
@@ -26,11 +26,6 @@ parser.add_argument(
     type=str,
     dest='key_name',
 )
-
-
-def convert_integer_to_ticker(integer: int) -> str:
-    return integer.to_bytes((integer.bit_length() + 7) // 8, 'little').decode()
-
 
 arguments = parser.parse_args()
 
@@ -56,63 +51,23 @@ model = models.load_model(
     filepath='./lstm.keras',
 )
 
-testing_data_file = open('testing_data.pkl', 'rb')
+testing_data = tensorflow.data.Dataset.load(
+    path='./testing_data',
+    compression='GZIP',
+)
 
-testing_data = pickle.load(testing_data_file)
+evaluation = model.evaluate(
+    x=testing_data,
+    return_dict=True,
+    verbose=0,
+)
 
-ticker_metrics: dict[str, any] = {}
-
-count: int = len(testing_data.keys())
-
-average_metrics: dict[str, float] = {
-    'average_loss': 0.0,
-    'average_accuracy': 0.0,
-    'average_mse': 0.0,
-    'average_mae': 0.0,
+metrics: dict[str, any] = {
+    'loss': evaluation['loss'],
+    'mean_absolute_error': evaluation['mean_absolute_error'],
 }
-
-for ticker, ticker_data in testing_data.items():
-    testing_input_data = ticker_data['input']
-    testing_output_data = ticker_data['output']
-
-    testing_input_data = testing_input_data.reshape(
-        testing_input_data.shape[0],
-        1,
-        testing_input_data.shape[1],
-    )
-
-    testing_output_data = testing_output_data.reshape(
-        testing_output_data.shape[0],
-        1,
-        testing_output_data.shape[1],
-    )
-
-    evaluation = model.evaluate(
-        x=testing_input_data,
-        y=testing_output_data,
-        return_dict=True,
-        verbose=0,
-    )
-
-    ticker_metrics[convert_integer_to_ticker(ticker)] = evaluation
-
-    average_metrics['average_loss'] += evaluation['loss']
-    average_metrics['average_accuracy'] += evaluation['accuracy']
-    average_metrics['average_mse'] += evaluation['mse']
-    average_metrics['average_mae'] += evaluation['mae']
-
-
-average_metrics['average_loss'] /= count
-average_metrics['average_accuracy'] /= count
-average_metrics['average_mse'] /= count
-average_metrics['average_mae'] /= count
 
 now = datetime.now().strftime('%Y%m%d%H%M%S')
 
-all_metrics: dict[str, any] = {
-    'ticker_metrics': ticker_metrics,
-    'average_metrics': average_metrics,
-}
-
 metrics_file = open('metrics/{}_metrics.json'.format(now), 'w')
-json.dump(all_metrics, metrics_file)
+json.dump(metrics, metrics_file)

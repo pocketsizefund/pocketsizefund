@@ -1,0 +1,6 @@
+pandas
+keras
+scikit-learn
+numpy
+tensorflow
+boto3

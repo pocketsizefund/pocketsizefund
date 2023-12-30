@@ -8,6 +8,7 @@ import numpy
 from keras import models
 
 from pkg.data import data
+import entrypoint_helpers
 
 
 app = flask.Flask(__name__)
@@ -34,59 +35,20 @@ def invocations() -> flask.Response:
         data=json_data,
     )
 
-    input_data.set_index(
-        keys='timestamp',
-        inplace=True,
+    preprocessed_data = entrypoint_helpers.preprocess_predicting_data(
+        data=input_data,
+        scalers=scalers,
     )
 
-    input_data.drop(
-        columns=['source'],
-        inplace=True,
-    )
+    predictions: dict[str, any] = {}
 
-    def convert_ticker_to_integer(ticker: str) -> int:
-        return int.from_bytes(ticker.encode(), 'little')
-
-    def convert_integer_to_ticker(integer: int) -> str:
-        return integer.to_bytes((integer.bit_length() + 7) // 8, 'little').decode()
-
-    input_data['ticker'] = input_data['ticker'].apply(
-        convert_ticker_to_integer
-    )
-
-    input_data_grouped_by_ticker = input_data.groupby(
-        by='ticker',
-        dropna=True,
-    )
-
-    predictions = {}
-    for ticker, ticker_data in input_data_grouped_by_ticker:
-        ticker_data.sort_index(
-            ascending=True,
-            inplace=True,
-        )
-
-        if ticker not in scalers:
-            continue
-
-        scaled_ticker_data = scalers[ticker]['input'].fit_transform(
-            X=ticker_data.values,
-        )
-
-        input_data = scaled_ticker_data.reshape(
-            scaled_ticker_data.shape[0],
-            1,
-            scaled_ticker_data.shape[1],
-        )
-
+    for ticker, ticker_data in preprocessed_data.items():
         prediction = model.predict(
-            x=input_data,
+            x=ticker_data,
             verbose=0,
         )
 
-        scaler = scalers[ticker]['output']
-
-        unscaled_predictions = scaler.inverse_transform(
+        unscaled_predictions = scalers[ticker].inverse_transform(
             X=numpy.squeeze(
                 a=prediction,
                 axis=1,
@@ -94,7 +56,7 @@ def invocations() -> flask.Response:
         )
 
         predictions[
-            convert_integer_to_ticker(ticker)
+            entrypoint_helpers.convert_integer_to_ticker(ticker)
         ] = unscaled_predictions.tolist()
 
     return flask.Response(
