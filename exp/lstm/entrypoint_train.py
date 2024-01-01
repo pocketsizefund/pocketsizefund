@@ -77,7 +77,7 @@ model.compile(
     ],
 )
 
-model.fit(
+history = model.fit(
     x=preprocessed_data['data']['training'],
     epochs=HYPERPARAMETER_EPOCHS,
     validation_data=preprocessed_data['data']['validating'],
@@ -85,6 +85,16 @@ model.fit(
 
 model.save(
     filepath=os.path.join(arguments.model_dir, 'lstm.keras'),
+)
+
+metrics_file = open(
+    file=os.path.join(arguments.model_dir, 'metrics.pkl'),
+    mode='wb',
+)
+
+pickle.dump(
+    obj=history.history,
+    file=metrics_file,
 )
 
 scalers_file = open(
