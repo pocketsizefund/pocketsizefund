@@ -6,7 +6,9 @@
 
 ## About
 
-**pocketsizefund** holds the main resources for the fund platform including data pipelines, trading engine, and frontend resources.  
+**Pocket Size Fund** is an open source quantitative proprietary trading firm being built on nights and weekends.  
+
+**pocketsizefund** holds the main resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
 
 ## Goals
 
@@ -19,11 +21,7 @@ Accountability for these goals is enforced by:
 
 ## Development
 
-Here are some places to get started:  
-
-1. [Specific larger initiatives](https://github.com/pocketsizefund/pocketsizefund/milestones) we're currently working on  
-2. [All issues by status](https://github.com/orgs/pocketsizefund/projects/2/views/1) to see ongoing progress  
-3. [Send me a direct message](https://twitter.com/forstmeier) on everything else  
+### Process
 
 Here's our process:  
 
@@ -38,8 +36,23 @@ We want to rapidly iterate ideas by constantly launching with an MVP mindset for
 
 > Treat every initiative like it has a demo day 🚀  
 
-If you're interested in running this infrastructure yourself, you'll need an AWS account and IAM credentials with the permissions required to launch the `template.yaml` resources as well as a `samconfig.toml` with appropriate overrides.  
+### Status
 
-This is a work in progress, a "v0", so expect significant changes going forward.  
+> Work in progress 🚧
 
-If you'd like to collaborate on the model or co-invest, reach out via direct message.  
+This is in ongoing development, a "v0", so expect significant changes going forward.  
+
+### Participation
+
+The best ways to get involved are to _contribute code_ and _co-invest_.  
+
+- **Contribute**: checkout the [process](#process) and [links](#links)  
+- **Co-invest**: reach out via [direct message](https://twitter.com/forstmeier)  
+
+### Links
+
+Here are some places to get started:  
+
+1. [Specific larger initiatives](https://github.com/pocketsizefund/pocketsizefund/milestones) we're currently working on  
+2. [All issues by status](https://github.com/orgs/pocketsizefund/projects/2/views/1) to see ongoing progress  
+3. [Send me a direct message](https://twitter.com/forstmeier) on everything else  
