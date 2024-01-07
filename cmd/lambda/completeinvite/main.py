@@ -5,7 +5,7 @@ from pkg.invite import invite
 from pkg.users import users
 
 
-METHOD_POST = 'POST'
+METHOD_GET = 'GET'
 
 
 invite_client = invite.Client(
@@ -21,22 +21,22 @@ users_client = users.Client(
 
 
 def handler(event: any, context: any) -> dict[str, any]:
-    path = event['rawPath']
-
     method = event['requestContext']['http']['method']
-    if method != METHOD_POST:
+    if method != METHOD_GET:
         return {
             'statusCode': 400,
             'body': {
-                'message': 'method "{}" not allowed - expected "{}"'.format(method, METHOD_POST),
+                'message': 'method "{}" not allowed - expected "{}"'.format(method, METHOD_GET),
             },
         }
 
+    path = event['rawPath']
     if path == '/complete_invite':
         query_parameters = parse.parse_qs(event['rawQueryString'])
 
-        code = query_parameters['code']
-        state = query_parameters['state']
+        # both added to redirect URL by Alpaca OAuth flow
+        code = query_parameters['code'][0]
+        state = query_parameters['state'][0]
 
         users = users_client.list_users()
         for user in users:
