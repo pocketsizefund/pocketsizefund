@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Core infrastructure definitions
 Parameters:
@@ -35,10 +35,10 @@ Parameters:
   IsPaper:
     Type: String
     Description: Paper trading flag
-    Default: 'true'
+    Default: "true"
     AllowedValues:
-      - 'true'
-      - 'false'
+      - "true"
+      - "false"
   SNSErrorsTopicARN:
     Type: String
     Description: SNS topic ARN for Lambda error alerts
@@ -127,6 +127,8 @@ Resources:
           ALPACA_OAUTH_CLIENT_SECRET: !Ref AlpacaOAuthClientSecret
           USERS_TABLE_NAME: !Ref usersTable
       FunctionName: !Sub ${AWS::StackName}-function-complete-invite
+      FunctionUrlConfig: # URL must be added to Alpaca redirect whitelist in application settings
+        AuthType: NONE
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-complete-invite:latest
       MemorySize: 128
       PackageType: Image
@@ -134,16 +136,11 @@ Resources:
       Tags:
         pocketsizefund: function
       Timeout: 15
-  completeInviteFunctionURL:
-    Type: AWS::Lambda::Url
-    Properties: 
-      AuthType: NONE
-      TargetFunctionArn: !GetAtt completeInviteFunction.Arn
   functionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -154,7 +151,7 @@ Resources:
         - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
       Policies:
         - PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Action:
                   - s3:ListBucket
@@ -184,7 +181,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -193,7 +190,7 @@ Resources:
       Description: Shared role for function schedulers
       Policies:
         - PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Action:
                   - lambda:InvokeFunction
@@ -212,7 +209,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -221,7 +218,7 @@ Resources:
       Description: Role for SageMaker model training and endpoint creation
       Policies:
         - PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -244,7 +241,7 @@ Resources:
                   - s3:ListAllMyBuckets
                   - s3:GetBucketCors
                   - s3:PutBucketCors
-                Resource: '*'
+                Resource: "*"
               - Effect: Allow
                 Action:
                   - sagemaker:*
@@ -252,11 +249,11 @@ Resources:
               - Effect: Allow
                 Action:
                   - ecr:*
-                Resource: '*'
+                Resource: "*"
               - Effect: Allow
                 Action:
                   - logs:*
-                Resource: '*'
+                Resource: "*"
           PolicyName: !Sub ${AWS::StackName}-sagemaker-policy
       RoleName: !Sub ${AWS::StackName}-sagemaker-role
       Tags:
@@ -277,7 +274,7 @@ Outputs:
     Value: !Ref usersTable
   CompleteInviteFunctionURL:
     Description: URL for user management function
-    Value: !GetAtt completeInviteFunctionURL.FunctionUrl
+    Value: !GetAtt completeInviteFunctionUrl.FunctionUrl
   SageMakerIAMRoleARN:
     Description: Role for SageMaker model training and endpoint creation
     Value: !GetAtt sageMakerRole.Arn
