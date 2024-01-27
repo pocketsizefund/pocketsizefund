@@ -15,9 +15,8 @@ production_users_table.json
 
 # model
 model.tar.gz
-lstm.keras
-scalers.pkl
-testing_data.pkl
+*.keras
+*.pkl
 exp/lstm/metrics/*
 
 # infrastucture
