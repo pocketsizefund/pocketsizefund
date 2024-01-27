@@ -1,15 +1,15 @@
 FROM python:3.11.6
 
-RUN pip3 install sagemaker-training
-
 WORKDIR /opt/ml/code
 
 COPY exp/lstm/requirements_train.txt requirements.txt
 
+RUN pip3 install -r requirements.txt
+
+COPY exp/lstm/entrypoint_helpers.py .
+
 COPY pkg/storage pkg/storage
 
 COPY exp/lstm/entrypoint_train.py .
-
-COPY exp/lstm/entrypoint_helpers.py .
 
 ENV SAGEMAKER_PROGRAM entrypoint_train.py

@@ -4,3 +4,4 @@ scikit-learn
 numpy
 tensorflow
 boto3
+sagemaker-training

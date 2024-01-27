@@ -2,8 +2,8 @@ FROM python:3.11.6
 
 COPY exp/lstm/requirements_evaluate.txt requirements.txt
 
-COPY exp/lstm/entrypoint_evaluate.py .
+RUN pip3 install -r requirements.txt
 
-RUN pip3 install --no-cache-dir -r requirements.txt
+COPY exp/lstm/entrypoint_evaluate.py .
 
 ENTRYPOINT ["python3", "entrypoint_evaluate.py"]
