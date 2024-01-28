@@ -10,6 +10,8 @@ COPY exp/lstm/entrypoint_helpers.py .
 
 COPY pkg/storage pkg/storage
 
+COPY pkg/data pkg/data
+
 COPY exp/lstm/entrypoint_train.py .
 
 ENV SAGEMAKER_PROGRAM entrypoint_train.py
