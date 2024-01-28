@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# download model artifacts
+# from S3
+
+set -e
+
+latest_model=$(python3 ./bin/helpers/get_latest_model.py)
+
+aws s3 cp s3://pocketsizefund-artifacts/${latest_model} .
+
+tar -xzf model.tar.gz
+
+rm -r testing_data/
