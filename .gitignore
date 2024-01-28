@@ -9,7 +9,7 @@ __pycache__/
 .vscode/
 
 # data
-bars.csv
+*.csv
 development_users_table.json
 production_users_table.json
 
