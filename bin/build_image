@@ -30,6 +30,11 @@ if [[ "$3" == "production" ]]; then
     environment="production"
 fi
 
+location="remote"
+if [[ "$4" == "local" ]]; then
+    location="local"
+fi
+
 account_id=$(aws sts get-caller-identity --query Account --output text)
 
 image_name=$(python3 ./bin/helpers/get_name.py ${name} ${environment})
@@ -45,9 +50,14 @@ if [[ $image_name == *"function"* || $image_name == *"evaluate"* ]]; then
         --platform linux/arm64 \
         --tag ${tag} .
 else
+    platform="linux/amd64"
+    if [[ "${location}" == "local" ]]; then
+        platform="linux/arm64"
+    fi
+
     docker build \
         --file ${dockerfile} \
-        --platform linux/amd64 \
+        --platform ${platform} \
         --tag ${tag} .
 fi
 
