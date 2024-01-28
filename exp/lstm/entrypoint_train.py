@@ -9,8 +9,6 @@ from pkg.storage import storage
 import entrypoint_helpers
 
 
-HYPERPARAMETER_EPOCHS = 10
-
 parser = argparse.ArgumentParser(
     prog='model training script',
     description='train the lstm model',
@@ -28,7 +26,29 @@ parser.add_argument(
     dest='model_dir',
 )
 
+parser.add_argument(
+    '--epochs',
+    type=int,
+    dest='epochs',
+)
+
+parser.add_argument(
+    '--days',
+    type=int,
+    dest='days',
+)
+
+parser.add_argument(
+    '--available-tickers',
+    type=str,
+    dest='available_tickers',
+)
+
 arguments = parser.parse_args()
+
+features_count = len(entrypoint_helpers.FEATURES)
+output_length = entrypoint_helpers.WINDOW_OUTPUT_LENGTH
+
 
 storage_client = storage.Client(
     s3_data_bucket_name=arguments.s3_data_bucket_name,
@@ -47,8 +67,18 @@ equity_bars = pandas.concat(
     list(equity_bars_by_year.values()),
 )
 
+available_tickers = arguments.available_tickers.split(',')
+
+filtered_equity_bars = equity_bars[equity_bars['ticker'].isin(
+    available_tickers
+)]
+
+most_recent_filtered_equity_bars = filtered_equity_bars.groupby('ticker').apply(
+    lambda group: group.nlargest(arguments.days, 'timestamp')
+).reset_index(drop=True)
+
 preprocessed_data = entrypoint_helpers.preprocess_training_data(
-    data=equity_bars,
+    data=most_recent_filtered_equity_bars,
 )
 
 model = models.Sequential(
@@ -59,11 +89,11 @@ model = models.Sequential(
         ),
         layers.Dense(
             # features * days
-            units=1 * entrypoint_helpers.WINDOW_OUTPUT_LENGTH,
+            units=features_count * output_length
         ),
         layers.Reshape(
             # days, features
-            target_shape=(entrypoint_helpers.WINDOW_OUTPUT_LENGTH, 1),
+            target_shape=(output_length, features_count),
         ),
     ],
     name='basic_lstm',
@@ -79,7 +109,7 @@ model.compile(
 
 history = model.fit(
     x=preprocessed_data['data']['training'],
-    epochs=HYPERPARAMETER_EPOCHS,
+    epochs=arguments.epochs,
     validation_data=preprocessed_data['data']['validating'],
 )
 

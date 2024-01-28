@@ -41,23 +41,18 @@ def invocations() -> flask.Response:
     )
 
     predictions: dict[str, any] = {}
-
     for ticker, ticker_data in preprocessed_data.items():
         prediction = model.predict(
             x=ticker_data,
             verbose=0,
         )
 
+        prediction = numpy.squeeze(prediction, axis=0)
         unscaled_predictions = scalers[ticker].inverse_transform(
-            X=numpy.squeeze(
-                a=prediction,
-                axis=1,
-            ),
+            X=prediction,
         )
 
-        predictions[
-            entrypoint_helpers.convert_integer_to_ticker(ticker)
-        ] = unscaled_predictions.tolist()
+        predictions[ticker] = unscaled_predictions.tolist()
 
     return flask.Response(
         response=json.dumps(predictions),
