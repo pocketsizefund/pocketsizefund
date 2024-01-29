@@ -10,9 +10,14 @@ if [[ "$1" == "production" ]]; then
     environment="production"
 fi
 
+location="remote"
+if [[ "$2" == "local" ]]; then
+    location="local"
+fi
+
 latest_model=$(python3 ./bin/helpers/get_latest_model.py)
 
-model_data=s3://pocketsizefund-artifacts/${latest_model}
+model_artifacts_path=s3://pocketsizefund-artifacts/${latest_model}
 
 sagemaker_iam_role_arn=$(aws cloudformation describe-stacks \
     --stack-name pocketsizefund-${environment} \
@@ -27,8 +32,27 @@ image_name=$(python3 ./bin/helpers/get_name.py predictlstm ${environment})
 
 model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
 
-python3 ./exp/lstm/sagemaker_deploy_model.py \
-    --environment ${environment} \
-    --model-data ${model_data} \
-    --iam-role ${sagemaker_iam_role_arn} \
-    --model-image-uri ${model_image_uri}
+if [[ "${location}" == "local" ]]; then
+    output=$(python3 ./bin/helpers/get_config_as_json.py)
+
+    alpaca_api_key=$(echo $output | jq -r '.alpaca_api_key')
+    alpaca_secret_key=$(echo $output | jq -r '.alpaca_secret_key')
+    aws_access_key_id=$(echo $output | jq -r '.aws_access_key_id')
+    aws_secret_access_key=$(echo $output | jq -r '.aws_secret_access_key')
+
+    docker run \
+        --env MODEL_DIR=model \
+        --env ALPACA_API_KEY=$alpaca_api_key \
+        --env ALPACA_API_SECRET=$alpaca_secret_key \
+        --env AWS_ACCESS_KEY_ID=$aws_access_key_id \
+        --env AWS_SECRET_ACCESS_KEY=$aws_secret_access_key \
+        --env AWS_DEFAULT_REGION=us-east-1 \
+        --publish 8080:8080 \
+        --rm ${model_image_uri}
+else
+    python3 ./exp/lstm/sagemaker_deploy_model.py \
+        --environment ${environment} \
+        --model-data ${model_artifacts_path} \
+        --iam-role ${sagemaker_iam_role_arn} \
+        --model-image-uri ${model_image_uri}
+fi

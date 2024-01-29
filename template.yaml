@@ -68,7 +68,7 @@ Resources:
       Events:
         DailyCreatePositions:
           Properties:
-            ScheduleExpression: cron(35 9 ? * MON-FRI *) # 5 minutes after market open
+            ScheduleExpression: cron(45 9 ? * MON-FRI *) # 15 minutes after market open
             ScheduleExpressionTimezone: America/New_York
             State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:
@@ -77,7 +77,7 @@ Resources:
           Type: ScheduleV2
       FunctionName: !Sub ${AWS::StackName}-function-create-positions
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-create-positions:latest
-      MemorySize: 1536
+      MemorySize: 768
       PackageType: Image
       Role: !GetAtt functionRole.Arn
       Tags:
@@ -172,6 +172,10 @@ Resources:
                   - sns:Publish
                 Effect: Allow
                 Resource: !Ref SNSErrorsTopicARN
+              - Action:
+                  - sagemaker:InvokeEndpoint
+                Effect: Allow
+                Resource: !Sub arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:endpoint/${ModelEndpointName}
           PolicyName: !Sub ${AWS::StackName}-lambda-function-policy
       RoleName: !Sub ${AWS::StackName}-lambda-function-role
       Tags:

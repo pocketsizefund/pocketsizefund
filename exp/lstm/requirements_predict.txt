@@ -6,3 +6,4 @@ scikit-learn
 tensorflow
 requests
 alpaca-py
+sagemaker-inference
