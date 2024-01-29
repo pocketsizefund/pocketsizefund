@@ -24,10 +24,16 @@ model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${model_na
 
 current_timestamp=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 
+epochs=5
+
+days=500
+
 python3 ./exp/lstm/sagemaker_train_model.py \
     --iam-role ${sagemaker_iam_role_arn} \
     --model-image-uri ${model_image_uri} \
     --s3-data-bucket-name pocketsizefund-data \
-    --s3-artifacts-bucket-name pocketsizefund-artifacts
+    --s3-artifacts-bucket-name pocketsizefund-artifacts \
+    --epochs ${epochs} \
+    --days ${days}
 
 echo "trained model: ${model_name}"

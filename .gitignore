@@ -9,15 +9,14 @@ __pycache__/
 .vscode/
 
 # data
-bars.csv
+*.csv
 development_users_table.json
 production_users_table.json
 
 # model
 model.tar.gz
-lstm.keras
-scalers.pkl
-testing_data.pkl
+*.keras
+*.pkl
 exp/lstm/metrics/*
 
 # infrastucture

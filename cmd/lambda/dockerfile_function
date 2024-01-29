@@ -8,6 +8,8 @@ COPY pkg ${LAMBDA_TASK_ROOT}/pkg
 
 COPY cmd/lambda/${FUNCTION_NAME}/main.py ${LAMBDA_TASK_ROOT}
 
+RUN yum install -y gcc python3-devel
+
 RUN pip3 install --requirement requirements.txt --target "${LAMBDA_TASK_ROOT}"
 
 ENV S3_DATA_BUCKET_NAME=""

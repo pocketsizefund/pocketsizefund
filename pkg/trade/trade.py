@@ -36,42 +36,6 @@ class Client:
             'is_market_open': clock.is_open,
         }
 
-    def _get_available_tickers(self) -> list[str]:
-        # GSPC is the S&P 500
-        darqube_response = self.http_client.get(
-            url='https://api.darqube.com/data-api/fundamentals/indexes/index_constituents/GSPC',
-            params={
-                'token': self.darqube_api_key,
-            },
-        )
-
-        darqube_response_json = darqube_response.json()
-
-        constituents = [
-            darqube_response_json[key]['Code']
-            for key in darqube_response_json
-        ]
-
-        request = alpaca_trading_requests.GetAssetsRequest(
-            status=enums.AssetStatus.ACTIVE,
-            asset_class=enums.AssetClass.US_EQUITY,
-        )
-
-        alpaca_response = self.alpaca_trading_client.get_all_assets(request)
-
-        tickers: list[str] = []
-        for asset in alpaca_response:
-            if (
-                asset.tradable and
-                asset.fractionable and
-                asset.shortable and
-                asset.symbol in constituents and
-                '.' not in asset.symbol
-            ):
-                tickers.append(asset.symbol)
-
-        return tickers
-
     def get_available_tickers(self) -> list[str]:
         return self._get_available_tickers()
 
@@ -131,6 +95,43 @@ class Client:
             )
 
             self.alpaca_trading_client.submit_order(request)
+
+    def _get_available_tickers(self) -> list[str]:
+        # "GSPC" is the S&P 500 Index
+        # "DJI" is the Dow Jones Industrial Average
+        darqube_response = self.http_client.get(
+            url='https://api.darqube.com/data-api/fundamentals/indexes/index_constituents/DJI',
+            params={
+                'token': self.darqube_api_key,
+            },
+        )
+
+        darqube_response_json = darqube_response.json()
+
+        constituents = [
+            darqube_response_json[key]['Code']
+            for key in darqube_response_json
+        ]
+
+        request = alpaca_trading_requests.GetAssetsRequest(
+            status=enums.AssetStatus.ACTIVE,
+            asset_class=enums.AssetClass.US_EQUITY,
+        )
+
+        alpaca_response = self.alpaca_trading_client.get_all_assets(request)
+
+        tickers: list[str] = []
+        for asset in alpaca_response:
+            if (
+                asset.tradable and
+                asset.fractionable and
+                asset.shortable and
+                asset.symbol in constituents and
+                '.' not in asset.symbol
+            ):
+                tickers.append(asset.symbol)
+
+        return tickers
 
     def clear_positions(self) -> None:
         self.alpaca_trading_client.close_all_positions(

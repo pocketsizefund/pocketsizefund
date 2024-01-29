@@ -4,17 +4,32 @@ import numpy
 import tensorflow
 import keras
 
+from pkg.data import data
+
 
 WINDOW_INPUT_LENGTH = 30
 WINDOW_OUTPUT_LENGTH = 5
+
+FEATURES = {
+    'open_price': data.COLUMN_OPEN_PRICE,
+    'high_price': data.COLUMN_HIGH_PRICE,
+    'low_price': data.COLUMN_LOW_PRICE,
+    'close_price': data.COLUMN_CLOSE_PRICE,
+    'volume': data.COLUMN_VOLUME,
+}
+
+COLUMNS = {
+    'timestamp': data.COLUMN_TIMESTAMP,
+    'ticker': data.COLUMN_TICKER,
+    'source': data.COLUMN_SOURCE,
+    **FEATURES,
+}
 
 
 def preprocess_training_data(
     data: pandas.DataFrame,
     splits: tuple[float, float, float] = (0.7, 0.2, 0.1),
 ) -> dict[str, any]:
-    close_price_index = data.columns.get_loc('close_price')
-
     data_grouped_by_ticker = _clean_and_group_data(data)
 
     scalers: dict[int, preprocessing.MinMaxScaler] = {}
@@ -23,7 +38,7 @@ def preprocess_training_data(
     scaled_validating_data: list[numpy.ndarray] = []
     scaled_testing_data: list[numpy.ndarray] = []
 
-    for ticker, ticker_data in data_grouped_by_ticker:
+    for ticker, ticker_data in data_grouped_by_ticker.items():
         count = len(ticker_data)
 
         if count < WINDOW_INPUT_LENGTH + WINDOW_OUTPUT_LENGTH:
@@ -37,6 +52,7 @@ def preprocess_training_data(
         testing_data = ticker_data[second_split:]
 
         scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
+
         scaled_training_data.append(scaler.fit_transform(
             X=training_data.values,
         ))
@@ -51,21 +67,16 @@ def preprocess_training_data(
 
         scalers[ticker] = scaler
 
-        break  # TEMP -----------------------------
-
     training_datasets = list(map(lambda x: _create_dataset(
         data=x,
-        close_price_index=close_price_index,
     ), scaled_training_data))
 
     validating_datasets = list(map(lambda x: _create_dataset(
         data=x,
-        close_price_index=close_price_index,
     ), scaled_validating_data))
 
     testing_datasets = list(map(lambda x: _create_dataset(
         data=x,
-        close_price_index=close_price_index,
     ), scaled_testing_data))
 
     training_dataset = training_datasets[0]
@@ -90,10 +101,7 @@ def preprocess_training_data(
     }
 
 
-def _create_dataset(
-    data: numpy.ndarray,
-    close_price_index: int,
-) -> tensorflow.data.Dataset:
+def _create_dataset(data: numpy.ndarray) -> tensorflow.data.Dataset:
     dataset = keras.utils.timeseries_dataset_from_array(
         data=data,
         targets=None,
@@ -104,15 +112,15 @@ def _create_dataset(
     )
 
     windowed_dataset = dataset.map(
-        lambda x: _split_window(x, close_price_index)
+        lambda x: _split_window(x)
     )
 
     return windowed_dataset
 
 
+@tensorflow.autograph.experimental.do_not_convert  # suppress warning
 def _split_window(
     data: tensorflow.Tensor,
-    close_price_index: int,
 ) -> tensorflow.data.Dataset:
     input_slice = slice(0, WINDOW_INPUT_LENGTH)
     labels_slice = slice(WINDOW_INPUT_LENGTH, None)
@@ -121,9 +129,11 @@ def _split_window(
     labels = data[:, labels_slice, :]
 
     labels = tensorflow.stack(
-        values=[labels[:, :, close_price_index]],
+        values=[labels],
         axis=-1,
     )
+
+    labels = tensorflow.squeeze(labels, axis=-1)
 
     inputs.set_shape([None, WINDOW_INPUT_LENGTH, None])
     labels.set_shape([None, WINDOW_OUTPUT_LENGTH, None])
@@ -137,9 +147,9 @@ def preprocess_predicting_data(
 ) -> dict[str, tensorflow.data.Dataset]:
     data_grouped_by_ticker = _clean_and_group_data(data)
 
-    predicing_datasets: dict[str, tensorflow.data.Dataset] = {}
+    predicting_datasets: dict[str, tensorflow.data.Dataset] = {}
 
-    for ticker, ticker_data in data_grouped_by_ticker:
+    for ticker, ticker_data in data_grouped_by_ticker.items():
         count = len(ticker_data)
 
         if count < WINDOW_INPUT_LENGTH:
@@ -159,51 +169,43 @@ def preprocess_predicting_data(
             shuffle=True,
         )
 
-        predicing_datasets[ticker] = dataset
+        predicting_datasets[ticker] = dataset
 
-    return predicing_datasets
+    return predicting_datasets
 
 
-def _clean_and_group_data(data: pandas.DataFrame) -> pandas.DataFrame:
+def _clean_and_group_data(data: pandas.DataFrame) -> dict[str, pandas.DataFrame]:
     data.dropna(
         inplace=True,
     )
 
     data.drop_duplicates(
         subset=[
-            'timestamp',
-            'ticker',
+            COLUMNS['timestamp'],
+            COLUMNS['ticker'],
         ],
         inplace=True,
     )
 
     data.drop(
-        columns=['source'],
+        columns=[COLUMNS['source']],
         inplace=True,
     )
 
     data.set_index(
-        keys='timestamp',
+        keys=COLUMNS['timestamp'],
         inplace=True,
     )
 
-    data['ticker'] = data['ticker'].apply(_convert_ticker_to_integer)
-
-    data_grouped_by_ticker = data.groupby(
-        by='ticker',
-        dropna=True,
-    )
+    data_grouped_by_ticker = {
+        str(ticker): ticker_group.drop(
+            columns=[COLUMNS['ticker']],
+        )
+        for ticker, ticker_group
+        in data.groupby(
+            by=COLUMNS['ticker'],
+            dropna=True,
+        )
+    }
 
     return data_grouped_by_ticker
-
-
-def convert_ticker_to_integer(ticker: str) -> int:
-    return _convert_ticker_to_integer(ticker)
-
-
-def _convert_ticker_to_integer(ticker: str) -> int:
-    return int.from_bytes(ticker.encode(), 'little')
-
-
-def convert_integer_to_ticker(integer: int) -> str:
-    return integer.to_bytes((integer.bit_length() + 7) // 8, 'little').decode()
