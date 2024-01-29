@@ -2,3 +2,4 @@ alpaca-py
 pandas
 requests
 boto3
+sagemaker

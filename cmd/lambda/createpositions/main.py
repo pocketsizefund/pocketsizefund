@@ -1,9 +1,9 @@
 import os
-
-import pandas
+import datetime
 
 from pkg.storage import storage
 from pkg.trade import trade
+from pkg.data import data
 from pkg.model import model
 from pkg.message import message
 
@@ -21,6 +21,12 @@ trade_client = trade.Client(
     is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
 )
 
+data_client = data.Client(
+    alpaca_api_key=os.getenv('ALPACA_API_KEY'),
+    alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
+    print_logs=True,
+)
+
 model_client = model.Client(
     model_endpoint_name=os.getenv('MODEL_ENDPOINT_NAME'),
 )
@@ -36,42 +42,34 @@ def handler(event: any, context: any) -> dict[str, any]:
         if not market_status['is_market_open']:
             raise Exception('market is closed')
 
-        file_names = storage_client.list_file_names(
-            prefix=storage.PREFIX_EQUITY_BARS_PATH,
-        )
-
-        old_equity_bars_by_year = storage_client.load_dataframes(
-            prefix=storage.PREFIX_EQUITY_BARS_PATH,
-            file_names=file_names,
-        )
-
-        old_bars = pandas.concat(old_equity_bars_by_year.values())
-
-        old_bars_grouped_by_ticker = old_bars.groupby('ticker')
-
         available_tickers = trade_client.get_available_tickers()
 
-        prediction_data = old_bars_grouped_by_ticker.head(
-            model.DAYS_TO_TRAIN,
+        end_at = datetime.datetime.now()
+        start_at = end_at - datetime.timedelta(days=50)
+
+        prediction_data = data_client.get_range_equities_bars(
+            tickers=available_tickers,
+            start_at=start_at,
+            end_at=end_at,
         )
 
-        prediction_data_filtered = prediction_data[
-            prediction_data['ticker'].isin(available_tickers)
-        ]
+        prediction_data = prediction_data.sort_values(
+            by='timestamp',
+            ascending=False,
+        ).groupby('ticker').head(30).reset_index(drop=True)
+
+        prediction_data['timestamp'] = prediction_data['timestamp'].astype(str)
 
         predictions_by_ticker = model_client.generate_predictions(
-            data=prediction_data_filtered,
+            data=prediction_data,
         )
-
-        del prediction_data
-        del prediction_data_filtered
 
         current_prices_by_ticker = trade_client.get_current_prices(
             tickers=list(predictions_by_ticker.keys()),
         )
 
         moves_by_ticker = {
-            ticker: predictions_by_ticker[ticker][0][0] -
+            ticker: predictions_by_ticker[ticker][0][3] -
             current_prices_by_ticker[ticker]['price']
             for ticker in predictions_by_ticker
         }
@@ -81,8 +79,6 @@ def handler(event: any, context: any) -> dict[str, any]:
             key=lambda item: item[1], reverse=True,
         ))
 
-        del moves_by_ticker
-
         highest_moves_by_ticker = {
             k: sorted_moves_by_ticker[k]
             for k in list(sorted_moves_by_ticker)[:POSITIONS_COUNT]
@@ -90,8 +86,11 @@ def handler(event: any, context: any) -> dict[str, any]:
 
         highest_moves_tickers = highest_moves_by_ticker.keys()
 
+        if len(highest_moves_tickers) == 0:
+            raise Exception('no tickers to trade')
+
         weights_by_ticker = {
-            ticker: 1 / POSITIONS_COUNT
+            ticker: 1 / len(highest_moves_tickers)
             for ticker in highest_moves_tickers
         }
 
