@@ -16,12 +16,6 @@ Parameters:
   AlpacaAPISecret:
     Type: String
     Description: Data and trading Alpaca API secret
-  AlpacaOAuthClientID:
-    Type: String
-    Description: Alpaca OAuth application client ID
-  AlpacaOAuthClientSecret:
-    Type: String
-    Description: Alpaca OAuth application client secret
   DarqubeAPIKey:
     Type: String
     Description: Data Darqube API key
@@ -42,9 +36,6 @@ Parameters:
   SNSErrorsTopicARN:
     Type: String
     Description: SNS topic ARN for Lambda error alerts
-  InviteSecretKey:
-    Type: String
-    Description: Secret key for user invite links
   ModelEndpointName:
     Type: String
     Description: SageMaker model endpoint name
@@ -114,28 +105,6 @@ Resources:
       Tags:
         pocketsizefund: function
       Timeout: 60
-  completeInviteFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Architectures:
-        - arm64
-      Description: Handles user invites
-      Environment:
-        Variables:
-          INVITE_SECRET_KEY: !Ref InviteSecretKey
-          ALPACA_OAUTH_CLIENT_ID: !Ref AlpacaOAuthClientID
-          ALPACA_OAUTH_CLIENT_SECRET: !Ref AlpacaOAuthClientSecret
-          USERS_TABLE_NAME: !Ref usersTable
-      FunctionName: !Sub ${AWS::StackName}-function-complete-invite
-      FunctionUrlConfig: # URL must be added to Alpaca redirect whitelist in application settings
-        AuthType: NONE
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-complete-invite:latest
-      MemorySize: 128
-      PackageType: Image
-      Role: !GetAtt functionRole.Arn
-      Tags:
-        pocketsizefund: function
-      Timeout: 15
   functionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -263,22 +232,7 @@ Resources:
       Tags:
         - Key: pocketsizefund
           Value: role
-  usersTable:
-    Type: AWS::Serverless::SimpleTable
-    Properties:
-      PrimaryKey:
-        Name: id
-        Type: String
-      TableName: !Sub ${AWS::StackName}-users
-      Tags:
-        pocketsizefund: table
 Outputs:
-  UsersTable:
-    Description: Table containing user data
-    Value: !Ref usersTable
-  CompleteInviteFunctionURL:
-    Description: URL for user management function
-    Value: !GetAtt completeInviteFunctionUrl.FunctionUrl
   SageMakerIAMRoleARN:
     Description: Role for SageMaker model training and endpoint creation
     Value: !GetAtt sageMakerRole.Arn

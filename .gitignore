@@ -10,8 +10,6 @@ __pycache__/
 
 # data
 *.csv
-development_users_table.json
-production_users_table.json
 
 # model
 model.tar.gz
