@@ -1,6 +1,6 @@
 FROM python:3.11.6
 
-COPY exp/lstm/requirements_predict.txt requirements.txt
+COPY ml/lstm/requirements_predict.txt requirements.txt
 
 RUN pip3 install -r requirements.txt
 
@@ -8,9 +8,9 @@ COPY pkg/storage pkg/storage
 
 COPY pkg/data pkg/data
 
-COPY exp/lstm/entrypoint_predict.py .
+COPY ml/lstm/entrypoint_predict.py .
 
-COPY exp/lstm/entrypoint_helpers.py .
+COPY ml/lstm/entrypoint_helpers.py .
 
 # conditionally copy model artifact for local builds
 COPY lstm.kera[s] model/

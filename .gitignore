@@ -15,7 +15,7 @@ __pycache__/
 model.tar.gz
 *.keras
 *.pkl
-exp/lstm/metrics/*
+ml/lstm/metrics/*
 
 # infrastucture
 .aws-sam/

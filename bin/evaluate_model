@@ -27,7 +27,7 @@ access_key_id=$(grep 'aws_access_key_id' ~/.aws/credentials | awk '{print $3}')
 secret_access_key=$(grep 'aws_secret_access_key' ~/.aws/credentials | awk '{print $3}')
 
 docker run \
-    --volume ${HOME}/pocketsizefund/pocketsizefund/exp/lstm/metrics:/metrics \
+    --volume ${HOME}/pocketsizefund/pocketsizefund/ml/lstm/metrics:/metrics \
     --env AWS_ACCESS_KEY_ID=${access_key_id} \
     --env AWS_SECRET_ACCESS_KEY=${secret_access_key} \
     ${full_image_name} \
