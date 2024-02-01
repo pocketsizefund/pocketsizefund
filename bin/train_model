@@ -28,7 +28,7 @@ epochs=5
 
 days=500
 
-python3 ./exp/lstm/sagemaker_train_model.py \
+python3 ./ml/lstm/sagemaker_train_model.py \
     --iam-role ${sagemaker_iam_role_arn} \
     --model-image-uri ${model_image_uri} \
     --s3-data-bucket-name pocketsizefund-data \

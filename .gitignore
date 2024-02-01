@@ -10,14 +10,12 @@ __pycache__/
 
 # data
 *.csv
-development_users_table.json
-production_users_table.json
 
 # model
 model.tar.gz
 *.keras
 *.pkl
-exp/lstm/metrics/*
+ml/lstm/metrics/*
 
 # infrastucture
 .aws-sam/

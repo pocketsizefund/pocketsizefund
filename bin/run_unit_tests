@@ -11,8 +11,6 @@ echo 'test pkg/storage' && coverage run --module --parallel-mode unittest discov
 echo 'test pkg/message' && coverage run --module --parallel-mode unittest discover pkg/message
 echo 'test pkg/twitter' && coverage run --module --parallel-mode unittest discover pkg/twitter
 echo 'test pkg/id' && coverage run --module --parallel-mode unittest discover pkg/id
-echo 'test pkg/users' && coverage run --module --parallel-mode unittest discover pkg/users
-echo 'test pkg/invite' && coverage run --module --parallel-mode unittest discover pkg/invite
 echo 'test pkg/model' && coverage run --module --parallel-mode unittest discover pkg/model
 
 coverage combine
