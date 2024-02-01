@@ -1,9 +1,0 @@
-FROM python:3.11.6
-
-COPY ml/lstm/requirements_evaluate.txt requirements.txt
-
-RUN pip3 install -r requirements.txt
-
-COPY ml/lstm/entrypoint_evaluate.py .
-
-ENTRYPOINT ["python3", "entrypoint_evaluate.py"]

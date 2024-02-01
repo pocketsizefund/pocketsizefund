@@ -6,7 +6,7 @@ import pandas
 from keras import models, layers, losses, optimizers, metrics
 
 from pkg.storage import storage
-import entrypoint_helpers
+from ml.lstm.helpers import helpers
 
 
 parser = argparse.ArgumentParser(
@@ -46,8 +46,8 @@ parser.add_argument(
 
 arguments = parser.parse_args()
 
-features_count = len(entrypoint_helpers.FEATURES)
-output_length = entrypoint_helpers.WINDOW_OUTPUT_LENGTH
+features_count = len(helpers.FEATURES)
+output_length = helpers.WINDOW_OUTPUT_LENGTH
 
 
 storage_client = storage.Client(
@@ -77,7 +77,7 @@ most_recent_filtered_equity_bars = filtered_equity_bars.groupby('ticker').apply(
     lambda group: group.nlargest(arguments.days, 'timestamp')
 ).reset_index(drop=True)
 
-preprocessed_data = entrypoint_helpers.preprocess_training_data(
+preprocessed_data = helpers.preprocess_training_data(
     data=most_recent_filtered_equity_bars,
 )
 

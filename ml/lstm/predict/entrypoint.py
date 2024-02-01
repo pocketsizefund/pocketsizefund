@@ -8,7 +8,7 @@ import numpy
 from keras import models
 
 from pkg.data import data
-import entrypoint_helpers
+from ml.lstm.helpers import helpers
 
 
 app = flask.Flask(__name__)
@@ -35,7 +35,7 @@ def invocations() -> flask.Response:
         data=json_data,
     )
 
-    preprocessed_data = entrypoint_helpers.preprocess_predicting_data(
+    preprocessed_data = helpers.preprocess_predicting_data(
         data=input_data,
         scalers=scalers,
     )
