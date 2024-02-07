@@ -9,7 +9,7 @@ __pycache__/
 .vscode/
 
 # data
-*.csv
+etc/data/*.csv
 
 # model
 model.tar.gz
