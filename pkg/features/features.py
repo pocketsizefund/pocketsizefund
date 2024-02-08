@@ -25,6 +25,14 @@ class Client:
         self.window_input_length = 30
         self.window_output_length = 5
 
+    def generate_features(
+        self,
+        data: pandas.DataFrame,
+    ) -> pandas.DataFrame:
+        # temporary implementation that will
+        # hold feature engineering logic
+        return data
+
     def preprocess_training_data(
         self,
         data: pandas.DataFrame,

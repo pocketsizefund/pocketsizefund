@@ -7,13 +7,39 @@ import tensorflow
 from pkg.features import features
 
 
+test_data = pandas.read_csv('pkg/features/test_data.csv')
+
+
+class TestGenerateFeatures(unittest.TestCase):
+    def test_generate_features_success(self):
+        client = features.Client()
+
+        result = client.generate_features(test_data)
+
+        self.assertIsInstance(result, pandas.DataFrame)
+
+        self.assertSetEqual(
+            set(result.columns),
+            {
+                'timestamp',
+                'ticker',
+                'open_price',
+                'high_price',
+                'low_price',
+                'close_price',
+                'volume',
+                'source',
+            },
+        )
+
+
 class TestPreprocessTrainingData(unittest.TestCase):
     def test_preprocess_training_data_without_mocks_success(self):
         client = features.Client()
 
-        data = pandas.read_csv('pkg/features/test_data.csv')
+        # data = pandas.read_csv('pkg/features/test_data.csv')
 
-        result = client.preprocess_training_data(data)
+        result = client.preprocess_training_data(test_data)
 
         self.assertIsInstance(result, dict)
         self.assertSetEqual(set(result.keys()), {'data', 'scalers'})
