@@ -1,3 +1,4 @@
+import re
 from concurrent import futures
 import io
 
@@ -6,6 +7,7 @@ import pandas
 
 
 PREFIX_EQUITY_BARS_PATH = 'equity/bars'
+PREFIX_FEATURES_PATH = 'features'
 
 
 class Client:
@@ -17,8 +19,8 @@ class Client:
         self.s3_client = boto3.client('s3')
 
     def list_file_names(
-            self,
-            prefix: str,
+        self,
+        prefix: str,
     ) -> list[str]:
         file_names: list[str] = []
 
@@ -46,6 +48,25 @@ class Client:
                 break
 
         return file_names
+
+    def get_next_prefix_version(
+        self,
+        prefixes: list[str],
+    ) -> str:
+        if len(prefixes) == 0:
+            return 'v0'
+
+        pattern = r'v(\d+)'
+
+        version_integers = [
+            int(re.search(pattern, prefix).group(1))
+            for prefix in prefixes
+            if re.search(pattern, prefix)
+        ]
+
+        next_version_integer = max(version_integers) + 1
+
+        return 'v{}'.format(next_version_integer)
 
     def store_dataframes(
         self,

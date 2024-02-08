@@ -89,6 +89,34 @@ class TestListFileNames(unittest.TestCase):
         self.assertEqual('2023', file_names[2])
 
 
+class TestGetNextPrefixVersion(unittest.TestCase):
+    def test_get_next_prefix_version_no_files(self):
+        client = storage.Client(
+            s3_data_bucket_name='s3_data_bucket_name',
+        )
+
+        next_prefix_version = client.get_next_prefix_version(
+            prefixes=[],
+        )
+
+        self.assertEqual('v0', next_prefix_version)
+
+    def test_get_next_prefix_version_files(self):
+        client = storage.Client(
+            s3_data_bucket_name='s3_data_bucket_name',
+        )
+
+        next_prefix_version = client.get_next_prefix_version(
+            prefixes=[
+                'prefix/v0',
+                'prefix/v1',
+                'prefix/v2',
+            ],
+        )
+
+        self.assertEqual('v3', next_prefix_version)
+
+
 class TestStoreDataframes(unittest.TestCase):
     def test_store_dataframes_success(self):
         client = storage.Client(
