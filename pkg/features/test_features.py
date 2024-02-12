@@ -37,8 +37,6 @@ class TestPreprocessTrainingData(unittest.TestCase):
     def test_preprocess_training_data_without_mocks_success(self):
         client = features.Client()
 
-        # data = pandas.read_csv('pkg/features/test_data.csv')
-
         result = client.preprocess_training_data(test_data)
 
         self.assertIsInstance(result, dict)

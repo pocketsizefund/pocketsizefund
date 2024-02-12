@@ -5,25 +5,33 @@ import tensorflow
 import keras
 
 
+FEATURE_NAMES = tuple(
+    [
+        'open_price',
+        'high_price',
+        'low_price',
+        'close_price',
+        'volume',
+    ]
+)
+
+REQUIRED_COLUMNS = tuple(
+    [
+        'timestamp',
+        'ticker',
+    ]
+)
+
+WINDOW_INPUT_LENGTH = 30
+WINDOW_OUTPUT_LENGTH = 5
+
+
 class Client:
     def __init__(self):
-        self.feature_names = tuple(
-            [
-                'open_price',
-                'high_price',
-                'low_price',
-                'close_price',
-                'volume',
-            ]
-        )
-        self.required_columns = tuple(
-            [
-                'timestamp',
-                'ticker',
-            ]
-        )
-        self.window_input_length = 30
-        self.window_output_length = 5
+        self.feature_names = FEATURE_NAMES
+        self.required_columns = REQUIRED_COLUMNS
+        self.window_input_length = WINDOW_INPUT_LENGTH
+        self.window_output_length = WINDOW_OUTPUT_LENGTH
 
     def generate_features(
         self,
@@ -179,6 +187,8 @@ class Client:
             )
 
             predicting_datasets[ticker] = dataset
+
+        return predicting_datasets
 
     def _clean_and_group_data(
         self,

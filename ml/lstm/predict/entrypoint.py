@@ -7,8 +7,7 @@ import pandas
 import numpy
 from keras import models
 
-from pkg.data import data
-from ml.lstm.helpers import helpers
+from pkg.features import features
 
 
 app = flask.Flask(__name__)
@@ -17,10 +16,7 @@ app = flask.Flask(__name__)
 scalers_file = open(os.getenv('MODEL_DIR')+'/scalers.pkl', 'rb')
 scalers = pickle.load(scalers_file)
 
-data_client = data.Client(
-    alpaca_api_key=os.getenv('ALPACA_API_KEY'),
-    alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
-)
+features_client = features.Client()
 
 model = models.load_model(
     filepath=os.getenv('MODEL_DIR')+'/lstm.keras',
@@ -35,8 +31,12 @@ def invocations() -> flask.Response:
         data=json_data,
     )
 
-    preprocessed_data = helpers.preprocess_predicting_data(
+    features_data = features_client.generate_features(
         data=input_data,
+    )
+
+    preprocessed_data = features_client.preprocess_predicting_data(
+        data=features_data,
         scalers=scalers,
     )
 

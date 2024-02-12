@@ -117,6 +117,34 @@ class TestGetNextPrefixVersion(unittest.TestCase):
         self.assertEqual('v3', next_prefix_version)
 
 
+class TestGetMaxPrefixVersion(unittest.TestCase):
+    def test_get_max_prefix_version_no_files(self):
+        client = storage.Client(
+            s3_data_bucket_name='s3_data_bucket_name',
+        )
+
+        max_prefix_version = client.get_max_prefix_version(
+            prefixes=[],
+        )
+
+        self.assertEqual('', max_prefix_version)
+
+    def test_get_max_prefix_version_files(self):
+        client = storage.Client(
+            s3_data_bucket_name='s3_data_bucket_name',
+        )
+
+        max_prefix_version = client.get_max_prefix_version(
+            prefixes=[
+                'prefix/v0',
+                'prefix/v1',
+                'prefix/v2',
+            ],
+        )
+
+        self.assertEqual('v2', max_prefix_version)
+
+
 class TestStoreDataframes(unittest.TestCase):
     def test_store_dataframes_success(self):
         client = storage.Client(
