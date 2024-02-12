@@ -2,11 +2,10 @@ import argparse
 import os
 import pickle
 
-import pandas
 from keras import models, layers, losses, optimizers, metrics
 
 from pkg.storage import storage
-from ml.lstm.helpers import helpers
+from pkg.features import features
 
 
 parser = argparse.ArgumentParser(
@@ -46,39 +45,43 @@ parser.add_argument(
 
 arguments = parser.parse_args()
 
-features_count = len(helpers.FEATURES)
-output_length = helpers.WINDOW_OUTPUT_LENGTH
+features_count = len(features.FEATURE_NAMES)
 
+output_length = features.WINDOW_OUTPUT_LENGTH
 
 storage_client = storage.Client(
     s3_data_bucket_name=arguments.s3_data_bucket_name,
 )
 
+features_client = features.Client()
+
 file_names = storage_client.list_file_names(
-    prefix=storage.PREFIX_EQUITY_BARS_PATH,
+    prefix=storage.PREFIX_FEATURES_PATH,
 )
 
-equity_bars_by_year = storage_client.load_dataframes(
-    prefix=storage.PREFIX_EQUITY_BARS_PATH,
-    file_names=file_names,
+max_version_file_name = storage_client.get_max_prefix_version(
+    prefixes=file_names,
 )
 
-equity_bars = pandas.concat(
-    list(equity_bars_by_year.values()),
+features_by_version = storage_client.load_dataframes(
+    prefix=storage.PREFIX_FEATURES_PATH,
+    file_names=[max_version_file_name],
 )
+
+training_features = features_by_version[max_version_file_name]
 
 available_tickers = arguments.available_tickers.split(',')
 
-filtered_equity_bars = equity_bars[equity_bars['ticker'].isin(
+filtered_features = training_features[training_features['ticker'].isin(
     available_tickers
 )]
 
-most_recent_filtered_equity_bars = filtered_equity_bars.groupby('ticker').apply(
+most_recent_filtered_features = filtered_features.groupby('ticker').apply(
     lambda group: group.nlargest(arguments.days, 'timestamp')
 ).reset_index(drop=True)
 
-preprocessed_data = helpers.preprocess_training_data(
-    data=most_recent_filtered_equity_bars,
+preprocessed_features = features_client.preprocess_training_features(
+    data=most_recent_filtered_features,
 )
 
 model = models.Sequential(
@@ -108,9 +111,9 @@ model.compile(
 )
 
 history = model.fit(
-    x=preprocessed_data['data']['training'],
+    x=preprocessed_features['data']['training'],
     epochs=arguments.epochs,
-    validation_data=preprocessed_data['data']['validating'],
+    validation_data=preprocessed_features['data']['validating'],
 )
 
 model.save(
@@ -133,11 +136,11 @@ scalers_file = open(
 )
 
 pickle.dump(
-    obj=preprocessed_data['scalers'],
+    obj=preprocessed_features['scalers'],
     file=scalers_file,
 )
 
-preprocessed_data['data']['testing'].save(
+preprocessed_features['data']['testing'].save(
     path=os.path.join(arguments.model_dir, 'testing_data'),
     compression='GZIP',
 )

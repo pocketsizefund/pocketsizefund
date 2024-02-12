@@ -56,6 +56,23 @@ class Client:
         if len(prefixes) == 0:
             return 'v0'
 
+        next_version_integer = self._get_max_version_integer(prefixes) + 1
+
+        return 'v{}'.format(next_version_integer)
+
+    def get_max_prefix_version(
+        self,
+        prefixes: list[str],
+    ) -> str:
+        if len(prefixes) == 0:
+            return ''
+
+        return 'v{}'.format(self._get_max_version_integer(prefixes))
+
+    def _get_max_version_integer(
+        self,
+        prefixes: list[str],
+    ) -> int:
         pattern = r'v(\d+)'
 
         version_integers = [
@@ -64,9 +81,7 @@ class Client:
             if re.search(pattern, prefix)
         ]
 
-        next_version_integer = max(version_integers) + 1
-
-        return 'v{}'.format(next_version_integer)
+        return max(version_integers)
 
     def store_dataframes(
         self,

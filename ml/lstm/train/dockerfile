@@ -2,15 +2,13 @@ FROM python:3.11.6
 
 WORKDIR /opt/ml/code
 
-COPY ml/lstm/train/requirements.txt requirements.txt
+COPY ml/lstm/train/requirements.txt .
 
 RUN pip3 install -r requirements.txt
 
-COPY ml/lstm/helpers/helpers.py .
+COPY pkg/features/features.py pkg/features/
 
-COPY pkg/storage pkg/storage
-
-COPY pkg/data pkg/data
+COPY pkg/storage/storage.py pkg/storage/
 
 COPY ml/lstm/train/entrypoint.py .
 
