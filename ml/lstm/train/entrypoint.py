@@ -80,7 +80,7 @@ most_recent_filtered_features = filtered_features.groupby('ticker').apply(
     lambda group: group.nlargest(arguments.days, 'timestamp')
 ).reset_index(drop=True)
 
-preprocessed_features = features_client.preprocess_training_data(
+preprocessed_features = features_client.preprocess_training_features(
     data=most_recent_filtered_features,
 )
 

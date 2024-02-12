@@ -26,7 +26,7 @@ COLUMNS = {
 }
 
 
-def preprocess_training_data(
+def preprocess_training_features(
     data: pandas.DataFrame,
     splits: tuple[float, float, float] = (0.7, 0.2, 0.1),
 ) -> dict[str, any]:
@@ -141,7 +141,7 @@ def _split_window(
     return (inputs, labels)
 
 
-def preprocess_predicting_data(
+def preprocess_predicting_features(
     data: pandas.DataFrame,
     scalers: dict[int, preprocessing.MinMaxScaler],
 ) -> dict[str, tensorflow.data.Dataset]:

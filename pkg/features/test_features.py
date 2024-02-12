@@ -34,10 +34,10 @@ class TestGenerateFeatures(unittest.TestCase):
 
 
 class TestPreprocessTrainingData(unittest.TestCase):
-    def test_preprocess_training_data_without_mocks_success(self):
+    def test_preprocess_training_features_without_mocks_success(self):
         client = features.Client()
 
-        result = client.preprocess_training_data(test_data)
+        result = client.preprocess_training_features(test_data)
 
         self.assertIsInstance(result, dict)
         self.assertSetEqual(set(result.keys()), {'data', 'scalers'})

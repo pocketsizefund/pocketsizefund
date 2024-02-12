@@ -35,15 +35,15 @@ def invocations() -> flask.Response:
         data=input_data,
     )
 
-    preprocessed_data = features_client.preprocess_predicting_data(
+    preprocessed_features = features_client.preprocess_predicting_features(
         data=features_data,
         scalers=scalers,
     )
 
     predictions: dict[str, any] = {}
-    for ticker, ticker_data in preprocessed_data.items():
+    for ticker, ticker_features in preprocessed_features.items():
         prediction = model.predict(
-            x=ticker_data,
+            x=ticker_features,
             verbose=0,
         )
 
