@@ -25,6 +25,8 @@ REQUIRED_COLUMNS = tuple(
 WINDOW_INPUT_LENGTH = 30
 WINDOW_OUTPUT_LENGTH = 5
 
+CLOSE_PRICE_INDEX = 3
+
 
 class Client:
     def __init__(self):
@@ -146,11 +148,9 @@ class Client:
         labels = data[:, labels_slice, :]
 
         labels = tensorflow.stack(
-            values=[labels],
+            [labels[:, :, CLOSE_PRICE_INDEX]],
             axis=-1,
         )
-
-        labels = tensorflow.squeeze(labels, axis=-1)
 
         inputs.set_shape([None, self.window_input_length, None])
         labels.set_shape([None, self.window_output_length, None])

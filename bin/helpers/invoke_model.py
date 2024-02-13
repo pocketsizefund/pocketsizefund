@@ -86,7 +86,7 @@ else:
 
 for ticker, ticker_predictions in predictions.items():
     closing_prices = [
-        ticker_prediction[3] for ticker_prediction in ticker_predictions
+        ticker_prediction[0] for ticker_prediction in ticker_predictions
     ]
 
     print('ticker: {}'.format(ticker))

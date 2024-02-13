@@ -69,7 +69,7 @@ def handler(event: any, context: any) -> dict[str, any]:
         )
 
         moves_by_ticker = {
-            ticker: predictions_by_ticker[ticker][0][3] -
+            ticker: predictions_by_ticker[ticker][0][0] -
             current_prices_by_ticker[ticker]['price']
             for ticker in predictions_by_ticker
         }

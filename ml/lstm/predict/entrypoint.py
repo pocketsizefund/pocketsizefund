@@ -48,9 +48,17 @@ def invocations() -> flask.Response:
         )
 
         prediction = numpy.squeeze(prediction, axis=0)
-        unscaled_predictions = scalers[ticker].inverse_transform(
-            X=prediction,
-        )
+
+        scaler = scalers[ticker]
+
+        minimum_value = scaler.data_min_[features.CLOSE_PRICE_INDEX]
+        maximum_value = scaler.data_max_[features.CLOSE_PRICE_INDEX]
+
+        unscaled_predictions = (
+            prediction*(
+                maximum_value -
+                minimum_value)
+        ) + minimum_value
 
         predictions[ticker] = unscaled_predictions.tolist()
 
