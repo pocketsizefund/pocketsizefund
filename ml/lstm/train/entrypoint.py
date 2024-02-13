@@ -45,7 +45,7 @@ parser.add_argument(
 
 arguments = parser.parse_args()
 
-features_count = len(features.FEATURE_NAMES)
+features_count = 1
 
 output_length = features.WINDOW_OUTPUT_LENGTH
 

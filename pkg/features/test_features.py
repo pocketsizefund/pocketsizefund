@@ -55,12 +55,12 @@ class TestCreateDataset(unittest.TestCase):
 
         data = numpy.array(
             object=[
-                [1, 2, 3],
-                [4, 5, 6],
-                [7, 8, 9],
-                [10, 11, 12],
-                [13, 14, 15],
-                [16, 17, 18],
+                [1, 2, 3, 4, 5],
+                [4, 5, 6, 7, 8],
+                [7, 8, 9, 10, 11],
+                [10, 11, 12, 13, 14],
+                [13, 14, 15, 16, 17],
+                [16, 17, 18, 19, 20],
             ],
             dtype=numpy.float32,
         )
@@ -123,6 +123,7 @@ class TestSplitWindow(unittest.TestCase):
 
         day_count = 3
         feature_count = 5
+        label_count = 1
 
         expected_input_shape = (
             day_count,
@@ -132,7 +133,7 @@ class TestSplitWindow(unittest.TestCase):
         expected_labels_shape = (
             day_count,
             client.window_output_length,
-            feature_count,
+            label_count,
         )
 
         self.assertEqual(inputs.shape.as_list(), list(expected_input_shape))
@@ -162,16 +163,16 @@ class TestSplitWindow(unittest.TestCase):
         expected_labels_values = numpy.array(
             object=[
                 [
-                    [7, 8, 9, 10, 11],
-                    [9, 10, 11, 12, 13],
+                    [10],
+                    [12],
                 ],
                 [
-                    [17, 18, 19, 20, 21],
-                    [19, 20, 21, 22, 23],
+                    [20],
+                    [22],
                 ],
                 [
-                    [27, 28, 29, 30, 31],
-                    [29, 30, 31, 32, 33],
+                    [30],
+                    [32],
                 ],
             ],
             dtype=numpy.float32,
