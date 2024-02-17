@@ -1,9 +1,9 @@
 Flask
 pandas
 numpy
-keras
+sagemaker
+pandas
 scikit-learn
 tensorflow
-requests
-alpaca-py
+keras
 sagemaker-inference

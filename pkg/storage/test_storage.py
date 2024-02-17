@@ -59,6 +59,7 @@ class TestListFileNames(unittest.TestCase):
     def test_list_file_names_success(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
         )
 
         client.s3_client = MockS3Client(
@@ -93,6 +94,7 @@ class TestGetNextPrefixVersion(unittest.TestCase):
     def test_get_next_prefix_version_no_files(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
         )
 
         next_prefix_version = client.get_next_prefix_version(
@@ -104,6 +106,7 @@ class TestGetNextPrefixVersion(unittest.TestCase):
     def test_get_next_prefix_version_files(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
         )
 
         next_prefix_version = client.get_next_prefix_version(
@@ -121,6 +124,7 @@ class TestGetMaxPrefixVersion(unittest.TestCase):
     def test_get_max_prefix_version_no_files(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
         )
 
         max_prefix_version = client.get_max_prefix_version(
@@ -132,6 +136,7 @@ class TestGetMaxPrefixVersion(unittest.TestCase):
     def test_get_max_prefix_version_files(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
         )
 
         max_prefix_version = client.get_max_prefix_version(
@@ -149,6 +154,7 @@ class TestStoreDataframes(unittest.TestCase):
     def test_store_dataframes_success(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
         )
 
         client.s3_client = MockS3Client(
@@ -181,6 +187,7 @@ class TestLoadDataframes(unittest.TestCase):
     def test_load_dataframes_success(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
         )
 
         client.s3_client = MockS3Client(

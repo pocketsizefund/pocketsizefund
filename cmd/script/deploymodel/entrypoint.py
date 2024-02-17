@@ -1,12 +1,11 @@
-import json
 import os
 import pickle
+import json
 
 import flask
 import pandas
-import numpy
-from keras import models
 
+from pkg.model import model
 from pkg.features import features
 
 
@@ -16,11 +15,15 @@ app = flask.Flask(__name__)
 scalers_file = open(os.getenv('MODEL_DIR')+'/scalers.pkl', 'rb')
 scalers = pickle.load(scalers_file)
 
-features_client = features.Client()
-
-model = models.load_model(
-    filepath=os.getenv('MODEL_DIR')+'/lstm.keras',
+model_model = model.Model(
+    artifact_output_path=os.getenv('MODEL_DIR'),
 )
+
+model_model.load_model()
+
+model_model.load_scalers()
+
+features_client = features.Client()
 
 
 @app.route('/invocations', methods=['POST'])
@@ -35,32 +38,14 @@ def invocations() -> flask.Response:
         data=input_data,
     )
 
-    preprocessed_features = features_client.preprocess_predicting_features(
+    preprocessed_features = model_model.preprocess_predicting_features(
         data=features_data,
         scalers=scalers,
     )
 
-    predictions: dict[str, any] = {}
-    for ticker, ticker_features in preprocessed_features.items():
-        prediction = model.predict(
-            x=ticker_features,
-            verbose=0,
-        )
-
-        prediction = numpy.squeeze(prediction, axis=0)
-
-        scaler = scalers[ticker]
-
-        minimum_value = scaler.data_min_[features.CLOSE_PRICE_INDEX]
-        maximum_value = scaler.data_max_[features.CLOSE_PRICE_INDEX]
-
-        unscaled_predictions = (
-            prediction*(
-                maximum_value -
-                minimum_value)
-        ) + minimum_value
-
-        predictions[ticker] = unscaled_predictions.tolist()
+    predictions = model_model.generate_predictions(
+        features=preprocessed_features,
+    )
 
     return flask.Response(
         response=json.dumps(predictions),

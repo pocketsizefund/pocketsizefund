@@ -2,14 +2,14 @@ FROM python:3.11.6
 
 WORKDIR /opt/ml/code
 
-COPY ml/lstm/train/requirements.txt .
+COPY cmd/script/trainmodel/requirements.txt .
 
 RUN pip3 install -r requirements.txt
 
-COPY pkg/features/features.py pkg/features/
+COPY pkg/model/model.py pkg/model/
 
 COPY pkg/storage/storage.py pkg/storage/
 
-COPY ml/lstm/train/entrypoint.py .
+COPY cmd/script/trainmodel/entrypoint.py .
 
 ENV SAGEMAKER_PROGRAM entrypoint.py

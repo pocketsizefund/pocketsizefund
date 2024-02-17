@@ -7,10 +7,7 @@ from sagemaker.serverless import serverless_inference_config
 from pkg.config import config
 
 
-parser = argparse.ArgumentParser(
-    prog='sagemaker deploy script',
-    description='deploy the lstm model on sagemaker',
-)
+parser = argparse.ArgumentParser()
 
 parser.add_argument(
     '--environment',

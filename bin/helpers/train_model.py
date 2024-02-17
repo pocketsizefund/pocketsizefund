@@ -6,10 +6,7 @@ from pkg.config import config
 from pkg.trade import trade
 
 
-parser = argparse.ArgumentParser(
-    prog='sagemaker training script',
-    description='train the lstm model on sagemaker',
-)
+parser = argparse.ArgumentParser()
 
 parser.add_argument(
     '--iam-role',
@@ -77,6 +74,7 @@ estimator = tensorflow.TensorFlow(
     model_dir='/opt/ml/model',  # this is the required value
     hyperparameters={
         's3-data-bucket-name': arguments.s3_data_bucket_name,
+        's3-artifacts-bucket-name': arguments.s3_artifacts_bucket_name,
         'epochs': arguments.epochs,
         'days': arguments.days,
         'available-tickers': ','.join(available_tickers),
