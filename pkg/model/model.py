@@ -280,6 +280,21 @@ class Model:
             'metrics': history.history,
         }
 
+    def evaluate_model(
+        self,
+        data: tensorflow.data.Dataset,
+    ) -> dict[str, any]:
+        evaluation = self.model.evaluate(
+            x=data,
+            return_dict=True,
+            verbose=0,
+        )
+
+        return {
+            'loss': evaluation['loss'],
+            'mean_absolute_error': evaluation['mean_absolute_error'],
+        }
+
     def save_model(
         self,
         model: models.Sequential,
