@@ -1,0 +1,9 @@
+Flask
+pandas
+numpy
+sagemaker
+pandas
+scikit-learn
+tensorflow
+keras
+sagemaker-inference

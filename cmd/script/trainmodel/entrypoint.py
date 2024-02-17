@@ -1,0 +1,109 @@
+import argparse
+
+from pkg.model import model
+from pkg.storage import storage
+
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument(
+    '--s3-data-bucket-name',
+    type=str,
+    dest='s3_data_bucket_name',
+)
+
+parser.add_argument(
+    '--s3-artifacts-bucket-name',
+    type=str,
+    dest='s3_artifacts_bucket_name',
+)
+
+parser.add_argument(
+    '--model_dir',  # underscore required for SageMaker
+    type=str,
+    dest='model_dir',
+)
+
+parser.add_argument(
+    '--epochs',
+    type=int,
+    dest='epochs',
+)
+
+parser.add_argument(
+    '--days',
+    type=int,
+    dest='days',
+)
+
+parser.add_argument(
+    '--available-tickers',
+    type=str,
+    dest='available_tickers',
+)
+
+arguments = parser.parse_args()
+
+features_count = 1
+
+output_length = model.WINDOW_OUTPUT_LENGTH
+
+storage_client = storage.Client(
+    s3_data_bucket_name=arguments.s3_data_bucket_name,
+    s3_artifacts_bucket_name=arguments.s3_artifacts_bucket_name,
+)
+
+model_model = model.Model(
+    artifact_output_path=arguments.model_dir,
+)
+
+file_names = storage_client.list_file_names(
+    prefix=storage.PREFIX_FEATURES_PATH,
+)
+
+max_version_file_name = storage_client.get_max_prefix_version(
+    prefixes=file_names,
+)
+
+features_by_version = storage_client.load_dataframes(
+    prefix=storage.PREFIX_FEATURES_PATH,
+    file_names=[max_version_file_name],
+)
+
+training_features = features_by_version[max_version_file_name]
+
+available_tickers = arguments.available_tickers.split(',')
+
+filtered_features = training_features[training_features['ticker'].isin(
+    available_tickers
+)]
+
+most_recent_filtered_features = filtered_features.groupby('ticker').apply(
+    lambda group: group.nlargest(arguments.days, 'timestamp')
+).reset_index(drop=True)
+
+preprocessed_features = model_model.preprocess_training_features(
+    data=most_recent_filtered_features,
+)
+
+training_output = model_model.train_model(
+    features=preprocessed_features['data'],
+    epochs=arguments.epochs,
+)
+
+model_model.save_model(
+    model=training_output['model'],
+)
+
+model_model.save_metrics(
+    metrics=training_output['metrics'],
+)
+
+model_model.save_scalers(
+    scalers=preprocessed_features['scalers'],
+)
+
+model_model.save_data(
+    name='testing_data',
+    data=preprocessed_features['data']['testing'],
+)
