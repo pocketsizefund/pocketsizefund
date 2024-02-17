@@ -15,7 +15,7 @@ etc/data/*.csv
 model.tar.gz
 *.keras
 *.pkl
-ml/lstm/metrics/*
+cmd/scripts/metrics/*
 
 # infrastucture
 .aws-sam/
@@ -29,4 +29,4 @@ node_modules
 etc/
 
 # testing
-.coverage
+.coverage*
