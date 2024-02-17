@@ -1,9 +1,0 @@
-Flask
-pandas
-numpy
-keras
-scikit-learn
-tensorflow
-requests
-alpaca-py
-sagemaker-inference
