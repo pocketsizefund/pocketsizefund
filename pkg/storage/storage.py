@@ -1,6 +1,7 @@
 import re
 from concurrent import futures
 import io
+import tarfile
 
 import boto3
 import pandas
@@ -14,8 +15,10 @@ class Client:
     def __init__(
         self,
         s3_data_bucket_name: str,
+        s3_artifacts_bucket_name: str,
     ) -> None:
         self.s3_data_bucket_name = s3_data_bucket_name
+        self.s3_artifacts_bucket_name = s3_artifacts_bucket_name
         self.s3_client = boto3.client('s3')
 
     def list_file_names(
@@ -182,3 +185,21 @@ class Client:
             )
 
         return {file_name: dataframe}
+
+    def download_model_artifacts(
+        self,
+        key: str,
+    ) -> None:
+        response = self.s3_client.get_object(
+            Bucket=self.s3_artifacts_bucket_name,
+            Key=key,
+        )
+
+        compressed_data = response['Body'].read()
+
+        compressed_file = tarfile.open(
+            fileobj=io.BytesIO(compressed_data),
+            mode='r:gz',
+        )
+
+        compressed_file.extractall()
