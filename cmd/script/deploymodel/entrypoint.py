@@ -17,6 +17,7 @@ scalers = pickle.load(scalers_file)
 
 model_model = model.Model(
     artifact_output_path=os.getenv('MODEL_DIR'),
+    weights_and_biases_api_key='',
 )
 
 model_model.load_model()

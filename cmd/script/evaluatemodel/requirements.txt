@@ -6,3 +6,4 @@ sagemaker
 scikit-learn
 numpy
 keras
+wandb

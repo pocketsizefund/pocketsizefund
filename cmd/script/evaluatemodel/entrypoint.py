@@ -38,6 +38,7 @@ storage_client.download_model_artifacts(
 
 model_model = model.Model(
     artifact_output_path='.',
+    weights_and_biases_api_key='',
 )
 
 model_model.load_model()

@@ -20,6 +20,7 @@ class TestPreprocessTrainingFeatures(unittest.TestCase):
     def test_preprocess_training_features_without_mocks_success(self):
         model = model_package.Model(
             artifact_output_path='',
+            weights_and_biases_api_key='',
         )
 
         result = model.preprocess_training_features(test_data)
@@ -38,6 +39,7 @@ class TestCreateDataset(unittest.TestCase):
     def test_create_dataset_success(self):
         model = model_package.Model(
             artifact_output_path='',
+            weights_and_biases_api_key='',
         )
 
         data = numpy.array(
@@ -74,6 +76,7 @@ class TestSplitWindow(unittest.TestCase):
     def test_split_window_data_success(self):
         model = model_package.Model(
             artifact_output_path='',
+            weights_and_biases_api_key='',
         )
 
         model.window_input_length = 3
@@ -181,6 +184,7 @@ class TestCleanAndGroupData(unittest.TestCase):
     def test_clean_and_group_data_success(self):
         model = model_package.Model(
             artifact_output_path='',
+            weights_and_biases_api_key='',
         )
 
         input = pandas.DataFrame({
@@ -229,6 +233,7 @@ class TestSaveModel(unittest.TestCase):
     def test_save_model_success(self):
         model = model_package.Model(
             artifact_output_path='.',
+            weights_and_biases_api_key='',
         )
 
         lstm_model = keras.models.Sequential()
@@ -248,6 +253,7 @@ class TestSaveScalers(unittest.TestCase):
     def test_save_scalers_success(self):
         model = model_package.Model(
             artifact_output_path='.',
+            weights_and_biases_api_key='',
         )
 
         scalers = {
@@ -267,6 +273,7 @@ class TestSaveData(unittest.TestCase):
     def test_save_data_success(self):
         model = model_package.Model(
             artifact_output_path='.',
+            weights_and_biases_api_key='',
         )
 
         model.save_data(
@@ -285,6 +292,7 @@ class TestLoadModel(unittest.TestCase):
     def test_load_model_success(self):
         model = model_package.Model(
             artifact_output_path='.',
+            weights_and_biases_api_key='',
         )
 
         file_path = './lstm.keras'
@@ -308,6 +316,7 @@ class TestLoadScalers(unittest.TestCase):
     def test_load_scalers_success(self):
         model = model_package.Model(
             artifact_output_path='.',
+            weights_and_biases_api_key='',
         )
 
         file_path = './scalers.pkl'
