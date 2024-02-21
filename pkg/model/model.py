@@ -8,6 +8,7 @@ import numpy
 import tensorflow
 import keras
 from keras import models, layers, losses, optimizers, metrics
+import wandb
 
 
 FEATURE_NAMES = tuple(
@@ -37,6 +38,8 @@ class Model:
     def __init__(
         self,
         artifact_output_path: str,
+        weights_and_biases_api_key: str,
+        notes: str = '',
     ) -> None:
         self.feature_names = FEATURE_NAMES
         self.required_columns = REQUIRED_COLUMNS
@@ -45,6 +48,9 @@ class Model:
         self.label_count = 1
 
         self.artifact_output_path = artifact_output_path
+        # explicit authorization instead of local secrets.env reference
+        self.weights_and_biases_api_key = weights_and_biases_api_key
+        self.notes = notes
 
         self.model = None
         self.scalers = None
@@ -243,6 +249,16 @@ class Model:
         features: dict[str, pandas.DataFrame],
         epochs: int = 10,
     ) -> dict[str, any]:
+        wandb.login(key=self.weights_and_biases_api_key)
+
+        wandb.init(
+            project='basic-lstm',
+            config={
+                'epochs': epochs,
+            },
+            notes=self.notes,
+        )
+
         self.model = models.Sequential(
             layers=[
                 layers.LSTM(
@@ -274,6 +290,19 @@ class Model:
             epochs=epochs,
             validation_data=features['validating'],
         )
+
+        loss = history.history["loss"]
+        mean_absolute_error = history.history["mean_absolute_error"]
+        validation_loss = history.history["val_loss"]
+        validation_mean_absolute_error = history.history["val_mean_absolute_error"]
+
+        for index in range(epochs):
+            wandb.log({
+                "training loss": loss[index],
+                "training mean absolute error": mean_absolute_error[index],
+                "validation loss": validation_loss[index],
+                "validation mean absolute error": validation_mean_absolute_error[index],
+            })
 
         return {
             'model': self.model,

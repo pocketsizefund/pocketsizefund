@@ -42,7 +42,18 @@ parser.add_argument(
     dest='available_tickers',
 )
 
+parser.add_argument(
+    '--notes',
+    type=str,
+    dest='notes',
+)
+
 arguments = parser.parse_args()
+
+secrets_file = open('secrets.env', 'r')
+secrets_content = secrets_file.read()
+secrets_file.close()
+weights_and_biases_api_key = secrets_content.split('=')[1].strip()
 
 features_count = 1
 
@@ -55,6 +66,8 @@ storage_client = storage.Client(
 
 model_model = model.Model(
     artifact_output_path=arguments.model_dir,
+    weights_and_biases_api_key=weights_and_biases_api_key,
+    notes=arguments.notes,
 )
 
 file_names = storage_client.list_file_names(

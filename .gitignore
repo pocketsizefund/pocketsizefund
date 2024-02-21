@@ -15,7 +15,7 @@ etc/data/*.csv
 model.tar.gz
 *.keras
 *.pkl
-cmd/scripts/metrics/*
+cmd/scripts/evaluatemodel/metrics/*
 
 # infrastucture
 .aws-sam/
@@ -30,3 +30,6 @@ etc/
 
 # testing
 .coverage*
+
+# Weights and Biases
+cmd/script/trainmodel/secrets.env

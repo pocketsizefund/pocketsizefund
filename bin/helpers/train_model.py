@@ -1,6 +1,8 @@
 import argparse
+import os
 
 from sagemaker import tensorflow
+import wandb
 
 from pkg.config import config
 from pkg.trade import trade
@@ -50,6 +52,8 @@ parser.add_argument(
 
 arguments = parser.parse_args()
 
+notes = input('enter notes (optional): ')
+
 samconfig_file = config.SAMConfig(
     file_path='samconfig.toml',
     environment=config.ENVIRONMENT_DEVELOPMENT,
@@ -63,6 +67,12 @@ trade_client = trade.Client(
 )
 
 available_tickers: list[str] = trade_client.get_available_tickers()
+
+os.environ['WANDB_API_KEY'] = samconfig_file.get_parameter(
+    'WeightsAndBiasesAPIKey'
+)
+
+wandb.sagemaker_auth(path='cmd/script/trainmodel')
 
 estimator = tensorflow.TensorFlow(
     entry_point='',
@@ -78,6 +88,7 @@ estimator = tensorflow.TensorFlow(
         'epochs': arguments.epochs,
         'days': arguments.days,
         'available-tickers': ','.join(available_tickers),
+        'notes': notes,
     },
     output_path='s3://{}/models'.format(arguments.s3_artifacts_bucket_name),
 )
