@@ -50,6 +50,12 @@ generated_features = features_client.generate_features(
     data=equity_bars,
 )
 
+null_values_check = generated_features.isnull().any().any()
+
+if null_values_check:
+    raise Exception('generated features contains null values')
+
+
 generated_feature_file_names = storage_client.list_file_names(
     prefix=storage.PREFIX_FEATURES_PATH,
 )
