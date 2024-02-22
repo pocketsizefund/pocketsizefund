@@ -112,6 +112,11 @@ else:
         ],
     )
 
+null_values_check = bars.isnull().any().any()
+
+if null_values_check:
+    raise Exception('bars contains null values')
+
 bars_grouped_by_year: pandas.DataFrameGroupBy[int] = bars.groupby(
     bars.timestamp.dt.year
 )
