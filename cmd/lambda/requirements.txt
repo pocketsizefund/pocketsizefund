@@ -3,3 +3,8 @@ pandas
 requests
 boto3
 sagemaker
+scikit-learn
+numpy
+tensorflow
+keras
+wandb
