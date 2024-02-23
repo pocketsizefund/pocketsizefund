@@ -33,9 +33,6 @@ Parameters:
     AllowedValues:
       - "true"
       - "false"
-  SNSErrorsTopicARN:
-    Type: String
-    Description: SNS topic ARN for Lambda error alerts
   ModelEndpointName:
     Type: String
     Description: SageMaker model endpoint name
@@ -54,7 +51,6 @@ Resources:
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
-          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
           MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
       Events:
         DailyCreatePositions:
@@ -86,7 +82,6 @@ Resources:
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
-          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
         DailyClearPositions:
           Properties:
@@ -137,10 +132,6 @@ Resources:
                   - dynamodb:UpdateItem
                 Effect: Allow
                 Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
-              - Action:
-                  - sns:Publish
-                Effect: Allow
-                Resource: !Ref SNSErrorsTopicARN
               - Action:
                   - sagemaker:InvokeEndpoint
                 Effect: Allow
