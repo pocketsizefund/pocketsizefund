@@ -204,21 +204,21 @@ class TestTrade(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_get_market_status_alpaca_get_clock_error(self):
+    def test_is_market_open_alpaca_get_clock_error(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             response=None,
             exception=Exception('alpaca get clock error'),
         )
 
         with self.assertRaises(Exception) as context:
-            self.client.get_market_status()
+            self.client.is_market_open()
 
         self.assertEqual(
             str(context.exception),
             'alpaca get clock error',
         )
 
-    def test_get_market_status_success(self):
+    def test_is_market_open_success(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             response=MockAlpacaGetClockResponse(
                 is_open=True,
@@ -226,9 +226,9 @@ class TestTrade(unittest.TestCase):
             exception=None,
         )
 
-        market_status = self.client.get_market_status()
+        is_market_open = self.client.is_market_open()
 
-        self.assertEqual(True, market_status['is_market_open'])
+        self.assertEqual(True, is_market_open)
 
     def test_get_available_tickers_darqube_get_tickers_error(self):
         self.client.http_client = MockHTTPClient(
