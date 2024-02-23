@@ -12,8 +12,7 @@ trade_client = trade.Client(
 
 
 def handler(event: any, context: any) -> dict[str, any]:
-    market_status = trade_client.get_market_status()
-    if not market_status['is_market_open']:
+    if not trade_client.is_market_open():
         raise Exception('market is closed')
 
     trade_client.clear_positions()

@@ -30,11 +30,9 @@ class Client:
             secret_key=alpaca_api_secret,
         )
 
-    def get_market_status(self) -> dict[str, any]:
+    def is_market_open(self) -> bool:
         clock = self.alpaca_trading_client.get_clock()
-        return {
-            'is_market_open': clock.is_open,
-        }
+        return clock.is_open
 
     def get_available_tickers(self) -> list[str]:
         return self._get_available_tickers()

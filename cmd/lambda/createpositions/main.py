@@ -32,8 +32,7 @@ model_client = model.Client(
 
 
 def handler(event: any, context: any) -> dict[str, any]:
-    market_status = trade_client.get_market_status()
-    if not market_status['is_market_open']:
+    if not trade_client.is_market_open():
         raise Exception('market is closed')
 
     available_tickers = trade_client.get_available_tickers()
