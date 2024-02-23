@@ -6,7 +6,7 @@ Parameters:
     Type: String
     Default: pocketsizefund-data
     Description: Model training data storage
-  S3ArtifactBucketName:
+  S3ArtifactsBucketName:
     Type: String
     Default: pocketsizefund-artifacts
     Description: Stack and model artifact storage
@@ -47,6 +47,7 @@ Resources:
       Environment:
         Variables:
           S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
+          S3_ARTIFACTS_BUCKET_NAME: !Ref S3ArtifactsBucketName
           ALPACA_API_KEY: !Ref AlpacaAPIKey
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
@@ -191,12 +192,12 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:*
-                Resource: !Sub arn:aws:s3:::${S3ArtifactBucketName}/models/*
+                Resource: !Sub arn:aws:s3:::${S3ArtifactsBucketName}/models/*
               - Effect: Allow
                 Action:
                   - s3:GetBucketAcl
                   - s3:PutObjectAcl
-                Resource: !Sub arn:aws:s3:::${S3ArtifactBucketName}
+                Resource: !Sub arn:aws:s3:::${S3ArtifactsBucketName}
               - Effect: Allow
                 Action:
                   - s3:CreateBucket
