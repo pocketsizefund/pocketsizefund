@@ -40,7 +40,7 @@ We want to rapidly iterate ideas by constantly launching with an MVP mindset for
 
 > Work in progress 🚧
 
-This is in ongoing development, a "v0", so expect significant changes going forward.  
+This is in ongoing development so expect significant changes going forward.  
 
 ### Participation
 
