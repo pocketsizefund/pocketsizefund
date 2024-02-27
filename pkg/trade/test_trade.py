@@ -82,9 +82,21 @@ class MockAlpacaGetAllAssetsResponse:
 
 
 class MockAlpacaPosition:
-    def __init__(self, symbol: str, qty: float) -> None:
+    def __init__(
+        self,
+        symbol: str,
+        qty: float,
+    ) -> None:
         self.symbol = symbol
         self.qty = qty
+
+
+class MockAlpacaClosePositionResponse:
+    def __init__(
+        self,
+        symbol: str,
+    ) -> None:
+        self.symbol = symbol
 
 
 class MockAlpacaTradingClient:
@@ -130,13 +142,13 @@ class MockAlpacaTradingClient:
         }
 
     def get_all_positions(self) -> list[MockAlpacaPosition]:
-        return []
+        return self.response['get_all_positions']
 
     def close_all_positions(
         self,
         cancel_orders: bool,
-    ) -> any:
-        return self.response
+    ) -> list[MockAlpacaClosePositionResponse]:
+        return self.response['close_all_positions']
 
 
 class MockAlpacaTrade:
@@ -448,3 +460,37 @@ class TestTrade(unittest.TestCase):
         self.assertEqual(last_request.symbol, 'TICKER')
         self.assertEqual(last_request.qty, 10)
         self.assertEqual(last_request.side, 'buy')
+
+    def test_close_all_positions_exception(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response={
+                'close_all_positions': list[
+                    MockAlpacaClosePositionResponse(symbol='FIRST_TICKER'),
+                    MockAlpacaClosePositionResponse(symbol='SECOND_TICKER'),
+                ],
+                'get_all_positions': list[MockAlpacaPosition(
+                    symbol='SECOND_TICKER',
+                    qty=10.0,
+                )],
+            },
+            exception=None,
+        )
+
+        with self.assertRaises(Exception) as context:
+            self.client.clear_positions()
+
+    def test_close_all_positions_success(self):
+        self.client.alpaca_trading_client = MockAlpacaTradingClient(
+            response={
+                'close_all_positions': list[
+                    MockAlpacaClosePositionResponse(symbol='FIRST_TICKER'),
+                    MockAlpacaClosePositionResponse(symbol='SECOND_TICKER'),
+                ],
+                'get_all_positions': [],
+            },
+            exception=None,
+        )
+
+        self.client.clear_positions()
+
+        self.assertTrue(True)

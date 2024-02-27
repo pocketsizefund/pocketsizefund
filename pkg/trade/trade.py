@@ -132,6 +132,20 @@ class Client:
         return tickers
 
     def clear_positions(self) -> None:
-        self.alpaca_trading_client.close_all_positions(
+        close_positions_response = self.alpaca_trading_client.close_all_positions(
             cancel_orders=True,
         )
+
+        all_positions_response = self.alpaca_trading_client.get_all_positions()
+        symbols = [
+            position.symbol for position
+            in all_positions_response
+        ]
+
+        if len(symbols) > 0:
+            message = 'failed to close positions: {}\nclose positions response: {}'.format(
+                ', '.join(symbols),
+                close_positions_response,
+            )
+
+            raise Exception(message)
