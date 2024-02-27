@@ -57,13 +57,9 @@ def handler(event: any, context: any) -> dict[str, any]:
         data=prediction_data,
     )
 
-    current_prices_by_ticker = trade_client.get_current_prices(
-        tickers=list(predictions_by_ticker.keys()),
-    )
-
     moves_by_ticker = {
         ticker: predictions_by_ticker[ticker][0][0] -
-        current_prices_by_ticker[ticker]['price']
+        predictions_by_ticker[ticker][4][0]
         for ticker in predictions_by_ticker
     }
 
@@ -82,21 +78,4 @@ def handler(event: any, context: any) -> dict[str, any]:
     if len(highest_moves_tickers) == 0:
         raise Exception('no tickers to trade')
 
-    weights_by_ticker = {
-        ticker: 1 / len(highest_moves_tickers)
-        for ticker in highest_moves_tickers
-    }
-
-    available_cash = trade_client.get_available_cash()
-
-    positions: list[dict[str, any]] = [
-        {
-            'ticker': ticker_weight[0],
-            'quantity': (available_cash * ticker_weight[1]) /
-            current_prices_by_ticker[ticker_weight[0]]['price'],
-            'side': trade.SIDE_BUY,
-        }
-        for ticker_weight in weights_by_ticker.items()
-    ]
-
-    trade_client.set_positions(positions)
+    trade_client.set_positions(tickers=highest_moves_tickers)
