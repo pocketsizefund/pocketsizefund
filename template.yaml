@@ -47,6 +47,7 @@ Resources:
       Environment:
         Variables:
           S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
+          S3_ARTIFACTS_BUCKET_NAME: !Ref S3ArtifactsBucketName
           ALPACA_API_KEY: !Ref AlpacaAPIKey
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey

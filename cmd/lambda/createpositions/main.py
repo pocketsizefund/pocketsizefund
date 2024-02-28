@@ -11,6 +11,7 @@ POSITIONS_COUNT = 10
 
 storage_client = storage.Client(
     s3_data_bucket_name=os.environ['S3_DATA_BUCKET_NAME'],
+    s3_artifacts_bucket_name=os.environ['S3_ARTIFACTS_BUCKET_NAME'],
 )
 
 trade_client = trade.Client(
