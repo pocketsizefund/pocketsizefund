@@ -55,10 +55,6 @@ secrets_content = secrets_file.read()
 secrets_file.close()
 weights_and_biases_api_key = secrets_content.split('=')[1].strip()
 
-features_count = 1
-
-output_length = model.WINDOW_OUTPUT_LENGTH
-
 storage_client = storage.Client(
     s3_data_bucket_name=arguments.s3_data_bucket_name,
     s3_artifacts_bucket_name=arguments.s3_artifacts_bucket_name,

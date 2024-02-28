@@ -36,6 +36,8 @@ class MockHTTPClient:
         url: str,
         params: any,
     ) -> any:
+        _ = url, params
+
         if self.exception is not None:
             raise self.exception
 
@@ -138,6 +140,8 @@ class MockAlpacaTradingClient:
         self,
         cancel_orders: bool,
     ) -> any:
+        _ = cancel_orders
+
         if self.exceptions is not None and self.exceptions['close_all_positions'] is not None:
             raise self.exceptions['close_all_positions']
 

@@ -13,3 +13,4 @@ tensorflow
 coverage
 md2pdf
 wandb
+vulture
