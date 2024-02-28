@@ -24,18 +24,24 @@ class MockTwitterAPI:
         description: str,
         profile_link_color: str,
     ) -> None:
+        _ = location, description, profile_link_color
+
         return None
 
     def update_profile_banner(
         self,
         filename: str,
     ) -> None:
+        _ = filename
+
         return None
 
     def update_profile_image(
         self,
         filename: str,
     ) -> None:
+        _ = filename
+
         return None
 
 

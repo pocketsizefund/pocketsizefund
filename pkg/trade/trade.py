@@ -1,12 +1,7 @@
 import requests
-from alpaca.data import historical
 from alpaca.trading import client as trading_client
 from alpaca.trading import enums
 from alpaca.trading import requests as alpaca_trading_requests
-
-
-SIDE_BUY = 'buy'
-SIDE_SELL = 'sell'
 
 
 class Client:
@@ -23,10 +18,6 @@ class Client:
             api_key=alpaca_api_key,
             secret_key=alpaca_api_secret,
             paper=is_paper,
-        )
-        self.alpaca_data_client = historical.StockHistoricalDataClient(
-            api_key=alpaca_api_key,
-            secret_key=alpaca_api_secret,
         )
 
     def is_market_open(self) -> bool:
