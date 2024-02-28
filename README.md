@@ -40,7 +40,7 @@ We want to rapidly iterate ideas by constantly launching with an MVP mindset for
 
 > Work in progress 🚧
 
-This is in ongoing development, a "v0", so expect significant changes going forward.  
+This is in ongoing development so expect significant changes going forward.  
 
 ### Participation
 
@@ -55,4 +55,5 @@ Here are some places to get started:
 
 1. [Specific larger initiatives](https://github.com/pocketsizefund/pocketsizefund/milestones) we're currently working on  
 2. [All issues by status](https://github.com/orgs/pocketsizefund/projects/2/views/1) to see ongoing progress  
-3. [Send me a direct message](https://twitter.com/forstmeier) on everything else  
+3. [Open a discussion](https://github.com/orgs/pocketsizefund/discussions) to ask questions or share ideas  
+4. [Send me a direct message](https://twitter.com/forstmeier) on everything else  

@@ -1,5 +1,4 @@
 import requests
-from alpaca.data import requests as alpaca_data_requests
 from alpaca.data import historical
 from alpaca.trading import client as trading_client
 from alpaca.trading import enums
@@ -32,63 +31,33 @@ class Client:
 
     def is_market_open(self) -> bool:
         clock = self.alpaca_trading_client.get_clock()
+
         return clock.is_open
 
     def get_available_tickers(self) -> list[str]:
         return self._get_available_tickers()
 
-    def get_available_cash(self) -> float:
-        account = self.alpaca_trading_client.get_account()
-
-        return float(account.cash)
-
-    def get_current_prices(
-        self,
-        tickers: list[str],
-    ) -> dict[str, float]:
-        request = alpaca_data_requests.StockLatestTradeRequest(
-            symbol_or_symbols=tickers,
-        )
-
-        response = self.alpaca_data_client.get_stock_latest_trade(request)
-
-        prices: dict[str, dict[str, float]] = {
-            ticker: {
-                'price': float(response[ticker].price),
-            } for ticker in response
-        }
-
-        return prices
-
     def set_positions(
         self,
-        positions: list[dict[str, any]],
+        tickers: list[str],
     ) -> None:
         available_tickers = self._get_available_tickers()
 
-        for position in positions:
-            side: enums.OrderSide = None
+        account = self.alpaca_trading_client.get_account()
 
-            if position['side'] == SIDE_BUY:
-                side = enums.OrderSide.BUY
+        available_cash = float(account.cash)
 
-            elif position['side'] == SIDE_SELL:
-                side = enums.OrderSide.SELL
+        notional = available_cash / len(tickers)
 
-            quantity = position['quantity']
-            if quantity <= 0:
-                raise Exception('quantity must be a positive number')
-
-            if position['ticker'] not in available_tickers:
-                raise Exception(
-                    'invalid ticker "{}"'.format(position['ticker'])
-                )
+        for ticker in tickers:
+            if ticker not in available_tickers:
+                raise Exception('invalid ticker "{}"'.format(ticker))
 
             request = alpaca_trading_requests.MarketOrderRequest(
-                symbol=position['ticker'],
-                qty=round(quantity, 2),
+                symbol=ticker,
+                notional=round(notional, 2),
                 type=enums.OrderType.MARKET,
-                side=side,
+                side=enums.OrderSide.BUY,
                 time_in_force=enums.TimeInForce.DAY,
             )
 
