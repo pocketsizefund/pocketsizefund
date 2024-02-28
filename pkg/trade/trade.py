@@ -38,7 +38,7 @@ class Client:
 
         available_cash = float(account.cash)
 
-        notional = available_cash / len(tickers)
+        notional = available_cash / len(tickers) * 0.95  # 5% buffer workaround
 
         for ticker in tickers:
             if ticker not in available_tickers:

@@ -395,7 +395,7 @@ class TestSetPositions(unittest.TestCase):
         last_request = self.client.alpaca_trading_client.last_request
         self.assertIsNotNone(last_request)
         self.assertEqual(last_request.symbol, 'TICKER')
-        self.assertEqual(last_request.notional, 100.0)
+        self.assertEqual(last_request.notional, 95.0)
         self.assertEqual(last_request.side, 'buy')
 
 
