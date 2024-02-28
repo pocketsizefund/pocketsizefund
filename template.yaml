@@ -6,7 +6,7 @@ Parameters:
     Type: String
     Default: pocketsizefund-data
     Description: Model training data storage
-  S3ArtifactBucketName:
+  S3ArtifactsBucketName:
     Type: String
     Default: pocketsizefund-artifacts
     Description: Stack and model artifact storage
@@ -33,9 +33,6 @@ Parameters:
     AllowedValues:
       - "true"
       - "false"
-  SNSErrorsTopicARN:
-    Type: String
-    Description: SNS topic ARN for Lambda error alerts
   ModelEndpointName:
     Type: String
     Description: SageMaker model endpoint name
@@ -54,12 +51,11 @@ Resources:
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
-          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
           MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
       Events:
         DailyCreatePositions:
           Properties:
-            ScheduleExpression: cron(45 9 ? * MON-FRI *) # 15 minutes after market open
+            ScheduleExpression: cron(45 9 ? * MON *) # 15 minutes after market open
             ScheduleExpressionTimezone: America/New_York
             State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:
@@ -86,11 +82,10 @@ Resources:
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
-          SNS_ERRORS_TOPIC_ARN: !Ref SNSErrorsTopicARN
       Events:
         DailyClearPositions:
           Properties:
-            ScheduleExpression: cron(55 15 ? * MON-FRI *) # 5 minutes before market close
+            ScheduleExpression: cron(55 15 ? * FRI *) # 5 minutes before market close
             ScheduleExpressionTimezone: America/New_York
             State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:
@@ -137,10 +132,6 @@ Resources:
                   - dynamodb:UpdateItem
                 Effect: Allow
                 Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
-              - Action:
-                  - sns:Publish
-                Effect: Allow
-                Resource: !Ref SNSErrorsTopicARN
               - Action:
                   - sagemaker:InvokeEndpoint
                 Effect: Allow
@@ -200,12 +191,12 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:*
-                Resource: !Sub arn:aws:s3:::${S3ArtifactBucketName}/models/*
+                Resource: !Sub arn:aws:s3:::${S3ArtifactsBucketName}/models/*
               - Effect: Allow
                 Action:
                   - s3:GetBucketAcl
                   - s3:PutObjectAcl
-                Resource: !Sub arn:aws:s3:::${S3ArtifactBucketName}
+                Resource: !Sub arn:aws:s3:::${S3ArtifactsBucketName}
               - Effect: Allow
                 Action:
                   - s3:CreateBucket
