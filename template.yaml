@@ -56,7 +56,7 @@ Resources:
       Events:
         DailyCreatePositions:
           Properties:
-            ScheduleExpression: cron(45 9 ? * MON-FRI *) # 15 minutes after market open
+            ScheduleExpression: cron(45 9 ? * MON *) # 15 minutes after market open
             ScheduleExpressionTimezone: America/New_York
             State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:
@@ -86,7 +86,7 @@ Resources:
       Events:
         DailyClearPositions:
           Properties:
-            ScheduleExpression: cron(55 15 ? * MON-FRI *) # 5 minutes before market close
+            ScheduleExpression: cron(55 15 ? * FRI *) # 5 minutes before market close
             ScheduleExpressionTimezone: America/New_York
             State: !Ref CreateAndClearTradeScheduleState
             RetryPolicy:

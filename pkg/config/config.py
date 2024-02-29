@@ -2,7 +2,6 @@ import toml
 
 
 ENVIRONMENT_DEVELOPMENT = 'development'
-ENVIRONMENT_PRODUCTION = 'production'
 
 
 class SAMConfig:
