@@ -49,6 +49,8 @@ The best ways to get involved are to _contribute code_ and _co-invest_.
 - **Contribute**: checkout the [process](#process) and [links](#links)  
 - **Co-invest**: reach out via [direct message](https://twitter.com/forstmeier)  
 
+This project is currently intended to be run as a single instance. However, if you'd like to run your own instance, clone this repository and add a `samconfig.toml` file to the root directory with the values required as seen in the `etc/examples/samconfig.toml` file. Launch into your AWS account with the `./bin/launch_stack` script.  
+
 ### Links
 
 Here are some places to get started:  
