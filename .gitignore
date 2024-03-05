@@ -26,7 +26,11 @@ node_modules
 /dist
 
 # general
-etc/
+etc/buildspace/ 
+etc/data/
+etc/meetings/
+etc/packages/
+!etc/examples/samconfig.toml
 
 # testing
 .coverage*
