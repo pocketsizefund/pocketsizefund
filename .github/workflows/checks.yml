@@ -1,0 +1,39 @@
+name: Checks
+on: [push]
+env:
+  AWS_ACCESS_KEY_ID: ''
+  AWS_SECRET_ACCESS_KEY: ''
+  AWS_DEFAULT_REGION: us-east-1
+jobs:
+  run_unit_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.6'
+      - name: Install dependencies
+        run: pip3 install -r requirements.txt
+      - name: Run unit tests
+        run: ./bin/run_unit_tests
+      - name: Collect unit test coverage
+        run: coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          path-to-lcov: coverage.xml
+  find_dead_code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.6'
+      - name: Install dependencies
+        run: pip3 install -r requirements.txt
+      - name: Run dead code analysis
+        run: ./bin/find_dead_code
