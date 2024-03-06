@@ -17,6 +17,9 @@ elif original_name == 'clearpositions':
 elif original_name == 'completeinvite':
     updated_name = 'function-complete-invite'
 
+elif original_name == 'postperformance':
+    updated_name = 'function-post-performance'
+
 elif original_name == 'trainlstm':
     updated_name = 'model-train-lstm'
 
