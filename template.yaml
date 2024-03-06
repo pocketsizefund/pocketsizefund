@@ -144,7 +144,7 @@ Resources:
       Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
-      Timeout: 15
+      Timeout: 30
   functionRole:
     Type: AWS::IAM::Role
     Properties:
