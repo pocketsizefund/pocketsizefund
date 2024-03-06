@@ -6,6 +6,7 @@ env:
   AWS_DEFAULT_REGION: us-east-1
 jobs:
   run_unit_tests:
+    name: Run unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -25,6 +26,7 @@ jobs:
         with:
           path-to-lcov: coverage.xml
   find_dead_code:
+    name: Find dead code
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
