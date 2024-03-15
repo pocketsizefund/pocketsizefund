@@ -1,4 +1,5 @@
 import datetime
+import time
 
 import requests
 import pandas
@@ -27,6 +28,7 @@ class Client:
         self,
         alpaca_api_key: str,
         alpaca_api_secret: str,
+        edgar_user_agent: str,
         print_logs: bool = False,
     ) -> None:
         self.alpaca_ticker_chunk_size = ALPACA_TICKER_CHUNK_SIZE
@@ -37,6 +39,8 @@ class Client:
             raw_data=True,
         )
         self.http_client = requests
+        self.edgar_user_agent = edgar_user_agent
+        self.edgar_requests_per_second = 10  # EDGAR rate limitation
         self.print_logs = print_logs
         self.runtime_start = None
 
@@ -48,7 +52,7 @@ class Client:
     ) -> pandas.DataFrame:
         if self.print_logs:
             self.runtime_start = datetime.datetime.now()
-            print('beginning get range data')
+            print('beginning get range equities data')
 
         start_at = start_at.replace(hour=0, minute=0, second=0)
         end_at = end_at.replace(hour=0, minute=0, second=0)
@@ -117,7 +121,164 @@ class Client:
                 runtime_stop - self.runtime_start
             ).total_seconds() / 60
 
-            print('ending get range data')
+            print('ending get range equities data')
             print('runtime {} minutes'.format(round(runtime_in_minutes, 2)))
 
         return all_bars
+
+    def get_range_corporate_filings(
+        self,
+        tickers: list[str],
+        start_at: datetime.datetime,
+        end_at: datetime.datetime,
+    ) -> list[dict[str, any]]:
+        if self.print_logs:
+            self.runtime_start = datetime.datetime.now()
+            print('beginning get range corporate filings data')
+
+        response = self.http_client.get(
+            url='https://www.sec.gov/files/company_tickers.json',
+            headers={
+                'User-Agent': self.edgar_user_agent,
+                'Accept-Encoding': 'gzip, deflate',
+                'Host': 'www.sec.gov',
+            }
+        )
+
+        time.sleep(1 / self.edgar_requests_per_second)
+
+        ciks_response_json = response.json()
+
+        ciks_and_tickers = []
+
+        for key in ciks_response_json.keys():
+            row = ciks_response_json[key]
+            if row['ticker'] in tickers:
+                ciks_and_tickers.append({
+                    'ticker': row['ticker'],
+                    'cik_str': row['cik_str'],
+                })
+
+        corporate_filings = []
+
+        for index in range(len(ciks_and_tickers)):
+            cik = ciks_and_tickers[index]['cik_str']
+            ticker = ciks_and_tickers[index]['ticker']
+
+            if self.print_logs:
+                print('getting {} corporate filings'.format(ticker))
+
+            submission_response = self.http_client.get(
+                url='https://data.sec.gov/submissions/CIK{:0>10}.json'.format(
+                    cik
+                ),
+                headers={
+                    'User-Agent': self.edgar_user_agent,
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Host': 'data.sec.gov',
+                }
+            )
+
+            time.sleep(1 / self.edgar_requests_per_second)
+
+            submission_response_json = submission_response.json()
+
+            recent_filings = submission_response_json['filings']['recent']
+
+            target_forms = ['10-K', '10-Q', '8-K']
+
+            ticker_corporate_filings = {}
+
+            for target_form in target_forms:
+                forms_information = self._get_forms_information(
+                    start_at=start_at,
+                    end_at=end_at,
+                    accession_numbers=recent_filings['accessionNumber'],
+                    acceptance_dates=recent_filings['acceptanceDateTime'],
+                    forms=recent_filings['form'],
+                    target_form=target_form,
+                )
+
+                form_contents = self._get_forms_contents(
+                    cik=cik,
+                    forms_information=forms_information,
+                )
+
+                ticker_corporate_filings[target_form] = form_contents
+
+            corporate_filings.append({
+                'ticker': ticker,
+                'corporate_filings': ticker_corporate_filings,
+            })
+
+        if self.print_logs:
+            runtime_stop = datetime.datetime.now()
+
+            runtime_in_minutes = (
+                runtime_stop - self.runtime_start
+            ).total_seconds() / 60
+
+            print('ending get range corporate filings data')
+            print('runtime {} minutes'.format(round(runtime_in_minutes, 2)))
+
+        return corporate_filings
+
+    def _get_forms_information(
+        self,
+        start_at: datetime.datetime,
+        end_at: datetime.datetime,
+        accession_numbers: list[str],
+        acceptance_dates: list[str],
+        forms: list[str],
+        target_form: str,
+    ) -> list[dict[str, any]]:
+        start_at = start_at.replace(tzinfo=datetime.timezone.utc)
+        end_at = end_at.replace(tzinfo=datetime.timezone.utc)
+
+        indices = [
+            index for index, form in enumerate(forms)
+            if form == target_form
+        ]
+
+        forms_information = []
+        for index in indices:
+            acceptance_date = datetime.datetime.fromisoformat(
+                acceptance_dates[index]
+            )
+
+            if acceptance_date >= start_at and acceptance_date <= end_at:
+                forms_information.append({
+                    'accession_number': accession_numbers[index],
+                    'acceptance_date': acceptance_date,
+                })
+
+        return forms_information
+
+    def _get_forms_contents(
+        self,
+        cik: str,
+        forms_information: list[dict[str, any]],
+    ) -> list[dict[str, any]]:
+        forms_contents = []
+
+        for form_information in forms_information:
+            response = self.http_client.get(
+                url='https://www.sec.gov/Archives/edgar/data/{}/{}.txt'.format(
+                    cik,
+                    form_information['accession_number'],
+                ),
+                headers={
+                    'User-Agent': self.edgar_user_agent,
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Host': 'www.sec.gov',
+                }
+            )
+
+            forms_contents.append({
+                'acceptance_date': form_information['acceptance_date'],
+                'content': response.text,
+            })
+
+            time.sleep(1 / self.edgar_requests_per_second)
+
+        return forms_contents
