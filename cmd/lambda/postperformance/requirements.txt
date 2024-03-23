@@ -1,0 +1,4 @@
+requests
+alpaca-py
+numpy
+tweepy
