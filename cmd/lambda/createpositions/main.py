@@ -24,7 +24,7 @@ trade_client = trade.Client(
 data_client = data.Client(
     alpaca_api_key=os.getenv('ALPACA_API_KEY'),
     alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
-    print_logs=True,
+    is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
 )
 
 model_client = model.Client(
