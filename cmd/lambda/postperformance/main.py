@@ -8,6 +8,7 @@ trade_client = trade.Client(
     darqube_api_key=os.getenv('DARQUBE_API_KEY'),
     alpaca_api_key=os.getenv('ALPACA_API_KEY'),
     alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
+    alpha_vantage_api_key=os.getenv('ALPHA_VANTAGE_API_KEY'),
     is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
 )
 

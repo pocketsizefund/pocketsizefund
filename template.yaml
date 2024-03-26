@@ -46,6 +46,9 @@ Parameters:
     Type: String
     Description: Path to images for Twitter profile updates
     Default: pkg/twitter/images
+  AlphaVantageAPIKey:
+    Type: String
+    Description: Alpha Vantage API key
 Resources:
   createPositionsFunction:
     Type: AWS::Serverless::Function
@@ -62,6 +65,7 @@ Resources:
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
           MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
       Events:
         CreatePositions:
           Properties:
@@ -92,6 +96,7 @@ Resources:
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
       Events:
         ClearPositions:
           Properties:
@@ -127,6 +132,7 @@ Resources:
           TWITTER_ACCESS_TOKEN: !Ref TwitterAccessToken
           TWITTER_ACCESS_TOKEN_SECRET: !Ref TwitterAccessTokenSecret
           IMAGES_FILE_PATH: !Ref ImagesFilePath
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
       Events:
         PostPerformance:
           Properties:
