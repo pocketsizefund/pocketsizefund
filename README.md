@@ -10,7 +10,9 @@
 
 **pocketsizefund** holds the main resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
 
-## Goals
+## Project
+
+### Motto
 
 > Make money and learn things 💡  
 
@@ -18,6 +20,8 @@ Accountability for these goals is enforced by:
 
 1. **Publishing performance** on a regular, automated basis  
 2. **Writing whitepapers** for every significant initiative  
+
+### Process
 
 Our process is:
 
@@ -29,6 +33,17 @@ learn  <-  measure
 ```
 
 We want to rapidly iterate our research-first mindset by constantly launching with an MVP implementations for every initiative.  
+
+### Principles
+
+An unordered and non-exhaustive list of principles we work towards:
+
+- Test in production
+- Always roll forward
+- Systems over process
+- No code is good code
+- Never write documentation
+- Git is truth
 
 ## Development
 
@@ -54,4 +69,4 @@ Here are some places to get started:
 1. [Specific larger initiatives](https://github.com/pocketsizefund/pocketsizefund/milestones) we're currently working on  
 2. [All issues by status](https://github.com/orgs/pocketsizefund/projects/2/views/1) to see ongoing progress  
 3. [Open a discussion](https://github.com/orgs/pocketsizefund/discussions) to ask questions or share ideas  
-4. [Send me a direct message](https://twitter.com/forstmeier) on everything else  
+4. [Send a direct message](https://twitter.com/forstmeier) on everything else  
