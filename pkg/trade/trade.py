@@ -75,7 +75,7 @@ class Client:
         next_saturday = start_at + datetime.timedelta(days=days_until_saturday)
 
         calendar_days = self.alpaca_trading_client.get_calendar(
-            filter=alpaca_trading_requests.GetCalendarRequest(
+            filters=alpaca_trading_requests.GetCalendarRequest(
                 start=start_at,
                 end=start_at + datetime.timedelta(days=7),
             )
@@ -127,7 +127,7 @@ class Client:
         self.event_bridge_client.create_schedule(
             Description='Dynamically generated schedule for managing positions',
             ScheduleExpression=expression,
-            ScheduleExpressionTimezone='EST',
+            ScheduleExpressionTimezone='America/New_York',
             Name=name,
             State='ENABLED',
             FlexibleTimeWindow={

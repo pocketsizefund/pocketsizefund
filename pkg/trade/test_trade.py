@@ -122,8 +122,10 @@ class MockAlpacaTradingClient:
 
     def get_calendar(
         self,
-        filter: any,
+        filters: any,
     ) -> list[any]:
+        _ = filters
+
         return [
             MockAlpacaCalendarResponse(),
         ]
@@ -260,6 +262,8 @@ class MockEventBridgeClient:
         NamePrefix: str,
         State: str,
     ) -> any:
+        _ = NamePrefix, State
+
         return {
             'Schedules': [
                 {
@@ -272,6 +276,8 @@ class MockEventBridgeClient:
         self,
         Name: str,
     ) -> any:
+        _ = Name
+
         return None
 
 
