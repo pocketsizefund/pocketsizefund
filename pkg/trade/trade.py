@@ -8,6 +8,7 @@ from alpaca.data import historical
 from alpaca.data import timeframe
 from alpaca.data import requests as alpaca_data_requests
 import numpy
+import boto3
 
 
 class Client:
@@ -37,6 +38,9 @@ class Client:
             raw_data=True,
         )
         self.alpha_vantage_api_key = alpha_vantage_api_key
+        self.event_bridge_client = boto3.client('scheduler')
+        self.create_positions_schedule_name = 'pocketsizefund-create-positions'
+        self.clear_positions_schedule_name = 'pocketsizefund-clear-positions'
         self.is_paper = is_paper
 
     def is_market_open(self) -> bool:
@@ -45,6 +49,95 @@ class Client:
         is_market_open = clock.is_open
 
         return is_market_open
+
+    def set_position_schedules(
+        self,
+        start_at: datetime.datetime,
+        create_positions_lambda_arn: str,
+        clear_positions_lambda_arn: str,
+        invoke_lambda_role_arn: str,
+    ) -> None:
+        response = self.event_bridge_client.list_schedules(
+            NamePrefix='pocketsizefund-',
+            State='ENABLED',
+        )
+
+        for schedule in response['Schedules']:
+            name = schedule['Name']
+            if name in [
+                self.create_positions_schedule_name,
+                self.clear_positions_schedule_name,
+            ]:
+                self.event_bridge_client.delete_schedule(Name=name)
+
+        days_until_saturday = (5 - start_at.weekday() + 7) % 7
+
+        next_saturday = start_at + datetime.timedelta(days=days_until_saturday)
+
+        calendar_days = self.alpaca_trading_client.get_calendar(
+            filters=alpaca_trading_requests.GetCalendarRequest(
+                start=start_at,
+                end=start_at + datetime.timedelta(days=7),
+            )
+        )
+
+        filtered_days = [
+            calendar_day for calendar_day in calendar_days
+            if calendar_day.date < next_saturday.date()
+            and calendar_day.date > start_at.date()
+        ]
+
+        create_open = min(filtered_days, key=lambda x: x.date).open + datetime.timedelta(
+            minutes=30,
+        )
+
+        create_expression = 'at({})'.format(
+            create_open.strftime("%Y-%m-%dT%H:%M:%S")
+        )
+
+        self._create_schedule(
+            name=self.create_positions_schedule_name,
+            expression=create_expression,
+            lambda_arn=create_positions_lambda_arn,
+            role_arn=invoke_lambda_role_arn,
+        )
+
+        clear_close = max(filtered_days, key=lambda x: x.date).close - datetime.timedelta(
+            minutes=30,
+        )
+
+        clear_expression = 'at({})'.format(
+            clear_close.strftime("%Y-%m-%dT%H:%M:%S")
+        )
+
+        self._create_schedule(
+            name=self.clear_positions_schedule_name,
+            expression=clear_expression,
+            lambda_arn=clear_positions_lambda_arn,
+            role_arn=invoke_lambda_role_arn,
+        )
+
+    def _create_schedule(
+        self,
+        name: str,
+        expression: str,
+        lambda_arn: str,
+        role_arn: str,
+    ) -> None:
+        self.event_bridge_client.create_schedule(
+            Description='Dynamically generated schedule for managing positions',
+            ScheduleExpression=expression,
+            ScheduleExpressionTimezone='America/New_York',
+            Name=name,
+            State='ENABLED',
+            FlexibleTimeWindow={
+                'Mode': 'OFF',
+            },
+            Target={
+                'Arn': lambda_arn,
+                'RoleArn': role_arn,
+            },
+        )
 
     def get_available_tickers(self) -> list[str]:
         return self._get_available_tickers()

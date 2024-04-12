@@ -95,6 +95,15 @@ def mock_get_available_tickers_success() -> list[str]:
     return ['TICKER']
 
 
+class MockAlpacaCalendarResponse:
+    def __init__(
+        self,
+    ) -> None:
+        self.date = datetime.date(1977, 5, 6)
+        self.open = datetime.datetime(1977, 5, 6, 9, 30)
+        self.close = datetime.datetime(1977, 5, 6, 16, 0)
+
+
 class MockAlpacaTradingClient:
     def __init__(
         self,
@@ -110,6 +119,16 @@ class MockAlpacaTradingClient:
             raise self.exceptions['get_clock']
 
         return self.responses['get_clock']
+
+    def get_calendar(
+        self,
+        filters: any,
+    ) -> list[any]:
+        _ = filters
+
+        return [
+            MockAlpacaCalendarResponse(),
+        ]
 
     def get_all_assets(
         self,
@@ -235,6 +254,66 @@ def mock_get_risk_free_rate_error() -> float:
 
 def mock_get_risk_free_rate_success() -> float:
     return 0.03
+
+
+class MockEventBridgeClient:
+    def list_schedules(
+        self,
+        NamePrefix: str,
+        State: str,
+    ) -> any:
+        _ = NamePrefix, State
+
+        return {
+            'Schedules': [
+                {
+                    'Name': 'schedule_name',
+                },
+            ],
+        }
+
+    def delete_schedule(
+        self,
+        Name: str,
+    ) -> any:
+        _ = Name
+
+        return None
+
+
+def mock_create_schedule_success(
+    name: str,
+    expression: str,
+    lambda_arn: str,
+    role_arn: str,
+) -> any:
+    return None
+
+
+class TestSetPositionSchedules(unittest.TestCase):
+    def test_set_position_schedules_success(self):
+        client = trade.Client(
+            darqube_api_key='darqube_api_key',
+            alpaca_api_key='alpaca_api_key',
+            alpaca_api_secret='alpaca_api_secret',
+            alpha_vantage_api_key='alpha_vantage_api_key',
+        )
+
+        client._create_schedule = mock_create_schedule_success
+
+        client.event_bridge_client = MockEventBridgeClient()
+
+        client.alpaca_trading_client = MockAlpacaTradingClient(
+            responses=None,
+            exceptions=None,
+        )
+
+        client.set_position_schedules(
+            start_at=datetime.datetime(1977, 5, 5),
+            create_positions_lambda_arn='create_positions_lambda_arn',
+            clear_positions_lambda_arn='clear_positions_lambda_arn',
+            invoke_lambda_role_arn='invoke_lambda_role_arn',
+        )
 
 
 class TestIsMarketOpen(unittest.TestCase):

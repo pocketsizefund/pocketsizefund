@@ -66,16 +66,6 @@ Resources:
           IS_PAPER: !Ref IsPaper
           MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
           ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
-      Events:
-        CreatePositions:
-          Properties:
-            ScheduleExpression: cron(45 9 ? * MON *) # 15 minutes after market open
-            ScheduleExpressionTimezone: America/New_York
-            State: ENABLED
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-            RoleArn: !GetAtt functionSchedulerRole.Arn
-          Type: ScheduleV2
       FunctionName: !Sub ${AWS::StackName}-function-create-positions
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-create-positions:latest
       MemorySize: 768
@@ -97,16 +87,6 @@ Resources:
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
           ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
-      Events:
-        ClearPositions:
-          Properties:
-            ScheduleExpression: cron(55 15 ? * FRI *) # 5 minutes before market close
-            ScheduleExpressionTimezone: America/New_York
-            State: ENABLED
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-            RoleArn: !GetAtt functionSchedulerRole.Arn
-          Type: ScheduleV2
       FunctionName: !Sub ${AWS::StackName}-function-clear-positions
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-clear-positions:latest
       MemorySize: 128
@@ -115,6 +95,40 @@ Resources:
       Tags:
         pocketsizefund: function
       Timeout: 60
+  schedulePositionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Architectures:
+        - arm64
+      Description: Schedules create and clear positions functions
+      Environment:
+        Variables:
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          IS_PAPER: !Ref IsPaper
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
+          CREATE_POSITIONS_LAMBDA_ARN: !GetAtt createPositionsFunction.Arn
+          CLEAR_POSITIONS_LAMBDA_ARN: !GetAtt clearPositionsFunction.Arn
+          INVOKE_LAMBDA_ROLE_ARN: !GetAtt functionSchedulerRole.Arn
+      Events:
+        SetPositions:
+          Properties:
+            ScheduleExpression: cron(0 21 ? * SUN *)
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+            RoleArn: !GetAtt functionSchedulerRole.Arn
+          Type: ScheduleV2
+      FunctionName: !Sub ${AWS::StackName}-function-schedule-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-schedule-positions:latest
+      MemorySize: 128
+      PackageType: Image
+      Role: !GetAtt functionRole.Arn
+      Tags:
+        pocketsizefund: function
+      Timeout: 15
   postPerformanceFunction:
     Type: AWS::Serverless::Function
     Properties:
