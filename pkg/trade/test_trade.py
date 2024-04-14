@@ -171,25 +171,17 @@ class MockAlpacaTradingClient:
         return None
 
 
-class MockAlpacaGetStockBarsData:
-    def __init__(
-        self,
-        close: float,
-    ) -> None:
-        self.close = close
-
-
 class MockAlpacaGetStockBarsResponse:
     def __init__(
         self,
-        data: list[MockAlpacaGetStockBarsData],
+        data: list[dict[str, any]],
     ):
         self.data = data
 
     def __getitem__(
         self,
         index: str,
-    ) -> MockAlpacaGetStockBarsData:
+    ) -> dict[str, any]:
         return self.data
 
 
@@ -212,13 +204,15 @@ class MockAlpacaHistoricalClient:
         return self.responses['get_stock_bars']
 
 
-def mock_get_portoflio_returns_error(
+def mock_get_portoflio_daily_returns_error(
+    week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
     raise Exception('get portfolio returns error')
 
 
 def mock_get_portfolio_returns_success(
+    week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
     return [
@@ -230,13 +224,15 @@ def mock_get_portfolio_returns_success(
     ]
 
 
-def mock_get_benchmark_returns_error(
+def mock_get_benchmark_daily_returns_error(
+    week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
     raise Exception('get benchmark returns error')
 
 
-def mock_get_benchmark_returns_success(
+def mock_get_benchmark_daily_returns_success(
+    week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
     return [
@@ -612,7 +608,7 @@ class TestClearPositions(unittest.TestCase):
         self.assertTrue(True)
 
 
-class TestPrivateGetPortfolioReturns(unittest.TestCase):
+class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
             darqube_api_key='darqube_api_key',
@@ -624,14 +620,15 @@ class TestPrivateGetPortfolioReturns(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test__get_portfolio_returns_http_client_error(self):
+    def test__get_portfolio_daily_returns_http_client_error(self):
         self.client.http_client = MockHTTPClient(
             response=None,
             exception=Exception('alpaca get portfolio returns error'),
         )
 
         with self.assertRaises(Exception) as context:
-            self.client._get_portoflio_returns(
+            self.client._get_portoflio_daily_returns(
+                week_count=1,
                 end_at=datetime.datetime.now(),
             )
 
@@ -640,7 +637,7 @@ class TestPrivateGetPortfolioReturns(unittest.TestCase):
             'alpaca get portfolio returns error',
         )
 
-    def test__get_portfolio_returns_insufficient_data_error(self):
+    def test__get_portfolio_daily_returns_insufficient_data_error(self):
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
                 data={'timestamp': []},
@@ -649,7 +646,8 @@ class TestPrivateGetPortfolioReturns(unittest.TestCase):
         )
 
         with self.assertRaises(Exception) as context:
-            self.client._get_portoflio_returns(
+            self.client._get_portoflio_daily_returns(
+                week_count=1,
                 end_at=datetime.datetime.now(),
             )
 
@@ -658,7 +656,7 @@ class TestPrivateGetPortfolioReturns(unittest.TestCase):
             'insufficient portfolio data',
         )
 
-    def test__get_portfolio_returns_success(self):
+    def test__get_portfolio_daily_returns_success(self):
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
                 data={
@@ -681,7 +679,8 @@ class TestPrivateGetPortfolioReturns(unittest.TestCase):
             exception=None,
         )
 
-        returns = self.client._get_portoflio_returns(
+        returns = self.client._get_portoflio_daily_returns(
+            week_count=1,
             end_at=datetime.datetime.now(),
         )
 
@@ -689,7 +688,7 @@ class TestPrivateGetPortfolioReturns(unittest.TestCase):
         self.assertEqual(-0.0082, returns[0])
 
 
-class TestPrivateGetBenchmarkReturns(unittest.TestCase):
+class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
             darqube_api_key='darqube_api_key',
@@ -701,7 +700,7 @@ class TestPrivateGetBenchmarkReturns(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test__get_benchmark_returns_alpaca_client_error(self):
+    def test__get_benchmark_daily_returns_alpaca_client_error(self):
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
             responses=None,
             exceptions={
@@ -710,7 +709,8 @@ class TestPrivateGetBenchmarkReturns(unittest.TestCase):
         )
 
         with self.assertRaises(Exception) as context:
-            self.client._get_benchmark_returns(
+            self.client._get_benchmark_daily_returns(
+                week_count=1,
                 end_at=datetime.datetime.now(),
             )
 
@@ -719,7 +719,7 @@ class TestPrivateGetBenchmarkReturns(unittest.TestCase):
             'alpaca get benchmark returns error',
         )
 
-    def test__get_benchmark_returns_insufficient_data_error(self):
+    def test__get_benchmark_daily_returns_insufficient_data_error(self):
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
             responses={
                 'get_stock_bars': {
@@ -730,7 +730,8 @@ class TestPrivateGetBenchmarkReturns(unittest.TestCase):
         )
 
         with self.assertRaises(Exception) as context:
-            self.client._get_benchmark_returns(
+            self.client._get_benchmark_daily_returns(
+                week_count=1,
                 end_at=datetime.datetime.now(),
             )
 
@@ -739,24 +740,37 @@ class TestPrivateGetBenchmarkReturns(unittest.TestCase):
             'insufficient benchmark data',
         )
 
-    def test__get_benchmark_returns_success(self):
+    def test__get_benchmark_daily_returns_success(self):
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
             responses={
                 'get_stock_bars': MockAlpacaGetStockBarsResponse(
                     data=[
-                        MockAlpacaGetStockBarsData(close=100.0),
-                        MockAlpacaGetStockBarsData(close=101.0),
-                        MockAlpacaGetStockBarsData(close=102.0),
-                        MockAlpacaGetStockBarsData(close=103.0),
-                        MockAlpacaGetStockBarsData(close=104.0),
-                        MockAlpacaGetStockBarsData(close=105.0),
+                        {
+                            'c': 100.0,
+                        },
+                        {
+                            'c': 101.0,
+                        },
+                        {
+                            'c': 102.0,
+                        },
+                        {
+                            'c': 103.0,
+                        },
+                        {
+                            'c': 104.0,
+                        },
+                        {
+                            'c': 105.0,
+                        },
                     ],
                 ),
             },
             exceptions=None,
         )
 
-        returns = self.client._get_benchmark_returns(
+        returns = self.client._get_benchmark_daily_returns(
+            week_count=1,
             end_at=datetime.datetime.now(),
         )
 
@@ -862,6 +876,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
 
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
+                week_count=1,
                 end_at=datetime.datetime.now(),
             )
 
@@ -881,10 +896,11 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             exceptions=None,
         )
 
-        self.client._get_portoflio_returns = mock_get_portoflio_returns_error
+        self.client._get_portoflio_daily_returns = mock_get_portoflio_daily_returns_error
 
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
+                week_count=1,
                 end_at=datetime.datetime.now(),
             )
 
@@ -893,7 +909,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             'get portfolio returns error',
         )
 
-    def test_get_performance_metrics_get_benchmark_returns_error(self):
+    def test_get_performance_metrics_get_benchmark_daily_returns_error(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses={
                 'get_account': MockAlpacaAccount(
@@ -904,11 +920,12 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             exceptions=None,
         )
 
-        self.client._get_portoflio_returns = mock_get_portfolio_returns_success
-        self.client._get_benchmark_returns = mock_get_benchmark_returns_error
+        self.client._get_portoflio_daily_returns = mock_get_portfolio_returns_success
+        self.client._get_benchmark_daily_returns = mock_get_benchmark_daily_returns_error
 
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
+                week_count=1,
                 end_at=datetime.datetime.now(),
             )
 
@@ -928,12 +945,13 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             exceptions=None,
         )
 
-        self.client._get_portoflio_returns = mock_get_portfolio_returns_success
-        self.client._get_benchmark_returns = mock_get_benchmark_returns_success
+        self.client._get_portoflio_daily_returns = mock_get_portfolio_returns_success
+        self.client._get_benchmark_daily_returns = mock_get_benchmark_daily_returns_success
         self.client._get_risk_free_rate = mock_get_risk_free_rate_error
 
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
+                week_count=1,
                 end_at=datetime.datetime.now(),
             )
 
@@ -953,11 +971,12 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             exceptions=None,
         )
 
-        self.client._get_portoflio_returns = mock_get_portfolio_returns_success
-        self.client._get_benchmark_returns = mock_get_benchmark_returns_success
+        self.client._get_portoflio_daily_returns = mock_get_portfolio_returns_success
+        self.client._get_benchmark_daily_returns = mock_get_benchmark_daily_returns_success
         self.client._get_risk_free_rate = mock_get_risk_free_rate_success
 
         metrics = self.client.get_performance_metrics(
+            week_count=1,
             end_at=datetime.datetime.now(),
         )
 

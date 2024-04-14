@@ -212,6 +212,7 @@ class Client:
 
     def get_performance_metrics(
         self,
+        week_count: int,
         end_at: datetime.datetime,
     ) -> dict[str, any]:
         metrics = {}
@@ -220,13 +221,25 @@ class Client:
 
         metrics['current_portfolio_value'] = float(account.equity)
 
-        portfolio_returns = self._get_portoflio_returns(
+        portfolio_returns = self._get_portoflio_daily_returns(
+            week_count=week_count,
             end_at=end_at,
         )
 
-        benchmark_returns = self._get_benchmark_returns(
+        benchmark_returns = self._get_benchmark_daily_returns(
+            week_count=week_count,
             end_at=end_at,
         )
+
+        adjusted_length = min(len(portfolio_returns), len(benchmark_returns))
+
+        portfolio_returns = portfolio_returns[
+            len(portfolio_returns) - adjusted_length:
+        ]
+
+        benchmark_returns = benchmark_returns[
+            len(benchmark_returns) - adjusted_length:
+        ]
 
         metrics['cumulative_portfolio_returns'] = self._cumulative_returns(
             returns=portfolio_returns,
@@ -240,8 +253,9 @@ class Client:
 
         return metrics
 
-    def _get_portoflio_returns(
+    def _get_portoflio_daily_returns(
         self,
+        week_count: int,
         end_at: datetime.datetime,
     ) -> list[dict[str, any]]:
         subdomain = 'paper-api'
@@ -254,7 +268,7 @@ class Client:
             ),
             headers=self.http_headers,
             params={
-                'period': '2W',
+                'period': '{}W'.format(week_count),
                 'timeframe': '1D',
                 'intraday_reporting': 'market_hours',
                 'pnl_reset': 'per_day',
@@ -276,14 +290,15 @@ class Client:
 
         return portfolio_returns
 
-    def _get_benchmark_returns(
+    def _get_benchmark_daily_returns(
         self,
+        week_count: int,
         end_at: datetime.datetime,
     ) -> list[dict[str, any]]:
         benchmark_ticker = 'SPY'
 
-        # arbitrary calendar days
-        start_at = end_at - datetime.timedelta(days=10)
+        # calendar days approximating trading days
+        start_at = end_at - datetime.timedelta(days=week_count * 8)
 
         request = alpaca_data_requests.StockBarsRequest(
             symbol_or_symbols=benchmark_ticker,
@@ -302,9 +317,9 @@ class Client:
         benchmark_returns = []
 
         for index in range(len(benchmark_data) - 1):
-            current_close = float(benchmark_data[index].close)
+            current_close = float(benchmark_data[index]['c'])
 
-            next_close = float(benchmark_data[index + 1].close)
+            next_close = float(benchmark_data[index + 1]['c'])
 
             percent_change = (next_close / current_close) - 1
 
