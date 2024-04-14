@@ -297,6 +297,9 @@ class Client:
     ) -> list[dict[str, any]]:
         benchmark_ticker = 'SPY'
 
+        # adjusting due to Alpaca API limitations
+        end_at = end_at - datetime.timedelta(hours=1)
+
         # calendar days approximating trading days
         start_at = end_at - datetime.timedelta(days=week_count * 8)
 
