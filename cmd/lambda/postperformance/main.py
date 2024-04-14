@@ -22,19 +22,18 @@ twitter_client = twitter.Client(
 )
 
 
-text = '''
-Performance metrics - {} weeks
-
-Portfolio cumulative returns: {}
-Benchmark cumulative returns: {}
-'''
-
-
 def handler(
     event: any,
     context: any,
 ) -> dict[str, any]:
     _ = event, context
+
+    text = '''
+Performance metrics past {} weeks
+
+Portfolio cumulative returns: {}
+Benchmark cumulative returns: {}
+'''
 
     week_count = 2
 
@@ -49,6 +48,6 @@ def handler(
         performance_metrics['cumulative_benchmark_returns'],
     )
 
-    twitter_client.post_tweet(
+    twitter_client.send_tweet(
         text=text,
     )
