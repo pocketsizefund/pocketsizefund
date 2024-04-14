@@ -48,6 +48,6 @@ Benchmark cumulative returns: {}
         performance_metrics['cumulative_benchmark_returns'],
     )
 
-    twitter_client.post_tweet(
+    twitter_client.send_tweet(
         text=text,
     )
