@@ -29,7 +29,7 @@ def handler(
     _ = event, context
 
     text = '''
-Performance metrics - {} weeks
+Performance metrics past {} weeks
 
 Portfolio cumulative returns: {}
 Benchmark cumulative returns: {}
