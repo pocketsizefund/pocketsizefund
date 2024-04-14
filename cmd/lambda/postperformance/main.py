@@ -1,4 +1,5 @@
 import os
+import datetime
 
 from pkg.trade import trade
 from pkg.twitter import twitter
@@ -22,7 +23,7 @@ twitter_client = twitter.Client(
 
 
 text = '''
-Weekly performance metrics
+Performance metrics - {} weeks
 
 Portfolio cumulative returns: {}
 Benchmark cumulative returns: {}
@@ -35,9 +36,15 @@ def handler(
 ) -> dict[str, any]:
     _ = event, context
 
-    performance_metrics = trade_client.get_performance_metrics()
+    week_count = 2
+
+    performance_metrics = trade_client.get_performance_metrics(
+        week_count=week_count,
+        end_at=datetime.datetime.now(),
+    )
 
     text = text.format(
+        week_count,
         performance_metrics['cumulative_portfolio_returns'],
         performance_metrics['cumulative_benchmark_returns'],
     )
