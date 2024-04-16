@@ -7,9 +7,8 @@ import boto3
 import pandas
 
 
-PREFIX_EQUITY_BARS_PATH = 'equity/bars'
-PREFIX_FILINGS_PATH = 'filings'
-PREFIX_FEATURES_PATH = 'features'
+PREFIX_EQUITY_BARS_PATH = "equity/bars"
+PREFIX_FEATURES_PATH = "features"
 
 
 class Client:
@@ -20,7 +19,7 @@ class Client:
     ) -> None:
         self.s3_data_bucket_name = s3_data_bucket_name
         self.s3_artifacts_bucket_name = s3_artifacts_bucket_name
-        self.s3_client = boto3.client('s3')
+        self.s3_client = boto3.client("s3")
 
     def list_file_names(
         self,
@@ -31,24 +30,24 @@ class Client:
         continuation_token: str = None
         while True:
             list_arguments = {
-                'Bucket': self.s3_data_bucket_name,
-                'Prefix': prefix,
+                "Bucket": self.s3_data_bucket_name,
+                "Prefix": prefix,
             }
 
             if continuation_token:
-                list_arguments['ContinuationToken'] = continuation_token
+                list_arguments["ContinuationToken"] = continuation_token
 
             response = self.s3_client.list_objects_v2(**list_arguments)
 
-            if response['KeyCount'] == 0:
+            if response["KeyCount"] == 0:
                 return file_names
 
-            for content in response['Contents']:
-                key = content['Key']
-                file_name = key.rsplit('/', 1)[1]
+            for content in response["Contents"]:
+                key = content["Key"]
+                file_name = key.rsplit("/", 1)[1]
                 file_names.append(file_name)
 
-            if not response['IsTruncated']:
+            if not response["IsTruncated"]:
                 break
 
         return file_names
@@ -58,26 +57,26 @@ class Client:
         prefixes: list[str],
     ) -> str:
         if len(prefixes) == 0:
-            return 'v0'
+            return "v0"
 
         next_version_integer = self._get_max_version_integer(prefixes) + 1
 
-        return 'v{}'.format(next_version_integer)
+        return "v{}".format(next_version_integer)
 
     def get_max_prefix_version(
         self,
         prefixes: list[str],
     ) -> str:
         if len(prefixes) == 0:
-            return ''
+            return ""
 
-        return 'v{}'.format(self._get_max_version_integer(prefixes))
+        return "v{}".format(self._get_max_version_integer(prefixes))
 
     def _get_max_version_integer(
         self,
         prefixes: list[str],
     ) -> int:
-        pattern = r'v(\d+)'
+        pattern = r"v(\d+)"
 
         version_integers = [
             int(re.search(pattern, prefix).group(1))
@@ -98,7 +97,7 @@ class Client:
         for file_name in dataframes:
             dataframe = dataframes[file_name]
 
-            key = '{}/{}'.format(prefix, file_name)
+            key = "{}/{}".format(prefix, file_name)
 
             executed_future = executor.submit(
                 self.__put_dataframe,
@@ -124,7 +123,7 @@ class Client:
             gzip_buffer,
             index=False,
             header=True,
-            compression='gzip',
+            compression="gzip",
         )
 
         gzip_buffer.seek(0)
@@ -169,47 +168,23 @@ class Client:
         prefix: str,
         file_name: str,
     ) -> pandas.DataFrame:
-        key = '{}/{}'.format(prefix, file_name)
+        key = "{}/{}".format(prefix, file_name)
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,
             Key=key,
         )
 
         dataframe = pandas.read_csv(
-            response['Body'],
-            compression='gzip',
+            response["Body"],
+            compression="gzip",
         )
 
-        if 'timestamp' in dataframe.columns:
-            dataframe['timestamp'] = dataframe['timestamp'].apply(
+        if "timestamp" in dataframe.columns:
+            dataframe["timestamp"] = dataframe["timestamp"].apply(
                 pandas.Timestamp,
             )
 
         return {file_name: dataframe}
-
-    def store_text(
-        self,
-        prefix: str,
-        text: str,
-    ) -> None:
-        self.s3_client.put_object(
-            Body=text,
-            Bucket=self.s3_data_bucket_name,
-            Key='{}/{}'.format(PREFIX_FILINGS_PATH, prefix),
-        )
-
-        pass
-
-    def load_text(
-        self,
-        prefix: str,
-    ) -> str:
-        response = self.s3_client.get_object(
-            Bucket=self.s3_data_bucket_name,
-            Key='{}/{}'.format(PREFIX_FILINGS_PATH, prefix),
-        )
-
-        return response['Body'].read().decode('utf-8')
 
     def download_model_artifacts(
         self,
@@ -220,11 +195,11 @@ class Client:
             Key=key,
         )
 
-        compressed_data = response['Body'].read()
+        compressed_data = response["Body"].read()
 
         compressed_file = tarfile.open(
             fileobj=io.BytesIO(compressed_data),
-            mode='r:gz',
+            mode="r:gz",
         )
 
         compressed_file.extractall()

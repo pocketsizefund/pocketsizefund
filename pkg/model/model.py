@@ -13,18 +13,18 @@ import wandb
 
 FEATURE_NAMES = tuple(
     [
-        'open_price',
-        'high_price',
-        'low_price',
-        'close_price',
-        'volume',
+        "open_price",
+        "high_price",
+        "low_price",
+        "close_price",
+        "volume",
     ]
 )
 
 REQUIRED_COLUMNS = tuple(
     [
-        'timestamp',
-        'ticker',
+        "timestamp",
+        "ticker",
     ]
 )
 
@@ -39,7 +39,7 @@ class Model:
         self,
         artifact_output_path: str,
         weights_and_biases_api_key: str,
-        notes: str = '',
+        notes: str = "",
     ) -> None:
         self.feature_names = FEATURE_NAMES
         self.required_columns = REQUIRED_COLUMNS
@@ -83,31 +83,52 @@ class Model:
 
             scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
 
-            scaled_training_data.append(scaler.fit_transform(
-                X=training_data.values,
-            ))
+            scaled_training_data.append(
+                scaler.fit_transform(
+                    X=training_data.values,
+                )
+            )
 
-            scaled_validating_data.append(scaler.transform(
-                X=validating_data.values,
-            ))
+            scaled_validating_data.append(
+                scaler.transform(
+                    X=validating_data.values,
+                )
+            )
 
-            scaled_testing_data.append(scaler.transform(
-                X=testing_data.values,
-            ))
+            scaled_testing_data.append(
+                scaler.transform(
+                    X=testing_data.values,
+                )
+            )
 
             scalers[ticker] = scaler
 
-        training_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_training_data))
+        training_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_training_data,
+            )
+        )
 
-        validating_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_validating_data))
+        validating_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_validating_data,
+            )
+        )
 
-        testing_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_testing_data))
+        testing_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_testing_data,
+            )
+        )
 
         training_dataset = training_datasets[0]
         for dataset in training_datasets[1:]:
@@ -122,12 +143,12 @@ class Model:
             testing_dataset = testing_dataset.concatenate(dataset)
 
         return {
-            'data': {
-                'training': training_dataset,
-                'validating': validating_dataset,
-                'testing': testing_dataset,
+            "data": {
+                "training": training_dataset,
+                "validating": validating_dataset,
+                "testing": testing_dataset,
             },
-            'scalers': scalers,
+            "scalers": scalers,
         }
 
     def _create_dataset(
@@ -137,15 +158,13 @@ class Model:
         dataset = keras.utils.timeseries_dataset_from_array(
             data=data,
             targets=None,
-            sequence_length=self.window_output_length+self.window_input_length,
+            sequence_length=self.window_output_length + self.window_input_length,
             sequence_stride=1,
             shuffle=True,
             batch_size=32,
         )
 
-        windowed_dataset = dataset.map(
-            lambda x: self._split_window(x)
-        )
+        windowed_dataset = dataset.map(lambda x: self._split_window(x))
 
         return windowed_dataset
 
@@ -235,8 +254,7 @@ class Model:
             str(ticker): ticker_group.drop(
                 columns=[ticker_column],
             )
-            for ticker, ticker_group
-            in data.groupby(
+            for ticker, ticker_group in data.groupby(
                 by=ticker_column,
                 dropna=True,
             )
@@ -252,9 +270,9 @@ class Model:
         wandb.login(key=self.weights_and_biases_api_key)
 
         wandb.init(
-            project='basic-lstm',
+            project="basic-lstm",
             config={
-                'epochs': epochs,
+                "epochs": epochs,
             },
             notes=self.notes,
         )
@@ -274,7 +292,7 @@ class Model:
                     target_shape=(self.window_output_length, self.label_count),
                 ),
             ],
-            name='basic_lstm',
+            name="basic_lstm",
         )
 
         self.model.compile(
@@ -286,9 +304,9 @@ class Model:
         )
 
         history = self.model.fit(
-            x=features['training'],
+            x=features["training"],
             epochs=epochs,
-            validation_data=features['validating'],
+            validation_data=features["validating"],
         )
 
         loss = history.history["loss"]
@@ -297,16 +315,20 @@ class Model:
         validation_mean_absolute_error = history.history["val_mean_absolute_error"]
 
         for index in range(epochs):
-            wandb.log({
-                "training loss": loss[index],
-                "training mean absolute error": mean_absolute_error[index],
-                "validation loss": validation_loss[index],
-                "validation mean absolute error": validation_mean_absolute_error[index],
-            })
+            wandb.log(
+                {
+                    "training loss": loss[index],
+                    "training mean absolute error": mean_absolute_error[index],
+                    "validation loss": validation_loss[index],
+                    "validation mean absolute error": validation_mean_absolute_error[
+                        index
+                    ],
+                }
+            )
 
         return {
-            'model': self.model,
-            'metrics': history.history,
+            "model": self.model,
+            "metrics": history.history,
         }
 
     def evaluate_model(
@@ -320,8 +342,8 @@ class Model:
         )
 
         return {
-            'loss': evaluation['loss'],
-            'mean_absolute_error': evaluation['mean_absolute_error'],
+            "loss": evaluation["loss"],
+            "mean_absolute_error": evaluation["mean_absolute_error"],
         }
 
     def save_model(
@@ -329,7 +351,7 @@ class Model:
         model: models.Sequential,
     ) -> None:
         model.save(
-            filepath=os.path.join(self.artifact_output_path, 'lstm.keras'),
+            filepath=os.path.join(self.artifact_output_path, "lstm.keras"),
         )
 
     def save_metrics(
@@ -337,8 +359,8 @@ class Model:
         metrics: any,
     ) -> None:
         metrics_file = open(
-            file=os.path.join(self.artifact_output_path, 'metrics.pkl'),
-            mode='wb',
+            file=os.path.join(self.artifact_output_path, "metrics.pkl"),
+            mode="wb",
         )
 
         pickle.dump(
@@ -351,8 +373,8 @@ class Model:
         scalers: dict[str, preprocessing.MinMaxScaler],
     ) -> None:
         with open(
-            file=os.path.join(self.artifact_output_path, 'scalers.pkl'),
-            mode='wb',
+            file=os.path.join(self.artifact_output_path, "scalers.pkl"),
+            mode="wb",
         ) as scalers_file:
             pickle.dump(
                 obj=scalers,
@@ -366,14 +388,14 @@ class Model:
     ) -> None:
         data.save(
             path=os.path.join(self.artifact_output_path, name),
-            compression='GZIP',
+            compression="GZIP",
         )
 
     def load_model(
         self,
     ) -> None:
         self.model = models.load_model(
-            filepath=os.path.join(self.artifact_output_path, 'lstm.keras'),
+            filepath=os.path.join(self.artifact_output_path, "lstm.keras"),
         )
 
     def load_scalers(
@@ -381,10 +403,10 @@ class Model:
     ) -> None:
         scalers_file_path = os.path.join(
             self.artifact_output_path,
-            'scalers.pkl',
+            "scalers.pkl",
         )
 
-        with open(scalers_file_path, 'rb') as scalers_file:
+        with open(scalers_file_path, "rb") as scalers_file:
             self.scalers = pickle.load(file=scalers_file)
 
     def generate_predictions(
@@ -392,7 +414,7 @@ class Model:
         features: dict[str, pandas.DataFrame],
     ) -> dict[str, list[float]]:
         if not self.model or not self.scalers:
-            raise Exception('no model or scalers')
+            raise Exception("no model or scalers")
 
         predictions: dict[str, any] = {}
         for ticker, ticker_features in features.items():
@@ -409,9 +431,7 @@ class Model:
             maximum_value = scaler.data_max_[CLOSE_PRICE_INDEX]
 
             unscaled_predictions = (
-                prediction*(
-                    maximum_value -
-                    minimum_value)
+                prediction * (maximum_value - minimum_value)
             ) + minimum_value
 
             predictions[ticker] = unscaled_predictions.tolist()
@@ -432,10 +452,10 @@ class Client:
         self,
         data: pandas.DataFrame,
     ) -> any:
-        data['timestamp'] = data['timestamp'].astype(str)
+        data["timestamp"] = data["timestamp"].astype(str)
 
         predictions = self.predictor.predict(
-            data=data.to_dict(orient='records'),
+            data=data.to_dict(orient="records"),
         )
 
         return predictions

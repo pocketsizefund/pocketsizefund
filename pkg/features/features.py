@@ -7,18 +7,18 @@ import keras
 
 FEATURE_NAMES = tuple(
     [
-        'open_price',
-        'high_price',
-        'low_price',
-        'close_price',
-        'volume',
+        "open_price",
+        "high_price",
+        "low_price",
+        "close_price",
+        "volume",
     ]
 )
 
 REQUIRED_COLUMNS = tuple(
     [
-        'timestamp',
-        'ticker',
+        "timestamp",
+        "ticker",
     ]
 )
 
@@ -71,31 +71,52 @@ class Client:
 
             scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
 
-            scaled_training_data.append(scaler.fit_transform(
-                X=training_data.values,
-            ))
+            scaled_training_data.append(
+                scaler.fit_transform(
+                    X=training_data.values,
+                )
+            )
 
-            scaled_validating_data.append(scaler.transform(
-                X=validating_data.values,
-            ))
+            scaled_validating_data.append(
+                scaler.transform(
+                    X=validating_data.values,
+                )
+            )
 
-            scaled_testing_data.append(scaler.transform(
-                X=testing_data.values,
-            ))
+            scaled_testing_data.append(
+                scaler.transform(
+                    X=testing_data.values,
+                )
+            )
 
             scalers[ticker] = scaler
 
-        training_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_training_data))
+        training_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_training_data,
+            )
+        )
 
-        validating_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_validating_data))
+        validating_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_validating_data,
+            )
+        )
 
-        testing_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_testing_data))
+        testing_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_testing_data,
+            )
+        )
 
         training_dataset = training_datasets[0]
         for dataset in training_datasets[1:]:
@@ -110,12 +131,12 @@ class Client:
             testing_dataset = testing_dataset.concatenate(dataset)
 
         return {
-            'data': {
-                'training': training_dataset,
-                'validating': validating_dataset,
-                'testing': testing_dataset,
+            "data": {
+                "training": training_dataset,
+                "validating": validating_dataset,
+                "testing": testing_dataset,
             },
-            'scalers': scalers,
+            "scalers": scalers,
         }
 
     def _create_dataset(
@@ -125,15 +146,13 @@ class Client:
         dataset = keras.utils.timeseries_dataset_from_array(
             data=data,
             targets=None,
-            sequence_length=self.window_output_length+self.window_input_length,
+            sequence_length=self.window_output_length + self.window_input_length,
             sequence_stride=1,
             shuffle=True,
             batch_size=32,
         )
 
-        windowed_dataset = dataset.map(
-            lambda x: self._split_window(x)
-        )
+        windowed_dataset = dataset.map(lambda x: self._split_window(x))
 
         return windowed_dataset
 
@@ -223,8 +242,7 @@ class Client:
             str(ticker): ticker_group.drop(
                 columns=[ticker_column],
             )
-            for ticker, ticker_group
-            in data.groupby(
+            for ticker, ticker_group in data.groupby(
                 by=ticker_column,
                 dropna=True,
             )

@@ -1,11 +1,11 @@
 import tweepy
 
 
-configuration_orange = 'orange'
-configuration_blueberry = 'blueberry'
-configuration_banana = 'banana'
-configuration_apple = 'apple'
-configuration_strawberry = 'strawberry'
+configuration_orange = "orange"
+configuration_blueberry = "blueberry"
+configuration_banana = "banana"
+configuration_apple = "apple"
+configuration_strawberry = "strawberry"
 
 
 class Client:
@@ -34,35 +34,35 @@ class Client:
         self.twitter_api = tweepy.API(auth)
 
         self.fruit = {
-            configuration_orange: '🍊',
-            configuration_blueberry: '🫐',
-            configuration_banana: '🍌',
-            configuration_apple: '🍏',
-            configuration_strawberry: '🍓',
+            configuration_orange: "🍊",
+            configuration_blueberry: "🫐",
+            configuration_banana: "🍌",
+            configuration_apple: "🍏",
+            configuration_strawberry: "🍓",
         }
 
         self.colors = {
-            configuration_orange: 'FF9A00',
-            configuration_blueberry: '4A86E8',
-            configuration_banana: 'F1E032',
-            configuration_apple: '81CB61',
-            configuration_strawberry: 'CC0000',
+            configuration_orange: "FF9A00",
+            configuration_blueberry: "4A86E8",
+            configuration_banana: "F1E032",
+            configuration_apple: "81CB61",
+            configuration_strawberry: "CC0000",
         }
 
         self.banners = {
-            configuration_orange: image_files_path + '/orange_banner.jpg',
-            configuration_blueberry: image_files_path + '/blueberry_banner.jpg',
-            configuration_banana: image_files_path + '/banana_banner.jpg',
-            configuration_apple: image_files_path + '/apple_banner.jpg',
-            configuration_strawberry: image_files_path + '/strawberry_banner.jpg',
+            configuration_orange: image_files_path + "/orange_banner.jpg",
+            configuration_blueberry: image_files_path + "/blueberry_banner.jpg",
+            configuration_banana: image_files_path + "/banana_banner.jpg",
+            configuration_apple: image_files_path + "/apple_banner.jpg",
+            configuration_strawberry: image_files_path + "/strawberry_banner.jpg",
         }
 
         self.images = {
-            configuration_orange: image_files_path + '/orange_profile.png',
-            configuration_blueberry: image_files_path + '/blueberry_profile.png',
-            configuration_banana: image_files_path + '/banana_profile.png',
-            configuration_apple: image_files_path + '/apple_profile.png',
-            configuration_strawberry: image_files_path + '/strawberry_profile.png',
+            configuration_orange: image_files_path + "/orange_profile.png",
+            configuration_blueberry: image_files_path + "/blueberry_profile.png",
+            configuration_banana: image_files_path + "/banana_profile.png",
+            configuration_apple: image_files_path + "/apple_profile.png",
+            configuration_strawberry: image_files_path + "/strawberry_profile.png",
         }
 
     def send_tweet(
@@ -77,8 +77,8 @@ class Client:
     ) -> None:
         self.twitter_api.update_profile(
             location=self.fruit[configuration],
-            description='Recreational quantitative trading ' +
-            self.fruit[configuration],
+            description="Recreational quantitative trading "
+            + self.fruit[configuration],
             profile_link_color=self.colors[configuration],
         )
 
