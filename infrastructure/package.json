@@ -1,0 +1,15 @@
+{
+    "name": "pocketsizefund",
+    "main": "index.ts",
+    "devDependencies": {
+        "@types/node": "^18"
+    },
+    "dependencies": {
+        "@pulumi/aws": "^6.0.0",
+        "@pulumi/awsx": "^2.0.2",
+        "@pulumi/docker": "^4.5.3",
+        "@pulumi/pulumi": "^3.112.0",
+        "npm": "^10.5.0",
+        "pulumi": "^0.0.1"
+    }
+}

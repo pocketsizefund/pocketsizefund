@@ -1,0 +1,270 @@
+Description: Core infrastructure definitions
+Parameters:
+  AlpacaAPIKey:
+    Type: String
+    Description: Data and trading Alpaca API key
+  AlpacaAPISecret:
+    Type: String
+    Description: Data and trading Alpaca API secret
+  DarqubeAPIKey:
+    Type: String
+    Description: Data Darqube API key
+  IsPaper:
+    Type: String
+    Description: Paper trading flag
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+  ModelEndpointName:
+    Type: String
+    Description: SageMaker model endpoint name
+    Default: pocketsizefund-development-lstm
+  TwitterAPIKey:
+    Type: String
+    Description: Twitter API key
+  TwitterAPIKeySecret:
+    Type: String
+    Description: Twitter API secret
+  TwitterAccessToken:
+    Type: String
+    Description: Twitter access token
+  TwitterAccessTokenSecret:
+    Type: String
+    Description: Twitter access secret
+  ImagesFilePath:
+    Type: String
+    Description: Path to images for Twitter profile updates
+    Default: pkg/twitter/images
+  AlphaVantageAPIKey:
+    Type: String
+    Description: Alpha Vantage API key
+Resources:
+  createPositionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Architectures:
+        - arm64
+      Description: Generates predictions and executes trades
+      Environment:
+        Variables:
+          S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
+          S3_ARTIFACTS_BUCKET_NAME: !Ref S3ArtifactsBucketName
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          IS_PAPER: !Ref IsPaper
+          MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
+      Events:
+        CreatePositions:
+          Properties:
+            ScheduleExpression: cron(45 9 ? * MON *) # 15 minutes after market open
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+            RoleArn: !GetAtt functionSchedulerRole.Arn
+          Type: ScheduleV2
+      FunctionName: !Sub ${AWS::StackName}-function-create-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-create-positions:latest
+      MemorySize: 768
+      PackageType: Image
+      Role: !GetAtt functionRole.Arn
+      Tags:
+        pocketsizefund: function
+      Timeout: 300
+  clearPositionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Architectures:
+        - arm64
+      Description: Executes closing trades
+      Environment:
+        Variables:
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          IS_PAPER: !Ref IsPaper
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
+      Events:
+        ClearPositions:
+          Properties:
+            ScheduleExpression: cron(55 15 ? * FRI *) # 5 minutes before market close
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+            RoleArn: !GetAtt functionSchedulerRole.Arn
+          Type: ScheduleV2
+      FunctionName: !Sub ${AWS::StackName}-function-clear-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-clear-positions:latest
+      MemorySize: 128
+      PackageType: Image
+      Role: !GetAtt functionRole.Arn
+      Tags:
+        pocketsizefund: function
+      Timeout: 60
+  postPerformanceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Architectures:
+        - arm64
+      Description: Posts weekly performance
+      Environment:
+        Variables:
+          ALPACA_API_KEY: !Ref AlpacaAPIKey
+          ALPACA_API_SECRET: !Ref AlpacaAPISecret
+          DARQUBE_API_KEY: !Ref DarqubeAPIKey
+          IS_PAPER: !Ref IsPaper
+          TWITTER_API_KEY: !Ref TwitterAPIKey
+          TWITTER_API_KEY_SECRET: !Ref TwitterAPIKeySecret
+          TWITTER_ACCESS_TOKEN: !Ref TwitterAccessToken
+          TWITTER_ACCESS_TOKEN_SECRET: !Ref TwitterAccessTokenSecret
+          IMAGES_FILE_PATH: !Ref ImagesFilePath
+          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
+      Events:
+        PostPerformance:
+          Properties:
+            ScheduleExpression: cron(30 11 ? * SAT *)
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+            RoleArn: !GetAtt functionSchedulerRole.Arn
+          Type: ScheduleV2
+      FunctionName: !Sub ${AWS::StackName}-function-post-performance
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-post-performance:latest
+      MemorySize: 128
+      PackageType: Image
+      Role: !GetAtt functionRole.Arn
+      Tags:
+        pocketsizefund: function
+      Timeout: 30
+  functionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Shared role for stack functions
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Policies:
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - s3:ListBucket
+                Effect: Allow
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}
+              - Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Effect: Allow
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}/*
+              - Action:
+                  - dynamodb:PutItem
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Effect: Allow
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-users
+              - Action:
+                  - sagemaker:InvokeEndpoint
+                Effect: Allow
+                Resource: !Sub arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:endpoint/${ModelEndpointName}
+          PolicyName: !Sub ${AWS::StackName}-lambda-function-policy
+      RoleName: !Sub ${AWS::StackName}-lambda-function-role
+      Tags:
+        - Key: pocketsizefund
+          Value: role
+  functionSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Shared role for function schedulers
+      Policies:
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - lambda:InvokeFunction
+                Effect: Allow
+                Resource: !GetAtt createPositionsFunction.Arn
+              - Action:
+                  - lambda:InvokeFunction
+                Effect: Allow
+                Resource: !GetAtt clearPositionsFunction.Arn
+          PolicyName: !Sub ${AWS::StackName}-lambda-function-scheduler-policy
+      RoleName: !Sub ${AWS::StackName}-lambda-function-scheduler-role
+      Tags:
+        - Key: pocketsizefund
+          Value: role
+  sageMakerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Role for SageMaker model training and endpoint creation
+      Policies:
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub arn:aws:s3:::${S3DataBucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: !Sub arn:aws:s3:::${S3ArtifactsBucketName}/models/*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:PutObjectAcl
+                Resource: !Sub arn:aws:s3:::${S3ArtifactsBucketName}
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketCors
+                  - s3:PutBucketCors
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - sagemaker:*
+                Resource: arn:aws:sagemaker:*:*:*
+              - Effect: Allow
+                Action:
+                  - ecr:*
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: "*"
+          PolicyName: !Sub ${AWS::StackName}-sagemaker-policy
+      RoleName: !Sub ${AWS::StackName}-sagemaker-role
+      Tags:
+        - Key: pocketsizefund
+          Value: role
+Outputs:
+  SageMakerIAMRoleARN:
+    Description: Role for SageMaker model training and endpoint creation
+    Value: !GetAtt sageMakerRole.Arn
