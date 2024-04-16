@@ -8,6 +8,7 @@ import pandas
 
 
 PREFIX_EQUITY_BARS_PATH = 'equity/bars'
+PREFIX_FILINGS_PATH = 'filings'
 PREFIX_FEATURES_PATH = 'features'
 
 
@@ -186,6 +187,30 @@ class Client:
 
         return {file_name: dataframe}
 
+    def store_text(
+        self,
+        prefix: str,
+        text: str,
+    ) -> None:
+        self.s3_client.put_object(
+            Body=text,
+            Bucket=self.s3_data_bucket_name,
+            Key='{}/{}'.format(PREFIX_FILINGS_PATH, prefix),
+        )
+
+        pass
+
+    def load_text(
+        self,
+        prefix: str,
+    ) -> str:
+        response = self.s3_client.get_object(
+            Bucket=self.s3_data_bucket_name,
+            Key='{}/{}'.format(PREFIX_FILINGS_PATH, prefix),
+        )
+
+        return response['Body'].read().decode('utf-8')
+
     def download_model_artifacts(
         self,
         key: str,
@@ -203,3 +228,18 @@ class Client:
         )
 
         compressed_file.extractall()
+
+
+client = Client(
+    s3_data_bucket_name='pocketsizefund-data',
+    s3_artifacts_bucket_name='pocketsizefund-artifacts',
+)
+
+client.store_text(
+    'test.txt',
+    'Hello, World!',
+)
+
+text = client.load_text('test.txt')
+
+print('text:', text)

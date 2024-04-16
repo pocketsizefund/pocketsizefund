@@ -27,11 +27,15 @@ class MockS3Client:
         key = kwargs['Key']
         body = kwargs['Body']
 
-        decompressed_data = gzip.decompress(body)
+        if isinstance(body, bytes):
+            decompressed_data = gzip.decompress(body)
 
-        dataframe = pandas.read_csv(io.BytesIO(decompressed_data))
+            dataframe = pandas.read_csv(io.BytesIO(decompressed_data))
 
-        self.data[key] = dataframe
+            self.data[key] = dataframe
+
+        else:
+            self.data[key] = body
 
     def get_object(
         self,
@@ -39,20 +43,26 @@ class MockS3Client:
     ) -> any:
         key = kwargs['Key']
 
-        dataframe = self.data[key]
+        if isinstance(self.data[key], pandas.DataFrame):
+            dataframe = self.data[key]
 
-        gzip_buffer = io.BytesIO()
-        dataframe.to_csv(
-            gzip_buffer,
-            index=False,
-            header=True,
-            compression='gzip',
-        )
-        gzip_buffer.seek(0)
+            gzip_buffer = io.BytesIO()
+            dataframe.to_csv(
+                gzip_buffer,
+                index=False,
+                header=True,
+                compression='gzip',
+            )
+            gzip_buffer.seek(0)
 
-        return {
-            'Body': gzip_buffer,
-        }
+            return {
+                'Body': gzip_buffer,
+            }
+
+        else:
+            return {
+                'Body': io.BytesIO(self.data[key].encode()),
+            }
 
 
 class TestListFileNames(unittest.TestCase):
@@ -209,3 +219,48 @@ class TestLoadDataframes(unittest.TestCase):
         self.assertTrue(
             dataframes['2024'].equals(client.s3_client.data['prefix/2024']),
         )
+
+
+class TestStoreText(unittest.TestCase):
+    def test_store_text_success(self):
+        client = storage.Client(
+            s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
+        )
+
+        client.s3_client = MockS3Client(
+            data={},
+        )
+
+        text = 'text'
+
+        client.store_text(
+            prefix='prefix/text.txt',
+            text=text,
+        )
+
+        self.assertEqual(1, len(client.s3_client.data))
+        self.assertEqual(
+            text,
+            client.s3_client.data['filings/prefix/text.txt'],
+        )
+
+
+class TestLoadText(unittest.TestCase):
+    def test_load_text_success(self):
+        client = storage.Client(
+            s3_data_bucket_name='s3_data_bucket_name',
+            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
+        )
+
+        client.s3_client = MockS3Client(
+            data={
+                'filings/prefix/text.txt': 'text',
+            },
+        )
+
+        text = client.load_text(
+            prefix='prefix/text.txt',
+        )
+
+        self.assertEqual('text', text)
