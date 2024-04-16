@@ -14,6 +14,9 @@ elif original_name == 'createpositions':
 elif original_name == 'clearpositions':
     updated_name = 'function-clear-positions'
 
+elif original_name == 'schedulepositions':
+    updated_name = 'function-schedule-positions'
+
 elif original_name == 'completeinvite':
     updated_name = 'function-complete-invite'
 

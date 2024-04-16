@@ -1,4 +1,5 @@
 import os
+import datetime
 
 from pkg.trade import trade
 
@@ -18,7 +19,9 @@ def handler(
 ) -> dict[str, any]:
     _ = event, context
 
-    if not trade_client.is_market_open():
-        raise Exception('market is closed')
-
-    trade_client.clear_positions()
+    trade_client.set_position_schedules(
+        start_at=datetime.datetime.now(),
+        create_positions_lambda_arn=os.getenv('CREATE_POSITIONS_LAMBDA_ARN'),
+        clear_positions_lambda_arn=os.getenv('CLEAR_POSITIONS_LAMBDA_ARN'),
+        invoke_lambda_role_arn=os.getenv('INVOKE_LAMBDA_ROLE_ARN'),
+    )

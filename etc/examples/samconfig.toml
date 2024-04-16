@@ -8,38 +8,10 @@ profile = "default"
 stack_name = "<stack_name>"
 s3_bucket = "<cloudformation_artifact_bucket>"
 capabilities = ["CAPABILITY_NAMED_IAM"]
-parameter_overrides = [
-    "S3DataBucketName=<data_bucket_name>",
-    "S3ArtifactsBucketName=<cloudformation_artifact_bucket>",
-    "AlpacaAPIKey=<alpaca_api_key>",
-    "AlpacaAPISecret=<alpaca_api_secret>",
-    "TwitterAPIKey=<twitter_api_key>",
-    "TwitterAPIKeySecret=<twitter_api_key_secret>",
-    "TwitterAccessToken=<twitter_access_token>",
-    "TwitterAccessTokenSecret=<twitter_access_token_secret>",
-    "DarqubeAPIKey=<darqube_api_key>",
-    "IsPaper=false",
-    "ModelEndpointName=pocketsizefund-production-lstm",
-    "WeightsAndBiasesAPIKey=<wandb_api_key>",
-    "AlphaVantageAPIKey=<alpha_vantage_api_key>",
-]
+parameter_overrides = ["<parameter_name>=<parameter_value>"]
 
 [development.deploy.parameters]
 stack_name = "<stack_name>"
 s3_bucket = "<cloudformation_artifact_bucket>"
 capabilities = ["CAPABILITY_NAMED_IAM"]
-parameter_overrides = [
-    "S3DataBucketName=<data_bucket_name>",
-    "S3ArtifactsBucketName=<cloudformation_artifact_bucket>",
-    "AlpacaAPIKey=<alpaca_api_key>",
-    "AlpacaAPISecret=<alpaca_api_secret>",
-    "TwitterAPIKey=<twitter_api_key>",
-    "TwitterAPIKeySecret=<twitter_api_key_secret>",
-    "TwitterAccessToken=<twitter_access_token>",
-    "TwitterAccessTokenSecret=<twitter_access_token_secret>",
-    "DarqubeAPIKey=<darqube_api_key>",
-    "IsPaper=true",
-    "ModelEndpointName=pocketsizefund-production-lstm",
-    "WeightsAndBiasesAPIKey=<wandb_api_key>",
-    "AlphaVantageAPIKey=<alpha_vantage_api_key>",
-]
+parameter_overrides = ["<parameter_name>=<parameter_value>"]
