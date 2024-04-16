@@ -25,6 +25,8 @@ trade_client = trade.Client(
 data_client = data.Client(
     alpaca_api_key=os.getenv('ALPACA_API_KEY'),
     alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
+    edgar_user_agent=os.getenv('EDGAR_USER_AGENT'),
+    print_logs=True,
 )
 
 model_client = model.Client(
