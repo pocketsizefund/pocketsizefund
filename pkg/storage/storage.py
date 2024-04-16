@@ -228,18 +228,3 @@ class Client:
         )
 
         compressed_file.extractall()
-
-
-client = Client(
-    s3_data_bucket_name='pocketsizefund-data',
-    s3_artifacts_bucket_name='pocketsizefund-artifacts',
-)
-
-client.store_text(
-    'test.txt',
-    'Hello, World!',
-)
-
-text = client.load_text('test.txt')
-
-print('text:', text)
