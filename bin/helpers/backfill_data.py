@@ -10,15 +10,15 @@ from pkg.trade import trade
 
 
 parser = argparse.ArgumentParser(
-    prog='backfill data helper script',
-    description='update s3 data bucket with training data',
+    prog="backfill data helper script",
+    description="update s3 data bucket with training data",
 )
 
 parser.add_argument(
-    '--samconfig-file-path',
+    "--samconfig-file-path",
     type=str,
     required=True,
-    dest='samconfig_file_path',
+    dest="samconfig_file_path",
 )
 
 arguments = parser.parse_args()
@@ -29,25 +29,25 @@ samconfig_file = config.SAMConfig(
 )
 
 storage_client = storage.Client(
-    s3_data_bucket_name=samconfig_file.get_parameter('S3DataBucketName'),
+    s3_data_bucket_name=samconfig_file.get_parameter("S3DataBucketName"),
 )
 
 data_client = data.Client(
-    alpaca_api_key=samconfig_file.get_parameter('AlpacaAPIKey'),
-    alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
+    alpaca_api_key=samconfig_file.get_parameter("AlpacaAPIKey"),
+    alpaca_api_secret=samconfig_file.get_parameter("AlpacaAPISecret"),
     print_logs=True,
 )
 
 trade_client = trade.Client(
-    darqube_api_key=samconfig_file.get_parameter('DarqubeAPIKey'),
-    alpaca_api_key=samconfig_file.get_parameter('AlpacaAPIKey'),
-    alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
+    darqube_api_key=samconfig_file.get_parameter("DarqubeAPIKey"),
+    alpaca_api_key=samconfig_file.get_parameter("AlpacaAPIKey"),
+    alpaca_api_secret=samconfig_file.get_parameter("AlpacaAPISecret"),
     is_paper=True,
 )
 
 available_tickers: list[str] = trade_client.get_available_tickers()
 
-print('tickers count: ', len(available_tickers))
+print("tickers count: ", len(available_tickers))
 
 file_names: list[str] = storage_client.list_file_names(
     prefix=storage.PREFIX_EQUITY_BARS_PATH,
@@ -59,7 +59,7 @@ full_end_at = datetime.datetime.today()
 full_start_at = full_end_at - datetime.timedelta(days=365 * 7)
 
 if len(file_names) == 0:
-    print('backfill all data')
+    print("backfill all data")
 
     bars = data_client.get_range_equities_bars(
         tickers=available_tickers,
@@ -68,7 +68,7 @@ if len(file_names) == 0:
     )
 
 else:
-    print('backfill update data')
+    print("backfill update data")
 
     old_bars_by_year: dict[int, pandas.DataFrame] = storage_client.load_dataframes(
         prefix=storage.PREFIX_EQUITY_BARS_PATH,
@@ -77,13 +77,18 @@ else:
 
     old_bars: pandas.DataFrame = pandas.concat(old_bars_by_year.values())
 
-    start_at: datetime.datetime = old_bars.groupby(
-        by='ticker',
-    )['timestamp'].max().min().to_pydatetime()
+    start_at: datetime.datetime = (
+        old_bars.groupby(
+            by="ticker",
+        )["timestamp"]
+        .max()
+        .min()
+        .to_pydatetime()
+    )
 
     end_at: datetime.datetime = datetime.datetime.today()
 
-    old_tickers: list[str] = old_bars['ticker'].unique().tolist()
+    old_tickers: list[str] = old_bars["ticker"].unique().tolist()
 
     update_tickers: list[str] = list(set(available_tickers) & set(old_tickers))
 
@@ -101,21 +106,23 @@ else:
         end_at=full_end_at,
     )
 
-    bars: pandas.DataFrame = pandas.concat([
-        old_bars,
-        update_bars,
-        new_bars,
-    ]).drop_duplicates(
+    bars: pandas.DataFrame = pandas.concat(
+        [
+            old_bars,
+            update_bars,
+            new_bars,
+        ]
+    ).drop_duplicates(
         subset=[
-            'ticker',
-            'timestamp',
+            "ticker",
+            "timestamp",
         ],
     )
 
 null_values_check = bars.isnull().any().any()
 
 if null_values_check:
-    raise Exception('bars contains null values')
+    raise Exception("bars contains null values")
 
 bars_grouped_by_year: pandas.DataFrameGroupBy[int] = bars.groupby(
     bars.timestamp.dt.year
@@ -136,4 +143,4 @@ storage_client.store_dataframes(
     dataframes=bars_by_year,
 )
 
-print('backfill data complete')
+print("backfill data complete")

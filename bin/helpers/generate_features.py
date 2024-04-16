@@ -8,15 +8,15 @@ from pkg.features import features
 
 
 parser = argparse.ArgumentParser(
-    prog='backfill data helper script',
-    description='update s3 data bucket with training data',
+    prog="backfill data helper script",
+    description="update s3 data bucket with training data",
 )
 
 parser.add_argument(
-    '--samconfig-file-path',
+    "--samconfig-file-path",
     type=str,
     required=True,
-    dest='samconfig_file_path',
+    dest="samconfig_file_path",
 )
 
 arguments = parser.parse_args()
@@ -27,7 +27,7 @@ samconfig_file = config.SAMConfig(
 )
 
 storage_client = storage.Client(
-    s3_data_bucket_name=samconfig_file.get_parameter('S3DataBucketName'),
+    s3_data_bucket_name=samconfig_file.get_parameter("S3DataBucketName"),
 )
 
 features_client = features.Client()
@@ -41,10 +41,7 @@ equity_bars_by_year = storage_client.load_dataframes(
     file_names=equity_bar_file_names,
 )
 
-equity_bars = pandas.concat([
-    equity_bars_by_year[year]
-    for year in equity_bars_by_year
-])
+equity_bars = pandas.concat([equity_bars_by_year[year] for year in equity_bars_by_year])
 
 generated_features = features_client.generate_features(
     data=equity_bars,
@@ -53,7 +50,7 @@ generated_features = features_client.generate_features(
 null_values_check = generated_features.isnull().any().any()
 
 if null_values_check:
-    raise Exception('generated features contains null values')
+    raise Exception("generated features contains null values")
 
 
 generated_feature_file_names = storage_client.list_file_names(
