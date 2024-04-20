@@ -7,7 +7,7 @@ import pandas
 
 
 PREFIX_EQUITY_BARS_RAW_PATH = 'equity/raw/bars'
-PREFIX_EQUITY_FILINGS_RAW_PATH = 'equity/raw/filings'
+# PREFIX_EQUITY_FILINGS_RAW_PATH = 'equity/raw/filings' # temporarily removed
 PREFIX_EQUITY_BARS_FEATURES_PATH = 'equity/features/bars'
 
 
