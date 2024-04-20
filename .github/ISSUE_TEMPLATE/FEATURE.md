@@ -13,5 +13,3 @@ labels: feature
 ### Specifics
 
 <!-- Provide bullet point details with code changes and work proposal. -->
-
-Hey, @forstmeier - here's a feature to review!  
