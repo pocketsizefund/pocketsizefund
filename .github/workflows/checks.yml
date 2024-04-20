@@ -5,8 +5,8 @@ env:
   AWS_SECRET_ACCESS_KEY: ''
   AWS_DEFAULT_REGION: us-east-1
 jobs:
-  run_unit_tests:
-    name: Run unit tests
+  perform_checks:
+    name: Perform checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -25,17 +25,7 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           path-to-lcov: coverage.xml
-  find_dead_code:
-    name: Find dead code
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11.6'
-      - name: Install dependencies
-        run: pip3 install -r requirements.txt
       - name: Run dead code analysis
         run: ./bin/find_dead_code
+      - name: Run linting
+        run: ./bin/enforce_linting
