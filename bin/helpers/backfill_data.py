@@ -28,11 +28,15 @@ samconfig_file = config.SAMConfig(
 
 storage_client = storage.Client(
     s3_data_bucket_name=samconfig_file.get_parameter('S3DataBucketName'),
+    s3_artifacts_bucket_name=samconfig_file.get_parameter(
+        'S3ArtifactsBucketName'
+    ),
 )
 
 data_client = data.Client(
     alpaca_api_key=samconfig_file.get_parameter('AlpacaAPIKey'),
     alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
+    edgar_user_agent=samconfig_file.get_parameter('EDGARUserAgent'),
     print_logs=True,
 )
 
@@ -40,6 +44,7 @@ trade_client = trade.Client(
     darqube_api_key=samconfig_file.get_parameter('DarqubeAPIKey'),
     alpaca_api_key=samconfig_file.get_parameter('AlpacaAPIKey'),
     alpaca_api_secret=samconfig_file.get_parameter('AlpacaAPISecret'),
+    alpha_vantage_api_key=samconfig_file.get_parameter('AlphaVantageAPIKey'),
     is_paper=True,
 )
 

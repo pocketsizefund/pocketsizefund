@@ -26,6 +26,9 @@ samconfig_file = config.SAMConfig(
 
 storage_client = storage.Client(
     s3_data_bucket_name=samconfig_file.get_parameter('S3DataBucketName'),
+    s3_artifacts_bucket_name=samconfig_file.get_parameter(
+        'S3ArtifactsBucketName'
+    ),
 )
 
 features_client = features.Client()
@@ -48,5 +51,5 @@ if null_values_check:
 
 storage_client.store_dataframes(
     prefix=storage.PREFIX_EQUITY_BARS_FEATURES_PATH,
-    dataframes={'all.csv': generated_features},
+    dataframes_by_file_name={'all.csv': generated_features},
 )

@@ -49,6 +49,9 @@ Parameters:
   AlphaVantageAPIKey:
     Type: String
     Description: Alpha Vantage API key
+  EDGARUserAgent:
+    Type: String
+    Description: EDGAR user agent email
 Resources:
   createPositionsFunction:
     Type: AWS::Serverless::Function
@@ -64,6 +67,7 @@ Resources:
           IS_PAPER: !Ref IsPaper
           MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
           ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
+          EDGAR_USER_AGENT: !Ref EDGARUserAgent
       FunctionName: !Sub ${AWS::StackName}-function-create-positions
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-create-positions:latest
       MemorySize: 768
