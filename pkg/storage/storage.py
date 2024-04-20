@@ -1,4 +1,3 @@
-import re
 from concurrent import futures
 import io
 import tarfile
@@ -7,9 +6,9 @@ import boto3
 import pandas
 
 
-PREFIX_EQUITY_BARS_PATH = 'equity/bars'
-PREFIX_FILINGS_PATH = 'filings'
-PREFIX_FEATURES_PATH = 'features'
+PREFIX_EQUITY_BARS_RAW_PATH = 'equity/raw/bars'
+# PREFIX_EQUITY_FILINGS_RAW_PATH = 'equity/raw/filings' # temporarily removed
+PREFIX_EQUITY_BARS_FEATURES_PATH = 'equity/features/bars'
 
 
 class Client:
@@ -53,67 +52,18 @@ class Client:
 
         return file_names
 
-    def get_next_prefix_version(
-        self,
-        prefixes: list[str],
-    ) -> str:
-        if len(prefixes) == 0:
-            return 'v0'
-
-        next_version_integer = self._get_max_version_integer(prefixes) + 1
-
-        return 'v{}'.format(next_version_integer)
-
-    def get_max_prefix_version(
-        self,
-        prefixes: list[str],
-    ) -> str:
-        if len(prefixes) == 0:
-            return ''
-
-        return 'v{}'.format(self._get_max_version_integer(prefixes))
-
-    def _get_max_version_integer(
-        self,
-        prefixes: list[str],
-    ) -> int:
-        pattern = r'v(\d+)'
-
-        version_integers = [
-            int(re.search(pattern, prefix).group(1))
-            for prefix in prefixes
-            if re.search(pattern, prefix)
-        ]
-
-        return max(version_integers)
-
     def store_dataframes(
         self,
         prefix: str,
-        dataframes: dict[str, pandas.DataFrame],
+        dataframes_by_file_name: dict[str, pandas.DataFrame],
     ) -> None:
-        executor = futures.ThreadPoolExecutor()
+        return self._store_objects_by_file_name(
+            prefix,
+            dataframes_by_file_name,
+            self._store_dataframe,
+        )
 
-        executed_futures: list[futures.Future] = []
-        for file_name in dataframes:
-            dataframe = dataframes[file_name]
-
-            key = '{}/{}'.format(prefix, file_name)
-
-            executed_future = executor.submit(
-                self.__put_dataframe,
-                dataframe,
-                key,
-            )
-            executed_futures.append(executed_future)
-
-        for executed_future in futures.as_completed(executed_futures):
-            try:
-                _ = executed_future.result()
-            except Exception as error:
-                raise error
-
-    def __put_dataframe(
+    def _store_dataframe(
         self,
         dataframe: pandas.DataFrame,
         key: str,
@@ -138,38 +88,21 @@ class Client:
     def load_dataframes(
         self,
         prefix: str,
-        file_names: list[str] = [],
+        file_names: list[str],
     ) -> dict[str, pandas.DataFrame]:
-        dataframes: dict[str, pandas.DataFrame] = {}
+        return self._load_objects_by_file_name(
+            prefix,
+            file_names,
+            self._load_dataframe,
+        )
 
-        executor = futures.ThreadPoolExecutor()
-
-        executed_futures: list[futures.Future] = []
-        for file_name in file_names:
-            executed_future = executor.submit(
-                self.__get_dataframe,
-                prefix,
-                file_name,
-            )
-            executed_futures.append(executed_future)
-
-        dataframes: dict[str, pandas.DataFrame] = {}
-        for executed_future in futures.as_completed(executed_futures):
-            try:
-                result = executed_future.result()
-                for key in result.keys():
-                    dataframes[key] = result[key]
-            except Exception as error:
-                raise error
-
-        return dataframes
-
-    def __get_dataframe(
+    def _load_dataframe(
         self,
         prefix: str,
         file_name: str,
     ) -> pandas.DataFrame:
         key = '{}/{}'.format(prefix, file_name)
+
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,
             Key=key,
@@ -187,37 +120,118 @@ class Client:
 
         return {file_name: dataframe}
 
-    def store_text(
+    def store_texts(
         self,
         prefix: str,
+        texts_by_file_name: dict[str, str],
+    ) -> None:
+        return self._store_objects_by_file_name(
+            prefix,
+            texts_by_file_name,
+            self._store_text,
+        )
+
+    def _store_text(
+        self,
         text: str,
+        key: str,
     ) -> None:
         self.s3_client.put_object(
             Body=text,
             Bucket=self.s3_data_bucket_name,
-            Key='{}/{}'.format(PREFIX_FILINGS_PATH, prefix),
+            Key=key,
         )
 
-        pass
-
-    def load_text(
+    def _store_objects_by_file_name(
         self,
         prefix: str,
+        objects_by_file_name: dict[str, any],
+        store_function: any,
+    ) -> None:
+        executor = futures.ThreadPoolExecutor()
+
+        executed_futures: list[futures.Future] = []
+        for file_name in objects_by_file_name:
+            object = objects_by_file_name[file_name]
+
+            key = '{}/{}'.format(prefix, file_name)
+
+            executed_future = executor.submit(
+                store_function,
+                object,
+                key,
+            )
+            executed_futures.append(executed_future)
+
+            for executed_future in futures.as_completed(executed_futures):
+                try:
+                    _ = executed_future.result()
+                except Exception as error:
+                    raise error
+
+    def load_texts(
+        self,
+        prefix: str,
+        file_names: list[str],
     ) -> str:
-        response = self.s3_client.get_object(
-            Bucket=self.s3_data_bucket_name,
-            Key='{}/{}'.format(PREFIX_FILINGS_PATH, prefix),
+        return self._load_objects_by_file_name(
+            prefix,
+            file_names,
+            self._load_text,
         )
 
-        return response['Body'].read().decode('utf-8')
+    def _load_text(
+        self,
+        prefix: str,
+        file_name: str,
+    ) -> str:
+        key = '{}/{}'.format(prefix, file_name)
+
+        response = self.s3_client.get_object(
+            Bucket=self.s3_data_bucket_name,
+            Key=key,
+        )
+
+        text = response['Body'].read().decode('utf-8')
+
+        return {file_name: text}
+
+    def _load_objects_by_file_name(
+        self,
+        prefix: str,
+        file_names: list[str],
+        load_function: any,
+    ) -> dict[str, any]:
+        objects_by_file_name: dict[str, any] = {}
+
+        executor = futures.ThreadPoolExecutor()
+
+        executed_futures: list[futures.Future] = []
+        for file_name in file_names:
+            executed_future = executor.submit(
+                load_function,
+                prefix,
+                file_name,
+            )
+            executed_futures.append(executed_future)
+
+        for executed_future in futures.as_completed(executed_futures):
+            try:
+                result = executed_future.result()
+                for file_name in result.keys():
+                    objects_by_file_name[file_name] = result[file_name]
+            except Exception as error:
+                raise error
+
+        return objects_by_file_name
 
     def download_model_artifacts(
         self,
-        key: str,
+        model_name: str,
     ) -> None:
         response = self.s3_client.get_object(
             Bucket=self.s3_artifacts_bucket_name,
-            Key=key,
+            Key=model_name,
         )
 
         compressed_data = response['Body'].read()

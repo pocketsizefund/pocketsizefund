@@ -49,6 +49,9 @@ Parameters:
   AlphaVantageAPIKey:
     Type: String
     Description: Alpha Vantage API key
+  EDGARUserAgent:
+    Type: String
+    Description: EDGAR user agent email
 Resources:
   createPositionsFunction:
     Type: AWS::Serverless::Function
@@ -58,14 +61,13 @@ Resources:
       Description: Generates predictions and executes trades
       Environment:
         Variables:
-          S3_DATA_BUCKET_NAME: !Ref S3DataBucketName
-          S3_ARTIFACTS_BUCKET_NAME: !Ref S3ArtifactsBucketName
           ALPACA_API_KEY: !Ref AlpacaAPIKey
           ALPACA_API_SECRET: !Ref AlpacaAPISecret
           DARQUBE_API_KEY: !Ref DarqubeAPIKey
           IS_PAPER: !Ref IsPaper
           MODEL_ENDPOINT_NAME: !Ref ModelEndpointName
           ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
+          EDGAR_USER_AGENT: !Ref EDGARUserAgent
       FunctionName: !Sub ${AWS::StackName}-function-create-positions
       ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-create-positions:latest
       MemorySize: 768

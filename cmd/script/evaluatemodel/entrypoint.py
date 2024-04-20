@@ -20,9 +20,9 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    '--key-name',
+    '--model-name',
     type=str,
-    dest='key_name',
+    dest='model_name',
 )
 
 arguments = parser.parse_args()
@@ -33,7 +33,7 @@ storage_client = storage.Client(
 )
 
 storage_client.download_model_artifacts(
-    key=arguments.key_name,
+    model_name=arguments.model_name,
 )
 
 model_model = model.Model(

@@ -84,7 +84,7 @@ class TestListFileNames(unittest.TestCase):
                         'Key': 'prefix/2022',
                     },
                     {
-                        'Key': 'prefix/2023',
+                        'Key': 'prefix/first',
                     },
                 ],
             },
@@ -97,67 +97,7 @@ class TestListFileNames(unittest.TestCase):
         self.assertEqual(3, len(file_names))
         self.assertEqual('2021', file_names[0])
         self.assertEqual('2022', file_names[1])
-        self.assertEqual('2023', file_names[2])
-
-
-class TestGetNextPrefixVersion(unittest.TestCase):
-    def test_get_next_prefix_version_no_files(self):
-        client = storage.Client(
-            s3_data_bucket_name='s3_data_bucket_name',
-            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
-        )
-
-        next_prefix_version = client.get_next_prefix_version(
-            prefixes=[],
-        )
-
-        self.assertEqual('v0', next_prefix_version)
-
-    def test_get_next_prefix_version_files(self):
-        client = storage.Client(
-            s3_data_bucket_name='s3_data_bucket_name',
-            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
-        )
-
-        next_prefix_version = client.get_next_prefix_version(
-            prefixes=[
-                'prefix/v0',
-                'prefix/v1',
-                'prefix/v2',
-            ],
-        )
-
-        self.assertEqual('v3', next_prefix_version)
-
-
-class TestGetMaxPrefixVersion(unittest.TestCase):
-    def test_get_max_prefix_version_no_files(self):
-        client = storage.Client(
-            s3_data_bucket_name='s3_data_bucket_name',
-            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
-        )
-
-        max_prefix_version = client.get_max_prefix_version(
-            prefixes=[],
-        )
-
-        self.assertEqual('', max_prefix_version)
-
-    def test_get_max_prefix_version_files(self):
-        client = storage.Client(
-            s3_data_bucket_name='s3_data_bucket_name',
-            s3_artifacts_bucket_name='s3_artifacts_bucket_name',
-        )
-
-        max_prefix_version = client.get_max_prefix_version(
-            prefixes=[
-                'prefix/v0',
-                'prefix/v1',
-                'prefix/v2',
-            ],
-        )
-
-        self.assertEqual('v2', max_prefix_version)
+        self.assertEqual('first', file_names[2])
 
 
 class TestStoreDataframes(unittest.TestCase):
@@ -175,21 +115,21 @@ class TestStoreDataframes(unittest.TestCase):
         second_dataframe = pandas.DataFrame(data={'b': [3, 4]})
 
         dataframes = {
-            '2023': first_dataframe,
-            '2024': second_dataframe,
+            'first': first_dataframe,
+            'second': second_dataframe,
         }
 
         client.store_dataframes(
             prefix='prefix',
-            dataframes=dataframes,
+            dataframes_by_file_name=dataframes,
         )
 
         self.assertEqual(2, len(client.s3_client.data))
         self.assertTrue(
-            first_dataframe.equals(client.s3_client.data['prefix/2023']),
+            first_dataframe.equals(client.s3_client.data['prefix/first']),
         )
         self.assertTrue(
-            second_dataframe.equals(client.s3_client.data['prefix/2024']),
+            second_dataframe.equals(client.s3_client.data['prefix/second']),
         )
 
 
@@ -202,27 +142,29 @@ class TestLoadDataframes(unittest.TestCase):
 
         client.s3_client = MockS3Client(
             data={
-                'prefix/2023': pandas.DataFrame(data={'a': [1, 2]}),
-                'prefix/2024': pandas.DataFrame(data={'b': [3, 4]}),
+                'prefix/first': pandas.DataFrame(data={'a': [1, 2]}),
+                'prefix/second': pandas.DataFrame(data={'b': [3, 4]}),
             },
         )
 
-        dataframes = client.load_dataframes(
+        dataframes_by_file_name = client.load_dataframes(
             prefix='prefix',
-            file_names=['2023', '2024'],
+            file_names=['first', 'second'],
         )
 
-        self.assertEqual(2, len(dataframes))
+        self.assertEqual(2, len(dataframes_by_file_name))
         self.assertTrue(
-            dataframes['2023'].equals(client.s3_client.data['prefix/2023']),
+            dataframes_by_file_name['first'].equals(
+                client.s3_client.data['prefix/first']),
         )
         self.assertTrue(
-            dataframes['2024'].equals(client.s3_client.data['prefix/2024']),
+            dataframes_by_file_name['second'].equals(
+                client.s3_client.data['prefix/second']),
         )
 
 
-class TestStoreText(unittest.TestCase):
-    def test_store_text_success(self):
+class TestStoreTexts(unittest.TestCase):
+    def test_store_texts_success(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
             s3_artifacts_bucket_name='s3_artifacts_bucket_name',
@@ -234,20 +176,20 @@ class TestStoreText(unittest.TestCase):
 
         text = 'text'
 
-        client.store_text(
-            prefix='prefix/text.txt',
-            text=text,
+        client.store_texts(
+            prefix='prefix',
+            texts_by_file_name={'text.txt': text},
         )
 
         self.assertEqual(1, len(client.s3_client.data))
         self.assertEqual(
             text,
-            client.s3_client.data['filings/prefix/text.txt'],
+            client.s3_client.data['prefix/text.txt'],
         )
 
 
-class TestLoadText(unittest.TestCase):
-    def test_load_text_success(self):
+class TestLoadTexts(unittest.TestCase):
+    def test_load_texts_success(self):
         client = storage.Client(
             s3_data_bucket_name='s3_data_bucket_name',
             s3_artifacts_bucket_name='s3_artifacts_bucket_name',
@@ -255,12 +197,13 @@ class TestLoadText(unittest.TestCase):
 
         client.s3_client = MockS3Client(
             data={
-                'filings/prefix/text.txt': 'text',
+                'prefix/text.txt': 'text',
             },
         )
 
-        text = client.load_text(
-            prefix='prefix/text.txt',
+        texts_by_file_name = client.load_texts(
+            prefix='prefix',
+            file_names=['text.txt'],
         )
 
-        self.assertEqual('text', text)
+        self.assertEqual('text', texts_by_file_name['text.txt'])
