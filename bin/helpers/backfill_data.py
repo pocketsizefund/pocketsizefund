@@ -1,8 +1,6 @@
 import argparse
 import datetime
 
-import pandas
-
 from pkg.config import config
 from pkg.storage import storage
 from pkg.data import data
@@ -49,91 +47,23 @@ available_tickers: list[str] = trade_client.get_available_tickers()
 
 print('tickers count: ', len(available_tickers))
 
-file_names: list[str] = storage_client.list_file_names(
-    prefix=storage.PREFIX_EQUITY_BARS_PATH,
-)
-
-bars: pandas.DataFrame = None
-
 full_end_at = datetime.datetime.today()
 full_start_at = full_end_at - datetime.timedelta(days=365 * 7)
 
-if len(file_names) == 0:
-    print('backfill all data')
-
-    bars = data_client.get_range_equities_bars(
-        tickers=available_tickers,
-        start_at=full_start_at,
-        end_at=full_end_at,
-    )
-
-else:
-    print('backfill update data')
-
-    old_bars_by_year: dict[int, pandas.DataFrame] = storage_client.load_dataframes(
-        prefix=storage.PREFIX_EQUITY_BARS_PATH,
-        file_names=file_names,
-    )
-
-    old_bars: pandas.DataFrame = pandas.concat(old_bars_by_year.values())
-
-    start_at: datetime.datetime = old_bars.groupby(
-        by='ticker',
-    )['timestamp'].max().min().to_pydatetime()
-
-    end_at: datetime.datetime = datetime.datetime.today()
-
-    old_tickers: list[str] = old_bars['ticker'].unique().tolist()
-
-    update_tickers: list[str] = list(set(available_tickers) & set(old_tickers))
-
-    update_bars: pandas.DataFrame = data_client.get_range_equities_bars(
-        tickers=update_tickers,
-        start_at=start_at,
-        end_at=end_at,
-    )
-
-    new_tickers: list[str] = list(set(available_tickers) - set(old_tickers))
-
-    new_bars: pandas.DataFrame = data_client.get_range_equities_bars(
-        tickers=new_tickers,
-        start_at=full_start_at,
-        end_at=full_end_at,
-    )
-
-    bars: pandas.DataFrame = pandas.concat([
-        old_bars,
-        update_bars,
-        new_bars,
-    ]).drop_duplicates(
-        subset=[
-            'ticker',
-            'timestamp',
-        ],
-    )
-
-null_values_check = bars.isnull().any().any()
-
-if null_values_check:
-    raise Exception('bars contains null values')
-
-bars_grouped_by_year: pandas.DataFrameGroupBy[int] = bars.groupby(
-    bars.timestamp.dt.year
+equity_raw_data = data_client.get_range_equities_bars(
+    tickers=available_tickers,
+    start_at=full_start_at,
+    end_at=full_end_at,
 )
 
-bars_by_year: dict[str, pandas.DataFrame] = {}
+null_values_check = equity_raw_data.isnull().any().any()
 
-for group_name in bars_grouped_by_year.groups.keys():
-    group: pandas.DataFrame = bars_grouped_by_year.get_group(group_name)
-    group = group.drop_duplicates()
-
-    group_year: str = str(group_name)
-
-    bars_by_year[group_year] = group
+if null_values_check:
+    raise Exception('equity raw data contains null values')
 
 storage_client.store_dataframes(
-    prefix=storage.PREFIX_EQUITY_BARS_PATH,
-    dataframes=bars_by_year,
+    prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,
+    dataframes_by_file_name={'all.csv': equity_raw_data},
 )
 
 print('backfill data complete')

@@ -66,20 +66,12 @@ model_model = model.Model(
     notes=arguments.notes,
 )
 
-file_names = storage_client.list_file_names(
-    prefix=storage.PREFIX_FEATURES_PATH,
+features_by_file_name = storage_client.load_dataframes(
+    prefix=storage.PREFIX_EQUITY_BARS_FEATURES_PATH,
+    file_names=['all.csv'],
 )
 
-max_version_file_name = storage_client.get_max_prefix_version(
-    prefixes=file_names,
-)
-
-features_by_version = storage_client.load_dataframes(
-    prefix=storage.PREFIX_FEATURES_PATH,
-    file_names=[max_version_file_name],
-)
-
-training_features = features_by_version[max_version_file_name]
+training_features = features_by_file_name['all.csv']
 
 available_tickers = arguments.available_tickers.split(',')
 

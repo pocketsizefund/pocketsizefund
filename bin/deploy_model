@@ -15,9 +15,14 @@ if [[ "$2" == "local" ]]; then
     location="local"
 fi
 
-latest_model=$(python3 ./bin/helpers/get_latest_model.py)
+model_name=$3
 
-model_artifacts_path=s3://pocketsizefund-artifacts/${latest_model}
+if [[ -z "${model_name}" ]]; then
+    echo "model name is required"
+    exit 1
+fi
+
+model_artifacts_path=s3://pocketsizefund-artifacts/models/${model_name}
 
 sagemaker_iam_role_arn=$(aws cloudformation describe-stacks \
     --stack-name pocketsizefund-${environment} \

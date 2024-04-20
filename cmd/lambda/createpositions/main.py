@@ -1,18 +1,12 @@
 import os
 import datetime
 
-from pkg.storage import storage
 from pkg.trade import trade
 from pkg.data import data
 from pkg.model import model
 
 
 POSITIONS_COUNT = 10
-
-storage_client = storage.Client(
-    s3_data_bucket_name=os.environ['S3_DATA_BUCKET_NAME'],
-    s3_artifacts_bucket_name=os.environ['S3_ARTIFACTS_BUCKET_NAME'],
-)
 
 trade_client = trade.Client(
     darqube_api_key=os.getenv('DARQUBE_API_KEY'),

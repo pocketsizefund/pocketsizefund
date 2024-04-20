@@ -1,7 +1,5 @@
 import argparse
 
-import pandas
-
 from pkg.config import config
 from pkg.storage import storage
 from pkg.features import features
@@ -32,19 +30,12 @@ storage_client = storage.Client(
 
 features_client = features.Client()
 
-equity_bar_file_names = storage_client.list_file_names(
-    prefix=storage.PREFIX_EQUITY_BARS_PATH,
+equity_bars_by_file_name = storage_client.load_dataframes(
+    prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,
+    file_names=['all.csv'],
 )
 
-equity_bars_by_year = storage_client.load_dataframes(
-    prefix=storage.PREFIX_EQUITY_BARS_PATH,
-    file_names=equity_bar_file_names,
-)
-
-equity_bars = pandas.concat([
-    equity_bars_by_year[year]
-    for year in equity_bars_by_year
-])
+equity_bars = equity_bars_by_file_name['all.csv']
 
 generated_features = features_client.generate_features(
     data=equity_bars,
@@ -55,18 +46,7 @@ null_values_check = generated_features.isnull().any().any()
 if null_values_check:
     raise Exception('generated features contains null values')
 
-
-generated_feature_file_names = storage_client.list_file_names(
-    prefix=storage.PREFIX_FEATURES_PATH,
-)
-
-next_version = storage_client.get_next_prefix_version(
-    prefixes=generated_feature_file_names,
-)
-
 storage_client.store_dataframes(
-    prefix=storage.PREFIX_FEATURES_PATH,
-    dataframes={
-        next_version: generated_features,
-    },
+    prefix=storage.PREFIX_EQUITY_BARS_FEATURES_PATH,
+    dataframes={'all.csv': generated_features},
 )
