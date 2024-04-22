@@ -15,3 +15,5 @@ md2pdf
 wandb
 vulture
 ruff
+beautifulsoup4
+lxml # required for beautfulsoup4

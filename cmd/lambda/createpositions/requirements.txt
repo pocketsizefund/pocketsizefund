@@ -8,3 +8,5 @@ numpy
 tensorflow
 keras
 wandb
+beautifulsoup4
+lxml # required for beautifulsoup4
