@@ -6,6 +6,7 @@ import pandas
 from alpaca.data import historical
 from alpaca.data import requests as alpaca_data_requests
 from alpaca.data import timeframe
+import bs4
 
 
 ALPACA_TICKER_CHUNK_SIZE = 50
@@ -156,13 +157,13 @@ class Client:
             if row['ticker'] in tickers:
                 ciks_and_tickers.append({
                     'ticker': row['ticker'],
-                    'cik_str': row['cik_str'],
+                    'cik': row['cik_str'],
                 })
 
         corporate_filings = []
 
         for index in range(len(ciks_and_tickers)):
-            cik = ciks_and_tickers[index]['cik_str']
+            cik = ciks_and_tickers[index]['cik']
             ticker = ciks_and_tickers[index]['ticker']
 
             if self.print_logs:
@@ -274,9 +275,11 @@ class Client:
                 }
             )
 
+            parser = bs4.BeautifulSoup(response.text, 'xml')
+
             forms_contents.append({
                 'acceptance_date': form_information['acceptance_date'],
-                'content': response.text,
+                'content': list(parser.stripped_strings),
             })
 
             time.sleep(1 / self.edgar_requests_per_second)
