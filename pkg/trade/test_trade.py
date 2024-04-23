@@ -1,10 +1,10 @@
-import unittest
 import datetime
+import unittest
 
 from pkg.trade import trade
 
 
-class MockAlpacaGetClockResponse:
+class MockAlpacaClock:
     def __init__(
         self,
         is_open: bool,
@@ -88,20 +88,23 @@ class MockAlpacaGetAllAssetsResponse:
 
 
 def mock_get_available_tickers_error() -> list[str]:
-    raise Exception('get available tickers error')
+    raise Exception("get available tickers error")
 
 
 def mock_get_available_tickers_success() -> list[str]:
-    return ['TICKER']
+    return ["TICKER"]
 
 
-class MockAlpacaCalendarResponse:
+class MockAlpacaCalendar:
     def __init__(
         self,
+        date_value: datetime.date,
+        open_value: datetime.datetime,
+        close_value: datetime.datetime,
     ) -> None:
-        self.date = datetime.date(1977, 5, 6)
-        self.open = datetime.datetime(1977, 5, 6, 9, 30)
-        self.close = datetime.datetime(1977, 5, 6, 16, 0)
+        self.date = date_value
+        self.open = open_value
+        self.close = close_value
 
 
 class MockAlpacaTradingClient:
@@ -115,10 +118,10 @@ class MockAlpacaTradingClient:
         self.last_request = None
 
     def get_clock(self) -> any:
-        if self.exceptions is not None and self.exceptions['get_clock'] is not None:
-            raise self.exceptions['get_clock']
+        if self.exceptions is not None and self.exceptions["get_clock"] is not None:
+            raise self.exceptions["get_clock"]
 
-        return self.responses['get_clock']
+        return self.responses["get_clock"]
 
     def get_calendar(
         self,
@@ -126,37 +129,43 @@ class MockAlpacaTradingClient:
     ) -> list[any]:
         _ = filters
 
-        return [
-            MockAlpacaCalendarResponse(),
-        ]
+        return self.responses["get_calendar"]
+
+    def get_all_positions(
+        self,
+    ) -> list[any]:
+        return self.responses["get_all_positions"]
 
     def get_all_assets(
         self,
         request: any,
     ) -> any:
-        if self.exceptions is not None and self.exceptions['get_all_assets'] is not None:
-            raise self.exceptions['get_all_assets']
+        if (
+            self.exceptions is not None
+            and self.exceptions["get_all_assets"] is not None
+        ):
+            raise self.exceptions["get_all_assets"]
 
-        return self.responses['get_all_assets']
+        return self.responses["get_all_assets"]
 
     def get_account(self) -> any:
-        if self.exceptions is not None and self.exceptions['get_account'] is not None:
-            raise self.exceptions['get_account']
+        if self.exceptions is not None and self.exceptions["get_account"] is not None:
+            raise self.exceptions["get_account"]
 
-        return self.responses['get_account']
+        return self.responses["get_account"]
 
     def submit_order(
         self,
         request: any,
     ) -> any:
-        if self.exceptions is not None and self.exceptions['submit_order'] is not None:
-            raise self.exceptions['submit_order']
+        if self.exceptions is not None and self.exceptions["submit_order"] is not None:
+            raise self.exceptions["submit_order"]
 
         self.last_request = request
         return {
-            'symbol': request.symbol,
-            'notional': request.notional,
-            'side': request.side,
+            "symbol": request.symbol,
+            "notional": request.notional,
+            "side": request.side,
         }
 
     def close_all_positions(
@@ -165,8 +174,11 @@ class MockAlpacaTradingClient:
     ) -> any:
         _ = cancel_orders
 
-        if self.exceptions is not None and self.exceptions['close_all_positions'] is not None:
-            raise self.exceptions['close_all_positions']
+        if (
+            self.exceptions is not None
+            and self.exceptions["close_all_positions"] is not None
+        ):
+            raise self.exceptions["close_all_positions"]
 
         return None
 
@@ -198,17 +210,20 @@ class MockAlpacaHistoricalClient:
         self,
         request: any,
     ) -> any:
-        if self.exceptions is not None and self.exceptions['get_stock_bars'] is not None:
-            raise self.exceptions['get_stock_bars']
+        if (
+            self.exceptions is not None
+            and self.exceptions["get_stock_bars"] is not None
+        ):
+            raise self.exceptions["get_stock_bars"]
 
-        return self.responses['get_stock_bars']
+        return self.responses["get_stock_bars"]
 
 
 def mock_get_portoflio_daily_returns_error(
     week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
-    raise Exception('get portfolio returns error')
+    raise Exception("get portfolio returns error")
 
 
 def mock_get_portfolio_returns_success(
@@ -228,7 +243,7 @@ def mock_get_benchmark_daily_returns_error(
     week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
-    raise Exception('get benchmark returns error')
+    raise Exception("get benchmark returns error")
 
 
 def mock_get_benchmark_daily_returns_success(
@@ -245,123 +260,202 @@ def mock_get_benchmark_daily_returns_success(
 
 
 def mock_get_risk_free_rate_error() -> float:
-    raise Exception('get risk free rate error')
+    raise Exception("get risk free rate error")
 
 
 def mock_get_risk_free_rate_success() -> float:
     return 0.03
 
 
-class MockEventBridgeClient:
-    def list_schedules(
-        self,
-        NamePrefix: str,
-        State: str,
-    ) -> any:
-        _ = NamePrefix, State
-
-        return {
-            'Schedules': [
-                {
-                    'Name': 'schedule_name',
-                },
-            ],
-        }
-
-    def delete_schedule(
-        self,
-        Name: str,
-    ) -> any:
-        _ = Name
-
-        return None
-
-
-def mock_create_schedule_success(
-    name: str,
-    expression: str,
-    lambda_arn: str,
-    role_arn: str,
-) -> any:
-    return None
-
-
-class TestSetPositionSchedules(unittest.TestCase):
-    def test_set_position_schedules_success(self):
+class TestCheckSetPositionAvailability(unittest.TestCase):
+    def test_check_position_set_availability_success(self):
         client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="darqube_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
-        client._create_schedule = mock_create_schedule_success
+        monday_calendar_days = [
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 5, 23),
+                open_value=datetime.datetime(1977, 5, 23, 9, 30),
+                close_value=datetime.datetime(1977, 5, 23, 16, 0),
+            ),
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 5, 24),
+                open_value=datetime.datetime(1977, 5, 24, 9, 30),
+                close_value=datetime.datetime(1977, 5, 24, 16, 0),
+            ),
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 5, 25),
+                open_value=datetime.datetime(1977, 5, 25, 9, 30),
+                close_value=datetime.datetime(1977, 5, 25, 16, 0),
+            ),
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 5, 26),
+                open_value=datetime.datetime(1977, 5, 26, 9, 30),
+                close_value=datetime.datetime(1977, 5, 26, 16, 0),
+            ),
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 5, 27),
+                open_value=datetime.datetime(1977, 5, 27, 9, 30),
+                close_value=datetime.datetime(1977, 5, 27, 16, 0),
+            ),
+        ]
 
-        client.event_bridge_client = MockEventBridgeClient()
+        friday_calendar_days = [
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 5, 27),
+                open_value=datetime.datetime(1977, 5, 27, 9, 30),
+                close_value=datetime.datetime(1977, 5, 27, 16, 0),
+            ),
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 5, 30),
+                open_value=datetime.datetime(1977, 5, 30, 9, 30),
+                close_value=datetime.datetime(1977, 5, 30, 16, 0),
+            ),
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 5, 31),
+                open_value=datetime.datetime(1977, 5, 31, 9, 30),
+                close_value=datetime.datetime(1977, 5, 31, 16, 0),
+            ),
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 6, 1),
+                open_value=datetime.datetime(1977, 6, 1, 9, 30),
+                close_value=datetime.datetime(1977, 6, 1, 16, 0),
+            ),
+            MockAlpacaCalendar(
+                date_value=datetime.date(1977, 6, 2),
+                open_value=datetime.datetime(1977, 6, 2, 9, 30),
+                close_value=datetime.datetime(1977, 6, 2, 16, 0),
+            ),
+        ]
 
-        client.alpaca_trading_client = MockAlpacaTradingClient(
-            responses=None,
-            exceptions=None,
-        )
-
-        client.set_position_schedules(
-            start_at=datetime.datetime(1977, 5, 5),
-            create_positions_lambda_arn='create_positions_lambda_arn',
-            clear_positions_lambda_arn='clear_positions_lambda_arn',
-            invoke_lambda_role_arn='invoke_lambda_role_arn',
-        )
-
-
-class TestIsMarketOpen(unittest.TestCase):
-    def setUp(self):
-        self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
-        )
-
-    def tearDown(self):
-        pass
-
-    def test_is_market_open_alpaca_get_clock_error(self):
-        self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            responses=None,
-            exceptions={
-                'get_clock': Exception('alpaca get clock error'),
+        tests = [
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 15),
+                "is_market_open": False,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [],
+                "result": False,
             },
-        )
-
-        with self.assertRaises(Exception) as context:
-            self.client.is_market_open()
-
-        self.assertEqual(
-            str(context.exception),
-            'alpaca get clock error',
-        )
-
-    def test_is_market_open_success(self):
-        self.client.alpaca_trading_client = MockAlpacaTradingClient(
-            responses={
-                'get_clock': MockAlpacaGetClockResponse(
-                    is_open=True,
-                ),
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 26, 9, 45),
+                "is_market_open": True,
+                "calendar_days": [
+                    MockAlpacaCalendar(
+                        date_value=datetime.date(1977, 5, 26),
+                        open_value=datetime.datetime(1977, 5, 26, 9, 30),
+                        close_value=datetime.datetime(1977, 5, 26, 16, 0),
+                    )
+                ]
+                + friday_calendar_days[1:],
+                "all_positions": [],
+                "result": True,
             },
-            exceptions=None,
-        )
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 27, 15, 30),
+                "is_market_open": True,
+                "calendar_days": friday_calendar_days,
+                "all_positions": [],
+                "result": False,
+            },
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 45),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [{}],
+                "result": False,
+            },
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 45),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [],
+                "result": True,
+            },
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 16, 15),
+                "is_market_open": False,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [],
+                "result": False,
+            },
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 26, 15, 30),
+                "is_market_open": True,
+                "calendar_days": [
+                    MockAlpacaCalendar(
+                        date_value=datetime.date(1977, 5, 26),
+                        open_value=datetime.datetime(1977, 5, 26, 9, 30),
+                        close_value=datetime.datetime(1977, 5, 26, 16, 0),
+                    )
+                ]
+                + friday_calendar_days[1:],
+                "all_positions": [{}],
+                "result": True,
+            },
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 15, 30),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [{}],
+                "result": False,
+            },
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 15, 30),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [],
+                "result": False,
+            },
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 27, 15, 30),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [{}],
+                "result": True,
+            },
+        ]
 
-        is_market_open = self.client.is_market_open()
+        for test in tests:
+            client.alpaca_trading_client = MockAlpacaTradingClient(
+                responses={
+                    "get_clock": MockAlpacaClock(
+                        is_open=test["is_market_open"],
+                    ),
+                    "get_calendar": test["calendar_days"],
+                    "get_all_positions": test["all_positions"],
+                },
+                exceptions=None,
+            )
 
-        self.assertEqual(True, is_market_open)
+            result = client.check_set_position_availability(
+                action=test["action"],
+                current_datetime=test["current_datetime"],
+            )
+
+            self.assertEqual(test["result"], result)
 
 
 class TestPrivateGetAvailableTickers(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="darqube_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -370,7 +464,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
     def test__get_available_tickers_darqube_get_tickers_error(self):
         self.client.http_client = MockHTTPClient(
             response=None,
-            exception=Exception('darqube get tickers error'),
+            exception=Exception("darqube get tickers error"),
         )
 
         with self.assertRaises(Exception) as context:
@@ -378,15 +472,15 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'darqube get tickers error',
+            "darqube get tickers error",
         )
 
     def test__get_available_tickers_alpaca_get_all_assets_error(self):
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
                 data={
-                    '0': {
-                        'Code': 'TICKER',
+                    "0": {
+                        "Code": "TICKER",
                     },
                 },
             ),
@@ -396,7 +490,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses=None,
             exceptions={
-                'get_all_assets': Exception('alpaca get all assets error'),
+                "get_all_assets": Exception("alpaca get all assets error"),
             },
         )
 
@@ -405,15 +499,15 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'alpaca get all assets error',
+            "alpaca get all assets error",
         )
 
     def test__get_available_tickers_success(self):
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
                 data={
-                    '0': {
-                        'Code': 'TICKER',
+                    "0": {
+                        "Code": "TICKER",
                     },
                 },
             ),
@@ -422,10 +516,10 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
 
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses={
-                'get_all_assets': MockAlpacaGetAllAssetsResponse(
+                "get_all_assets": MockAlpacaGetAllAssetsResponse(
                     data=[
                         MockAlpacaAsset(
-                            symbol='TICKER',
+                            symbol="TICKER",
                         ),
                     ],
                 ),
@@ -436,16 +530,16 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
         tickers = self.client._get_available_tickers()
 
         self.assertEqual(1, len(tickers))
-        self.assertEqual('TICKER', tickers[0])
+        self.assertEqual("TICKER", tickers[0])
 
 
 class TestGetAvailableTickers(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='daruqbe_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="daruqbe_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -459,7 +553,7 @@ class TestGetAvailableTickers(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'get available tickers error',
+            "get available tickers error",
         )
 
     def test_get_available_tickers_success(self):
@@ -468,16 +562,16 @@ class TestGetAvailableTickers(unittest.TestCase):
         tickers = self.client.get_available_tickers()
 
         self.assertEqual(1, len(tickers))
-        self.assertEqual('TICKER', tickers[0])
+        self.assertEqual("TICKER", tickers[0])
 
 
 class TestSetPositions(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="darqube_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -488,12 +582,12 @@ class TestSetPositions(unittest.TestCase):
 
         with self.assertRaises(Exception) as context:
             self.client.set_positions(
-                tickers=['TICKER'],
+                tickers=["TICKER"],
             )
 
         self.assertEqual(
             str(context.exception),
-            'get available tickers error',
+            "get available tickers error",
         )
 
     def test_set_positions_get_account_error(self):
@@ -502,18 +596,18 @@ class TestSetPositions(unittest.TestCase):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses=None,
             exceptions={
-                'get_account': Exception('alpaca get account error'),
+                "get_account": Exception("alpaca get account error"),
             },
         )
 
         with self.assertRaises(Exception) as context:
             self.client.set_positions(
-                tickers=['TICKER'],
+                tickers=["TICKER"],
             )
 
         self.assertEqual(
             str(context.exception),
-            'alpaca get account error',
+            "alpaca get account error",
         )
 
     def test_set_positions_submit_order_error(self):
@@ -521,25 +615,25 @@ class TestSetPositions(unittest.TestCase):
 
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses={
-                'get_account': MockAlpacaAccount(
+                "get_account": MockAlpacaAccount(
                     cash=100.0,
                     equity=100.0,
                 ),
             },
             exceptions={
-                'get_account': None,
-                'submit_order': Exception('alpaca submit order error'),
+                "get_account": None,
+                "submit_order": Exception("alpaca submit order error"),
             },
         )
 
         with self.assertRaises(Exception) as context:
             self.client.set_positions(
-                tickers=['TICKER'],
+                tickers=["TICKER"],
             )
 
         self.assertEqual(
             str(context.exception),
-            'alpaca submit order error',
+            "alpaca submit order error",
         )
 
     def test_set_positions_success(self):
@@ -547,35 +641,35 @@ class TestSetPositions(unittest.TestCase):
 
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses={
-                'get_account': MockAlpacaAccount(
+                "get_account": MockAlpacaAccount(
                     cash=100.0,
                     equity=100.0,
                 ),
             },
             exceptions={
-                'get_account': None,
-                'submit_order': None,
+                "get_account": None,
+                "submit_order": None,
             },
         )
 
         self.client.set_positions(
-            tickers=['TICKER'],
+            tickers=["TICKER"],
         )
 
         last_request = self.client.alpaca_trading_client.last_request
         self.assertIsNotNone(last_request)
-        self.assertEqual(last_request.symbol, 'TICKER')
+        self.assertEqual(last_request.symbol, "TICKER")
         self.assertEqual(last_request.notional, 95.0)
-        self.assertEqual(last_request.side, 'buy')
+        self.assertEqual(last_request.side, "buy")
 
 
 class TestClearPositions(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='daruqbe_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="daruqbe_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -585,7 +679,7 @@ class TestClearPositions(unittest.TestCase):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses=None,
             exceptions={
-                'close_all_positions': Exception('alpaca close all positions error'),
+                "close_all_positions": Exception("alpaca close all positions error"),
             },
         )
 
@@ -594,7 +688,7 @@ class TestClearPositions(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'alpaca close all positions error',
+            "alpaca close all positions error",
         )
 
     def test_clear_positions_success(self):
@@ -611,10 +705,10 @@ class TestClearPositions(unittest.TestCase):
 class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="darqube_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -623,7 +717,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
     def test__get_portfolio_daily_returns_http_client_error(self):
         self.client.http_client = MockHTTPClient(
             response=None,
-            exception=Exception('alpaca get portfolio returns error'),
+            exception=Exception("alpaca get portfolio returns error"),
         )
 
         with self.assertRaises(Exception) as context:
@@ -634,13 +728,13 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'alpaca get portfolio returns error',
+            "alpaca get portfolio returns error",
         )
 
     def test__get_portfolio_daily_returns_insufficient_data_error(self):
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
-                data={'timestamp': []},
+                data={"timestamp": []},
             ),
             exception=None,
         )
@@ -653,21 +747,21 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'insufficient portfolio data',
+            "insufficient portfolio data",
         )
 
     def test__get_portfolio_daily_returns_success(self):
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
                 data={
-                    'timestamp': [
+                    "timestamp": [
                         1708995600,
                         1709082000,
                         1709168400,
                         1709254800,
                         1709341200,
                     ],
-                    'profit_loss_pct': [
+                    "profit_loss_pct": [
                         -0.0082,
                         -0.0002,
                         0.0056,
@@ -691,10 +785,10 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
 class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="darqube_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -704,7 +798,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
             responses=None,
             exceptions={
-                'get_stock_bars': Exception('alpaca get benchmark returns error'),
+                "get_stock_bars": Exception("alpaca get benchmark returns error"),
             },
         )
 
@@ -716,14 +810,14 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'alpaca get benchmark returns error',
+            "alpaca get benchmark returns error",
         )
 
     def test__get_benchmark_daily_returns_insufficient_data_error(self):
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
             responses={
-                'get_stock_bars': {
-                    'SPY': [],
+                "get_stock_bars": {
+                    "SPY": [],
                 }
             },
             exceptions=None,
@@ -737,31 +831,31 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'insufficient benchmark data',
+            "insufficient benchmark data",
         )
 
     def test__get_benchmark_daily_returns_success(self):
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
             responses={
-                'get_stock_bars': MockAlpacaGetStockBarsResponse(
+                "get_stock_bars": MockAlpacaGetStockBarsResponse(
                     data=[
                         {
-                            'c': 100.0,
+                            "c": 100.0,
                         },
                         {
-                            'c': 101.0,
+                            "c": 101.0,
                         },
                         {
-                            'c': 102.0,
+                            "c": 102.0,
                         },
                         {
-                            'c': 103.0,
+                            "c": 103.0,
                         },
                         {
-                            'c': 104.0,
+                            "c": 104.0,
                         },
                         {
-                            'c': 105.0,
+                            "c": 105.0,
                         },
                     ],
                 ),
@@ -781,10 +875,10 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
 class TestPrivateCumulativeReturns(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="darqube_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -803,10 +897,10 @@ class TestPrivateCumulativeReturns(unittest.TestCase):
 class TestPrivateGetRiskFreeRate(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="darqube_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -815,7 +909,7 @@ class TestPrivateGetRiskFreeRate(unittest.TestCase):
     def test__get_risk_free_rate_http_client_error(self):
         self.client.http_client = MockHTTPClient(
             response=None,
-            exception=Exception('get risk free rate error'),
+            exception=Exception("get risk free rate error"),
         )
 
         with self.assertRaises(Exception) as context:
@@ -823,25 +917,25 @@ class TestPrivateGetRiskFreeRate(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'get risk free rate error',
+            "get risk free rate error",
         )
 
     def test__get_risk_free_rate_success(self):
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
                 data={
-                    'data': [
+                    "data": [
                         {
-                            'date': '2021-01-01',
-                            'value': '1.0',
+                            "date": "2021-01-01",
+                            "value": "1.0",
                         },
                         {
-                            'date': '2021-02-01',
-                            'value': '2.0',
+                            "date": "2021-02-01",
+                            "value": "2.0",
                         },
                         {
-                            'date': '2021-03-01',
-                            'value': '3.0',
+                            "date": "2021-03-01",
+                            "value": "3.0",
                         },
                     ],
                 },
@@ -857,10 +951,10 @@ class TestPrivateGetRiskFreeRate(unittest.TestCase):
 class TestGetPerformanceMetrics(unittest.TestCase):
     def setUp(self):
         self.client = trade.Client(
-            darqube_api_key='darqube_api_key',
-            alpaca_api_key='alpaca_api_key',
-            alpaca_api_secret='alpaca_api_secret',
-            alpha_vantage_api_key='alpha_vantage_api_key',
+            darqube_api_key="darqube_api_key",
+            alpaca_api_key="alpaca_api_key",
+            alpaca_api_secret="alpaca_api_secret",
+            alpha_vantage_api_key="alpha_vantage_api_key",
         )
 
     def tearDown(self):
@@ -870,7 +964,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses=None,
             exceptions={
-                'get_account': Exception('alpaca get account error'),
+                "get_account": Exception("alpaca get account error"),
             },
         )
 
@@ -882,13 +976,13 @@ class TestGetPerformanceMetrics(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'alpaca get account error',
+            "alpaca get account error",
         )
 
     def test_get_performance_metrics_get_portfolio_returns_error(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses={
-                'get_account': MockAlpacaAccount(
+                "get_account": MockAlpacaAccount(
                     cash=100.0,
                     equity=100.0,
                 ),
@@ -896,7 +990,9 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             exceptions=None,
         )
 
-        self.client._get_portoflio_daily_returns = mock_get_portoflio_daily_returns_error
+        self.client._get_portoflio_daily_returns = (
+            mock_get_portoflio_daily_returns_error
+        )
 
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
@@ -906,13 +1002,13 @@ class TestGetPerformanceMetrics(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'get portfolio returns error',
+            "get portfolio returns error",
         )
 
     def test_get_performance_metrics_get_benchmark_daily_returns_error(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses={
-                'get_account': MockAlpacaAccount(
+                "get_account": MockAlpacaAccount(
                     cash=100.0,
                     equity=100.0,
                 ),
@@ -921,7 +1017,9 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         )
 
         self.client._get_portoflio_daily_returns = mock_get_portfolio_returns_success
-        self.client._get_benchmark_daily_returns = mock_get_benchmark_daily_returns_error
+        self.client._get_benchmark_daily_returns = (
+            mock_get_benchmark_daily_returns_error
+        )
 
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
@@ -931,13 +1029,13 @@ class TestGetPerformanceMetrics(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'get benchmark returns error',
+            "get benchmark returns error",
         )
 
     def test_get_performance_metrics_get_risk_free_rate_error(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses={
-                'get_account': MockAlpacaAccount(
+                "get_account": MockAlpacaAccount(
                     cash=100.0,
                     equity=100.0,
                 ),
@@ -946,7 +1044,9 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         )
 
         self.client._get_portoflio_daily_returns = mock_get_portfolio_returns_success
-        self.client._get_benchmark_daily_returns = mock_get_benchmark_daily_returns_success
+        self.client._get_benchmark_daily_returns = (
+            mock_get_benchmark_daily_returns_success
+        )
         self.client._get_risk_free_rate = mock_get_risk_free_rate_error
 
         with self.assertRaises(Exception) as context:
@@ -957,13 +1057,13 @@ class TestGetPerformanceMetrics(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            'get risk free rate error',
+            "get risk free rate error",
         )
 
     def test_get_performance_metrics_success(self):
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
             responses={
-                'get_account': MockAlpacaAccount(
+                "get_account": MockAlpacaAccount(
                     cash=100.0,
                     equity=100.0,
                 ),
@@ -972,7 +1072,9 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         )
 
         self.client._get_portoflio_daily_returns = mock_get_portfolio_returns_success
-        self.client._get_benchmark_daily_returns = mock_get_benchmark_daily_returns_success
+        self.client._get_benchmark_daily_returns = (
+            mock_get_benchmark_daily_returns_success
+        )
         self.client._get_risk_free_rate = mock_get_risk_free_rate_success
 
         metrics = self.client.get_performance_metrics(
@@ -980,7 +1082,8 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             end_at=datetime.datetime.now(),
         )
 
-        self.assertEqual(100.0, metrics['current_portfolio_value'])
-        self.assertEqual(0.0049, metrics['cumulative_portfolio_returns'])
-        self.assertEqual(0.05, metrics['cumulative_benchmark_returns'])
-        self.assertEqual(0.03, metrics['risk_free_rate'])
+        self.assertEqual(100.0, metrics["current_portfolio_value"])
+        self.assertEqual(0.0049, metrics["cumulative_portfolio_returns"])
+        self.assertEqual(0.05, metrics["cumulative_benchmark_returns"])
+        self.assertEqual(0.03, metrics["risk_free_rate"])
+        self.assertEqual(0.03, metrics["risk_free_rate"])
