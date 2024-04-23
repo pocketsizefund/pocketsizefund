@@ -60,8 +60,8 @@ class Client:
 
         calendar_days = self.alpaca_trading_client.get_calendar(
             filters=alpaca_trading_requests.GetCalendarRequest(
-                start=current_datetime,
-                end=current_datetime + datetime.timedelta(days=5),
+                start=current_datetime.date(),
+                end=(current_datetime + datetime.timedelta(days=5)).date(),
             )
         )
 
