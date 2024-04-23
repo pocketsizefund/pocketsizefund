@@ -1,4 +1,5 @@
 import os
+import datetime
 
 from pkg.trade import trade
 
@@ -18,7 +19,10 @@ def handler(
 ) -> dict[str, any]:
     _ = event, context
 
-    if not trade_client.is_market_open():
-        raise Exception('market is closed')
+    if not trade_client.check_set_position_availability(
+        action=trade.CLEAR_ACTION,
+        current_datetime=datetime.datetime.now(),
+    ):
+        return
 
     trade_client.clear_positions()
