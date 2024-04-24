@@ -38,12 +38,12 @@ We want to rapidly iterate our research-first mindset by constantly launching wi
 
 An unordered and non-exhaustive list of principles we work towards:
 
-- Test in production
-- Always roll forward
-- Systems over process
-- No code is good code
-- Never write documentation
-- Git is truth
+> Test in production  
+> Always roll forward  
+> Systems over process  
+> No code is good code  
+> Never write documentation  
+> Git is truth  
 
 ## Development
 
