@@ -1,9 +1,0 @@
-tensorflow
-matplotlib
-boto3
-pandas
-sagemaker
-scikit-learn
-numpy
-keras
-wandb
