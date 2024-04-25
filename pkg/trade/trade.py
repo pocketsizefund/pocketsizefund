@@ -1,14 +1,16 @@
 import datetime
 
+import numpy
 import requests
+from alpaca.data import historical
+from alpaca.data import requests as alpaca_data_requests
+from alpaca.data import timeframe
 from alpaca.trading import client as trading_client
 from alpaca.trading import enums
 from alpaca.trading import requests as alpaca_trading_requests
-from alpaca.data import historical
-from alpaca.data import timeframe
-from alpaca.data import requests as alpaca_data_requests
-import numpy
-import boto3
+
+CREATE_ACTION = "create"
+CLEAR_ACTION = "clear"
 
 
 class Client:
@@ -23,9 +25,9 @@ class Client:
         self.darqube_api_key = darqube_api_key
         self.http_client = requests
         self.http_headers = {
-            'accept': 'application/json',
-            'APCA-API-KEY-ID': alpaca_api_key,
-            'APCA-API-SECRET-KEY': alpaca_api_secret,
+            "accept": "application/json",
+            "APCA-API-KEY-ID": alpaca_api_key,
+            "APCA-API-SECRET-KEY": alpaca_api_secret,
         }
         self.alpaca_trading_client = trading_client.TradingClient(
             api_key=alpaca_api_key,
@@ -38,106 +40,72 @@ class Client:
             raw_data=True,
         )
         self.alpha_vantage_api_key = alpha_vantage_api_key
-        self.event_bridge_client = boto3.client('scheduler')
-        self.create_positions_schedule_name = 'pocketsizefund-create-positions'
-        self.clear_positions_schedule_name = 'pocketsizefund-clear-positions'
+        self.schedule_periods = (
+            datetime.time(hour=9, minute=30),
+            datetime.time(hour=11, minute=30),
+            datetime.time(hour=14, minute=00),
+            datetime.time(hour=16, minute=00),
+        )
         self.is_paper = is_paper
 
-    def is_market_open(self) -> bool:
+    def check_set_position_availability(
+        self,
+        action: str,
+        current_datetime: datetime.datetime,
+    ) -> bool:
         clock = self.alpaca_trading_client.get_clock()
 
-        is_market_open = clock.is_open
-
-        return is_market_open
-
-    def set_position_schedules(
-        self,
-        start_at: datetime.datetime,
-        create_positions_lambda_arn: str,
-        clear_positions_lambda_arn: str,
-        invoke_lambda_role_arn: str,
-    ) -> None:
-        response = self.event_bridge_client.list_schedules(
-            NamePrefix='pocketsizefund-',
-            State='ENABLED',
-        )
-
-        for schedule in response['Schedules']:
-            name = schedule['Name']
-            if name in [
-                self.create_positions_schedule_name,
-                self.clear_positions_schedule_name,
-            ]:
-                self.event_bridge_client.delete_schedule(Name=name)
-
-        days_until_saturday = (5 - start_at.weekday() + 7) % 7
-
-        next_saturday = start_at + datetime.timedelta(days=days_until_saturday)
+        if not clock.is_open:
+            return False
 
         calendar_days = self.alpaca_trading_client.get_calendar(
             filters=alpaca_trading_requests.GetCalendarRequest(
-                start=start_at,
-                end=start_at + datetime.timedelta(days=7),
+                start=current_datetime.date(),
+                end=(current_datetime + datetime.timedelta(days=5)).date(),
             )
         )
 
-        filtered_days = [
-            calendar_day for calendar_day in calendar_days
-            if calendar_day.date < next_saturday.date()
-            and calendar_day.date > start_at.date()
+        positions = self.alpaca_trading_client.get_all_positions()
+
+        has_positions = len(positions) > 0
+
+        calendar_days_in_week = [
+            day
+            for day in calendar_days
+            if day.date.isocalendar()[1] == current_datetime.isocalendar()[1]
         ]
 
-        create_open = min(filtered_days, key=lambda x: x.date).open + datetime.timedelta(
-            minutes=30,
+        last_day_in_week = max(calendar_days_in_week, key=lambda day: day.date)
+
+        is_last_day = last_day_in_week.date == current_datetime.date()
+
+        last_period_in_day = ()
+
+        for index in range(len(self.schedule_periods) - 1):
+            start = self.schedule_periods[index]
+            end = self.schedule_periods[index + 1]
+            close = last_day_in_week.close.time()
+
+            if close >= start and close <= end:
+                last_period_in_day = (start, end)
+                break
+
+        is_last_period = (
+            last_period_in_day[0] <= current_datetime.time()
+            and last_period_in_day[1] >= current_datetime.time()
         )
 
-        create_expression = 'at({})'.format(
-            create_open.strftime("%Y-%m-%dT%H:%M:%S")
-        )
+        if action == CREATE_ACTION:
+            if has_positions or is_last_day and is_last_period:
+                return False
 
-        self._create_schedule(
-            name=self.create_positions_schedule_name,
-            expression=create_expression,
-            lambda_arn=create_positions_lambda_arn,
-            role_arn=invoke_lambda_role_arn,
-        )
+            return True
 
-        clear_close = max(filtered_days, key=lambda x: x.date).close - datetime.timedelta(
-            minutes=30,
-        )
+        elif action == CLEAR_ACTION:
+            if has_positions and is_last_day and is_last_period:
+                return True
 
-        clear_expression = 'at({})'.format(
-            clear_close.strftime("%Y-%m-%dT%H:%M:%S")
-        )
-
-        self._create_schedule(
-            name=self.clear_positions_schedule_name,
-            expression=clear_expression,
-            lambda_arn=clear_positions_lambda_arn,
-            role_arn=invoke_lambda_role_arn,
-        )
-
-    def _create_schedule(
-        self,
-        name: str,
-        expression: str,
-        lambda_arn: str,
-        role_arn: str,
-    ) -> None:
-        self.event_bridge_client.create_schedule(
-            Description='Dynamically generated schedule for managing positions',
-            ScheduleExpression=expression,
-            ScheduleExpressionTimezone='America/New_York',
-            Name=name,
-            State='ENABLED',
-            FlexibleTimeWindow={
-                'Mode': 'OFF',
-            },
-            Target={
-                'Arn': lambda_arn,
-                'RoleArn': role_arn,
-            },
-        )
+            return False
 
     def get_available_tickers(self) -> list[str]:
         return self._get_available_tickers()
@@ -172,17 +140,16 @@ class Client:
         # "GSPC" is the S&P 500 Index
         # "DJI" is the Dow Jones Industrial Average
         darqube_response = self.http_client.get(
-            url='https://api.darqube.com/data-api/fundamentals/indexes/index_constituents/DJI',
+            url="https://api.darqube.com/data-api/fundamentals/indexes/index_constituents/DJI",
             params={
-                'token': self.darqube_api_key,
+                "token": self.darqube_api_key,
             },
         )
 
         darqube_response_json = darqube_response.json()
 
         constituents = [
-            darqube_response_json[key]['Code']
-            for key in darqube_response_json
+            darqube_response_json[key]["Code"] for key in darqube_response_json
         ]
 
         request = alpaca_trading_requests.GetAssetsRequest(
@@ -195,11 +162,11 @@ class Client:
         tickers: list[str] = []
         for asset in alpaca_response:
             if (
-                asset.tradable and
-                asset.fractionable and
-                asset.shortable and
-                asset.symbol in constituents and
-                '.' not in asset.symbol
+                asset.tradable
+                and asset.fractionable
+                and asset.shortable
+                and asset.symbol in constituents
+                and "." not in asset.symbol
             ):
                 tickers.append(asset.symbol)
 
@@ -219,7 +186,7 @@ class Client:
 
         account = self.alpaca_trading_client.get_account()
 
-        metrics['current_portfolio_value'] = float(account.equity)
+        metrics["current_portfolio_value"] = float(account.equity)
 
         portfolio_returns = self._get_portoflio_daily_returns(
             week_count=week_count,
@@ -234,22 +201,22 @@ class Client:
         adjusted_length = min(len(portfolio_returns), len(benchmark_returns))
 
         portfolio_returns = portfolio_returns[
-            len(portfolio_returns) - adjusted_length:
+            len(portfolio_returns) - adjusted_length :
         ]
 
         benchmark_returns = benchmark_returns[
-            len(benchmark_returns) - adjusted_length:
+            len(benchmark_returns) - adjusted_length :
         ]
 
-        metrics['cumulative_portfolio_returns'] = self._cumulative_returns(
+        metrics["cumulative_portfolio_returns"] = self._cumulative_returns(
             returns=portfolio_returns,
         )
 
-        metrics['cumulative_benchmark_returns'] = self._cumulative_returns(
+        metrics["cumulative_benchmark_returns"] = self._cumulative_returns(
             returns=benchmark_returns,
         )
 
-        metrics['risk_free_rate'] = self._get_risk_free_rate()
+        metrics["risk_free_rate"] = self._get_risk_free_rate()
 
         return metrics
 
@@ -258,21 +225,21 @@ class Client:
         week_count: int,
         end_at: datetime.datetime,
     ) -> list[dict[str, any]]:
-        subdomain = 'paper-api'
+        subdomain = "paper-api"
         if not self.is_paper:
-            subdomain = 'api'
+            subdomain = "api"
 
         portfolio_response = self.http_client.get(
-            url='https://{}.alpaca.markets/v2/account/portfolio/history'.format(
+            url="https://{}.alpaca.markets/v2/account/portfolio/history".format(
                 subdomain,
             ),
             headers=self.http_headers,
             params={
-                'period': '{}W'.format(week_count),
-                'timeframe': '1D',
-                'intraday_reporting': 'market_hours',
-                'pnl_reset': 'per_day',
-                'end': end_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "period": "{}W".format(week_count),
+                "timeframe": "1D",
+                "intraday_reporting": "market_hours",
+                "pnl_reset": "per_day",
+                "end": end_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -280,13 +247,13 @@ class Client:
 
         portfolio_returns = []
 
-        for index in range(len(portfolio_data['timestamp'])):
+        for index in range(len(portfolio_data["timestamp"])):
             portfolio_returns.append(
-                round(float(portfolio_data['profit_loss_pct'][index]), 4)
+                round(float(portfolio_data["profit_loss_pct"][index]), 4)
             )
 
         if len(portfolio_returns) < 5:
-            raise Exception('insufficient portfolio data')
+            raise Exception("insufficient portfolio data")
 
         return portfolio_returns
 
@@ -295,7 +262,7 @@ class Client:
         week_count: int,
         end_at: datetime.datetime,
     ) -> list[dict[str, any]]:
-        benchmark_ticker = 'SPY'
+        benchmark_ticker = "SPY"
 
         # adjusting due to Alpaca API limitations
         end_at = end_at - datetime.timedelta(hours=1)
@@ -308,28 +275,26 @@ class Client:
             start=start_at,
             end=end_at,
             timeframe=timeframe.TimeFrame.Day,
-            adjustment='all',
+            adjustment="all",
         )
 
-        benchmark_response = self.alpaca_historical_client.get_stock_bars(
-            request
-        )
+        benchmark_response = self.alpaca_historical_client.get_stock_bars(request)
 
         benchmark_data = benchmark_response[benchmark_ticker]
 
         benchmark_returns = []
 
         for index in range(len(benchmark_data) - 1):
-            current_close = float(benchmark_data[index]['c'])
+            current_close = float(benchmark_data[index]["c"])
 
-            next_close = float(benchmark_data[index + 1]['c'])
+            next_close = float(benchmark_data[index + 1]["c"])
 
             percent_change = (next_close / current_close) - 1
 
             benchmark_returns.append(round(percent_change, 4))
 
         if len(benchmark_returns) < 5:
-            raise Exception('insufficient benchmark data')
+            raise Exception("insufficient benchmark data")
 
         return benchmark_returns
 
@@ -345,23 +310,23 @@ class Client:
         self,
     ) -> float:
         treasury_yields_response = self.http_client.get(
-            url='https://www.alphavantage.co/query',
+            url="https://www.alphavantage.co/query",
             params={
-                'function': 'TREASURY_YIELD',
-                'interval': 'monthly',
-                'maturity': '10year',
-                'apikey': self.alpha_vantage_api_key,
+                "function": "TREASURY_YIELD",
+                "interval": "monthly",
+                "maturity": "10year",
+                "apikey": self.alpha_vantage_api_key,
             },
         )
 
         treasury_yields_data = treasury_yields_response.json()
 
         treasury_yields_data_sorted = sorted(
-            treasury_yields_data['data'],
-            key=lambda x: x['date'],
+            treasury_yields_data["data"],
+            key=lambda x: x["date"],
             reverse=True,
         )
 
-        risk_free_rate = float(treasury_yields_data_sorted[0]['value']) * 0.01
+        risk_free_rate = float(treasury_yields_data_sorted[0]["value"]) * 0.01
 
         return risk_free_rate

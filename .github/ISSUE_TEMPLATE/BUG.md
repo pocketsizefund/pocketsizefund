@@ -13,5 +13,3 @@ labels: bug
 ### Specifics
 
 <!-- Provide bullet point details and steps to reproduce. -->
-
-Hey, @forstmeier - here's a bug to review!  

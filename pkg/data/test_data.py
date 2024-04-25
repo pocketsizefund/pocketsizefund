@@ -271,7 +271,8 @@ class TestPrivateGetFormsContents(unittest.TestCase):
         client.http_client = MockHttpClient(
             responses={
                 'edgar/data': MockHTTPGetResponse(
-                    text='form contents',
+                    # text=['form contents']
+                    text='<xml>form contents</xml>',
                 ),
             },
             exceptions=None,
@@ -300,7 +301,7 @@ class TestPrivateGetFormsContents(unittest.TestCase):
 
         self.assertEqual(
             forms_contents[0]['content'],
-            'form contents',
+            ['form contents'],
         )
 
 

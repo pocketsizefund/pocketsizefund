@@ -53,7 +53,7 @@ try:
         EndpointName=endpoint_name,
     )
 
-except Exception as exception:
+except Exception:
     pass
 
 model = tensorflow.TensorFlowModel(
