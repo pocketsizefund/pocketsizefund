@@ -37,3 +37,5 @@ etc/packages/
 
 # Weights and Biases
 cmd/script/trainmodel/secrets.env
+
+wandb
