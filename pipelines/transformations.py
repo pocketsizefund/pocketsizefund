@@ -32,11 +32,6 @@ def select_columns(
 
 
 @task
-def group_data(data: pl.DataFrame, subset: ColumnSubset):
-    return data.groupby(subset)
-
-
-@task
 def filter_data_by_column_value(
     data: pl.DataFrame, column: str, value: str
 ) -> pl.DataFrame:
@@ -48,11 +43,6 @@ def sort_by_columns(
     data: pl.DataFrame, subset: ColumnSubset, descending: bool | list[bool] = False
 ) -> pl.DataFrame:
     return data.sort(subset, descending=descending)
-
-
-@task
-def to_ndarray(data: pl.DataFrame, subset: ColumnSubset) -> np.ndarray:
-    return data.select(subset).to_numpy()
 
 
 @task

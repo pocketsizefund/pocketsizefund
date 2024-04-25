@@ -40,7 +40,6 @@ def train_ticker(
     features: list[str],
     train_test_splits: tuple[float, float, float],
     window=TimeWindow(input=5, output=3),
-    log_prints=True,
 ):
     ticker_data = transformations.filter_data_by_column_value(
         data, column="ticker", value=ticker
@@ -95,8 +94,7 @@ def pipeline(
     features: ColumnSubset,
     close_price_index: float,
     train_test_splits: tuple[float, float, float],
-    log_prints=True,
-    task_runner=RayTaskRunner(),
+    # task_runner=RayTaskRunner(),
 ):
     data = load_dataframe(data_path)
     # TODO make sure ordered by time
