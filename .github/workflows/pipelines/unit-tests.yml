@@ -1,0 +1,21 @@
+name: pocketsizefund unit tests
+on:
+  push:
+    branches: [main, master]
+  paths: [pipelines/ tests/pipelines/]
+jobs:
+  unit-test:
+    name: run unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - uses: yezz123/setup-uv@v4
+        with:
+          uv-venv: .psf-pipelines
+      - name: run pytest with coverage report
+        run: make pipelines-test
