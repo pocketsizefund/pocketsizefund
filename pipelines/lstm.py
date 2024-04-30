@@ -5,11 +5,11 @@ import polars as pl
 import tensorflow
 from keras import layers, losses, metrics, models, optimizers
 from keras.utils import timeseries_dataset_from_array
-from prefect import task
-from wandb.keras import WandbMetricsLogger
+from prefect import get_run_logger, task
 
 import wandb
 from pipelines.types import TimeWindow
+from wandb.keras import WandbMetricsLogger
 
 
 @task
@@ -53,7 +53,7 @@ def shape_timeseries_dataset(
 
 
 @task
-def create(label_count, window: TimeWindow):
+def create_model(label_count, window: TimeWindow):
     model = models.Sequential(
         layers=[
             layers.LSTM(units=32, return_sequences=False),
@@ -75,7 +75,7 @@ def create(label_count, window: TimeWindow):
 
 
 @task
-def train(model, train, validation, epochs: int = 10):
+def train_model(model, train, validation, epochs: int = 10):
     wandb.login(key=os.getenv("WANDB_API_KEY"))
     wandb.init(
         project="pocketsizefund-tickerprediction",
@@ -114,18 +114,11 @@ def evaluate_model(
     model,
     data: tensorflow.data.Dataset,
 ) -> dict[str, any]:
+    logger = get_run_logger()
     evaluation = model.evaluate(
         x=data,
         return_dict=True,
         verbose=0,
     )
 
-    print(evaluation)
-    # wandb.log({
-    #     "training loss": loss[index],
-    #     "training mean absolute error": mean_absolute_error[index],
-    #     "validation loss": validation_loss[index],
-    #     "validation mean absolute error": validation_mean_absolute_error[index],
-    # })
-    #
-    #
+    logger.info(evaluation)

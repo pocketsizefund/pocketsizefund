@@ -1,10 +1,10 @@
 import polars as pl
 from prefect import flow, task
-from prefect_ray import RayTaskRunner
+from prefect_ray.task_runners import RayTaskRunner
 
 from pipelines import lstm, transformations
 from pipelines.loaders import load_dataframe
-from pipelines.types import ColumnSubset, TimeWindow
+from pipelines.types import Bucket, ColumnSubset, TimeWindow
 
 
 @task
@@ -14,7 +14,9 @@ def valid_size(data, window: TimeWindow):
 
 @task
 def train_val_test_split(
-    data: pl.DataFrame, splits: tuple[int, int, int], preserve_order: bool = True
+    data: pl.DataFrame,
+    splits: tuple[int, int, int],
+    preserve_order: bool = True,
 ):
     if not preserve_order:
         data = data.shuffle()
@@ -39,10 +41,12 @@ def train_ticker(
     close_price_index: int,
     features: list[str],
     train_test_splits: tuple[float, float, float],
-    window=TimeWindow(input=5, output=3),
+    window: TimeWindow,
 ):
     ticker_data = transformations.filter_data_by_column_value(
-        data, column="ticker", value=ticker
+        data,
+        column="ticker",
+        value=ticker,
     )
 
     if not valid_size(ticker_data, window=window):
@@ -50,11 +54,12 @@ def train_ticker(
         msg = f"{ticker_data=} has insufficient observations, {requires=}"
         raise ValueError(msg)
 
-    # TODO validator that there's no overlap
-    train, val, test = train_val_test_split(ticker_data, splits=train_test_splits)
+    train, val, test = train_val_test_split(
+        ticker_data, splits=train_test_splits)
 
     train = transformations.sort_by_columns(
-        transformations.min_max_scaler(train), ["timestamp"]
+        transformations.min_max_scaler(train),
+        ["timestamp"],
     )
     train = lstm.shape_timeseries_dataset(
         data=train,
@@ -64,22 +69,30 @@ def train_ticker(
     )
 
     val = transformations.sort_by_columns(
-        transformations.min_max_scaler(val), ["timestamp"]
+        transformations.min_max_scaler(val),
+        ["timestamp"],
     )
     val = lstm.shape_timeseries_dataset(
-        data=val, window=window, features=features, close_price_index=close_price_index
+        data=val,
+        window=window,
+        features=features,
+        close_price_index=close_price_index,
     )
 
     test = transformations.sort_by_columns(
-        transformations.min_max_scaler(test), ["timestamp"]
+        transformations.min_max_scaler(test),
+        ["timestamp"],
     )
 
     test = lstm.shape_timeseries_dataset(
-        data=test, window=window, features=features, close_price_index=close_price_index
+        data=test,
+        window=window,
+        features=features,
+        close_price_index=close_price_index,
     )
 
-    model = lstm.create(3, window)
-    model = lstm.train(model, train, val)
+    model = lstm.create_model(3, window)
+    model = lstm.train_model(model, train, val)
 
     lstm.save_model(model)
 
@@ -88,40 +101,46 @@ def train_ticker(
 
 @flow
 def pipeline(
-    data_path: str,
+    data_path: Bucket,
     timestamp_field: str,
     ticker_field: str,
     features: ColumnSubset,
     close_price_index: float,
     train_test_splits: tuple[float, float, float],
-    # task_runner=RayTaskRunner(),
+    task_runner=RayTaskRunner(),  # noqa: B008
 ):
     data = load_dataframe(data_path)
-    # TODO make sure ordered by time
     data = transformations.drop_nulls(data)
-    data = transformations.drop_duplicates(data, subset=[timestamp_field, ticker_field])
+    data = transformations.drop_duplicates(
+        data, subset=[timestamp_field, ticker_field])
     data = transformations.select_columns(
-        data, subset=[timestamp_field, ticker_field] + features
+        data,
+        subset=[timestamp_field, ticker_field] + features,
     )
 
     unique_tickers = transformations.select_columns(
         transformations.drop_duplicates(data, subset=[ticker_field]),
         subset=[ticker_field],
-    )
+    ).to_dict()["ticker"]
+
+    print(f"{unique_tickers=}")
 
     for ticker in unique_tickers:
+        window = TimeWindow(input=5, output=3)
         train_ticker(
             data=data,
             ticker=ticker,
             close_price_index=close_price_index,
             train_test_splits=train_test_splits,
             features=features,
+            window=window,
         )
 
 
 if __name__ == "__main__":
     pipeline(
-        data_path="data/test_data.csv",
+        data_path=Bucket(block="pocketsizefund-data-bucket",
+                         prefix="tests", key="test_data.csv"),
         timestamp_field="timestamp",
         ticker_field="ticker",
         features=[

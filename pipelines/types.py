@@ -1,6 +1,14 @@
-from pydantic import BaseModel, conint
+from pydantic import BaseModel, Field, conint
 
 ColumnSubset = list[str]
+
+
+class Bucket(BaseModel):
+    block: str = Field(
+        ..., description="Name of the prefect block, not the bucket name itself."
+    )
+    prefix: str
+    key: str
 
 
 class TimeWindow(BaseModel):
