@@ -1,19 +1,9 @@
 alpaca-py
-pandas
-requests
 boto3
 toml
-sagemaker
 tweepy
-numpy
-scikit-learn
-keras
 Flask
-tensorflow
-coverage
 md2pdf
-wandb
 vulture
-ruff
 beautifulsoup4
 lxml # required for beautfulsoup4
