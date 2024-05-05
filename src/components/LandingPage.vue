@@ -10,67 +10,31 @@
             </div>
             <div class='middle'>
                 <h1 class='title'>
-                    Recreational quantitative trading 🍊
+                    Open source quantitative trading 🍊
                 </h1>
-                <br/>
-                <h2 class='subtitle'>
-                    Pocket Size Fund is an <a 
-                        href='https://github.com/pocketsizefund' 
-                        target='_blank'
-                    >open source</a> quantitative proprietary trading firm being built on nights and weekends
+                <h2 class='link'>
+                    <a href='https://github.com/pocketsizefund/pocketsizefund' target='_blank'>GitHub</a>
                 </h2>
-                <br/>   
-                <h2 class='call-to-action'>
-                    <a 
-                        href='https://twitter.com/pocketsizefund' 
-                        target='_blank'
-                    >More coming soon</a>
+                <h2 class='link'>
+                    <a href='https://twitter.com/pocketsizefund' target='_blank'>Twitter</a>
                 </h2>
-                <br/>
-                <br/>
+                <br />
+                <br />
             </div>
         </div>
     </body>
 </template>
 
 <script>
-import axios from 'axios';
-
 export default {
     name: 'LandingPage',
-    data: function() {
-        return {
-            errorMessage: '',
-        };
-    },
-    created: function () {
-        const url = process.env.VUE_APP_GET_PERFORMANCE_API_ENDPOINT;
-
-        const config = {
-            headers: {
-                'x-pocket-size-fund-api-key': process.env.VUE_APP_API_KEY,
-            }
-        }
-
-        axios.get(url, config)
-            .then((/*response*/) => {
-                // TODO: implement after backend is complete
-            })
-            .catch(() => {
-                this.$data.errorMessage = 'Data is not available yet.';
-            }
-        );
-    },
 };
 </script>
 
 <style>
 body {
     font-family: 'Lexend', sans-serif;
-    background-image: url('../assets/background-oranges.jpg');
-    background-repeat: no-repeat;
-    background-size: cover;
-    background-attachment: fixed;
+    background-color: #ff9a00;
     height: 100%;
     width: 100%;
     color: #ffffff;
@@ -81,10 +45,9 @@ body {
     margin: auto;
     width: 34rem;
     padding: 2rem 1rem 0rem;
-
 }
 
-.top > div {
+.top>div {
     display: inline-block;
 }
 
@@ -105,18 +68,15 @@ a {
     font-size: 4rem;
     font-weight: 800;
     align-content: center;
+    padding-bottom: 2rem;
 }
 
-.subtitle,
-.call-to-action {
-    font-size: 2rem;
+.link {
+    font-size: 3rem;
     font-weight: 800;
-    align-content: center;
-}
-
-.performance {
-    padding-top: 2rem;
-    font-size: 1.5rem;
+    display: inline;
+    padding-right: 1rem;
+    padding-bottom: 1rem;
 }
 
 @media screen and (max-width: 580px) {
@@ -132,8 +92,7 @@ a {
         font-size: 2.5rem;
     }
 
-    .subtitle,
-    .call-to-action {
+    .link {
         font-size: 1.5rem;
     }
 }
