@@ -6,7 +6,7 @@
 
 ## About
 
-**Pocket Size Fund** is an open source quantitative proprietary trading firm being built on nights and weekends.  
+**Pocket Size Fund** is an open source quantitative trading firm being built on nights and weekends.  
 
 **pocketsizefund** holds the main resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
 
