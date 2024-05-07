@@ -1,233 +1,243 @@
 import pandas
-from sklearn import preprocessing
-import numpy
-import tensorflow
-import keras
+# from sklearn import preprocessing
+# import numpy
+# import tensorflow
+# import keras
 
 
-FEATURE_NAMES = tuple(
-    [
-        'open_price',
-        'high_price',
-        'low_price',
-        'close_price',
-        'volume',
-    ]
-)
+# FEATURE_NAMES = tuple(
+#     [
+#         'open_price',
+#         'high_price',
+#         'low_price',
+#         'close_price',
+#         'volume',
+#     ]
+# )
 
-REQUIRED_COLUMNS = tuple(
-    [
-        'timestamp',
-        'ticker',
-    ]
-)
+# REQUIRED_COLUMNS = tuple(
+#     [
+#         'timestamp',
+#         'ticker',
+#     ]
+# )
 
-WINDOW_INPUT_LENGTH = 30
-WINDOW_OUTPUT_LENGTH = 5
+# WINDOW_INPUT_LENGTH = 30
+# WINDOW_OUTPUT_LENGTH = 5
 
-CLOSE_PRICE_INDEX = 3
+# CLOSE_PRICE_INDEX = 3
 
 
 class Client:
     def __init__(self):
-        self.feature_names = FEATURE_NAMES
-        self.required_columns = REQUIRED_COLUMNS
-        self.window_input_length = WINDOW_INPUT_LENGTH
-        self.window_output_length = WINDOW_OUTPUT_LENGTH
+        pass  # TEMP
 
-    def generate_features(
-        self,
-        data: pandas.DataFrame,
-    ) -> pandas.DataFrame:
-        # temporary implementation that will
-        # hold feature engineering logic
-        return data
+    
 
-    def preprocess_training_features(
-        self,
-        data: pandas.DataFrame,
-        splits: tuple[float, float, float] = (0.7, 0.2, 0.1),
-    ) -> dict[str, any]:
-        data_grouped_by_ticker = self._clean_and_group_data(data)
+    # def generate_features(
+    #     self,
+    #     data: pandas.DataFrame,
+    # ) -> pandas.DataFrame:
+    #     pass # TEMP
 
-        scalers: dict[int, preprocessing.MinMaxScaler] = {}
+#         self.feature_names = FEATURE_NAMES
+#         self.required_columns = REQUIRED_COLUMNS
+#         self.window_input_length = WINDOW_INPUT_LENGTH
+#         self.window_output_length = WINDOW_OUTPUT_LENGTH
 
-        scaled_training_data: list[numpy.ndarray] = []
-        scaled_validating_data: list[numpy.ndarray] = []
-        scaled_testing_data: list[numpy.ndarray] = []
+#     def generate_features(
+#         self,
+#         data: pandas.DataFrame,
+#     ) -> pandas.DataFrame:
+#         # temporary implementation that will
+#         # hold feature engineering logic
+#         return data
 
-        for ticker, ticker_data in data_grouped_by_ticker.items():
-            count = len(ticker_data)
+#     def preprocess_training_features(
+#         self,
+#         data: pandas.DataFrame,
+#         splits: tuple[float, float, float] = (0.7, 0.2, 0.1),
+#     ) -> dict[str, any]:
+#         data_grouped_by_ticker = self._clean_and_group_data(data)
 
-            if count < self.window_input_length + self.window_output_length:
-                continue
+#         scalers: dict[int, preprocessing.MinMaxScaler] = {}
 
-            first_split = int(count * splits[0])
-            second_split = int(count * (splits[0] + splits[1]))
+#         scaled_training_data: list[numpy.ndarray] = []
+#         scaled_validating_data: list[numpy.ndarray] = []
+#         scaled_testing_data: list[numpy.ndarray] = []
 
-            training_data = ticker_data[:first_split]
-            validating_data = ticker_data[first_split:second_split]
-            testing_data = ticker_data[second_split:]
+#         for ticker, ticker_data in data_grouped_by_ticker.items():
+#             count = len(ticker_data)
 
-            scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
+#             if count < self.window_input_length + self.window_output_length:
+#                 continue
 
-            scaled_training_data.append(scaler.fit_transform(
-                X=training_data.values,
-            ))
+#             first_split = int(count * splits[0])
+#             second_split = int(count * (splits[0] + splits[1]))
 
-            scaled_validating_data.append(scaler.transform(
-                X=validating_data.values,
-            ))
+#             training_data = ticker_data[:first_split]
+#             validating_data = ticker_data[first_split:second_split]
+#             testing_data = ticker_data[second_split:]
 
-            scaled_testing_data.append(scaler.transform(
-                X=testing_data.values,
-            ))
+#             scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
 
-            scalers[ticker] = scaler
+#             scaled_training_data.append(scaler.fit_transform(
+#                 X=training_data.values,
+#             ))
 
-        training_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_training_data))
+#             scaled_validating_data.append(scaler.transform(
+#                 X=validating_data.values,
+#             ))
 
-        validating_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_validating_data))
+#             scaled_testing_data.append(scaler.transform(
+#                 X=testing_data.values,
+#             ))
 
-        testing_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_testing_data))
+#             scalers[ticker] = scaler
 
-        training_dataset = training_datasets[0]
-        for dataset in training_datasets[1:]:
-            training_dataset = training_dataset.concatenate(dataset)
+#         training_datasets = list(map(lambda x: self._create_dataset(
+#             data=x,
+#         ), scaled_training_data))
 
-        validating_dataset = validating_datasets[0]
-        for dataset in validating_datasets[1:]:
-            validating_dataset = validating_dataset.concatenate(dataset)
+#         validating_datasets = list(map(lambda x: self._create_dataset(
+#             data=x,
+#         ), scaled_validating_data))
 
-        testing_dataset = testing_datasets[0]
-        for dataset in testing_datasets[1:]:
-            testing_dataset = testing_dataset.concatenate(dataset)
+#         testing_datasets = list(map(lambda x: self._create_dataset(
+#             data=x,
+#         ), scaled_testing_data))
 
-        return {
-            'data': {
-                'training': training_dataset,
-                'validating': validating_dataset,
-                'testing': testing_dataset,
-            },
-            'scalers': scalers,
-        }
+#         training_dataset = training_datasets[0]
+#         for dataset in training_datasets[1:]:
+#             training_dataset = training_dataset.concatenate(dataset)
 
-    def _create_dataset(
-        self,
-        data: numpy.ndarray,
-    ) -> tensorflow.data.Dataset:
-        dataset = keras.utils.timeseries_dataset_from_array(
-            data=data,
-            targets=None,
-            sequence_length=self.window_output_length+self.window_input_length,
-            sequence_stride=1,
-            shuffle=True,
-            batch_size=32,
-        )
+#         validating_dataset = validating_datasets[0]
+#         for dataset in validating_datasets[1:]:
+#             validating_dataset = validating_dataset.concatenate(dataset)
 
-        windowed_dataset = dataset.map(
-            lambda x: self._split_window(x)
-        )
+#         testing_dataset = testing_datasets[0]
+#         for dataset in testing_datasets[1:]:
+#             testing_dataset = testing_dataset.concatenate(dataset)
 
-        return windowed_dataset
+#         return {
+#             'data': {
+#                 'training': training_dataset,
+#                 'validating': validating_dataset,
+#                 'testing': testing_dataset,
+#             },
+#             'scalers': scalers,
+#         }
 
-    def _split_window(
-        self,
-        data: tensorflow.Tensor,
-    ) -> tensorflow.data.Dataset:
-        input_slice = slice(0, self.window_input_length)
-        labels_slice = slice(self.window_input_length, None)
+#     def _create_dataset(
+#         self,
+#         data: numpy.ndarray,
+#     ) -> tensorflow.data.Dataset:
+#         dataset = keras.utils.timeseries_dataset_from_array(
+#             data=data,
+#             targets=None,
+#             sequence_length=self.window_output_length+self.window_input_length,
+#             sequence_stride=1,
+#             shuffle=True,
+#             batch_size=32,
+#         )
 
-        inputs = data[:, input_slice, :]
-        labels = data[:, labels_slice, :]
+#         windowed_dataset = dataset.map(
+#             lambda x: self._split_window(x)
+#         )
 
-        labels = tensorflow.stack(
-            [labels[:, :, CLOSE_PRICE_INDEX]],
-            axis=-1,
-        )
+#         return windowed_dataset
 
-        inputs.set_shape([None, self.window_input_length, None])
-        labels.set_shape([None, self.window_output_length, None])
+#     def _split_window(
+#         self,
+#         data: tensorflow.Tensor,
+#     ) -> tensorflow.data.Dataset:
+#         input_slice = slice(0, self.window_input_length)
+#         labels_slice = slice(self.window_input_length, None)
 
-        return (inputs, labels)
+#         inputs = data[:, input_slice, :]
+#         labels = data[:, labels_slice, :]
 
-    def preprocess_predicting_features(
-        self,
-        data: pandas.DataFrame,
-        scalers: dict[str, preprocessing.MinMaxScaler],
-    ) -> dict[str, tensorflow.data.Dataset]:
-        data_grouped_by_ticker = self._clean_and_group_data(data)
+#         labels = tensorflow.stack(
+#             [labels[:, :, CLOSE_PRICE_INDEX]],
+#             axis=-1,
+#         )
 
-        predicting_datasets: dict[str, tensorflow.data.Dataset] = {}
+#         inputs.set_shape([None, self.window_input_length, None])
+#         labels.set_shape([None, self.window_output_length, None])
 
-        for ticker, ticker_data in data_grouped_by_ticker.items():
-            count = len(ticker_data)
+#         return (inputs, labels)
 
-            if count < self.window_input_length:
-                continue
+#     def preprocess_predicting_features(
+#         self,
+#         data: pandas.DataFrame,
+#         scalers: dict[str, preprocessing.MinMaxScaler],
+#     ) -> dict[str, tensorflow.data.Dataset]:
+#         data_grouped_by_ticker = self._clean_and_group_data(data)
 
-            if ticker not in scalers:
-                continue
+#         predicting_datasets: dict[str, tensorflow.data.Dataset] = {}
 
-            scaled_ticker_data = scalers[ticker].transform(
-                X=ticker_data.values,
-            )
+#         for ticker, ticker_data in data_grouped_by_ticker.items():
+#             count = len(ticker_data)
 
-            dataset = keras.utils.timeseries_dataset_from_array(
-                data=scaled_ticker_data,
-                targets=None,
-                sequence_length=self.window_input_length,
-                shuffle=True,
-            )
+#             if count < self.window_input_length:
+#                 continue
 
-            predicting_datasets[ticker] = dataset
+#             if ticker not in scalers:
+#                 continue
 
-        return predicting_datasets
+#             scaled_ticker_data = scalers[ticker].transform(
+#                 X=ticker_data.values,
+#             )
 
-    def _clean_and_group_data(
-        self,
-        data: pandas.DataFrame,
-    ) -> dict[str, pandas.DataFrame]:
-        data.dropna(
-            inplace=True,
-        )
+#             dataset = keras.utils.timeseries_dataset_from_array(
+#                 data=scaled_ticker_data,
+#                 targets=None,
+#                 sequence_length=self.window_input_length,
+#                 shuffle=True,
+#             )
 
-        timestamp_column = self.required_columns[0]
-        ticker_column = self.required_columns[1]
+#             predicting_datasets[ticker] = dataset
 
-        data.drop_duplicates(
-            subset=[
-                timestamp_column,
-                ticker_column,
-            ],
-            inplace=True,
-        )
+#         return predicting_datasets
 
-        data = data.filter(
-            items=self.required_columns + self.feature_names,
-            axis=1,
-        )
+#     def _clean_and_group_data(
+#         self,
+#         data: pandas.DataFrame,
+#     ) -> dict[str, pandas.DataFrame]:
+#         data.dropna(
+#             inplace=True,
+#         )
 
-        data.set_index(
-            keys=timestamp_column,
-            inplace=True,
-        )
+#         timestamp_column = self.required_columns[0]
+#         ticker_column = self.required_columns[1]
 
-        data_grouped_by_ticker = {
-            str(ticker): ticker_group.drop(
-                columns=[ticker_column],
-            )
-            for ticker, ticker_group
-            in data.groupby(
-                by=ticker_column,
-                dropna=True,
-            )
-        }
+#         data.drop_duplicates(
+#             subset=[
+#                 timestamp_column,
+#                 ticker_column,
+#             ],
+#             inplace=True,
+#         )
 
-        return data_grouped_by_ticker
+#         data = data.filter(
+#             items=self.required_columns + self.feature_names,
+#             axis=1,
+#         )
+
+#         data.set_index(
+#             keys=timestamp_column,
+#             inplace=True,
+#         )
+
+#         data_grouped_by_ticker = {
+#             str(ticker): ticker_group.drop(
+#                 columns=[ticker_column],
+#             )
+#             for ticker, ticker_group
+#             in data.groupby(
+#                 by=ticker_column,
+#                 dropna=True,
+#             )
+#         }
+
+#         return data_grouped_by_ticker

@@ -3,19 +3,19 @@
 # convert Markdown source
 # into PDF paper
 
-set -e
+# set -e
 
-input=$1
-output=$2
+# input=$1
+# output=$2
 
-if [[ -z "$input" ]]; then
-    echo "valid input filepath required"
-    exit 0
-fi
+# if [[ -z "$input" ]]; then
+#     echo "valid input filepath required"
+#     exit 0
+# fi
 
-if [[ -z "$output" ]]; then
-    echo "valid output filepath required"
-    exit 0
-fi
+# if [[ -z "$output" ]]; then
+#     echo "valid output filepath required"
+#     exit 0
+# fi
 
-md2pdf $input $output
+# md2pdf $input $output

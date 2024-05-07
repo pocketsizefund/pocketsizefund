@@ -1,39 +1,21 @@
-# configurations
 samconfig.toml
-
-# Python resources
 __pycache__/
 *.py[cod]
-
-# editor settings
 .vscode/
-
-# data
 etc/data/*.csv
-
-# model
 model.tar.gz
 *.keras
 *.pkl
 cmd/scripts/evaluatemodel/metrics/*
-
-# infrastucture
 .aws-sam/
-
-# JavaScript
 .DS_Store
 node_modules
 /dist
-
-# general
 etc/buildspace/ 
 etc/data/
 etc/meetings/
 etc/packages/
 !etc/examples/samconfig.toml
-
-# testing
 .coverage*
-
-# Weights and Biases
 cmd/script/trainmodel/secrets.env
+lightning_logs/

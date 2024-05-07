@@ -2,6 +2,6 @@
 
 # generate and store features
 
-set -e
+# set -e
 
-python3 ./bin/helpers/generate_features.py --samconfig-file-path samconfig.toml
+# python3 ./bin/helpers/generate_features.py --samconfig-file-path samconfig.toml
