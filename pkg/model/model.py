@@ -6,6 +6,10 @@ from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet, me
 from pytorch_forecasting.metrics import MAE, SMAPE, PoissonLoss, QuantileLoss, MultiLoss, RMSE
 from pytorch_forecasting.data import GroupNormalizer, MultiNormalizer
 import torch
+from lightning.pytorch.loggers import WandbLogger
+
+
+from icecream import ic
 
 
 class Model:
@@ -24,8 +28,16 @@ class Model:
         # [ ] ensure no NaNs
         # [ ] ensure all timestamps represented per ticker (?)
 
-        data['time_index'] = data['timestamp'].dt.year * 12 + data['timestamp'].dt.month + data['timestamp'].dt.day
-        data['time_index'] -= data['time_index'].min()
+
+
+        start_date = data["timestamp"].min()
+        end_date = data["timestamp"].max()
+
+        dates = pandas.date_range(start_date, end_date, freq="d")
+        time_indexes = range(len(dates))
+        dates = pandas.DataFrame({"time_index": time_indexes, "date": dates})
+
+        data = data.merge(dates, left_on="timestamp", right_on="date")
 
         data['weekday'] = data['timestamp'].dt.weekday
         data['yearday'] = data['timestamp'].dt.dayofyear
@@ -38,7 +50,7 @@ class Model:
         maximum_encoder_length = 24 # should be 20 (?)
         # training_cutoff = data["time_idx"].max() - max_prediction_length
 
-        print('data:', data)
+        # print('data:', data)
 
         training = TimeSeriesDataSet(
             data=data,
@@ -101,6 +113,7 @@ class Model:
             allow_missing_timesteps=True, # TEMP
         )
 
+
         print('reaching here -----------------------')
 
         validation = TimeSeriesDataSet.from_dataset(
@@ -109,6 +122,7 @@ class Model:
             predict=True, 
             stop_randomization=True,
         )
+
 
         print('reaching here 2 -----------------------')
 
@@ -119,11 +133,16 @@ class Model:
             num_workers=0,
         )
 
+
+
+
         validation_dataloader = validation.to_dataloader(
             train=False, 
-            batch_size=batch_size * 10, 
+            batch_size=batch_size,  # FIXED? batch_size * 10 may have been causing the emptiness
             num_workers=0,
         )
+
+
 
         pl.seed_everything(42)
         # trainer = pl.Trainer(
@@ -174,11 +193,12 @@ class Model:
 
         trainer = pl.Trainer(
             max_epochs=50,
-            accelerator="cpu",
+            accelerator="gpu",
             enable_model_summary=True,
             gradient_clip_val=0.1,
             limit_train_batches=50,  # comment in for training, running valiation every 30 batches
             # fast_dev_run=True,  # comment in to check that networkor dataset has no serious bugs
+            # logger = WandbLogger(project="FILL IN"),
             callbacks=[
                 learning_rate_logger,
                 early_stop_callback,
@@ -203,7 +223,7 @@ class Model:
             attention_head_size=2,
             dropout=0.1,
             hidden_continuous_size=8,
-            loss=loss,
+            loss=RMSE(),
             log_interval=10,  # uncomment for learning rate finder and otherwise, e.g. to 10 for logging every 10 batches
             optimizer="Ranger",
             reduce_on_plateau_patience=4,
@@ -211,6 +231,7 @@ class Model:
 
         print('train_dataloader:', train_dataloader)
         print('validation_dataloader:', validation_dataloader)
+
 
         trainer.fit(
             model,
