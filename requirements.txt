@@ -8,3 +8,8 @@ vulture
 beautifulsoup4
 lxml # required for beautfulsoup4
 coverage
+tensorflow
+keras
+sagemaker
+wandb
+scikit-learn

@@ -11,15 +11,13 @@ from keras import models, layers, losses, optimizers, metrics
 import wandb
 
 
-FEATURE_NAMES = tuple(
-    [
-        'open_price',
-        'high_price',
-        'low_price',
-        'close_price',
-        'volume',
-    ]
-)
+FEATURE_NAMES = tuple([
+    'open_price',
+    'high_price',
+    'low_price',
+    'close_price',
+    'volume',
+])
 
 REQUIRED_COLUMNS = tuple(
     [
