@@ -255,7 +255,6 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
             forms_information[0]['acceptance_date'],
             datetime.datetime(
                 1977, 5, 26, 18, 36, 45,
-                tzinfo=datetime.timezone.utc,
             ),
         )
 

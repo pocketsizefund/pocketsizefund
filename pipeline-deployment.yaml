@@ -1,0 +1,81 @@
+###
+### A complete description of a Prefect Deployment for flow 'pipeline'
+###
+name: basic-lstm-trainer
+description: null
+version: f1967649797aa9a9e6fe45e3dc4e3e6c
+# The work queue that will handle this deployment's runs
+work_queue_name: default
+work_pool_name: null
+tags: []
+parameters: {}
+schedule: null
+schedules: []
+is_schedule_active: null
+infra_overrides: {}
+infrastructure:
+  type: process
+  env: {}
+  labels: {}
+  name: null
+  command: null
+  stream_output: true
+  working_dir: null
+  block_type_slug: process
+  _block_type_slug: process
+
+###
+### DO NOT EDIT BELOW THIS LINE
+###
+flow_name: pipeline
+manifest_path: null
+storage: null
+path: /Users/chrisaddy/projects/psf/pocketsizefund
+entrypoint: pipelines.train_model:pipeline
+parameter_openapi_schema:
+  title: Parameters
+  type: object
+  properties:
+    data_path:
+      position: 0
+      title: data_path
+      type: string
+    timestamp_field:
+      position: 1
+      title: timestamp_field
+      type: string
+    ticker_field:
+      position: 2
+      title: ticker_field
+      type: string
+    features:
+      items:
+        type: string
+      position: 3
+      title: features
+      type: array
+    close_price_index:
+      position: 4
+      title: close_price_index
+      type: number
+    train_test_splits:
+      maxItems: 3
+      minItems: 3
+      position: 5
+      prefixItems:
+      - type: number
+      - type: number
+      - type: number
+      title: train_test_splits
+      type: array
+  required:
+  - data_path
+  - timestamp_field
+  - ticker_field
+  - features
+  - close_price_index
+  - train_test_splits
+  definitions: null
+timestamp: '2024-04-25T23:04:01.212675+00:00'
+triggers: []
+enforce_parameter_schema: null

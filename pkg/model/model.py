@@ -11,15 +11,13 @@ from keras import models, layers, losses, optimizers, metrics
 import wandb
 
 
-FEATURE_NAMES = tuple(
-    [
-        'open_price',
-        'high_price',
-        'low_price',
-        'close_price',
-        'volume',
-    ]
-)
+FEATURE_NAMES = tuple([
+    'open_price',
+    'high_price',
+    'low_price',
+    'close_price',
+    'volume',
+])
 
 REQUIRED_COLUMNS = tuple(
     [
@@ -330,20 +328,6 @@ class Model:
     ) -> None:
         model.save(
             filepath=os.path.join(self.artifact_output_path, 'lstm.keras'),
-        )
-
-    def save_metrics(
-        self,
-        metrics: any,
-    ) -> None:
-        metrics_file = open(
-            file=os.path.join(self.artifact_output_path, 'metrics.pkl'),
-            mode='wb',
-        )
-
-        pickle.dump(
-            obj=metrics,
-            file=metrics_file,
         )
 
     def save_scalers(

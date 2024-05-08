@@ -233,9 +233,6 @@ class Client:
         forms: list[str],
         target_form: str,
     ) -> list[dict[str, any]]:
-        start_at = start_at.replace(tzinfo=datetime.timezone.utc)
-        end_at = end_at.replace(tzinfo=datetime.timezone.utc)
-
         indices = [
             index for index, form in enumerate(forms)
             if form == target_form
@@ -244,7 +241,7 @@ class Client:
         forms_information = []
         for index in indices:
             acceptance_date = datetime.datetime.fromisoformat(
-                acceptance_dates[index]
+                acceptance_dates[index][:-1], # remove trailing "Z"
             )
 
             if acceptance_date >= start_at and acceptance_date <= end_at:
