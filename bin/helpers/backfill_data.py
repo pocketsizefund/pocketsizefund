@@ -1,11 +1,11 @@
 import argparse
 import datetime
 
-from pkg.config import config
-from pkg.storage import storage
-from pkg.data import data
-from pkg.trade import trade
+import config
 
+from pkg.data import data
+from pkg.storage import storage
+from pkg.trade import trade
 
 parser = argparse.ArgumentParser(
     prog='backfill data helper script',

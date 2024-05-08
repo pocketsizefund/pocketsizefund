@@ -1,11 +1,9 @@
 import argparse
 
 import boto3
+import config
 from sagemaker import tensorflow
 from sagemaker.serverless import serverless_inference_config
-
-from pkg.config import config
-
 
 parser = argparse.ArgumentParser()
 
