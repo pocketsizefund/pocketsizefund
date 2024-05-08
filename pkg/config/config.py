@@ -4,8 +4,6 @@ import toml
 
 import argparse
 
-import toml
-
 ENVIRONMENT_DEVELOPMENT = "development"
 
 
