@@ -330,20 +330,6 @@ class Model:
             filepath=os.path.join(self.artifact_output_path, 'lstm.keras'),
         )
 
-    def save_metrics(
-        self,
-        metrics: any,
-    ) -> None:
-        metrics_file = open(
-            file=os.path.join(self.artifact_output_path, 'metrics.pkl'),
-            mode='wb',
-        )
-
-        pickle.dump(
-            obj=metrics,
-            file=metrics_file,
-        )
-
     def save_scalers(
         self,
         scalers: dict[str, preprocessing.MinMaxScaler],

@@ -109,6 +109,8 @@ def pipeline(
     train_test_splits: tuple[float, float, float],
     task_runner=RayTaskRunner(),  # noqa: B008
 ):
+    _ = task_runner
+
     data = load_dataframe(data_path)
     data = transformations.drop_nulls(data)
     data = transformations.drop_duplicates(
