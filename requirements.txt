@@ -13,3 +13,6 @@ keras
 sagemaker
 wandb
 scikit-learn
+ruff
+pandas
+requests
