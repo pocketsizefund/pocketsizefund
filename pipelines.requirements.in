@@ -1,0 +1,6 @@
+prefect-ray
+prefect-aws
+tensorflow
+scikit-learn
+polars
+wandb

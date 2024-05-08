@@ -18,4 +18,5 @@ etc/packages/
 !etc/examples/samconfig.toml
 .coverage*
 cmd/script/trainmodel/secrets.env
+wandb
 lightning_logs/

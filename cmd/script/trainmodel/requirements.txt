@@ -1,9 +1,0 @@
-sagemaker
-pandas
-scikit-learn
-numpy
-tensorflow
-keras
-boto3
-sagemaker-training
-wandb
