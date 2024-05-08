@@ -14,8 +14,9 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.11
-      - uses: yezz123/setup-uv@v4
+      - name: Setup uv
+        uses: yezz123/setup-uv@v4
         with:
           uv-venv: .psf-pipelines
-      - name: run pytest with coverage report
+      - name: Run pytest with coverage report
         run: make pipelines-test

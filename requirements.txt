@@ -7,3 +7,4 @@ md2pdf
 vulture
 beautifulsoup4
 lxml # required for beautfulsoup4
+coverage
