@@ -24,13 +24,17 @@ class Model:
         data: pd.DataFrame,
     ) -> None:
         """Train the model with the input data."""
+        data = self._generate_features(data)
+
         train_dataset = self._generate_input_dataset(data)
 
-        train_dataloader = self._generate_input_dataloader(data)
+        train_dataloader = self._generate_input_dataloader(
+            train_dataset=train_dataset,
+        )
 
         validation_dataloader = self._generate_validation_dataloader(
-            data,
-            train_dataloader,
+            data=data,
+            train_dataset=train_dataset,
         )
 
         pl.seed_everything(42)
@@ -81,17 +85,21 @@ class Model:
 
     def save_model(self) -> None:
         """Save trained model to a file."""
-        torch.save(self.model, "tft_model.pth")
+        torch.save(self.model.state_dict(), "tft_model.pth")
 
     def load_model(self) -> None:
         """Load trained model from a file."""
-        self.model = torch.load("tft_model.pth")
+        self.model = TemporalFusionTransformer()
+
+        self.model.load_state_dict(torch.load("tft_model.pth"))
 
     def get_predictions(
         self,
         data: pd.DataFrame,
     ) -> pd.DataFrame:
         """Get predictions for the input data."""
+        data = self._generate_features(data)
+
         predict_dataset = self._generate_input_dataset(data)
 
         predict_dataloader = self._generate_input_dataloader(predict_dataset)
@@ -101,24 +109,41 @@ class Model:
         return predictions.output
 
 
-    def _generate_input_dataset(
+    def _generate_features(
         self,
         data: pd.DataFrame,
-    ) -> TimeSeriesDataSet:
+    ) -> pd.DataFrame:
         start_date = data["timestamp"].min()
         end_date = data["timestamp"].max()
 
-        dates = pd.date_range(start_date, end_date, freq="d")
+        data["timestamp"] = pd.to_datetime(data["timestamp"])
+
+        dates = pd.date_range(
+            start=start_date,
+            end=end_date,
+            freq="d",
+        )
+
         time_indexes = range(len(dates))
         dates = pd.DataFrame({"time_index": time_indexes, "date": dates})
 
-        data = data.merge(dates, left_on="timestamp", right_on="date")
+        data = data.merge(
+            right=dates,
+            left_on="timestamp",
+            right_on="date",
+        )
 
         data["weekday"] = data["timestamp"].dt.weekday
         data["yearday"] = data["timestamp"].dt.dayofyear
 
         data["ticker"] = pd.Categorical(data["ticker"])
 
+        return data
+
+    def _generate_input_dataset(
+        self,
+        data: pd.DataFrame,
+    ) -> TimeSeriesDataSet:
         maximum_prediction_length = 5
         maximum_encoder_length = 24
 
@@ -184,10 +209,10 @@ class Model:
     def _generate_validation_dataloader(
         self,
         data: pd.DataFrame,
-        train_dataloader: DataLoader,
+        train_dataset: TimeSeriesDataSet,
     ) -> DataLoader:
         validation = TimeSeriesDataSet.from_dataset(
-            train_dataloader,
+            train_dataset,
             data,
             predict=True,
             stop_randomization=True,
@@ -214,3 +239,15 @@ class Client:
     ) -> pd.DataFrame:
         """Get predictions for the input data."""
         return self.predictor.predict()
+
+data = pd.read_csv("pkg/model/test_data.csv")
+
+model = Model()
+
+model.train_model(data)
+
+model.save_model()
+
+model.model = None
+
+model.load_model()
