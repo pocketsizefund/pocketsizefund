@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-# generate and store features
-
-# set -e
-
-# python3 ./bin/helpers/generate_features.py --samconfig-file-path samconfig.toml
