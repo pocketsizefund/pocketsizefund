@@ -32,7 +32,7 @@ class SAMConfig:
 
     def get_parameter(self, parameter_name: str) -> str:
         """
-        Get parameter value.
+        Get a parameter from the SAM config file.
 
         Args:
             parameter_name (str): Parameter name.
