@@ -1,8 +1,6 @@
 """Inference endpoint for price prediction model."""
-
 import json
 import os
-from datetime import datetime, timedelta
 
 import flask
 
@@ -12,12 +10,13 @@ from pkg.trade import trade
 
 app = flask.Flask(__name__)
 
-trade_client = trade.Client(
-    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
-    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-    alpaca_secret_key=os.getenv("ALPACA_SECRET_KEY"),
-    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-    is_paper=True,
+
+scalers_file = open(os.getenv("MODEL_DIR")+"/scalers.pkl", "rb")
+scalers = pickle.load(scalers_file)
+
+model_model = model.Model(
+    artifact_output_path=os.getenv("MODEL_DIR"),
+    weights_and_biases_api_key="",
 )
 
 data_client = data.Client(
@@ -33,28 +32,10 @@ price_prediction_model.load_model(
     file_path="price_prediction_model.ckpt",
 )
 
-
 @app.route("/invocations", methods=["POST"])
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""
-    available_tickers = trade_client.get_available_tickers()
-
-    start_date = datetime.now(
-        tz="UTC",
-    )
-    end_date = start_date - timedelta(
-        days=20,
-    )
-
-    equity_bars_raw_data = data_client.get_range_equities_bars(
-        tickers=available_tickers,
-        start_date=start_date,
-        end_date=end_date,
-    )
-
-    predictions = price_prediction_model.predict(
-        data=equity_bars_raw_data,
-    )
+    predictions = price_prediction_model.get_predictions()
 
     return flask.Response(
         response=json.dumps(predictions),
