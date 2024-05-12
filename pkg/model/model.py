@@ -2,7 +2,6 @@
 
 import lightning.pytorch as pl
 import pandas as pd
-import torch
 from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor
 from lightning.pytorch.loggers import TensorBoardLogger
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
@@ -37,7 +36,7 @@ class Model:
             train_dataset=train_dataset,
         )
 
-        pl.seed_everything(42)
+        pl.seed_everything(42) # TEMP
 
         early_stop_callback = EarlyStopping(
             monitor="val_loss",
@@ -62,6 +61,8 @@ class Model:
             logger=logger,
         )
 
+        self.trainer = trainer
+
         model = TemporalFusionTransformer.from_dataset(
             dataset=train_dataset,
             learning_rate=0.03,
@@ -85,13 +86,13 @@ class Model:
 
     def save_model(self) -> None:
         """Save trained model to a file."""
-        torch.save(self.model.state_dict(), "tft_model.pth")
+        self.trainer.save_checkpoint("tft_model.ckpt")
 
     def load_model(self) -> None:
         """Load trained model from a file."""
-        self.model = TemporalFusionTransformer()
+        self.model = TemporalFusionTransformer.load_from_checkpoint("tft_model.ckpt")
 
-        self.model.load_state_dict(torch.load("tft_model.pth"))
+        self.model.eval()
 
     def get_predictions(
         self,
@@ -104,10 +105,7 @@ class Model:
 
         predict_dataloader = self._generate_input_dataloader(predict_dataset)
 
-        predictions = self.model.predict(predict_dataloader)
-
-        return predictions.output
-
+        return self.model.predict(predict_dataloader)
 
     def _generate_features(
         self,
@@ -251,3 +249,7 @@ model.save_model()
 model.model = None
 
 model.load_model()
+
+predictions = model.get_predictions(data)
+
+print("predictions: ", predictions)
