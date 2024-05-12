@@ -1,51 +1,57 @@
-import os
-import pickle
+"""Inference endpoint for price prediction model."""
 import json
+import os
+from datetime import datetime, timedelta
 
 import flask
-import pandas
 
+from pkg.data import data
 from pkg.model import model
-from pkg.features import features
-
+from pkg.trade import trade
 
 app = flask.Flask(__name__)
 
-
-scalers_file = open(os.getenv('MODEL_DIR')+'/scalers.pkl', 'rb')
-scalers = pickle.load(scalers_file)
-
-model_model = model.Model(
-    artifact_output_path=os.getenv('MODEL_DIR'),
-    weights_and_biases_api_key='',
+trade_client = trade.Client(
+    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_secret_key=os.getenv("ALPACA_SECRET_KEY"),
+    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
+    is_paper=True,
 )
 
-model_model.load_model()
+data_client = data.Client(
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_secret_key=os.getenv("ALPACA_SECRET_KEY"),
+    edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
+    print_logs=False,
+)
 
-model_model.load_scalers()
+price_prediction_model = model.Model()
 
-features_client = features.Client()
+price_prediction_model.load_model(
+    file_path="price_prediction_model.ckpt",
+)
 
-
-@app.route('/invocations', methods=['POST'])
+@app.route("/invocations", methods=["POST"])
 def invocations() -> flask.Response:
-    json_data = flask.request.get_json()
+    """Invocations handles prediction requests to the inference endpoint."""
+    available_tickers = trade_client.get_available_tickers()
 
-    input_data = pandas.DataFrame(
-        data=json_data,
+    start_date = datetime.now(
+        tz="UTC",
+    )
+    end_date = start_date - timedelta(
+        days=20,
     )
 
-    features_data = features_client.generate_features(
-        data=input_data,
+    equity_bars_raw_data = data_client.get_range_equities_bars(
+        tickers=available_tickers,
+        start_date=start_date,
+        end_date=end_date,
     )
 
-    preprocessed_features = model_model.preprocess_predicting_features(
-        data=features_data,
-        scalers=scalers,
-    )
-
-    predictions = model_model.generate_predictions(
-        features=preprocessed_features,
+    predictions = price_prediction_model.predict(
+        data=equity_bars_raw_data,
     )
 
     return flask.Response(
@@ -54,17 +60,18 @@ def invocations() -> flask.Response:
     )
 
 
-@app.route('/ping', methods=['GET'])
+@app.route("/ping", methods=["GET"])
 def ping() -> flask.Response:
+    """Ping checks the health of the model endpoint."""
     return flask.Response(
-        response='',
+        response="",
         status=200,
-        mimetype='application/json',
+        mimetype="application/json",
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(
-        host='0.0.0.0',
+        host="0.0.0.0",  # noqa: S104
         port=8080,
     )

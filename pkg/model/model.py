@@ -84,13 +84,19 @@ class Model:
 
         self.model = model
 
-    def save_model(self) -> None:
+    def save_model(
+        self,
+        file_path: str,
+    ) -> None:
         """Save trained model to a file."""
-        self.trainer.save_checkpoint("tft_model.ckpt")
+        self.trainer.save_checkpoint(file_path)
 
-    def load_model(self) -> None:
+    def load_model(
+        self,
+        file_path: str,
+    ) -> None:
         """Load trained model from a file."""
-        self.model = TemporalFusionTransformer.load_from_checkpoint("tft_model.ckpt")
+        self.model = TemporalFusionTransformer.load_from_checkpoint(file_path)
 
         self.model.eval()
 
@@ -238,17 +244,18 @@ class Client:
         """Get predictions for the input data."""
         return self.predictor.predict()
 
+# TEMPORARY
 data = pd.read_csv("pkg/model/test_data.csv")
 
 model = Model()
 
 model.train_model(data)
 
-model.save_model()
+model.save_model(file_path="tft_model.ckpt")
 
 model.model = None
 
-model.load_model()
+model.load_model(file_path="tft_model.ckpt")
 
 predictions = model.get_predictions(data)
 
