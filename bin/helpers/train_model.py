@@ -1,10 +1,10 @@
 import argparse
 import os
 
-import config
 import wandb
 from sagemaker import tensorflow
 
+from pkg.config import config
 from pkg.trade import trade
 
 parser = argparse.ArgumentParser()

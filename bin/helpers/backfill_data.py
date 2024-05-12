@@ -1,8 +1,7 @@
 import argparse
 import datetime
 
-import config
-
+from pkg.config import config
 from pkg.data import data
 from pkg.storage import storage
 from pkg.trade import trade

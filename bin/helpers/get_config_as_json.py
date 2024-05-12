@@ -2,7 +2,7 @@ import configparser
 import json
 from os import path
 
-import config
+from pkg.config import config
 
 samconfig_file = config.SAMConfig(
     'samconfig.toml',

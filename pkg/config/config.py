@@ -1,15 +1,18 @@
+"""Read and parse a SAM config file."""
 import toml
-
 
 ENVIRONMENT_DEVELOPMENT = "development"
 
 
 class SAMConfig:
+    """Read and parse a SAM config file."""
+
     def __init__(
         self,
         file_path: str,
-        environment: str = ENVIRONMENT_DEVELOPMENT
+        environment: str = ENVIRONMENT_DEVELOPMENT,
     ) -> None:
+        """Initialize the SAMConfig object."""
         self.samconfig_file = toml.load(file_path)
 
         self.parameters: dict[str, str] = {}
@@ -19,4 +22,5 @@ class SAMConfig:
             self.parameters[parameter_split[0]] = parameter_split[1]
 
     def get_parameter(self, parameter_name: str) -> str:
+        """Get a parameter from the SAM config file."""
         return self.parameters[parameter_name]
