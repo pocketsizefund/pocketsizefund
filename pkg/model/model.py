@@ -243,20 +243,3 @@ class Client:
     ) -> pd.DataFrame:
         """Get predictions for the input data."""
         return self.predictor.predict()
-
-# TEMPORARY
-data = pd.read_csv("pkg/model/test_data.csv")
-
-model = Model()
-
-model.train_model(data)
-
-model.save_model(file_path="tft_model.ckpt")
-
-model.model = None
-
-model.load_model(file_path="tft_model.ckpt")
-
-predictions = model.get_predictions(data)
-
-print("predictions: ", predictions)
