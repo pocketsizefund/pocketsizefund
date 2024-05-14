@@ -1,4 +1,5 @@
 """Module for downloading data from Alpaca. Alpaca is a brokerage for financial data."""
+
 import datetime
 import time
 
@@ -8,6 +9,8 @@ from alpaca.data import historical
 from alpaca.data import requests as alpaca_data_requests
 from alpaca.data import timeframe
 import bs4
+
+from pkg.config import config
 
 
 ALPACA_TICKER_CHUNK_SIZE = 50
@@ -27,6 +30,7 @@ COLUMN_SOURCE = "source"
 
 class Client:
     """Alpaca Client."""
+
     def __init__(
         self,
         alpaca_api_key: str,
@@ -74,7 +78,7 @@ class Client:
             pandas.DataFrame: Bars.
         """
         if self.print_logs:
-            self.runtime_start = datetime.datetime.now()
+            self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
             print("beginning get range equities data")
 
         start_at = start_at.replace(hour=0, minute=0, second=0)
@@ -85,7 +89,7 @@ class Client:
         bars: list[dict[str, any]] = []
         # chunking requests due to Alpaca request limitations
         for i in range(0, len(tickers), self.alpaca_ticker_chunk_size):
-            tickers_chunk = tickers[i:i+self.alpaca_ticker_chunk_size]
+            tickers_chunk = tickers[i : i + self.alpaca_ticker_chunk_size]
 
             if self.print_logs:
                 print("getting {} bars".format(tickers_chunk))
@@ -112,24 +116,27 @@ class Client:
                 )
 
                 for ticker in response:
-                    ticker_bars = [{
-                        COLUMN_TIMESTAMP: datetime.datetime.strptime(
-                            row["t"],
-                            "%Y-%m-%dT%H:%M:%SZ",
-                        ).replace(
-                            tzinfo=None,
-                            hour=0,
-                            minute=0,
-                            second=0,
-                        ),
-                        COLUMN_TICKER: ticker,
-                        COLUMN_OPEN_PRICE: round(float(row["o"]), 2),
-                        COLUMN_HIGH_PRICE: round(float(row["h"]), 2),
-                        COLUMN_LOW_PRICE: round(float(row["l"]), 2),
-                        COLUMN_CLOSE_PRICE: round(float(row["c"]), 2),
-                        COLUMN_VOLUME: round(float(row["v"]), 2),
-                        COLUMN_SOURCE: SOURCE_ALPACA,
-                    } for row in response[ticker]]
+                    ticker_bars = [
+                        {
+                            COLUMN_TIMESTAMP: datetime.datetime.strptime(
+                                row["t"],
+                                "%Y-%m-%dT%H:%M:%SZ",
+                            ).replace(
+                                tzinfo=config.TIMEZONE,
+                                hour=0,
+                                minute=0,
+                                second=0,
+                            ),
+                            COLUMN_TICKER: ticker,
+                            COLUMN_OPEN_PRICE: round(float(row["o"]), 2),
+                            COLUMN_HIGH_PRICE: round(float(row["h"]), 2),
+                            COLUMN_LOW_PRICE: round(float(row["l"]), 2),
+                            COLUMN_CLOSE_PRICE: round(float(row["c"]), 2),
+                            COLUMN_VOLUME: round(float(row["v"]), 2),
+                            COLUMN_SOURCE: SOURCE_ALPACA,
+                        }
+                        for row in response[ticker]
+                    ]
 
                     bars.extend(ticker_bars)
 
@@ -138,11 +145,9 @@ class Client:
         )
 
         if self.print_logs:
-            runtime_stop = datetime.datetime.now()
+            runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
 
-            runtime_in_minutes = (
-                runtime_stop - self.runtime_start
-            ).total_seconds() / 60
+            runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
             print("ending get range equities data")
             print("runtime {} minutes".format(round(runtime_in_minutes, 2)))
@@ -167,7 +172,7 @@ class Client:
             list[dict[str, any]]: List of filings.
         """
         if self.print_logs:
-            self.runtime_start = datetime.datetime.now()
+            self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
             print("beginning get range corporate filings data")
 
         response = self.http_client.get(
@@ -188,10 +193,12 @@ class Client:
         for key in ciks_response_json.keys():
             row = ciks_response_json[key]
             if row["ticker"] in tickers:
-                ciks_and_tickers.append({
-                    "ticker": row["ticker"],
-                    "cik": row["cik_str"],
-                })
+                ciks_and_tickers.append(
+                    {
+                        "ticker": row["ticker"],
+                        "cik": row["cik_str"],
+                    }
+                )
 
         corporate_filings = []
 
@@ -240,17 +247,17 @@ class Client:
 
                 ticker_corporate_filings[target_form] = form_contents
 
-            corporate_filings.append({
-                "ticker": ticker,
-                "corporate_filings": ticker_corporate_filings,
-            })
+            corporate_filings.append(
+                {
+                    "ticker": ticker,
+                    "corporate_filings": ticker_corporate_filings,
+                }
+            )
 
         if self.print_logs:
-            runtime_stop = datetime.datetime.now()
+            runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
 
-            runtime_in_minutes = (
-                runtime_stop - self.runtime_start
-            ).total_seconds() / 60
+            runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
             print("ending get range corporate filings data")
             print("runtime {} minutes".format(round(runtime_in_minutes, 2)))
@@ -266,22 +273,21 @@ class Client:
         forms: list[str],
         target_form: str,
     ) -> list[dict[str, any]]:
-        indices = [
-            index for index, form in enumerate(forms)
-            if form == target_form
-        ]
+        indices = [index for index, form in enumerate(forms) if form == target_form]
 
         forms_information = []
         for index in indices:
             acceptance_date = datetime.datetime.fromisoformat(
-                acceptance_dates[index][:-1], # remove trailing "Z"
+                acceptance_dates[index][:-1],  # remove trailing "Z"
             )
 
             if acceptance_date >= start_at and acceptance_date <= end_at:
-                forms_information.append({
-                    "accession_number": accession_numbers[index],
-                    "acceptance_date": acceptance_date,
-                })
+                forms_information.append(
+                    {
+                        "accession_number": accession_numbers[index],
+                        "acceptance_date": acceptance_date,
+                    }
+                )
 
         return forms_information
 
@@ -317,10 +323,12 @@ class Client:
 
             parser = bs4.BeautifulSoup(response.text, "xml")
 
-            forms_contents.append({
-                "acceptance_date": form_information["acceptance_date"],
-                "content": list(parser.stripped_strings),
-            })
+            forms_contents.append(
+                {
+                    "acceptance_date": form_information["acceptance_date"],
+                    "content": list(parser.stripped_strings),
+                }
+            )
 
             time.sleep(1 / self.edgar_requests_per_second)
 

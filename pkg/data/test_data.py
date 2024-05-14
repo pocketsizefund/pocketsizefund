@@ -6,6 +6,7 @@ import datetime
 from alpaca.data import requests as alpaca_data_requests
 
 from pkg.data import data
+from pkg.config import config
 
 
 ALPACA_API_KEY = "alpaca_api_key"  # noqa: S106
@@ -185,8 +186,12 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             _ = client.get_range_equities_bars(
                 tickers=["TICKER"],
-                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d"),
-                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
+                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
+                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
             )
 
         assert str(context.exception) == "get stock bars error"
@@ -235,8 +240,12 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
 
         range_equities_bars = client.get_range_equities_bars(
             tickers=["TICKER"],
-            start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d"),
-            end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
+            start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
+                tzinfo=config.TIMEZONE
+            ),
+            end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
+                tzinfo=config.TIMEZONE
+            ),
         )
 
         assert len(range_equities_bars) == 3
@@ -261,8 +270,12 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
         )
 
         forms_information = client._get_forms_information(
-            start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d"),
-            end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
+            start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
+                tzinfo=config.TIMEZONE
+            ),
+            end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
+                tzinfo=config.TIMEZONE
+            ),
             accession_numbers=[
                 "0001171843-24-001239",
                 "0001193125-15-118890",
@@ -280,12 +293,7 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
         assert forms_information[0]["accession_number"] == "0001171843-24-001239"
         assert forms_information[0]["acceptance_date"] == datetime.datetime(
-            1977,
-            5,
-            26,
-            18,
-            36,
-            45,
+            1977, 5, 26, 18, 36, 45, tzinfo=config.TIMEZONE
         )
 
 
@@ -368,8 +376,12 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
-                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d"),
-                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
+                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
+                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
             )
 
         assert str(context.exception) == "get tickers http error"
@@ -395,8 +407,12 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
-                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d"),
-                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
+                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
+                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
             )
 
         assert str(context.exception) == "get submissions http error"
@@ -433,8 +449,12 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
-                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d"),
-                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
+                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
+                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
             )
 
         assert str(context.exception) == "get forms information error"
@@ -472,8 +492,12 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
-                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d"),
-                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
+                start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
+                end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
+                    tzinfo=config.TIMEZONE
+                ),
             )
 
         assert str(context.exception) == "get forms contents error"
@@ -510,8 +534,12 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
 
         corporate_filings = self.client.get_range_corporate_filings(
             tickers=["TICKER"],
-            start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d"),
-            end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
+            start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
+                tzinfo=config.TIMEZONE
+            ),
+            end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
+                tzinfo=config.TIMEZONE
+            ),
         )
 
         corporate_filing = corporate_filings[0]

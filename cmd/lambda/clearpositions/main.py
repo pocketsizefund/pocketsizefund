@@ -2,6 +2,7 @@ import os
 import datetime
 
 from pkg.trade import trade
+from pkg.config import config
 
 
 trade_client = trade.Client(
@@ -21,7 +22,7 @@ def handler(
 
     if not trade_client.check_set_position_availability(
         action=trade.CLEAR_ACTION,
-        current_datetime=datetime.datetime.now(),
+        current_datetime=datetime.datetime.now(tz=config.TIMEZONE),
     ):
         return
 

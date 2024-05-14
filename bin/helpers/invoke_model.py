@@ -54,7 +54,7 @@ model_client = model.Client(
 
 available_tickers = trade_client.get_available_tickers()
 
-end_at = datetime.datetime.now()
+end_at = datetime.datetime.now(tz=config.TIMEZONE)
 start_at = end_at - datetime.timedelta(days=50)
 
 prediction_data = data_client.get_range_equities_bars(
@@ -63,10 +63,15 @@ prediction_data = data_client.get_range_equities_bars(
     end_at=end_at,
 )
 
-prediction_data = prediction_data.sort_values(
-    by="timestamp",
-    ascending=False,
-).groupby("ticker").head(30).reset_index(drop=True)
+prediction_data = (
+    prediction_data.sort_values(
+        by="timestamp",
+        ascending=False,
+    )
+    .groupby("ticker")
+    .head(30)
+    .reset_index(drop=True)
+)
 
 prediction_data["timestamp"] = prediction_data["timestamp"].astype(str)
 
@@ -85,9 +90,7 @@ else:
 
 
 for ticker, ticker_predictions in predictions.items():
-    closing_prices = [
-        ticker_prediction[0] for ticker_prediction in ticker_predictions
-    ]
+    closing_prices = [ticker_prediction[0] for ticker_prediction in ticker_predictions]
 
     print("ticker: {}".format(ticker))
     print("closing_prices: {}".format(closing_prices))

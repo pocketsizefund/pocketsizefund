@@ -9,6 +9,7 @@ from matplotlib import pyplot
 
 from pkg.storage import storage
 from pkg.model import model
+from pkg.config import config
 
 
 parser = argparse.ArgumentParser()
@@ -61,7 +62,7 @@ metrics = {
     "training": training_metrics,
 }
 
-now = datetime.now().strftime("%Y%m%d%H%M%S")
+now = datetime.now(tz=config.TIMEZONE).strftime("%Y%m%d%H%M%S")
 
 os.makedirs("metrics/{}".format(now))
 

@@ -2,6 +2,7 @@ import datetime
 import unittest
 
 from pkg.trade import trade
+from pkg.config import config
 
 
 DARQUBE_API_KEY = "darqube_api_key"  # noqa: S106
@@ -275,64 +276,64 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
 
         monday_calendar_days = [
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 23),
-                open_value=datetime.datetime(1977, 5, 23, 9, 30),
-                close_value=datetime.datetime(1977, 5, 23, 16, 0),
+                date_value=datetime.date(1977, 5, 23, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 5, 23, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 5, 23, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 24),
-                open_value=datetime.datetime(1977, 5, 24, 9, 30),
-                close_value=datetime.datetime(1977, 5, 24, 16, 0),
+                date_value=datetime.date(1977, 5, 24, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 5, 24, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 5, 24, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 25),
-                open_value=datetime.datetime(1977, 5, 25, 9, 30),
-                close_value=datetime.datetime(1977, 5, 25, 16, 0),
+                date_value=datetime.date(1977, 5, 25, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 5, 25, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 5, 25, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 26),
-                open_value=datetime.datetime(1977, 5, 26, 9, 30),
-                close_value=datetime.datetime(1977, 5, 26, 16, 0),
+                date_value=datetime.date(1977, 5, 26, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 27),
-                open_value=datetime.datetime(1977, 5, 27, 9, 30),
-                close_value=datetime.datetime(1977, 5, 27, 16, 0),
+                date_value=datetime.date(1977, 5, 27, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
             ),
         ]
 
         friday_calendar_days = [
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 27),
-                open_value=datetime.datetime(1977, 5, 27, 9, 30),
-                close_value=datetime.datetime(1977, 5, 27, 16, 0),
+                date_value=datetime.date(1977, 5, 27, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 30),
-                open_value=datetime.datetime(1977, 5, 30, 9, 30),
-                close_value=datetime.datetime(1977, 5, 30, 16, 0),
+                date_value=datetime.date(1977, 5, 30, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 5, 30, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 5, 30, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 31),
-                open_value=datetime.datetime(1977, 5, 31, 9, 30),
-                close_value=datetime.datetime(1977, 5, 31, 16, 0),
+                date_value=datetime.date(1977, 5, 31, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 5, 31, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 5, 31, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 6, 1),
-                open_value=datetime.datetime(1977, 6, 1, 9, 30),
-                close_value=datetime.datetime(1977, 6, 1, 16, 0),
+                date_value=datetime.date(1977, 6, 1, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 6, 1, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 6, 1, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 6, 2),
-                open_value=datetime.datetime(1977, 6, 2, 9, 30),
-                close_value=datetime.datetime(1977, 6, 2, 16, 0),
+                date_value=datetime.date(1977, 6, 2, tzinfo=config.TIMEZONE),
+                open_value=datetime.datetime(1977, 6, 2, 9, 30, tzinfo=config.TIMEZONE),
+                close_value=datetime.datetime(1977, 6, 2, 16, 0, tzinfo=config.TIMEZONE),
             ),
         ]
 
         tests = [
             {
                 "action": trade.CREATE_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 23, 9, 15),
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 15, tzinfo=config.TIMEZONE),
                 "is_market_open": False,
                 "calendar_days": monday_calendar_days,
                 "all_positions": [],
@@ -340,13 +341,13 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CREATE_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 26, 9, 45),
+                "current_datetime": datetime.datetime(1977, 5, 26, 9, 45, tzinfo=config.TIMEZONE),
                 "is_market_open": True,
                 "calendar_days": [
                     MockAlpacaCalendar(
-                        date_value=datetime.date(1977, 5, 26),
-                        open_value=datetime.datetime(1977, 5, 26, 9, 30),
-                        close_value=datetime.datetime(1977, 5, 26, 16, 0),
+                        date_value=datetime.date(1977, 5, 26, tzinfo=config.TIMEZONE),
+                        open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
+                        close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
                     ),
                 ]
                 + friday_calendar_days[1:],
@@ -355,7 +356,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CREATE_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 27, 15, 30),
+                "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
                 "is_market_open": True,
                 "calendar_days": friday_calendar_days,
                 "all_positions": [],
@@ -363,7 +364,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CREATE_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 23, 9, 45),
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
                 "is_market_open": True,
                 "calendar_days": monday_calendar_days,
                 "all_positions": [{}],
@@ -371,7 +372,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CREATE_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 23, 9, 45),
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
                 "is_market_open": True,
                 "calendar_days": monday_calendar_days,
                 "all_positions": [],
@@ -379,7 +380,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CLEAR_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 23, 16, 15),
+                "current_datetime": datetime.datetime(1977, 5, 23, 16, 15, tzinfo=config.TIMEZONE),
                 "is_market_open": False,
                 "calendar_days": monday_calendar_days,
                 "all_positions": [],
@@ -387,13 +388,13 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CLEAR_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 26, 15, 30),
+                "current_datetime": datetime.datetime(1977, 5, 26, 15, 30, tzinfo=config.TIMEZONE),
                 "is_market_open": True,
                 "calendar_days": [
                     MockAlpacaCalendar(
-                        date_value=datetime.date(1977, 5, 26),
-                        open_value=datetime.datetime(1977, 5, 26, 9, 30),
-                        close_value=datetime.datetime(1977, 5, 26, 16, 0),
+                        date_value=datetime.date(1977, 5, 26, tzinfo=config.TIMEZONE),
+                        open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
+                        close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
                     ),
                 ]
                 + friday_calendar_days[1:],
@@ -402,7 +403,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CLEAR_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 23, 15, 30),
+                "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
                 "is_market_open": True,
                 "calendar_days": monday_calendar_days,
                 "all_positions": [{}],
@@ -410,7 +411,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CLEAR_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 23, 15, 30),
+                "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
                 "is_market_open": True,
                 "calendar_days": monday_calendar_days,
                 "all_positions": [],
@@ -418,7 +419,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
             },
             {
                 "action": trade.CLEAR_ACTION,
-                "current_datetime": datetime.datetime(1977, 5, 27, 15, 30),
+                "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
                 "is_market_open": True,
                 "calendar_days": monday_calendar_days,
                 "all_positions": [{}],
@@ -699,7 +700,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client._get_portoflio_daily_returns(
                 week_count=1,
-                end_at=datetime.datetime.now(),
+                end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
         assert str(context.exception) == "alpaca get portfolio returns error"
@@ -715,7 +716,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client._get_portoflio_daily_returns(
                 week_count=1,
-                end_at=datetime.datetime.now(),
+                end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
         assert str(context.exception) == "insufficient portfolio data"
@@ -745,7 +746,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
 
         returns = self.client._get_portoflio_daily_returns(
             week_count=1,
-            end_at=datetime.datetime.now(),
+            end_at=datetime.datetime.now(tz=config.TIMEZONE),
         )
 
         assert len(returns) == 5
@@ -775,7 +776,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client._get_benchmark_daily_returns(
                 week_count=1,
-                end_at=datetime.datetime.now(),
+                end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
         assert str(context.exception) == "alpaca get benchmark returns error"
@@ -793,7 +794,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client._get_benchmark_daily_returns(
                 week_count=1,
-                end_at=datetime.datetime.now(),
+                end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
         assert str(context.exception) == "insufficient benchmark data"
@@ -829,7 +830,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
 
         returns = self.client._get_benchmark_daily_returns(
             week_count=1,
-            end_at=datetime.datetime.now(),
+            end_at=datetime.datetime.now(tz=config.TIMEZONE),
         )
 
         assert len(returns) == 5
@@ -932,7 +933,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
                 week_count=1,
-                end_at=datetime.datetime.now(),
+                end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
         assert str(context.exception) == "alpaca get account error"
@@ -953,7 +954,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
                 week_count=1,
-                end_at=datetime.datetime.now(),
+                end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
         assert str(context.exception) == "get portfolio returns error"
@@ -975,7 +976,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
                 week_count=1,
-                end_at=datetime.datetime.now(),
+                end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
         assert str(context.exception) == "get benchmark returns error"
@@ -998,7 +999,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client.get_performance_metrics(
                 week_count=1,
-                end_at=datetime.datetime.now(),
+                end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
         assert str(context.exception) == "get risk free rate error"
@@ -1020,7 +1021,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
 
         metrics = self.client.get_performance_metrics(
             week_count=1,
-            end_at=datetime.datetime.now(),
+            end_at=datetime.datetime.now(tz=config.TIMEZONE),
         )
 
         assert metrics["current_portfolio_value"] == 100.0

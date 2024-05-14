@@ -4,6 +4,7 @@ import datetime
 from pkg.trade import trade
 from pkg.data import data
 from pkg.model import model
+from pkg.config import config
 
 
 POSITIONS_COUNT = 10
@@ -36,13 +37,13 @@ def handler(
 
     if not trade_client.check_set_position_availability(
         action=trade.CREATE_ACTION,
-        current_datetime=datetime.datetime.now(),
+        current_datetime=datetime.datetime.now(config.TIMEZONE),
     ):
         return
 
     available_tickers = trade_client.get_available_tickers()
 
-    end_at = datetime.datetime.now()
+    end_at = datetime.datetime.now(config.TIMEZONE)
     start_at = end_at - datetime.timedelta(days=50)
 
     prediction_data = data_client.get_range_equities_bars(
@@ -51,10 +52,15 @@ def handler(
         end_at=end_at,
     )
 
-    prediction_data = prediction_data.sort_values(
-        by="timestamp",
-        ascending=False,
-    ).groupby("ticker").head(30).reset_index(drop=True)
+    prediction_data = (
+        prediction_data.sort_values(
+            by="timestamp",
+            ascending=False,
+        )
+        .groupby("ticker")
+        .head(30)
+        .reset_index(drop=True)
+    )
 
     prediction_data["timestamp"] = prediction_data["timestamp"].astype(str)
 
@@ -63,19 +69,20 @@ def handler(
     )
 
     moves_by_ticker = {
-        ticker: predictions_by_ticker[ticker][0][0] -
-        predictions_by_ticker[ticker][4][0]
+        ticker: predictions_by_ticker[ticker][0][0] - predictions_by_ticker[ticker][4][0]
         for ticker in predictions_by_ticker
     }
 
-    sorted_moves_by_ticker = dict(sorted(
-        moves_by_ticker.items(),
-        key=lambda item: item[1], reverse=True,
-    ))
+    sorted_moves_by_ticker = dict(
+        sorted(
+            moves_by_ticker.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    )
 
     highest_moves_by_ticker = {
-        k: sorted_moves_by_ticker[k]
-        for k in list(sorted_moves_by_ticker)[:POSITIONS_COUNT]
+        k: sorted_moves_by_ticker[k] for k in list(sorted_moves_by_ticker)[:POSITIONS_COUNT]
     }
 
     highest_moves_tickers = highest_moves_by_ticker.keys()

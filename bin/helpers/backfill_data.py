@@ -6,7 +6,6 @@ from pkg.storage import storage
 from pkg.data import data
 from pkg.trade import trade
 
-
 parser = argparse.ArgumentParser(
     prog="backfill data helper script",
     description="update s3 data bucket with training data",
@@ -52,7 +51,7 @@ available_tickers: list[str] = trade_client.get_available_tickers()
 
 print("tickers count: ", len(available_tickers))
 
-full_end_at = datetime.datetime.today()
+full_end_at = datetime.datetime.now(tz=config.TIMEZONE)
 full_start_at = full_end_at - datetime.timedelta(days=365 * 7)
 
 equity_raw_data = data_client.get_range_equities_bars(
