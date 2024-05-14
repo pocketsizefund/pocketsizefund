@@ -57,7 +57,9 @@ from pipelines.transformations import drop_duplicates
         ),
     ],
 )
-def test_drop_duplicates(input_data, subset, expected_output) -> None:
+def test_drop_duplicates(
+    input_data: pl.DataFrame, subset: list[str], expected_output: pl.DataFrame
+) -> None:
     # the tests seem to randomize the row order
     result = drop_duplicates(input_data, subset)
 
