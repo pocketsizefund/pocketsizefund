@@ -119,7 +119,7 @@ def mock_get_forms_information_success(
         {
             "accession_number": "0001171843-24-001239",
             "acceptance_date": "1977-05-26T18:36:45.000Z",
-        }
+        },
     ]
 
 
@@ -142,7 +142,7 @@ def mock_get_forms_contents_success(
         {
             "acceptance_date": "1977-05-26T18:36:45.000Z",
             "content": "form contents",
-        }
+        },
     ]
 
 
@@ -203,7 +203,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
                             "c": "7.0",
                             "v": "300.0",
                         },
-                    ]
+                    ],
                 },
             ),
             exception=None,
@@ -395,8 +395,8 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                                 "accessionNumber": ["0001171843-24-001239"],
                                 "acceptanceDateTime": ["1977-05-26T18:36:45.000Z"],
                                 "form": ["10-K"],
-                            }
-                        }
+                            },
+                        },
                     },
                 ),
             },
@@ -432,8 +432,8 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                                 "accessionNumber": ["0001171843-24-001239"],
                                 "acceptanceDateTime": ["1977-05-26T18:36:45.000Z"],
                                 "form": ["10-K"],
-                            }
-                        }
+                            },
+                        },
                     },
                 ),
             },
@@ -470,8 +470,8 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                                 "accessionNumber": ["0001171843-24-001239"],
                                 "acceptanceDateTime": ["1977-05-26T18:36:45.000Z"],
                                 "form": ["10-K"],
-                            }
-                        }
+                            },
+                        },
                     },
                 ),
             },

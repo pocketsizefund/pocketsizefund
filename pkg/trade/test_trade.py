@@ -341,7 +341,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
                         date_value=datetime.date(1977, 5, 26),
                         open_value=datetime.datetime(1977, 5, 26, 9, 30),
                         close_value=datetime.datetime(1977, 5, 26, 16, 0),
-                    )
+                    ),
                 ]
                 + friday_calendar_days[1:],
                 "all_positions": [],
@@ -388,7 +388,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
                         date_value=datetime.date(1977, 5, 26),
                         open_value=datetime.datetime(1977, 5, 26, 9, 30),
                         close_value=datetime.datetime(1977, 5, 26, 16, 0),
-                    )
+                    ),
                 ]
                 + friday_calendar_days[1:],
                 "all_positions": [{}],
@@ -809,7 +809,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
             responses={
                 "get_stock_bars": {
                     "SPY": [],
-                }
+                },
             },
             exceptions=None,
         )

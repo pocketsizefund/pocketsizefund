@@ -143,7 +143,7 @@ class Client:
                 "User-Agent": self.edgar_user_agent,
                 "Accept-Encoding": "gzip, deflate",
                 "Host": "www.sec.gov",
-            }
+            },
         )
 
         time.sleep(1 / self.edgar_requests_per_second)
@@ -171,13 +171,13 @@ class Client:
 
             submission_response = self.http_client.get(
                 url="https://data.sec.gov/submissions/CIK{:0>10}.json".format(
-                    cik
+                    cik,
                 ),
                 headers={
                     "User-Agent": self.edgar_user_agent,
                     "Accept-Encoding": "gzip, deflate",
                     "Host": "data.sec.gov",
-                }
+                },
             )
 
             time.sleep(1 / self.edgar_requests_per_second)
@@ -269,7 +269,7 @@ class Client:
                     "User-Agent": self.edgar_user_agent,
                     "Accept-Encoding": "gzip, deflate",
                     "Host": "www.sec.gov",
-                }
+                },
             )
 
             parser = bs4.BeautifulSoup(response.text, "xml")

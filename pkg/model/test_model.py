@@ -218,7 +218,7 @@ class TestCleanAndGroupData(unittest.TestCase):
                     "ALPACA",
                     "ALPACA",
                 ],
-            }
+            },
         )
 
         output = model._clean_and_group_data(input)
@@ -374,7 +374,7 @@ class TestGeneratePredictions(unittest.TestCase):
                     "timestamp": pandas.Timestamp("2021-01-01"),
                 },
                 index=[0],
-            )
+            ),
         )
 
         self.assertEqual(10.0, predictions["65"][0][0])
