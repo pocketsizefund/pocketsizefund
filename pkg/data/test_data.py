@@ -1,3 +1,4 @@
+"""Unit tests for Alpaca Client."""
 import unittest
 import datetime
 
@@ -7,6 +8,7 @@ from pkg.data import data
 
 
 class MockAlpacaHistoricalResponse:
+    """Mock Alpaca historical response."""
     def __init__(
         self,
         data: dict[str, any],
@@ -34,6 +36,7 @@ class MockAlpacaHistoricalResponse:
 
 
 class MockAlpacaHistoricalClient:
+    """Mock Alpaca historical client."""
     def __init__(
         self,
         response: MockAlpacaHistoricalResponse,
@@ -46,6 +49,7 @@ class MockAlpacaHistoricalClient:
         self,
         request: alpaca_data_requests.StockBarsRequest,
     ) -> any:
+        """Get stock bars."""
         if self.exception is not None:
             raise self.exception
 
@@ -53,6 +57,7 @@ class MockAlpacaHistoricalClient:
 
 
 class MockHTTPGetResponse:
+    """Mock HTTP response."""
     def __init__(
         self,
         text: str = None,
@@ -66,6 +71,7 @@ class MockHTTPGetResponse:
 
 
 class MockHttpClient:
+    """Mock HTTP client."""
     def __init__(
         self,
         responses: dict[str, any],
@@ -100,6 +106,7 @@ def mock_get_forms_information_error(
     forms: list[str],
     target_form: str,
 ) -> list[dict[str, any]]:
+    """Mock get forms information error."""
     _ = start_at, end_at, accession_numbers, acceptance_dates, forms, target_form
 
     raise Exception("get forms information error")
@@ -113,6 +120,7 @@ def mock_get_forms_information_success(
     forms: list[str],
     target_form: str,
 ) -> list[dict[str, any]]:
+    """Mock get forms information success."""
     _ = start_at, end_at, accession_numbers, acceptance_dates, forms, target_form
 
     return [
@@ -127,6 +135,7 @@ def mock_get_forms_contents_error(
     cik: str,
     forms_information: list[dict[str, any]],
 ) -> list[dict[str, any]]:
+    """Mock get forms contents error."""
     _ = cik, forms_information
 
     raise Exception("get forms contents error")
@@ -136,6 +145,7 @@ def mock_get_forms_contents_success(
     cik: str,
     forms_information: list[dict[str, any]],
 ) -> list[dict[str, any]]:
+    """Mock get forms contents success."""
     _ = cik, forms_information
 
     return [
@@ -147,7 +157,9 @@ def mock_get_forms_contents_success(
 
 
 class TestGetRangeEquitiesBars(unittest.TestCase):
+    """Unit tests for get range equities bars."""
     def test_get_range_equities_bars_alpaca_get_stock_bars_error(self) -> None:
+        """Test get range equities bars alpaca get stock bars error."""
         client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -169,6 +181,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
         self.assertEqual("get stock bars error", str(context.exception))
 
     def test_get_range_equities_bars_success(self) -> None:
+        """Test get range equities bars success."""
         client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -226,7 +239,9 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
 
 
 class TestPrivateGetFormsInformation(unittest.TestCase):
+    """Unit tests for private get forms information."""
     def test_private_get_forms_information_success(self) -> None:
+        """Test private get forms information success."""
         client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -269,7 +284,9 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
 
 class TestPrivateGetFormsContents(unittest.TestCase):
+    """Unit tests for private get forms contents."""
     def test_private_get_forms_contents_success(self) -> None:
+        """Test private get forms contents success."""
         client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -324,7 +341,9 @@ class TestPrivateGetFormsContents(unittest.TestCase):
 
 
 class TestGetRangeCorporateFilings(unittest.TestCase):
+    """Unit tests for get range corporate filings."""
     def setUp(self) -> None:
+        """Set up test."""
         self.client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -332,9 +351,11 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
+        """Tear down test."""
         pass
 
     def test_get_range_corporate_filings_get_tickers_http_error(self) -> None:
+        """Test get range corporate filings get tickers http error."""
         self.client.http_client = MockHttpClient(
             responses={},
             exceptions={
@@ -352,6 +373,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         self.assertEqual("get tickers http error", str(context.exception))
 
     def test_get_range_corporate_filings_get_submissions_http_error(self) -> None:
+        """Test get range corporate filings get submissions http error."""
         self.client.http_client = MockHttpClient(
             responses={
                 "sec.gov": MockHTTPGetResponse(
@@ -378,6 +400,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         self.assertEqual("get submissions http error", str(context.exception))
 
     def test_get_range_corporate_filings_get_forms_information_error(self) -> None:
+        """Test get range corporate filings get forms information error."""
         self.client.http_client = MockHttpClient(
             responses={
                 "www.sec.gov": MockHTTPGetResponse(
@@ -415,6 +438,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         self.assertEqual("get forms information error", str(context.exception))
 
     def test_get_range_corporate_filings_get_forms_contents_error(self) -> None:
+        """Test get range corporate filings get forms contents error."""
         self.client.http_client = MockHttpClient(
             responses={
                 "www.sec.gov/files/company": MockHTTPGetResponse(
@@ -453,6 +477,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         self.assertEqual("get forms contents error", str(context.exception))
 
     def test_get_range_corporate_filings_success(self) -> None:
+        """Test get range corporate filings success."""
         self.client.http_client = MockHttpClient(
             responses={
                 "www.sec.gov/files/company": MockHTTPGetResponse(
