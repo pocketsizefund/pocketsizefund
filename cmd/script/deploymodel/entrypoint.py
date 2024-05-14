@@ -1,4 +1,5 @@
 """Inference endpoint for price prediction model."""
+
 import json
 import os
 from datetime import datetime, timedelta
@@ -31,6 +32,7 @@ price_prediction_model = model.Model()
 price_prediction_model.load_model(
     file_path="price_prediction_model.ckpt",
 )
+
 
 @app.route("/invocations", methods=["POST"])
 def invocations() -> flask.Response:

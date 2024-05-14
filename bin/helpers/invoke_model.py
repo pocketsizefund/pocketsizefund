@@ -1,4 +1,5 @@
 """Invoke trained model."""  # noqa: INP001
+
 import argparse
 import datetime
 
@@ -63,10 +64,15 @@ prediction_data = data_client.get_range_equities_bars(
     end_at=end_at,
 )
 
-prediction_data = prediction_data.sort_values(
-    by="timestamp",
-    ascending=False,
-).groupby("ticker").head(30).reset_index(drop=True)
+prediction_data = (
+    prediction_data.sort_values(
+        by="timestamp",
+        ascending=False,
+    )
+    .groupby("ticker")
+    .head(30)
+    .reset_index(drop=True)
+)
 
 prediction_data["timestamp"] = prediction_data["timestamp"].astype(str)
 
@@ -85,9 +91,7 @@ else:
 
 
 for ticker, ticker_predictions in predictions.items():
-    closing_prices = [
-        ticker_prediction[0] for ticker_prediction in ticker_predictions
-    ]
+    closing_prices = [ticker_prediction[0] for ticker_prediction in ticker_predictions]
 
     print(f"ticker: {ticker}")  # noqa: T201
     print(f"closing_prices: {closing_prices}")  # noqa: T201

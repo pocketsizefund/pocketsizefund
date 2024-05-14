@@ -1,4 +1,5 @@
 """Read and parse a SAM config file."""
+
 import argparse
 
 import toml
@@ -26,6 +27,7 @@ class SAMConfig:
     def get_parameter(self, parameter_name: str) -> str:
         """Get a parameter from the SAM config file."""
         return self.parameters[parameter_name]
+
 
 if __name__ == "__main__":
     samconfig_file = SAMConfig(
