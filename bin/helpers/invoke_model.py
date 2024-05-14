@@ -1,5 +1,4 @@
 """Invoke trained model."""  # noqa: INP001
-
 import argparse
 import datetime
 

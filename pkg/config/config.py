@@ -1,8 +1,7 @@
 """Read and parse a SAM config file."""
+import argparse
 
 import toml
-
-import argparse
 
 ENVIRONMENT_DEVELOPMENT = "development"
 
