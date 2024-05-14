@@ -25,14 +25,14 @@ class TestPreprocessTrainingFeatures(unittest.TestCase):
 
         result = model.preprocess_training_features(test_data)
 
-        self.assertIsInstance(result, dict)
-        self.assertSetEqual(set(result.keys()), {"data", "scalers"})
+        assert isinstance(result, dict)
+        assert set(result.keys()) == {"data", "scalers"}
 
         data_keys = ["training", "validating", "testing"]
-        self.assertSetEqual(set(result["data"].keys()), set(data_keys))
+        assert set(result["data"].keys()) == set(data_keys)
 
-        self.assertIsInstance(result["scalers"], dict)
-        self.assertEqual(len(result["scalers"]), 2)
+        assert isinstance(result["scalers"], dict)
+        assert len(result["scalers"]) == 2
 
 
 class TestCreateDataset(unittest.TestCase):
@@ -56,14 +56,14 @@ class TestCreateDataset(unittest.TestCase):
 
         dataset = model._create_dataset(data)
 
-        self.assertIsInstance(
+        assert isinstance(
             dataset,
             tensorflow.data.Dataset,
         )
 
         for inputs, labels in dataset:
-            self.assertEqual(inputs.shape, (32, 5, 3))
-            self.assertEqual(labels.shape, (32, 2, 3))
+            assert inputs.shape == (32, 5, 3)
+            assert labels.shape == (32, 2, 3)
 
             expected_inputs = data[:, :5, :]
             expected_labels = data[:, 3:5, :]
@@ -128,8 +128,8 @@ class TestSplitWindow(unittest.TestCase):
             label_count,
         )
 
-        self.assertEqual(inputs.shape.as_list(), list(expected_input_shape))
-        self.assertEqual(labels.shape.as_list(), list(expected_labels_shape))
+        assert inputs.shape.as_list() == list(expected_input_shape)
+        assert labels.shape.as_list() == list(expected_labels_shape)
 
         expected_inputs_values = numpy.array(
             object=[
@@ -223,10 +223,10 @@ class TestCleanAndGroupData(unittest.TestCase):
 
         output = model._clean_and_group_data(input)
 
-        self.assertTrue("AAPL" in output)
-        self.assertFalse("ticker" in output["AAPL"].columns)
-        self.assertFalse("source" in output["AAPL"].columns)
-        self.assertEqual(output["AAPL"].index.isin(["2024-01-05 16:00:00"]).sum(), 1)
+        assert "AAPL" in output
+        assert "ticker" not in output["AAPL"].columns
+        assert "source" not in output["AAPL"].columns
+        assert output["AAPL"].index.isin(["2024-01-05 16:00:00"]).sum() == 1
 
 
 class TestSaveModel(unittest.TestCase):
@@ -244,7 +244,7 @@ class TestSaveModel(unittest.TestCase):
 
         file_path = "./lstm.keras"
 
-        self.assertTrue(os.path.exists(file_path))
+        assert os.path.exists(file_path)
 
         os.remove(file_path)
 
@@ -264,7 +264,7 @@ class TestSaveScalers(unittest.TestCase):
 
         file_path = "./scalers.pkl"
 
-        self.assertTrue(os.path.exists(file_path))
+        assert os.path.exists(file_path)
 
         os.remove(file_path)
 
@@ -283,7 +283,7 @@ class TestSaveData(unittest.TestCase):
 
         file_path = "./testing_data"
 
-        self.assertTrue(os.path.exists(file_path))
+        assert os.path.exists(file_path)
 
         shutil.rmtree(file_path)
 
@@ -307,7 +307,7 @@ class TestLoadModel(unittest.TestCase):
 
         model.load_model()
 
-        self.assertIsInstance(model.model, keras.models.Sequential)
+        assert isinstance(model.model, keras.models.Sequential)
 
         os.remove(file_path)
 
@@ -335,10 +335,7 @@ class TestLoadScalers(unittest.TestCase):
 
         model.load_scalers()
 
-        self.assertListEqual(
-            list(model.scalers.keys()),
-            list(scalers.keys()),
-        )
+        assert sorted(list(model.scalers.keys())) == sorted(list(scalers.keys()))
 
         os.remove(file_path)
 
@@ -377,4 +374,4 @@ class TestGeneratePredictions(unittest.TestCase):
             ),
         )
 
-        self.assertEqual(10.0, predictions["65"][0][0])
+        assert predictions["65"][0][0] == 10.0

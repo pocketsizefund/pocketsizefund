@@ -1,4 +1,5 @@
 """Unit tests for feature module."""
+
 import unittest
 
 import pandas
@@ -17,21 +18,18 @@ class TestGenerateFeatures(unittest.TestCase):
 
         result = client.generate_features(test_data)
 
-        self.assertIsInstance(result, pandas.DataFrame)
+        assert isinstance(result, pandas.DataFrame)
 
-        self.assertSetEqual(
-            set(result.columns),
-            {
-                "timestamp",
-                "ticker",
-                "open_price",
-                "high_price",
-                "low_price",
-                "close_price",
-                "volume",
-                "source",
-            },
-        )
+        assert set(result.columns) == {
+            "timestamp",
+            "ticker",
+            "open_price",
+            "high_price",
+            "low_price",
+            "close_price",
+            "volume",
+            "source",
+        }
 
 
 class TestPreprocessTrainingData(unittest.TestCase):
@@ -40,14 +38,14 @@ class TestPreprocessTrainingData(unittest.TestCase):
 
         result = client.preprocess_training_features(test_data)
 
-        self.assertIsInstance(result, dict)
-        self.assertSetEqual(set(result.keys()), {"data", "scalers"})
+        assert isinstance(result, dict)
+        assert set(result.keys()) == {"data", "scalers"}
 
         data_keys = ["training", "validating", "testing"]
-        self.assertSetEqual(set(result["data"].keys()), set(data_keys))
+        assert set(result["data"].keys()) == set(data_keys)
 
-        self.assertIsInstance(result["scalers"], dict)
-        self.assertEqual(len(result["scalers"]), 2)
+        assert isinstanc(result["scalers"], dict)
+        assert len(result["scalers"]) == 2
 
 
 class TestCreateDataset(unittest.TestCase):
@@ -68,14 +66,14 @@ class TestCreateDataset(unittest.TestCase):
 
         dataset = client._create_dataset(data)
 
-        self.assertIsInstance(
+        assert isinstanc(
             dataset,
             tensorflow.data.Dataset,
         )
 
         for inputs, labels in dataset:
-            self.assertEqual(inputs.shape, (32, 5, 3))
-            self.assertEqual(labels.shape, (32, 2, 3))
+            assert inputs.shape == (32, 5, 3)
+            assert labels.shape == (32, 2, 3)
 
             expected_inputs = data[:, :5, :]
             expected_labels = data[:, 3:5, :]
@@ -137,8 +135,8 @@ class TestSplitWindow(unittest.TestCase):
             label_count,
         )
 
-        self.assertEqual(inputs.shape.as_list(), list(expected_input_shape))
-        self.assertEqual(labels.shape.as_list(), list(expected_labels_shape))
+        assert inputs.shape.as_list() == list(expected_input_shape)
+        assert labels.shape.as_list() == list(expected_labels_shape)
 
         expected_inputs_values = numpy.array(
             object=[
@@ -229,7 +227,7 @@ class TestCleanAndGroupData(unittest.TestCase):
 
         output = client._clean_and_group_data(input)
 
-        self.assertTrue("AAPL" in output)
-        self.assertFalse("ticker" in output["AAPL"].columns)
-        self.assertFalse("source" in output["AAPL"].columns)
-        self.assertEqual(output["AAPL"].index.isin(["2024-01-05 16:00:00"]).sum(), 1)
+        assert "AAPL" in output
+        assert "ticker" not in output["AAPL"].columns
+        assert "source" not in output["AAPL"].columns
+        assert output["AAPL"].index.isin(["2024-01-05 16:00:00"]).sum() == 1

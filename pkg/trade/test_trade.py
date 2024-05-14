@@ -443,7 +443,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
                 current_datetime=test["current_datetime"],
             )
 
-            self.assertEqual(test["result"], result)
+            assert test["result"] == result
 
 
 class TestPrivateGetAvailableTickers(unittest.TestCase):
@@ -467,10 +467,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client._get_available_tickers()
 
-        self.assertEqual(
-            str(context.exception),
-            "darqube get tickers error",
-        )
+        assert str(context.exception) == "darqube get tickers error"
 
     def test__get_available_tickers_alpaca_get_all_assets_error(self) -> None:
         self.client.http_client = MockHTTPClient(
@@ -494,10 +491,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client._get_available_tickers()
 
-        self.assertEqual(
-            str(context.exception),
-            "alpaca get all assets error",
-        )
+        assert str(context.exception) == "alpaca get all assets error"
 
     def test__get_available_tickers_success(self) -> None:
         self.client.http_client = MockHTTPClient(
@@ -526,8 +520,8 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
 
         tickers = self.client._get_available_tickers()
 
-        self.assertEqual(1, len(tickers))
-        self.assertEqual("TICKER", tickers[0])
+        assert len(tickers) == 1
+        assert tickers[0] == "TICKER"
 
 
 class TestGetAvailableTickers(unittest.TestCase):
@@ -548,18 +542,15 @@ class TestGetAvailableTickers(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client.get_available_tickers()
 
-        self.assertEqual(
-            str(context.exception),
-            "get available tickers error",
-        )
+        assert str(context.exception) == "get available tickers error"
 
     def test_get_available_tickers_success(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_success
 
         tickers = self.client.get_available_tickers()
 
-        self.assertEqual(1, len(tickers))
-        self.assertEqual("TICKER", tickers[0])
+        assert len(tickers) == 1
+        assert tickers[0] == "TICKER"
 
 
 class TestSetPositions(unittest.TestCase):
@@ -582,10 +573,7 @@ class TestSetPositions(unittest.TestCase):
                 tickers=["TICKER"],
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "get available tickers error",
-        )
+        assert str(context.exception) == "get available tickers error"
 
     def test_set_positions_get_account_error(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_success
@@ -602,10 +590,7 @@ class TestSetPositions(unittest.TestCase):
                 tickers=["TICKER"],
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "alpaca get account error",
-        )
+        assert str(context.exception) == "alpaca get account error"
 
     def test_set_positions_submit_order_error(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_success
@@ -628,10 +613,7 @@ class TestSetPositions(unittest.TestCase):
                 tickers=["TICKER"],
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "alpaca submit order error",
-        )
+        assert str(context.exception) == "alpaca submit order error"
 
     def test_set_positions_success(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_success
@@ -654,10 +636,10 @@ class TestSetPositions(unittest.TestCase):
         )
 
         last_request = self.client.alpaca_trading_client.last_request
-        self.assertIsNotNone(last_request)
-        self.assertEqual(last_request.symbol, "TICKER")
-        self.assertEqual(last_request.notional, 95.0)
-        self.assertEqual(last_request.side, "buy")
+        assert last_request is not None
+        assert last_request.symbol == "TICKER"
+        assert last_request.notional == 95.0
+        assert last_request.side == "buy"
 
 
 class TestClearPositions(unittest.TestCase):
@@ -683,10 +665,7 @@ class TestClearPositions(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client.clear_positions()
 
-        self.assertEqual(
-            str(context.exception),
-            "alpaca close all positions error",
-        )
+        assert str(context.exception) == "alpaca close all positions error"
 
     def test_clear_positions_success(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -696,7 +675,7 @@ class TestClearPositions(unittest.TestCase):
 
         self.client.clear_positions()
 
-        self.assertTrue(True)
+        assert True  # TODO: needs test
 
 
 class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
@@ -723,10 +702,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
                 end_at=datetime.datetime.now(),
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "alpaca get portfolio returns error",
-        )
+        assert str(context.exception) == "alpaca get portfolio returns error"
 
     def test__get_portfolio_daily_returns_insufficient_data_error(self) -> None:
         self.client.http_client = MockHTTPClient(
@@ -742,10 +718,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
                 end_at=datetime.datetime.now(),
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "insufficient portfolio data",
-        )
+        assert str(context.exception) == "insufficient portfolio data"
 
     def test__get_portfolio_daily_returns_success(self) -> Non:
         self.client.http_client = MockHTTPClient(
@@ -775,8 +748,8 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
             end_at=datetime.datetime.now(),
         )
 
-        self.assertEqual(5, len(returns))
-        self.assertEqual(-0.0082, returns[0])
+        assert len(returns) == 5
+        assert returns[0] == -0.0082
 
 
 class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
@@ -805,10 +778,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
                 end_at=datetime.datetime.now(),
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "alpaca get benchmark returns error",
-        )
+        assert str(context.exception) == "alpaca get benchmark returns error"
 
     def test__get_benchmark_daily_returns_insufficient_data_error(self) -> None:
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
@@ -826,10 +796,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
                 end_at=datetime.datetime.now(),
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "insufficient benchmark data",
-        )
+        assert str(context.exception) == "insufficient benchmark data"
 
     def test__get_benchmark_daily_returns_success(self) -> None:
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
@@ -865,8 +832,8 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
             end_at=datetime.datetime.now(),
         )
 
-        self.assertEqual(5, len(returns))
-        self.assertEqual([0.01, 0.0099, 0.0098, 0.0097, 0.0096], returns)
+        assert len(returns) == 5
+        assert returns == [0.01, 0.0099, 0.0098, 0.0097, 0.0096]
 
 
 class TestPrivateCumulativeReturns(unittest.TestCase):
@@ -888,7 +855,7 @@ class TestPrivateCumulativeReturns(unittest.TestCase):
             returns=returns,
         )
 
-        self.assertEqual(0.05, cumulative_returns)
+        assert cumulative_returns == 0.05
 
 
 class TestPrivateGetRiskFreeRate(unittest.TestCase):
@@ -912,10 +879,7 @@ class TestPrivateGetRiskFreeRate(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.client._get_risk_free_rate()
 
-        self.assertEqual(
-            str(context.exception),
-            "get risk free rate error",
-        )
+        assert str(context.exception) == "get risk free rate error"
 
     def test__get_risk_free_rate_success(self) -> None:
         self.client.http_client = MockHTTPClient(
@@ -942,7 +906,7 @@ class TestPrivateGetRiskFreeRate(unittest.TestCase):
 
         risk_free_rate = self.client._get_risk_free_rate()
 
-        self.assertEqual(0.03, risk_free_rate)
+        assert risk_free_rate == 0.03
 
 
 class TestGetPerformanceMetrics(unittest.TestCase):
@@ -971,10 +935,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
                 end_at=datetime.datetime.now(),
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "alpaca get account error",
-        )
+        assert str(context.exception) == "alpaca get account error"
 
     def test_get_performance_metrics_get_portfolio_returns_error(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -995,10 +956,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
                 end_at=datetime.datetime.now(),
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "get portfolio returns error",
-        )
+        assert str(context.exception) == "get portfolio returns error"
 
     def test_get_performance_metrics_get_benchmark_daily_returns_error(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -1020,10 +978,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
                 end_at=datetime.datetime.now(),
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "get benchmark returns error",
-        )
+        assert str(context.exception) == "get benchmark returns error"
 
     def test_get_performance_metrics_get_risk_free_rate_error(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -1046,10 +1001,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
                 end_at=datetime.datetime.now(),
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "get risk free rate error",
-        )
+        assert str(context.exception) == "get risk free rate error"
 
     def test_get_performance_metrics_success(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -1071,8 +1023,8 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             end_at=datetime.datetime.now(),
         )
 
-        self.assertEqual(100.0, metrics["current_portfolio_value"])
-        self.assertEqual(0.0049, metrics["cumulative_portfolio_returns"])
-        self.assertEqual(0.05, metrics["cumulative_benchmark_returns"])
-        self.assertEqual(0.03, metrics["risk_free_rate"])
-        self.assertEqual(0.03, metrics["risk_free_rate"])
+        assert metrics["current_portfolio_value"] == 100.0
+        assert metrics["cumulative_portfolio_returns"] == 0.0049
+        assert metrics["cumulative_benchmark_returns"] == 0.05
+        assert metrics["risk_free_rate"] == 0.03
+        assert metrics["risk_free_rate"] == 0.03

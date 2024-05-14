@@ -189,7 +189,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
             )
 
-        self.assertEqual("get stock bars error", str(context.exception))
+        assert str(context.exception) == "get stock bars error"
 
     def test_get_range_equities_bars_success(self) -> None:
         """Test get range equities bars success."""
@@ -239,14 +239,14 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
         )
 
-        self.assertEqual(3, len(range_equities_bars))
-        self.assertEqual("TICKER", range_equities_bars.iloc[0]["ticker"])
-        self.assertEqual(5.0, range_equities_bars.iloc[0]["open_price"])
-        self.assertEqual(6.0, range_equities_bars.iloc[0]["high_price"])
-        self.assertEqual(4.0, range_equities_bars.iloc[0]["low_price"])
-        self.assertEqual(5.0, range_equities_bars.iloc[0]["close_price"])
-        self.assertEqual(100.0, range_equities_bars.iloc[0]["volume"])
-        self.assertEqual("ALPACA", range_equities_bars.iloc[0]["source"])
+        assert len(range_equities_bars) == 3
+        assert range_equities_bars.iloc[0]["ticker"] == "TICKER"
+        assert range_equities_bars.iloc[0]["open_price"] == 5.0
+        assert range_equities_bars.iloc[0]["high_price"] == 6.0
+        assert range_equities_bars.iloc[0]["low_price"] == 4.0
+        assert range_equities_bars.iloc[0]["close_price"] == 5.0
+        assert range_equities_bars.iloc[0]["volume"] == 100.0
+        assert range_equities_bars.iloc[0]["source"] == "ALPACA"
 
 
 class TestPrivateGetFormsInformation(unittest.TestCase):
@@ -278,20 +278,14 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
             target_form="10-K",
         )
 
-        self.assertEqual(
-            forms_information[0]["accession_number"],
-            "0001171843-24-001239",
-        )
-        self.assertEqual(
-            forms_information[0]["acceptance_date"],
-            datetime.datetime(
-                1977,
-                5,
-                26,
-                18,
-                36,
-                45,
-            ),
+        assert forms_information[0]["accession_number"] == "0001171843-24-001239"
+        assert forms_information[0]["acceptance_date"] == datetime.datetime(
+            1977,
+            5,
+            26,
+            18,
+            36,
+            45,
         )
 
 
@@ -334,23 +328,17 @@ class TestPrivateGetFormsContents(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(
-            forms_contents[0]["acceptance_date"],
-            datetime.datetime(
-                1977,
-                5,
-                26,
-                18,
-                36,
-                45,
-                tzinfo=datetime.timezone.utc,
-            ),
+        assert forms_contents[0]["acceptance_date"] == datetime.datetime(
+            1977,
+            5,
+            26,
+            18,
+            36,
+            45,
+            tzinfo=datetime.timezone.utc,
         )
 
-        self.assertEqual(
-            forms_contents[0]["content"],
-            ["form contents"],
-        )
+        forms_contents[0]["content"] == ["form contents"]
 
 
 class TestGetRangeCorporateFilings(unittest.TestCase):
@@ -384,7 +372,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
             )
 
-        self.assertEqual("get tickers http error", str(context.exception))
+        assert str(context.exception) == "get tickers http error"
 
     def test_get_range_corporate_filings_get_submissions_http_error(self) -> None:
         """Test get range corporate filings get submissions http error."""
@@ -411,7 +399,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
             )
 
-        self.assertEqual("get submissions http error", str(context.exception))
+        assert str(context.exception) == "get submissions http error"
 
     def test_get_range_corporate_filings_get_forms_information_error(self) -> None:
         """Test get range corporate filings get forms information error."""
@@ -449,7 +437,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
             )
 
-        self.assertEqual("get forms information error", str(context.exception))
+        assert str(context.exception) == "get forms information error"
 
     def test_get_range_corporate_filings_get_forms_contents_error(self) -> None:
         """Test get range corporate filings get forms contents error."""
@@ -488,7 +476,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d"),
             )
 
-        self.assertEqual("get forms contents error", str(context.exception))
+        assert str(context.exception) == "get forms contents error"
 
     def test_get_range_corporate_filings_success(self) -> None:
         """Test get range corporate filings success."""
@@ -528,6 +516,5 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
 
         corporate_filing = corporate_filings[0]
 
-        self.assertEqual(corporate_filing["ticker"], "TICKER")
-
-        self.assertEqual(len(corporate_filing["corporate_filings"].keys()), 3)
+        assert corporate_filing["ticker"] == "TICKER"
+        assert len(corporate_filing["corporate_filings"].keys()) == 3
