@@ -212,7 +212,7 @@ def min_max_scaler(
 
     """
 
-    def _scaler(column, feature_range: tuple[float, float] = (0, 1)):
+    def _scaler(column, feature_range: tuple[float, float] = (0, 1)) -> pl.DataFrame:
         min_ = column.min()
         max_ = column.max()
         # Check if all values are the same

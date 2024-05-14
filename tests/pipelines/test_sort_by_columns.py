@@ -51,5 +51,5 @@ from pipelines.transformations import sort_by_columns
         ),
     ],
 )
-def test_sort_by_columns(input_data, subset, descending, expected_output):
+def test_sort_by_columns(input_data, subset, descending, expected_output) -> None:
     assert sort_by_columns(input_data, subset, descending).equals(expected_output)

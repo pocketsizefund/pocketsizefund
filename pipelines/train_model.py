@@ -8,7 +8,7 @@ from pipelines.types import Bucket, ColumnSubset, TimeWindow
 
 
 @task
-def valid_size(data, window: TimeWindow):
+def valid_size(data, window: TimeWindow) -> bool:
     return data.shape[0] >= window.length
 
 
@@ -17,7 +17,7 @@ def train_val_test_split(
     data: pl.DataFrame,
     splits: tuple[int, int, int],
     preserve_order: bool = True,
-):
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     if not preserve_order:
         data = data.shuffle()
 
@@ -42,7 +42,7 @@ def train_ticker(
     features: list[str],
     train_test_splits: tuple[float, float, float],
     window: TimeWindow,
-):
+) -> None:
     ticker_data = transformations.filter_data_by_column_value(
         data,
         column="ticker",
@@ -54,8 +54,7 @@ def train_ticker(
         msg = f"{ticker_data=} has insufficient observations, {requires=}"
         raise ValueError(msg)
 
-    train, val, test = train_val_test_split(
-        ticker_data, splits=train_test_splits)
+    train, val, test = train_val_test_split(ticker_data, splits=train_test_splits)
 
     train = transformations.sort_by_columns(
         transformations.min_max_scaler(train),
@@ -108,13 +107,12 @@ def pipeline(
     close_price_index: float,
     train_test_splits: tuple[float, float, float],
     task_runner=RayTaskRunner(),  # noqa: B008
-):
+) -> None:
     _ = task_runner
 
     data = load_dataframe(data_path)
     data = transformations.drop_nulls(data)
-    data = transformations.drop_duplicates(
-        data, subset=[timestamp_field, ticker_field])
+    data = transformations.drop_duplicates(data, subset=[timestamp_field, ticker_field])
     data = transformations.select_columns(
         data,
         subset=[timestamp_field, ticker_field] + features,
@@ -141,8 +139,7 @@ def pipeline(
 
 if __name__ == "__main__":
     pipeline(
-        data_path=Bucket(block="pocketsizefund-data-bucket",
-                         prefix="tests", key="test_data.csv"),
+        data_path=Bucket(block="pocketsizefund-data-bucket", prefix="tests", key="test_data.csv"),
         timestamp_field="timestamp",
         ticker_field="ticker",
         features=[

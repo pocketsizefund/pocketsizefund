@@ -34,8 +34,7 @@ from pipelines.transformations import drop_duplicates
         # all duplicates returns single value
         (pl.DataFrame({"A": [1, 1, 1]}), ["A"], pl.DataFrame({"A": [1]})),
         # empty returns empty
-        (pl.DataFrame({"A": [], "B": []}), None,
-         pl.DataFrame({"A": [], "B": []})),
+        (pl.DataFrame({"A": [], "B": []}), None, pl.DataFrame({"A": [], "B": []})),
         (
             pl.DataFrame({"A": [1, 1, 2, 2], "B": [1, 1, 2, 2]}),
             ["A", "B"],
@@ -58,7 +57,7 @@ from pipelines.transformations import drop_duplicates
         ),
     ],
 )
-def test_drop_duplicates(input_data, subset, expected_output):
+def test_drop_duplicates(input_data, subset, expected_output) -> None:
     # the tests seem to randomize the row order
     result = drop_duplicates(input_data, subset)
 
