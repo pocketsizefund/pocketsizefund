@@ -58,4 +58,4 @@ dataframe = pl.DataFrame(
     ],
 )
 def test_drop_nulls(input_data, subset, expected_output) -> None:
-    assert drop_nulls(input_data, subset).equals(expected_output)
+    assert drop_nulls(input_data, subset).equals(expected_output)  # noqa: S101
