@@ -42,3 +42,7 @@ deploy-pipelines:
 		$(PIPELINE_VENV)/bin/deactivate
 	rm -rf $(PIPELINE_VENV)
 
+
+
+lint:
+	poetry run ruff check .

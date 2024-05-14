@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-# lint all Python code
-
-set -e
-
-ruff check

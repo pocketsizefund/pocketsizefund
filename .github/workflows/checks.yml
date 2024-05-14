@@ -25,7 +25,3 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           path-to-lcov: coverage.xml
-      - name: Run dead code analysis
-        run: ./bin/find_dead_code
-      - name: Run linting
-        run: ./bin/enforce_linting
