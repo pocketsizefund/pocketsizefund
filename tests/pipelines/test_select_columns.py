@@ -49,7 +49,7 @@ from pipelines.transformations import select_columns
     ],
 )
 def test_select_columns(
-    input_data: pl.DataFrame, subset: list[str], expected_output: pl.DataFrame
+    input_data: pl.DataFrame, subset: list[str], expected_output: pl.DataFrame,
 ) -> None:
     result = select_columns(input_data, subset)
     if isinstance(result, list):
