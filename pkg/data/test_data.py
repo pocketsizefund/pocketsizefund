@@ -1,4 +1,5 @@
 """Unit tests for Alpaca Client."""
+
 import unittest
 import datetime
 
@@ -9,6 +10,7 @@ from pkg.data import data
 
 class MockAlpacaHistoricalResponse:
     """Mock Alpaca historical response."""
+
     def __init__(
         self,
         data: dict[str, any],
@@ -37,6 +39,7 @@ class MockAlpacaHistoricalResponse:
 
 class MockAlpacaHistoricalClient:
     """Mock Alpaca historical client."""
+
     def __init__(
         self,
         response: MockAlpacaHistoricalResponse,
@@ -58,6 +61,7 @@ class MockAlpacaHistoricalClient:
 
 class MockHTTPGetResponse:
     """Mock HTTP response."""
+
     def __init__(
         self,
         text: str = None,
@@ -72,6 +76,7 @@ class MockHTTPGetResponse:
 
 class MockHttpClient:
     """Mock HTTP client."""
+
     def __init__(
         self,
         responses: dict[str, any],
@@ -158,6 +163,7 @@ def mock_get_forms_contents_success(
 
 class TestGetRangeEquitiesBars(unittest.TestCase):
     """Unit tests for get range equities bars."""
+
     def test_get_range_equities_bars_alpaca_get_stock_bars_error(self) -> None:
         """Test get range equities bars alpaca get stock bars error."""
         client = data.Client(
@@ -240,6 +246,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
 
 class TestPrivateGetFormsInformation(unittest.TestCase):
     """Unit tests for private get forms information."""
+
     def test_private_get_forms_information_success(self) -> None:
         """Test private get forms information success."""
         client = data.Client(
@@ -285,6 +292,7 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
 class TestPrivateGetFormsContents(unittest.TestCase):
     """Unit tests for private get forms contents."""
+
     def test_private_get_forms_contents_success(self) -> None:
         """Test private get forms contents success."""
         client = data.Client(
@@ -342,6 +350,7 @@ class TestPrivateGetFormsContents(unittest.TestCase):
 
 class TestGetRangeCorporateFilings(unittest.TestCase):
     """Unit tests for get range corporate filings."""
+
     def setUp(self) -> None:
         """Set up test."""
         self.client = data.Client(

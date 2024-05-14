@@ -1,4 +1,5 @@
 """Inference endpoint for price prediction model."""
+
 import json
 import os
 
@@ -10,13 +11,17 @@ from pkg.trade import trade
 
 app = flask.Flask(__name__)
 
-
-scalers_file = open(os.getenv("MODEL_DIR")+"/scalers.pkl", "rb")
-scalers = pickle.load(scalers_file)
-
 model_model = model.Model(
     artifact_output_path=os.getenv("MODEL_DIR"),
     weights_and_biases_api_key="",
+)
+
+trade_client = trade.Client(
+    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_secret_key=os.getenv("ALPACA_SECRET_KEY"),
+    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
+    is_paper=True,
 )
 
 data_client = data.Client(
