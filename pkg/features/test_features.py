@@ -11,7 +11,7 @@ test_data = pandas.read_csv("pkg/features/test_data.csv")
 
 
 class TestGenerateFeatures(unittest.TestCase):
-    def test_generate_features_success(self):
+    def test_generate_features_success(self) -> None:
         client = features.Client()
 
         result = client.generate_features(test_data)
@@ -34,7 +34,7 @@ class TestGenerateFeatures(unittest.TestCase):
 
 
 class TestPreprocessTrainingData(unittest.TestCase):
-    def test_preprocess_training_features_without_mocks_success(self):
+    def test_preprocess_training_features_without_mocks_success(self) -> None:
         client = features.Client()
 
         result = client.preprocess_training_features(test_data)
@@ -50,7 +50,7 @@ class TestPreprocessTrainingData(unittest.TestCase):
 
 
 class TestCreateDataset(unittest.TestCase):
-    def test_create_dataset_success(self):
+    def test_create_dataset_success(self) -> None:
         client = features.Client()
 
         data = numpy.array(
@@ -84,7 +84,7 @@ class TestCreateDataset(unittest.TestCase):
 
 
 class TestSplitWindow(unittest.TestCase):
-    def test_split_window_data_success(self):
+    def test_split_window_data_success(self) -> None:
         client = features.Client()
 
         client.window_input_length = 3
@@ -189,46 +189,46 @@ class TestSplitWindow(unittest.TestCase):
 
 
 class TestCleanAndGroupData(unittest.TestCase):
-    def test_clean_and_group_data_success(self):
+    def test_clean_and_group_data_success(self) -> None:
         client = features.Client()
 
-        input = pandas.DataFrame({
-            "ticker": [
-                "AAPL",
-                "AAPL",
-                "AAPL",
-                "AAPL",
-                "AAPL",
-                "AAPL",
-            ],
-            "timestamp": [
-                "2024-01-01 16:00:00",
-                "2024-01-02 16:00:00",
-                "2024-01-03 16:00:00",
-                "2024-01-04 16:00:00",
-                "2024-01-05 16:00:00",
-                "2024-01-05 16:00:00",
-            ],
-            "open_price": [180.0, 182.0, 181.5, 183.0, 182.5, 182.5],
-            "high_price": [182.5, 183.5, 183.0, 184.0, 183.5, 183.5],
-            "low_price": [179.5, 181.0, 181.0, 182.0, 182.0, 182.0],
-            "close_price": [182.0, 182.5, 182.5, 183.5, 183.0, 183.0],
-            "volume": [1000, 1500, 1200, 2000, 1800, 1800],
-            "source": [
-                "ALPACA",
-                "ALPACA",
-                "ALPACA",
-                "ALPACA",
-                "ALPACA",
-                "ALPACA",
-            ]
-        })
+        input = pandas.DataFrame(
+            {
+                "ticker": [
+                    "AAPL",
+                    "AAPL",
+                    "AAPL",
+                    "AAPL",
+                    "AAPL",
+                    "AAPL",
+                ],
+                "timestamp": [
+                    "2024-01-01 16:00:00",
+                    "2024-01-02 16:00:00",
+                    "2024-01-03 16:00:00",
+                    "2024-01-04 16:00:00",
+                    "2024-01-05 16:00:00",
+                    "2024-01-05 16:00:00",
+                ],
+                "open_price": [180.0, 182.0, 181.5, 183.0, 182.5, 182.5],
+                "high_price": [182.5, 183.5, 183.0, 184.0, 183.5, 183.5],
+                "low_price": [179.5, 181.0, 181.0, 182.0, 182.0, 182.0],
+                "close_price": [182.0, 182.5, 182.5, 183.5, 183.0, 183.0],
+                "volume": [1000, 1500, 1200, 2000, 1800, 1800],
+                "source": [
+                    "ALPACA",
+                    "ALPACA",
+                    "ALPACA",
+                    "ALPACA",
+                    "ALPACA",
+                    "ALPACA",
+                ],
+            }
+        )
 
         output = client._clean_and_group_data(input)
 
         self.assertTrue("AAPL" in output)
         self.assertFalse("ticker" in output["AAPL"].columns)
         self.assertFalse("source" in output["AAPL"].columns)
-        self.assertEqual(output["AAPL"].index.isin(
-            ["2024-01-05 16:00:00"]
-        ).sum(), 1)
+        self.assertEqual(output["AAPL"].index.isin(["2024-01-05 16:00:00"]).sum(), 1)

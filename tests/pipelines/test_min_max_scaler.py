@@ -4,8 +4,7 @@ import pytest
 from pipelines.transformations import min_max_scaler
 
 dataframe = pl.DataFrame(
-    {"A": [1, 2, 3, 4, 5], "B": [10, 20, 30, 40, 50],
-        "C": ["x", "y", "z", "w", "v"]}
+    {"A": [1, 2, 3, 4, 5], "B": [10, 20, 30, 40, 50], "C": ["x", "y", "z", "w", "v"]}
 )
 
 
@@ -40,8 +39,7 @@ dataframe = pl.DataFrame(
         (
             dataframe.select(["A", "B"]),
             (0, 1),
-            pl.DataFrame({"A": [0, 0.25, 0.5, 0.75, 1],
-                         "B": [0, 0.25, 0.5, 0.75, 1]}),
+            pl.DataFrame({"A": [0, 0.25, 0.5, 0.75, 1], "B": [0, 0.25, 0.5, 0.75, 1]}),
         ),
         # scale to [0, 1] works if all 0
         (
@@ -76,5 +74,5 @@ dataframe = pl.DataFrame(
         ),
     ],
 )
-def test_min_max_scaler(input_data, feature_range, expected_output):
+def test_min_max_scaler(input_data, feature_range, expected_output) -> None:
     assert min_max_scaler(input_data, feature_range).equals(expected_output)

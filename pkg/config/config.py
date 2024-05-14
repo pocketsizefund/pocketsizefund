@@ -5,11 +5,7 @@ ENVIRONMENT_DEVELOPMENT = "development"
 
 
 class SAMConfig:
-    def __init__(
-        self,
-        file_path: str,
-        environment: str = ENVIRONMENT_DEVELOPMENT
-    ) -> None:
+    def __init__(self, file_path: str, environment: str = ENVIRONMENT_DEVELOPMENT) -> None:
         self.samconfig_file = toml.load(file_path)
 
         self.parameters: dict[str, str] = {}

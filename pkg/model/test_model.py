@@ -17,7 +17,7 @@ test_data = pandas.read_csv("pkg/features/test_data.csv")
 
 
 class TestPreprocessTrainingFeatures(unittest.TestCase):
-    def test_preprocess_training_features_without_mocks_success(self):
+    def test_preprocess_training_features_without_mocks_success(self) -> None:
         model = model_package.Model(
             artifact_output_path="",
             weights_and_biases_api_key="",
@@ -36,7 +36,7 @@ class TestPreprocessTrainingFeatures(unittest.TestCase):
 
 
 class TestCreateDataset(unittest.TestCase):
-    def test_create_dataset_success(self):
+    def test_create_dataset_success(self) -> None:
         model = model_package.Model(
             artifact_output_path="",
             weights_and_biases_api_key="",
@@ -73,7 +73,7 @@ class TestCreateDataset(unittest.TestCase):
 
 
 class TestSplitWindow(unittest.TestCase):
-    def test_split_window_data_success(self):
+    def test_split_window_data_success(self) -> None:
         model = model_package.Model(
             artifact_output_path="",
             weights_and_biases_api_key="",
@@ -181,56 +181,56 @@ class TestSplitWindow(unittest.TestCase):
 
 
 class TestCleanAndGroupData(unittest.TestCase):
-    def test_clean_and_group_data_success(self):
+    def test_clean_and_group_data_success(self) -> None:
         model = model_package.Model(
             artifact_output_path="",
             weights_and_biases_api_key="",
         )
 
-        input = pandas.DataFrame({
-            "ticker": [
-                "AAPL",
-                "AAPL",
-                "AAPL",
-                "AAPL",
-                "AAPL",
-                "AAPL",
-            ],
-            "timestamp": [
-                "2024-01-01 16:00:00",
-                "2024-01-02 16:00:00",
-                "2024-01-03 16:00:00",
-                "2024-01-04 16:00:00",
-                "2024-01-05 16:00:00",
-                "2024-01-05 16:00:00",
-            ],
-            "open_price": [180.0, 182.0, 181.5, 183.0, 182.5, 182.5],
-            "high_price": [182.5, 183.5, 183.0, 184.0, 183.5, 183.5],
-            "low_price": [179.5, 181.0, 181.0, 182.0, 182.0, 182.0],
-            "close_price": [182.0, 182.5, 182.5, 183.5, 183.0, 183.0],
-            "volume": [1000, 1500, 1200, 2000, 1800, 1800],
-            "source": [
-                "ALPACA",
-                "ALPACA",
-                "ALPACA",
-                "ALPACA",
-                "ALPACA",
-                "ALPACA",
-            ]
-        })
+        input = pandas.DataFrame(
+            {
+                "ticker": [
+                    "AAPL",
+                    "AAPL",
+                    "AAPL",
+                    "AAPL",
+                    "AAPL",
+                    "AAPL",
+                ],
+                "timestamp": [
+                    "2024-01-01 16:00:00",
+                    "2024-01-02 16:00:00",
+                    "2024-01-03 16:00:00",
+                    "2024-01-04 16:00:00",
+                    "2024-01-05 16:00:00",
+                    "2024-01-05 16:00:00",
+                ],
+                "open_price": [180.0, 182.0, 181.5, 183.0, 182.5, 182.5],
+                "high_price": [182.5, 183.5, 183.0, 184.0, 183.5, 183.5],
+                "low_price": [179.5, 181.0, 181.0, 182.0, 182.0, 182.0],
+                "close_price": [182.0, 182.5, 182.5, 183.5, 183.0, 183.0],
+                "volume": [1000, 1500, 1200, 2000, 1800, 1800],
+                "source": [
+                    "ALPACA",
+                    "ALPACA",
+                    "ALPACA",
+                    "ALPACA",
+                    "ALPACA",
+                    "ALPACA",
+                ],
+            }
+        )
 
         output = model._clean_and_group_data(input)
 
         self.assertTrue("AAPL" in output)
         self.assertFalse("ticker" in output["AAPL"].columns)
         self.assertFalse("source" in output["AAPL"].columns)
-        self.assertEqual(output["AAPL"].index.isin(
-            ["2024-01-05 16:00:00"]
-        ).sum(), 1)
+        self.assertEqual(output["AAPL"].index.isin(["2024-01-05 16:00:00"]).sum(), 1)
 
 
 class TestSaveModel(unittest.TestCase):
-    def test_save_model_success(self):
+    def test_save_model_success(self) -> None:
         model = model_package.Model(
             artifact_output_path=".",
             weights_and_biases_api_key="",
@@ -250,7 +250,7 @@ class TestSaveModel(unittest.TestCase):
 
 
 class TestSaveScalers(unittest.TestCase):
-    def test_save_scalers_success(self):
+    def test_save_scalers_success(self) -> None:
         model = model_package.Model(
             artifact_output_path=".",
             weights_and_biases_api_key="",
@@ -270,7 +270,7 @@ class TestSaveScalers(unittest.TestCase):
 
 
 class TestSaveData(unittest.TestCase):
-    def test_save_data_success(self):
+    def test_save_data_success(self) -> None:
         model = model_package.Model(
             artifact_output_path=".",
             weights_and_biases_api_key="",
@@ -289,7 +289,7 @@ class TestSaveData(unittest.TestCase):
 
 
 class TestLoadModel(unittest.TestCase):
-    def test_load_model_success(self):
+    def test_load_model_success(self) -> None:
         model = model_package.Model(
             artifact_output_path=".",
             weights_and_biases_api_key="",
@@ -313,7 +313,7 @@ class TestLoadModel(unittest.TestCase):
 
 
 class TestLoadScalers(unittest.TestCase):
-    def test_load_scalers_success(self):
+    def test_load_scalers_success(self) -> None:
         model = model_package.Model(
             artifact_output_path=".",
             weights_and_biases_api_key="",
@@ -361,18 +361,20 @@ class MockPredictor:
 
 
 class TestGeneratePredictions(unittest.TestCase):
-    def test_generate_predictions_success(self):
+    def test_generate_predictions_success(self) -> None:
         client = model_package.Client(
             model_endpoint_name="model_endpoint_name",
         )
 
         client.predictor = MockPredictor()
 
-        predictions = client.generate_predictions(data=pandas.DataFrame(
-            data={
-                "timestamp": pandas.Timestamp("2021-01-01"),
-            },
-            index=[0],
-        ))
+        predictions = client.generate_predictions(
+            data=pandas.DataFrame(
+                data={
+                    "timestamp": pandas.Timestamp("2021-01-01"),
+                },
+                index=[0],
+            )
+        )
 
         self.assertEqual(10.0, predictions["65"][0][0])

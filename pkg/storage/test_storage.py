@@ -66,7 +66,7 @@ class MockS3Client:
 
 
 class TestListFileNames(unittest.TestCase):
-    def test_list_file_names_success(self):
+    def test_list_file_names_success(self) -> None:
         client = storage.Client(
             s3_data_bucket_name="s3_data_bucket_name",
             s3_artifacts_bucket_name="s3_artifacts_bucket_name",
@@ -101,7 +101,7 @@ class TestListFileNames(unittest.TestCase):
 
 
 class TestStoreDataframes(unittest.TestCase):
-    def test_store_dataframes_success(self):
+    def test_store_dataframes_success(self) -> None:
         client = storage.Client(
             s3_data_bucket_name="s3_data_bucket_name",
             s3_artifacts_bucket_name="s3_artifacts_bucket_name",
@@ -134,7 +134,7 @@ class TestStoreDataframes(unittest.TestCase):
 
 
 class TestLoadDataframes(unittest.TestCase):
-    def test_load_dataframes_success(self):
+    def test_load_dataframes_success(self) -> None:
         client = storage.Client(
             s3_data_bucket_name="s3_data_bucket_name",
             s3_artifacts_bucket_name="s3_artifacts_bucket_name",
@@ -154,17 +154,15 @@ class TestLoadDataframes(unittest.TestCase):
 
         self.assertEqual(2, len(dataframes_by_file_name))
         self.assertTrue(
-            dataframes_by_file_name["first"].equals(
-                client.s3_client.data["prefix/first"]),
+            dataframes_by_file_name["first"].equals(client.s3_client.data["prefix/first"]),
         )
         self.assertTrue(
-            dataframes_by_file_name["second"].equals(
-                client.s3_client.data["prefix/second"]),
+            dataframes_by_file_name["second"].equals(client.s3_client.data["prefix/second"]),
         )
 
 
 class TestStoreTexts(unittest.TestCase):
-    def test_store_texts_success(self):
+    def test_store_texts_success(self) -> None:
         client = storage.Client(
             s3_data_bucket_name="s3_data_bucket_name",
             s3_artifacts_bucket_name="s3_artifacts_bucket_name",
@@ -189,7 +187,7 @@ class TestStoreTexts(unittest.TestCase):
 
 
 class TestLoadTexts(unittest.TestCase):
-    def test_load_texts_success(self):
+    def test_load_texts_success(self) -> None:
         client = storage.Client(
             s3_data_bucket_name="s3_data_bucket_name",
             s3_artifacts_bucket_name="s3_artifacts_bucket_name",
