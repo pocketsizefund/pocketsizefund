@@ -14,9 +14,7 @@ if [[ -z "$name" ]]; then
     ls -ld cmd/lambda/*/ | awk '{print $NF}' | xargs -I {} basename {}
     echo ""
     echo "models:"
-    echo "trainlstm"
-    echo "predictlstm"
-    echo "evaluatelstm"
+    echo "predictprice"
     exit 0
 fi
 

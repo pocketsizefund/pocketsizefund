@@ -33,7 +33,7 @@ account_id=$(aws sts get-caller-identity --query Account --output text)
 
 account_region=$(aws --profile default configure get region)
 
-image_name=$(python3 ./bin/helpers/get_name.py predictlstm ${environment})
+image_name=$(python3 ./bin/helpers/get_name.py predictprice ${environment})
 
 model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
 
