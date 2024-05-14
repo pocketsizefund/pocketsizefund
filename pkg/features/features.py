@@ -7,18 +7,18 @@ import keras
 
 FEATURE_NAMES = tuple(
     [
-        'open_price',
-        'high_price',
-        'low_price',
-        'close_price',
-        'volume',
+        "open_price",
+        "high_price",
+        "low_price",
+        "close_price",
+        "volume",
     ]
 )
 
 REQUIRED_COLUMNS = tuple(
     [
-        'timestamp',
-        'ticker',
+        "timestamp",
+        "ticker",
     ]
 )
 
@@ -110,12 +110,12 @@ class Client:
             testing_dataset = testing_dataset.concatenate(dataset)
 
         return {
-            'data': {
-                'training': training_dataset,
-                'validating': validating_dataset,
-                'testing': testing_dataset,
+            "data": {
+                "training": training_dataset,
+                "validating": validating_dataset,
+                "testing": testing_dataset,
             },
-            'scalers': scalers,
+            "scalers": scalers,
         }
 
     def _create_dataset(

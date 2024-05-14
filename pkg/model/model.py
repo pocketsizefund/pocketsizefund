@@ -12,17 +12,17 @@ import wandb
 
 
 FEATURE_NAMES = tuple([
-    'open_price',
-    'high_price',
-    'low_price',
-    'close_price',
-    'volume',
+    "open_price",
+    "high_price",
+    "low_price",
+    "close_price",
+    "volume",
 ])
 
 REQUIRED_COLUMNS = tuple(
     [
-        'timestamp',
-        'ticker',
+        "timestamp",
+        "ticker",
     ]
 )
 
@@ -37,7 +37,7 @@ class Model:
         self,
         artifact_output_path: str,
         weights_and_biases_api_key: str,
-        notes: str = '',
+        notes: str = "",
     ) -> None:
         self.feature_names = FEATURE_NAMES
         self.required_columns = REQUIRED_COLUMNS
@@ -120,12 +120,12 @@ class Model:
             testing_dataset = testing_dataset.concatenate(dataset)
 
         return {
-            'data': {
-                'training': training_dataset,
-                'validating': validating_dataset,
-                'testing': testing_dataset,
+            "data": {
+                "training": training_dataset,
+                "validating": validating_dataset,
+                "testing": testing_dataset,
             },
-            'scalers': scalers,
+            "scalers": scalers,
         }
 
     def _create_dataset(
@@ -250,9 +250,9 @@ class Model:
         wandb.login(key=self.weights_and_biases_api_key)
 
         wandb.init(
-            project='basic-lstm',
+            project="basic-lstm",
             config={
-                'epochs': epochs,
+                "epochs": epochs,
             },
             notes=self.notes,
         )
@@ -272,7 +272,7 @@ class Model:
                     target_shape=(self.window_output_length, self.label_count),
                 ),
             ],
-            name='basic_lstm',
+            name="basic_lstm",
         )
 
         self.model.compile(
@@ -284,9 +284,9 @@ class Model:
         )
 
         history = self.model.fit(
-            x=features['training'],
+            x=features["training"],
             epochs=epochs,
-            validation_data=features['validating'],
+            validation_data=features["validating"],
         )
 
         loss = history.history["loss"]
@@ -303,8 +303,8 @@ class Model:
             })
 
         return {
-            'model': self.model,
-            'metrics': history.history,
+            "model": self.model,
+            "metrics": history.history,
         }
 
     def evaluate_model(
@@ -318,8 +318,8 @@ class Model:
         )
 
         return {
-            'loss': evaluation['loss'],
-            'mean_absolute_error': evaluation['mean_absolute_error'],
+            "loss": evaluation["loss"],
+            "mean_absolute_error": evaluation["mean_absolute_error"],
         }
 
     def save_model(
@@ -327,7 +327,7 @@ class Model:
         model: models.Sequential,
     ) -> None:
         model.save(
-            filepath=os.path.join(self.artifact_output_path, 'lstm.keras'),
+            filepath=os.path.join(self.artifact_output_path, "lstm.keras"),
         )
 
     def save_scalers(
@@ -335,8 +335,8 @@ class Model:
         scalers: dict[str, preprocessing.MinMaxScaler],
     ) -> None:
         with open(
-            file=os.path.join(self.artifact_output_path, 'scalers.pkl'),
-            mode='wb',
+            file=os.path.join(self.artifact_output_path, "scalers.pkl"),
+            mode="wb",
         ) as scalers_file:
             pickle.dump(
                 obj=scalers,
@@ -350,14 +350,14 @@ class Model:
     ) -> None:
         data.save(
             path=os.path.join(self.artifact_output_path, name),
-            compression='GZIP',
+            compression="GZIP",
         )
 
     def load_model(
         self,
     ) -> None:
         self.model = models.load_model(
-            filepath=os.path.join(self.artifact_output_path, 'lstm.keras'),
+            filepath=os.path.join(self.artifact_output_path, "lstm.keras"),
         )
 
     def load_scalers(
@@ -365,10 +365,10 @@ class Model:
     ) -> None:
         scalers_file_path = os.path.join(
             self.artifact_output_path,
-            'scalers.pkl',
+            "scalers.pkl",
         )
 
-        with open(scalers_file_path, 'rb') as scalers_file:
+        with open(scalers_file_path, "rb") as scalers_file:
             self.scalers = pickle.load(file=scalers_file)
 
     def generate_predictions(
@@ -376,7 +376,7 @@ class Model:
         features: dict[str, pandas.DataFrame],
     ) -> dict[str, list[float]]:
         if not self.model or not self.scalers:
-            raise Exception('no model or scalers')
+            raise Exception("no model or scalers")
 
         predictions: dict[str, any] = {}
         for ticker, ticker_features in features.items():
@@ -416,10 +416,10 @@ class Client:
         self,
         data: pandas.DataFrame,
     ) -> any:
-        data['timestamp'] = data['timestamp'].astype(str)
+        data["timestamp"] = data["timestamp"].astype(str)
 
         predictions = self.predictor.predict(
-            data=data.to_dict(orient='records'),
+            data=data.to_dict(orient="records"),
         )
 
         return predictions

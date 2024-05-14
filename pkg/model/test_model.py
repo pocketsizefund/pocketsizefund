@@ -13,33 +13,33 @@ import pickle
 from pkg.model import model as model_package
 
 
-test_data = pandas.read_csv('pkg/features/test_data.csv')
+test_data = pandas.read_csv("pkg/features/test_data.csv")
 
 
 class TestPreprocessTrainingFeatures(unittest.TestCase):
     def test_preprocess_training_features_without_mocks_success(self):
         model = model_package.Model(
-            artifact_output_path='',
-            weights_and_biases_api_key='',
+            artifact_output_path="",
+            weights_and_biases_api_key="",
         )
 
         result = model.preprocess_training_features(test_data)
 
         self.assertIsInstance(result, dict)
-        self.assertSetEqual(set(result.keys()), {'data', 'scalers'})
+        self.assertSetEqual(set(result.keys()), {"data", "scalers"})
 
-        data_keys = ['training', 'validating', 'testing']
-        self.assertSetEqual(set(result['data'].keys()), set(data_keys))
+        data_keys = ["training", "validating", "testing"]
+        self.assertSetEqual(set(result["data"].keys()), set(data_keys))
 
-        self.assertIsInstance(result['scalers'], dict)
-        self.assertEqual(len(result['scalers']), 2)
+        self.assertIsInstance(result["scalers"], dict)
+        self.assertEqual(len(result["scalers"]), 2)
 
 
 class TestCreateDataset(unittest.TestCase):
     def test_create_dataset_success(self):
         model = model_package.Model(
-            artifact_output_path='',
-            weights_and_biases_api_key='',
+            artifact_output_path="",
+            weights_and_biases_api_key="",
         )
 
         data = numpy.array(
@@ -75,8 +75,8 @@ class TestCreateDataset(unittest.TestCase):
 class TestSplitWindow(unittest.TestCase):
     def test_split_window_data_success(self):
         model = model_package.Model(
-            artifact_output_path='',
-            weights_and_biases_api_key='',
+            artifact_output_path="",
+            weights_and_biases_api_key="",
         )
 
         model.window_input_length = 3
@@ -183,66 +183,66 @@ class TestSplitWindow(unittest.TestCase):
 class TestCleanAndGroupData(unittest.TestCase):
     def test_clean_and_group_data_success(self):
         model = model_package.Model(
-            artifact_output_path='',
-            weights_and_biases_api_key='',
+            artifact_output_path="",
+            weights_and_biases_api_key="",
         )
 
         input = pandas.DataFrame({
-            'ticker': [
-                'AAPL',
-                'AAPL',
-                'AAPL',
-                'AAPL',
-                'AAPL',
-                'AAPL',
+            "ticker": [
+                "AAPL",
+                "AAPL",
+                "AAPL",
+                "AAPL",
+                "AAPL",
+                "AAPL",
             ],
-            'timestamp': [
-                '2024-01-01 16:00:00',
-                '2024-01-02 16:00:00',
-                '2024-01-03 16:00:00',
-                '2024-01-04 16:00:00',
-                '2024-01-05 16:00:00',
-                '2024-01-05 16:00:00',
+            "timestamp": [
+                "2024-01-01 16:00:00",
+                "2024-01-02 16:00:00",
+                "2024-01-03 16:00:00",
+                "2024-01-04 16:00:00",
+                "2024-01-05 16:00:00",
+                "2024-01-05 16:00:00",
             ],
-            'open_price': [180.0, 182.0, 181.5, 183.0, 182.5, 182.5],
-            'high_price': [182.5, 183.5, 183.0, 184.0, 183.5, 183.5],
-            'low_price': [179.5, 181.0, 181.0, 182.0, 182.0, 182.0],
-            'close_price': [182.0, 182.5, 182.5, 183.5, 183.0, 183.0],
-            'volume': [1000, 1500, 1200, 2000, 1800, 1800],
-            'source': [
-                'ALPACA',
-                'ALPACA',
-                'ALPACA',
-                'ALPACA',
-                'ALPACA',
-                'ALPACA',
+            "open_price": [180.0, 182.0, 181.5, 183.0, 182.5, 182.5],
+            "high_price": [182.5, 183.5, 183.0, 184.0, 183.5, 183.5],
+            "low_price": [179.5, 181.0, 181.0, 182.0, 182.0, 182.0],
+            "close_price": [182.0, 182.5, 182.5, 183.5, 183.0, 183.0],
+            "volume": [1000, 1500, 1200, 2000, 1800, 1800],
+            "source": [
+                "ALPACA",
+                "ALPACA",
+                "ALPACA",
+                "ALPACA",
+                "ALPACA",
+                "ALPACA",
             ]
         })
 
         output = model._clean_and_group_data(input)
 
-        self.assertTrue('AAPL' in output)
-        self.assertFalse('ticker' in output['AAPL'].columns)
-        self.assertFalse('source' in output['AAPL'].columns)
-        self.assertEqual(output['AAPL'].index.isin(
-            ['2024-01-05 16:00:00']
+        self.assertTrue("AAPL" in output)
+        self.assertFalse("ticker" in output["AAPL"].columns)
+        self.assertFalse("source" in output["AAPL"].columns)
+        self.assertEqual(output["AAPL"].index.isin(
+            ["2024-01-05 16:00:00"]
         ).sum(), 1)
 
 
 class TestSaveModel(unittest.TestCase):
     def test_save_model_success(self):
         model = model_package.Model(
-            artifact_output_path='.',
-            weights_and_biases_api_key='',
+            artifact_output_path=".",
+            weights_and_biases_api_key="",
         )
 
         lstm_model = keras.models.Sequential()
 
-        warnings.filterwarnings('ignore')
+        warnings.filterwarnings("ignore")
         model.save_model(model=lstm_model)
         warnings.resetwarnings()
 
-        file_path = './lstm.keras'
+        file_path = "./lstm.keras"
 
         self.assertTrue(os.path.exists(file_path))
 
@@ -252,17 +252,17 @@ class TestSaveModel(unittest.TestCase):
 class TestSaveScalers(unittest.TestCase):
     def test_save_scalers_success(self):
         model = model_package.Model(
-            artifact_output_path='.',
-            weights_and_biases_api_key='',
+            artifact_output_path=".",
+            weights_and_biases_api_key="",
         )
 
         scalers = {
-            'AAPL': preprocessing.MinMaxScaler(),
+            "AAPL": preprocessing.MinMaxScaler(),
         }
 
         model.save_scalers(scalers=scalers)
 
-        file_path = './scalers.pkl'
+        file_path = "./scalers.pkl"
 
         self.assertTrue(os.path.exists(file_path))
 
@@ -272,16 +272,16 @@ class TestSaveScalers(unittest.TestCase):
 class TestSaveData(unittest.TestCase):
     def test_save_data_success(self):
         model = model_package.Model(
-            artifact_output_path='.',
-            weights_and_biases_api_key='',
+            artifact_output_path=".",
+            weights_and_biases_api_key="",
         )
 
         model.save_data(
-            name='testing_data',
+            name="testing_data",
             data=tensorflow.data.Dataset.from_tensor_slices([1, 2, 3]),
         )
 
-        file_path = './testing_data'
+        file_path = "./testing_data"
 
         self.assertTrue(os.path.exists(file_path))
 
@@ -291,15 +291,15 @@ class TestSaveData(unittest.TestCase):
 class TestLoadModel(unittest.TestCase):
     def test_load_model_success(self):
         model = model_package.Model(
-            artifact_output_path='.',
-            weights_and_biases_api_key='',
+            artifact_output_path=".",
+            weights_and_biases_api_key="",
         )
 
-        file_path = './lstm.keras'
+        file_path = "./lstm.keras"
 
         lstm_model = keras.models.Sequential()
 
-        warnings.filterwarnings('ignore')
+        warnings.filterwarnings("ignore")
         lstm_model.save(
             filepath=file_path,
         )
@@ -315,19 +315,19 @@ class TestLoadModel(unittest.TestCase):
 class TestLoadScalers(unittest.TestCase):
     def test_load_scalers_success(self):
         model = model_package.Model(
-            artifact_output_path='.',
-            weights_and_biases_api_key='',
+            artifact_output_path=".",
+            weights_and_biases_api_key="",
         )
 
-        file_path = './scalers.pkl'
+        file_path = "./scalers.pkl"
 
         scalers = {
-            'AAPL': preprocessing.MinMaxScaler(
+            "AAPL": preprocessing.MinMaxScaler(
                 feature_range=(0, 1),
             ),
         }
 
-        with open(file_path, 'wb') as scalers_file:
+        with open(file_path, "wb") as scalers_file:
             pickle.dump(
                 obj=scalers,
                 file=scalers_file,
@@ -352,7 +352,7 @@ class MockPredictor:
         data: any,
     ) -> any:
         return {
-            '65': [
+            "65": [
                 [
                     10.0,
                 ],
@@ -363,16 +363,16 @@ class MockPredictor:
 class TestGeneratePredictions(unittest.TestCase):
     def test_generate_predictions_success(self):
         client = model_package.Client(
-            model_endpoint_name='model_endpoint_name',
+            model_endpoint_name="model_endpoint_name",
         )
 
         client.predictor = MockPredictor()
 
         predictions = client.generate_predictions(data=pandas.DataFrame(
             data={
-                'timestamp': pandas.Timestamp('2021-01-01'),
+                "timestamp": pandas.Timestamp("2021-01-01"),
             },
             index=[0],
         ))
 
-        self.assertEqual(10.0, predictions['65'][0][0])
+        self.assertEqual(10.0, predictions["65"][0][0])

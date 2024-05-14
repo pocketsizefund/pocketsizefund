@@ -7,7 +7,7 @@ import tensorflow
 from pkg.features import features
 
 
-test_data = pandas.read_csv('pkg/features/test_data.csv')
+test_data = pandas.read_csv("pkg/features/test_data.csv")
 
 
 class TestGenerateFeatures(unittest.TestCase):
@@ -21,14 +21,14 @@ class TestGenerateFeatures(unittest.TestCase):
         self.assertSetEqual(
             set(result.columns),
             {
-                'timestamp',
-                'ticker',
-                'open_price',
-                'high_price',
-                'low_price',
-                'close_price',
-                'volume',
-                'source',
+                "timestamp",
+                "ticker",
+                "open_price",
+                "high_price",
+                "low_price",
+                "close_price",
+                "volume",
+                "source",
             },
         )
 
@@ -40,13 +40,13 @@ class TestPreprocessTrainingData(unittest.TestCase):
         result = client.preprocess_training_features(test_data)
 
         self.assertIsInstance(result, dict)
-        self.assertSetEqual(set(result.keys()), {'data', 'scalers'})
+        self.assertSetEqual(set(result.keys()), {"data", "scalers"})
 
-        data_keys = ['training', 'validating', 'testing']
-        self.assertSetEqual(set(result['data'].keys()), set(data_keys))
+        data_keys = ["training", "validating", "testing"]
+        self.assertSetEqual(set(result["data"].keys()), set(data_keys))
 
-        self.assertIsInstance(result['scalers'], dict)
-        self.assertEqual(len(result['scalers']), 2)
+        self.assertIsInstance(result["scalers"], dict)
+        self.assertEqual(len(result["scalers"]), 2)
 
 
 class TestCreateDataset(unittest.TestCase):
@@ -193,42 +193,42 @@ class TestCleanAndGroupData(unittest.TestCase):
         client = features.Client()
 
         input = pandas.DataFrame({
-            'ticker': [
-                'AAPL',
-                'AAPL',
-                'AAPL',
-                'AAPL',
-                'AAPL',
-                'AAPL',
+            "ticker": [
+                "AAPL",
+                "AAPL",
+                "AAPL",
+                "AAPL",
+                "AAPL",
+                "AAPL",
             ],
-            'timestamp': [
-                '2024-01-01 16:00:00',
-                '2024-01-02 16:00:00',
-                '2024-01-03 16:00:00',
-                '2024-01-04 16:00:00',
-                '2024-01-05 16:00:00',
-                '2024-01-05 16:00:00',
+            "timestamp": [
+                "2024-01-01 16:00:00",
+                "2024-01-02 16:00:00",
+                "2024-01-03 16:00:00",
+                "2024-01-04 16:00:00",
+                "2024-01-05 16:00:00",
+                "2024-01-05 16:00:00",
             ],
-            'open_price': [180.0, 182.0, 181.5, 183.0, 182.5, 182.5],
-            'high_price': [182.5, 183.5, 183.0, 184.0, 183.5, 183.5],
-            'low_price': [179.5, 181.0, 181.0, 182.0, 182.0, 182.0],
-            'close_price': [182.0, 182.5, 182.5, 183.5, 183.0, 183.0],
-            'volume': [1000, 1500, 1200, 2000, 1800, 1800],
-            'source': [
-                'ALPACA',
-                'ALPACA',
-                'ALPACA',
-                'ALPACA',
-                'ALPACA',
-                'ALPACA',
+            "open_price": [180.0, 182.0, 181.5, 183.0, 182.5, 182.5],
+            "high_price": [182.5, 183.5, 183.0, 184.0, 183.5, 183.5],
+            "low_price": [179.5, 181.0, 181.0, 182.0, 182.0, 182.0],
+            "close_price": [182.0, 182.5, 182.5, 183.5, 183.0, 183.0],
+            "volume": [1000, 1500, 1200, 2000, 1800, 1800],
+            "source": [
+                "ALPACA",
+                "ALPACA",
+                "ALPACA",
+                "ALPACA",
+                "ALPACA",
+                "ALPACA",
             ]
         })
 
         output = client._clean_and_group_data(input)
 
-        self.assertTrue('AAPL' in output)
-        self.assertFalse('ticker' in output['AAPL'].columns)
-        self.assertFalse('source' in output['AAPL'].columns)
-        self.assertEqual(output['AAPL'].index.isin(
-            ['2024-01-05 16:00:00']
+        self.assertTrue("AAPL" in output)
+        self.assertFalse("ticker" in output["AAPL"].columns)
+        self.assertFalse("source" in output["AAPL"].columns)
+        self.assertEqual(output["AAPL"].index.isin(
+            ["2024-01-05 16:00:00"]
         ).sum(), 1)

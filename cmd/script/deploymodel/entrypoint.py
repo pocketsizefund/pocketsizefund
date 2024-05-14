@@ -12,12 +12,12 @@ from pkg.features import features
 app = flask.Flask(__name__)
 
 
-scalers_file = open(os.getenv('MODEL_DIR')+'/scalers.pkl', 'rb')
+scalers_file = open(os.getenv("MODEL_DIR")+"/scalers.pkl", "rb")
 scalers = pickle.load(scalers_file)
 
 model_model = model.Model(
-    artifact_output_path=os.getenv('MODEL_DIR'),
-    weights_and_biases_api_key='',
+    artifact_output_path=os.getenv("MODEL_DIR"),
+    weights_and_biases_api_key="",
 )
 
 model_model.load_model()
@@ -27,7 +27,7 @@ model_model.load_scalers()
 features_client = features.Client()
 
 
-@app.route('/invocations', methods=['POST'])
+@app.route("/invocations", methods=["POST"])
 def invocations() -> flask.Response:
     json_data = flask.request.get_json()
 
@@ -54,17 +54,17 @@ def invocations() -> flask.Response:
     )
 
 
-@app.route('/ping', methods=['GET'])
+@app.route("/ping", methods=["GET"])
 def ping() -> flask.Response:
     return flask.Response(
-        response='',
+        response="",
         status=200,
-        mimetype='application/json',
+        mimetype="application/json",
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(
-        host='0.0.0.0',
+        host="0.0.0.0",
         port=8080,
     )

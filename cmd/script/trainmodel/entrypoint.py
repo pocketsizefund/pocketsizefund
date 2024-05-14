@@ -68,10 +68,10 @@ model_model = model.Model(
 
 features_by_file_name = storage_client.load_dataframes(
     prefix=storage.PREFIX_EQUITY_BARS_FEATURES_PATH,
-    file_names=['all.csv'],
+    file_names=["all.csv"],
 )
 
-training_features = features_by_file_name['all.csv']
+training_features = features_by_file_name["all.csv"]
 
 available_tickers = arguments.available_tickers.split(",")
 

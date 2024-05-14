@@ -48,28 +48,28 @@ class MockTwitterAPI:
 class TestSendTweet(unittest.TestCase):
     def test_send_tweet_success(self):
         client = twitter.Client(
-            api_key='api_key',
-            api_key_secret='api_key_secret',
-            access_token='access_token',
-            access_token_secret='access_token_secret',
-            image_files_path='image/files/path'
+            api_key="api_key",
+            api_key_secret="api_key_secret",
+            access_token="access_token",
+            access_token_secret="access_token_secret",
+            image_files_path="image/files/path"
         )
 
         client.twitter_client = MockTwitterClient()
 
         client.send_tweet(
-            text='text',
+            text="text",
         )
 
 
 class TestUpdateProfile(unittest.TestCase):
     def test_update_profile_success(self):
         client = twitter.Client(
-            api_key='api_key',
-            api_key_secret='api_key_secret',
-            access_token='access_token',
-            access_token_secret='access_token_secret',
-            image_files_path='images'
+            api_key="api_key",
+            api_key_secret="api_key_secret",
+            access_token="access_token",
+            access_token_secret="access_token_secret",
+            image_files_path="images"
         )
 
         client.twitter_api = MockTwitterAPI()
