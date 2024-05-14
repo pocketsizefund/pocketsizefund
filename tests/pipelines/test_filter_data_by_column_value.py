@@ -46,5 +46,7 @@ from pipelines.transformations import filter_data_by_column_value
         (pl.DataFrame({"A": []}), "A", "anything", pl.DataFrame({"A": []})),
     ],
 )
-def test_filter_data_by_column_value(input_data, column, value, expected_output) -> None:
+def test_filter_data_by_column_value(
+    input_data: pl.DataFrame, column: list[str], value: str | float, expected_output: pl.DataFrame
+) -> None:
     assert filter_data_by_column_value(input_data, column, value).equals(expected_output)  # noqa: S101

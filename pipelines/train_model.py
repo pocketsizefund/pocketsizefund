@@ -1,5 +1,6 @@
 import polars as pl
 from prefect import flow, task
+from prefect.task_runners import BaseTaskRunner
 from prefect_ray.task_runners import RayTaskRunner
 
 from pipelines import lstm, transformations
@@ -8,7 +9,7 @@ from pipelines.types import Bucket, ColumnSubset, TimeWindow
 
 
 @task
-def valid_size(data, window: TimeWindow) -> bool:
+def valid_size(data: pl.DataFrame, window: TimeWindow) -> bool:
     return data.shape[0] >= window.length
 
 
@@ -106,7 +107,7 @@ def pipeline(
     features: ColumnSubset,
     close_price_index: float,
     train_test_splits: tuple[float, float, float],
-    task_runner=RayTaskRunner(),  # noqa: B008
+    task_runner: BaseTaskRunner = RayTaskRunner(),  # noqa: B008
 ) -> None:
     _ = task_runner
 

@@ -53,7 +53,7 @@ def shape_timeseries_dataset(
 
 
 @task
-def create_model(label_count, window: TimeWindow) -> models.Sequential:
+def create_model(label_count: int, window: TimeWindow) -> models.Sequential:
     model = models.Sequential(
         layers=[
             layers.LSTM(units=32, return_sequences=False),
@@ -75,7 +75,12 @@ def create_model(label_count, window: TimeWindow) -> models.Sequential:
 
 
 @task
-def train_model(model, train, validation, epochs: int = 10) -> models.Sequential:
+def train_model(
+    model: models.Sequential,
+    train: tensorflow.DataSet,
+    validation: tensorflow.Dataset,
+    epochs: int = 10,
+) -> models.Sequential:
     wandb.login(key=os.getenv("WANDB_API_KEY"))
     wandb.init(
         project="pocketsizefund-tickerprediction",
@@ -100,7 +105,7 @@ def train_model(model, train, validation, epochs: int = 10) -> models.Sequential
 
 
 @task
-def save_model(model) -> None:
+def save_model(model: models.Sequential) -> None:
     with NamedTemporaryFile(mode="w+", delete=True) as tmp:
         filename = f"{tmp}.keras"
         model.save(filename)
@@ -111,7 +116,7 @@ def save_model(model) -> None:
 
 @task
 def evaluate_model(
-    model,
+    model: models.Sequential,
     data: tensorflow.data.Dataset,
 ) -> None:
     logger = get_run_logger()
