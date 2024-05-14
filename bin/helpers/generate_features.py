@@ -27,7 +27,7 @@ samconfig_file = config.SAMConfig(
 storage_client = storage.Client(
     s3_data_bucket_name=samconfig_file.get_parameter("S3DataBucketName"),
     s3_artifacts_bucket_name=samconfig_file.get_parameter(
-        "S3ArtifactsBucketName"
+        "S3ArtifactsBucketName",
     ),
 )
 

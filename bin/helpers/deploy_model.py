@@ -64,7 +64,7 @@ model = tensorflow.TensorFlowModel(
         "ALPACA_API_KEY": samconfig_file.get_parameter("AlpacaAPIKey"),
         "ALPACA_API_SECRET": samconfig_file.get_parameter("AlpacaAPISecret"),
         "MODEL_DIR": "/opt/ml/model",
-    }
+    },
 )
 
 predictor = model.deploy(

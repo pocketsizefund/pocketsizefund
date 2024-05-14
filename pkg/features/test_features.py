@@ -223,7 +223,7 @@ class TestCleanAndGroupData(unittest.TestCase):
                     "ALPACA",
                     "ALPACA",
                 ],
-            }
+            },
         )
 
         output = client._clean_and_group_data(input)

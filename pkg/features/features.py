@@ -12,14 +12,14 @@ FEATURE_NAMES = tuple(
         "low_price",
         "close_price",
         "volume",
-    ]
+    ],
 )
 
 REQUIRED_COLUMNS = tuple(
     [
         "timestamp",
         "ticker",
-    ]
+    ],
 )
 
 WINDOW_INPUT_LENGTH = 30
@@ -132,7 +132,7 @@ class Client:
         )
 
         windowed_dataset = dataset.map(
-            lambda x: self._split_window(x)
+            lambda x: self._split_window(x),
         )
 
         return windowed_dataset

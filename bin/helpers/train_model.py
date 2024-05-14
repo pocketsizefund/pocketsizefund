@@ -69,7 +69,7 @@ trade_client = trade.Client(
 available_tickers: list[str] = trade_client.get_available_tickers()
 
 os.environ["WANDB_API_KEY"] = samconfig_file.get_parameter(
-    "WeightsAndBiasesAPIKey"
+    "WeightsAndBiasesAPIKey",
 )
 
 wandb.sagemaker_auth(path="cmd/script/trainmodel")

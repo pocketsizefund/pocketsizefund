@@ -23,7 +23,7 @@ REQUIRED_COLUMNS = tuple(
     [
         "timestamp",
         "ticker",
-    ]
+    ],
 )
 
 WINDOW_INPUT_LENGTH = 30
@@ -142,7 +142,7 @@ class Model:
         )
 
         windowed_dataset = dataset.map(
-            lambda x: self._split_window(x)
+            lambda x: self._split_window(x),
         )
 
         return windowed_dataset
@@ -265,7 +265,7 @@ class Model:
                 ),
                 layers.Dense(
                     # labels * days
-                    units=self.label_count * self.window_output_length
+                    units=self.label_count * self.window_output_length,
                 ),
                 layers.Reshape(
                     # days, labels
