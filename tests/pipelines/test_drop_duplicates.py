@@ -68,4 +68,4 @@ def test_drop_duplicates(input_data, subset, expected_output) -> None:
         result_sorted = result_output
         expected_sorted = expected_output
 
-    assert result_sorted.equals(expected_sorted)
+    assert result_sorted.equals(expected_sorted)  # noqa: S101

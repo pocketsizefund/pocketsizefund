@@ -51,6 +51,6 @@ from pipelines.transformations import select_columns
 def test_select_columns(input_data, subset, expected_output) -> None:
     result = select_columns(input_data, subset)
     if isinstance(result, list):
-        assert result == expected_output
+        assert result == expected_output  # noqa: S101
     else:
-        assert result.equals(pl.DataFrame(expected_output))
+        assert result.equals(pl.DataFrame(expected_output))  # noqa: S101

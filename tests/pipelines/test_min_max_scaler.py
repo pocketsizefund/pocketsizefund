@@ -75,4 +75,4 @@ dataframe = pl.DataFrame(
     ],
 )
 def test_min_max_scaler(input_data, feature_range, expected_output) -> None:
-    assert min_max_scaler(input_data, feature_range).equals(expected_output)
+    assert min_max_scaler(input_data, feature_range).equals(expected_output)  # noqa: S101
