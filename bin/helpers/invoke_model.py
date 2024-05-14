@@ -79,12 +79,10 @@ prediction_data["timestamp"] = prediction_data["timestamp"].astype(str)
 predictions = None
 
 if arguments.location == "remote":
-    predictions = model_client.generate_predictions(
-        data=prediction_data,
-    )
+    predictions = model_client.get_predictions()
 
 else:
-    predictions = requests.post(  # noqa: S113
+    predictions = requests.post(
         url="http://localhost:8080/invocations",
         json=prediction_data.to_dict(),
     ).json()
