@@ -1,3 +1,4 @@
+"""Backfill data to S3."""  # noqa: INP001
 import argparse
 import datetime
 

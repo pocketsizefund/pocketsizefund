@@ -40,15 +40,15 @@ model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_na
 if [[ "${location}" == "local" ]]; then
     output=$(python3 ./bin/helpers/get_config_as_json.py)
 
-    alpaca_api_key=$(echo $output | jq -r '.alpaca_api_key')
-    alpaca_secret_key=$(echo $output | jq -r '.alpaca_secret_key')
-    aws_access_key_id=$(echo $output | jq -r '.aws_access_key_id')
-    aws_secret_access_key=$(echo $output | jq -r '.aws_secret_access_key')
+    alpaca_api_key=$(python3 pkg/config/config.py --parameter AlpacaAPIKey)
+    alpaca_api_secret=$(python3 pkg/config/config.py --parameter AlpacaAPISecret)
+    aws_access_key_id=$(sed -n 's/^aws_access_key_id = //p' ~/.aws/credentials)
+    aws_secret_access_key=$(sed -n 's/^aws_secret_access_key = //p' ~/.aws/credentials)
 
     docker run \
         --env MODEL_DIR=model \
         --env ALPACA_API_KEY=$alpaca_api_key \
-        --env ALPACA_API_SECRET=$alpaca_secret_key \
+        --env ALPACA_API_SECRET=$alpaca_api_secret \
         --env AWS_ACCESS_KEY_ID=$aws_access_key_id \
         --env AWS_SECRET_ACCESS_KEY=$aws_secret_access_key \
         --env AWS_DEFAULT_REGION=us-east-1 \

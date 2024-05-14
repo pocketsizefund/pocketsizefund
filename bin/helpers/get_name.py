@@ -1,3 +1,4 @@
+"""Parse name into infrastructure format."""  # noqa: INP001
 import sys
 
 original_name = sys.argv[1]

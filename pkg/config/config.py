@@ -1,4 +1,6 @@
 """Read and parse a SAM config file."""
+import argparse
+
 import toml
 
 ENVIRONMENT_DEVELOPMENT = "development"
@@ -24,3 +26,16 @@ class SAMConfig:
     def get_parameter(self, parameter_name: str) -> str:
         """Get a parameter from the SAM config file."""
         return self.parameters[parameter_name]
+
+if __name__ == "__main__":
+    samconfig_file = SAMConfig(
+        "samconfig.toml",
+        ENVIRONMENT_DEVELOPMENT,
+    )
+
+    parser = argparse.ArgumentParser(description="Process a config file.")
+    parser.add_argument("--parameter", type=str, help="The parameter to retrieve.")
+
+    arguments = parser.parse_args()
+
+    print(samconfig_file.get_parameter(arguments.parameter))  # noqa: T201
