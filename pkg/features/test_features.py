@@ -1,3 +1,4 @@
+"""Unit tests for feature module."""
 import unittest
 
 import pandas

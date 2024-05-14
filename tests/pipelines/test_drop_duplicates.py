@@ -1,3 +1,5 @@
+"""Unit and regression test for the drop_duplicates module of the molsysmt package on molsysmt MolSys molecular"""
+
 import polars as pl
 import pytest
 
@@ -60,6 +62,7 @@ from pipelines.transformations import drop_duplicates
 def test_drop_duplicates(
     input_data: pl.DataFrame, subset: list[str], expected_output: pl.DataFrame,
 ) -> None:
+    """Test the drop_duplicates function."""
     # the tests seem to randomize the row order
     result = drop_duplicates(input_data, subset)
 

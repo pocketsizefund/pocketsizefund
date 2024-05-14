@@ -1,3 +1,4 @@
+"""Module for generating features and preprocessing data."""
 import pandas
 from sklearn import preprocessing
 import numpy
@@ -30,6 +31,16 @@ CLOSE_PRICE_INDEX = 3
 
 class Client:
     def __init__(self):
+        """
+        Initialize the Client object with the feature names, required columns, 
+        window input length, and window output length.
+
+        Args:
+            feature_names (tuple[str]): Feature names.
+            required_columns (tuple[str]): Required columns.
+            window_input_length (int): Window input length.
+            window_output_length (int): Window output length.
+        """
         self.feature_names = FEATURE_NAMES
         self.required_columns = REQUIRED_COLUMNS
         self.window_input_length = WINDOW_INPUT_LENGTH
@@ -39,6 +50,15 @@ class Client:
         self,
         data: pandas.DataFrame,
     ) -> pandas.DataFrame:
+        """
+        A function to generate features based on the input data.
+
+        Args:
+            data (pandas.DataFrame): The input DataFrame containing the data.
+
+        Returns:
+            pandas.DataFrame: The DataFrame with generated features.
+        """
         # temporary implementation that will
         # hold feature engineering logic
         return data
@@ -48,6 +68,16 @@ class Client:
         data: pandas.DataFrame,
         splits: tuple[float, float, float] = (0.7, 0.2, 0.1),
     ) -> dict[str, any]:
+        """
+        Preprocesses the training features for machine learning modeling.
+
+        Args:
+            data (pandas.DataFrame): The input DataFrame containing the data.
+            splits (tuple[float, float, float], optional): The split ratios for training, validating, and testing data. Defaults to (0.7, 0.2, 0.1).
+
+        Returns:
+            dict[str, any]: A dictionary containing the preprocessed data, including training, validating, and testing datasets, and scalers used for preprocessing.
+        """
         data_grouped_by_ticker = self._clean_and_group_data(data)
 
         scalers: dict[int, preprocessing.MinMaxScaler] = {}
@@ -122,6 +152,15 @@ class Client:
         self,
         data: numpy.ndarray,
     ) -> tensorflow.data.Dataset:
+        """
+        Creates a time series dataset from the input data array.
+
+        Args:
+            data (numpy.ndarray): The input data array.
+        
+        Returns:
+            tensorflow.data.Dataset: The created time series dataset.
+        """
         dataset = keras.utils.timeseries_dataset_from_array(
             data=data,
             targets=None,
@@ -141,6 +180,15 @@ class Client:
         self,
         data: tensorflow.Tensor,
     ) -> tensorflow.data.Dataset:
+        """
+        Splits the input data tensor into inputs and labels based on window sizes.
+
+        Args:
+            data (tensorflow.Tensor): The input data tensor.
+
+        Returns:
+            tensorflow.data.Dataset: The created time series dataset containing inputs and labels.
+        """
         input_slice = slice(0, self.window_input_length)
         labels_slice = slice(self.window_input_length, None)
 
@@ -162,6 +210,16 @@ class Client:
         data: pandas.DataFrame,
         scalers: dict[str, preprocessing.MinMaxScaler],
     ) -> dict[str, tensorflow.data.Dataset]:
+        """
+        Preprocesses the predicting features for machine learning modeling.
+
+        Args:
+            data (pandas.DataFrame): The input DataFrame containing the data.
+            scalers (dict[str, preprocessing.MinMaxScaler]): A dictionary of scalers for each ticker.
+
+        Returns:
+            dict[str, tensorflow.data.Dataset]: A dictionary containing the preprocessed predicting datasets for each ticker.
+        """
         data_grouped_by_ticker = self._clean_and_group_data(data)
 
         predicting_datasets: dict[str, tensorflow.data.Dataset] = {}
@@ -194,6 +252,15 @@ class Client:
         self,
         data: pandas.DataFrame,
     ) -> dict[str, pandas.DataFrame]:
+        """
+        Cleans and groups the input data DataFrame by dropping NA values, duplicates based on timestamp and ticker column, filters the data based on required columns and feature names, sets the timestamp column as the index, and groups the data by ticker column.
+
+        Args:
+            data (pandas.DataFrame): The input DataFrame to be cleaned and grouped.
+
+        Returns:
+            dict[str, pandas.DataFrame]: A dictionary containing the cleaned and grouped data by ticker.
+        """
         data.dropna(
             inplace=True,
         )

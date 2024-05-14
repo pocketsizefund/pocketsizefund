@@ -1,3 +1,4 @@
+"""Unit tests for min_max_scaler function."""
 import polars as pl
 import pytest
 
@@ -77,4 +78,5 @@ dataframe = pl.DataFrame(
 def test_min_max_scaler(
     input_data: pl.DataFrame, feature_range: tuple[float, float], expected_output: pl.DataFrame,
 ) -> None:
+    """Test min_max_scaler function."""
     assert min_max_scaler(input_data, feature_range).equals(expected_output)  # noqa: S101
