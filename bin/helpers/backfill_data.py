@@ -29,7 +29,7 @@ samconfig_file = config.SAMConfig(
 storage_client = storage.Client(
     s3_data_bucket_name=samconfig_file.get_parameter("S3DataBucketName"),
     s3_artifacts_bucket_name=samconfig_file.get_parameter(
-        "S3ArtifactsBucketName"
+        "S3ArtifactsBucketName",
     ),
 )
 
@@ -52,7 +52,7 @@ available_tickers: list[str] = trade_client.get_available_tickers()
 
 print("tickers count: ", len(available_tickers))  # noqa: T201
 
-full_end_at = datetime.datetime.now(tz="UTC")
+full_end_at = datetime.datetime.now(tz=datetime.timezone.utc)  # noqa: UP017
 full_start_at = full_end_at - datetime.timedelta(days=365 * 7)
 
 equity_raw_data = data_client.get_range_equities_bars(
