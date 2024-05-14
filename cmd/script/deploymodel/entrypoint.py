@@ -11,12 +11,22 @@ from pkg.trade import trade
 
 app = flask.Flask(__name__)
 
+<<<<<<< HEAD
 trade_client = trade.Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),
     alpaca_api_key=os.getenv("ALPACA_API_KEY"),
     alpaca_secret_key=os.getenv("ALPACA_SECRET_KEY"),
     alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
     is_paper=True,
+=======
+
+scalers_file = open(os.getenv("MODEL_DIR")+"/scalers.pkl", "rb")
+scalers = pickle.load(scalers_file)
+
+model_model = model.Model(
+    artifact_output_path=os.getenv("MODEL_DIR"),
+    weights_and_biases_api_key="",
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 )
 
 data_client = data.Client(
@@ -32,6 +42,10 @@ price_prediction_model.load_model(
     file_path="price_prediction_model.ckpt",
 )
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 @app.route("/invocations", methods=["POST"])
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""
@@ -72,6 +86,10 @@ def ping() -> flask.Response:
 
 if __name__ == "__main__":
     app.run(
+<<<<<<< HEAD
         host="0.0.0.0",  # noqa: S104
+=======
+        host="0.0.0.0",
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
         port=8080,
     )

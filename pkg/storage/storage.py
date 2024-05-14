@@ -5,7 +5,14 @@ from concurrent import futures
 import boto3
 import pandas as pd
 
+<<<<<<< HEAD
 PREFIX_EQUITY_BARS_RAW_PATH = "equity/raw/bars"
+=======
+
+PREFIX_EQUITY_BARS_RAW_PATH = "equity/raw/bars"
+# PREFIX_EQUITY_FILINGS_RAW_PATH = 'equity/raw/filings' # temporarily removed
+PREFIX_EQUITY_BARS_FEATURES_PATH = "equity/features/bars"
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 
 
 class Client:
@@ -97,22 +104,35 @@ class Client:
         self,
         prefix: str,
         file_name: str,
+<<<<<<< HEAD
     ) -> pd.DataFrame:
         key = f"{prefix}/{file_name}"
+=======
+    ) -> pandas.DataFrame:
+        key = "{}/{}".format(prefix, file_name)
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,
             Key=key,
         )
 
+<<<<<<< HEAD
         dataframe = pd.read_csv(
+=======
+        dataframe = pandas.read_csv(
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
             response["Body"],
             compression="gzip",
         )
 
         if "timestamp" in dataframe.columns:
             dataframe["timestamp"] = dataframe["timestamp"].apply(
+<<<<<<< HEAD
                 pd.Timestamp,
+=======
+                pandas.Timestamp,
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
             )
 
         return {file_name: dataframe}
@@ -151,7 +171,11 @@ class Client:
         for file_name in objects_by_file_name:
             object = objects_by_file_name[file_name]
 
+<<<<<<< HEAD
             key = f"{prefix}/{file_name}"
+=======
+            key = "{}/{}".format(prefix, file_name)
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 
             executed_future = executor.submit(
                 store_function,
@@ -182,7 +206,11 @@ class Client:
         prefix: str,
         file_name: str,
     ) -> str:
+<<<<<<< HEAD
         key = f"{prefix}/{file_name}"
+=======
+        key = "{}/{}".format(prefix, file_name)
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,

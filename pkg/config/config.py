@@ -3,6 +3,10 @@ import argparse
 
 import toml
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 ENVIRONMENT_DEVELOPMENT = "development"
 
 

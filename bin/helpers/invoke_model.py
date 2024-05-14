@@ -78,7 +78,11 @@ if arguments.location == "remote":
     )
 
 else:
+<<<<<<< HEAD
     predictions = requests.post(  # noqa: S113
+=======
+    predictions = requests.post(
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
         url="http://localhost:8080/invocations",
         json=prediction_data.to_dict(),
     ).json()
@@ -89,5 +93,10 @@ for ticker, ticker_predictions in predictions.items():
         ticker_prediction[0] for ticker_prediction in ticker_predictions
     ]
 
+<<<<<<< HEAD
     print(f"ticker: {ticker}")  # noqa: T201
     print(f"closing_prices: {closing_prices}")  # noqa: T201
+=======
+    print("ticker: {}".format(ticker))
+    print("closing_prices: {}".format(closing_prices))
+>>>>>>> 9e24e11 (ruff - double quotes preferred)

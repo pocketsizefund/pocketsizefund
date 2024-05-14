@@ -29,7 +29,11 @@ samconfig_file = config.SAMConfig(
 storage_client = storage.Client(
     s3_data_bucket_name=samconfig_file.get_parameter("S3DataBucketName"),
     s3_artifacts_bucket_name=samconfig_file.get_parameter(
+<<<<<<< HEAD
         "S3ArtifactsBucketName",
+=======
+        "S3ArtifactsBucketName"
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
     ),
 )
 
@@ -50,7 +54,11 @@ trade_client = trade.Client(
 
 available_tickers: list[str] = trade_client.get_available_tickers()
 
+<<<<<<< HEAD
 print("tickers count: ", len(available_tickers))  # noqa: T201
+=======
+print("tickers count: ", len(available_tickers))
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 
 full_end_at = datetime.datetime.now(tz=datetime.timezone.utc)  # noqa: UP017
 full_start_at = full_end_at - datetime.timedelta(days=365 * 7)
@@ -64,12 +72,20 @@ equity_raw_data = data_client.get_range_equities_bars(
 null_values_check = equity_raw_data.isna().any().any()
 
 if null_values_check:
+<<<<<<< HEAD
     msg = "data contains null values"
     raise Exception(msg)   # noqa: TRY002
+=======
+    raise Exception("equity raw data contains null values")
+>>>>>>> 9e24e11 (ruff - double quotes preferred)
 
 storage_client.store_dataframes(
     prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,
     dataframes_by_file_name={"all.csv": equity_raw_data},
 )
 
+<<<<<<< HEAD
 print("backfill data complete")  # noqa: T201
+=======
+print("backfill data complete")
+>>>>>>> 9e24e11 (ruff - double quotes preferred)

@@ -9,22 +9,22 @@ from pkg.model import model
 POSITIONS_COUNT = 10
 
 trade_client = trade.Client(
-    darqube_api_key=os.getenv('DARQUBE_API_KEY'),
-    alpaca_api_key=os.getenv('ALPACA_API_KEY'),
-    alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
-    alpha_vantage_api_key=os.getenv('ALPHA_VANTAGE_API_KEY'),
-    is_paper=True if os.getenv('IS_PAPER') == 'true' else False,
+    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
+    is_paper=True if os.getenv("IS_PAPER") == "true" else False,
 )
 
 data_client = data.Client(
-    alpaca_api_key=os.getenv('ALPACA_API_KEY'),
-    alpaca_api_secret=os.getenv('ALPACA_API_SECRET'),
-    edgar_user_agent=os.getenv('EDGAR_USER_AGENT'),
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+    edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
     print_logs=True,
 )
 
 model_client = model.Client(
-    model_endpoint_name=os.getenv('MODEL_ENDPOINT_NAME'),
+    model_endpoint_name=os.getenv("MODEL_ENDPOINT_NAME"),
 )
 
 
@@ -52,11 +52,11 @@ def handler(
     )
 
     prediction_data = prediction_data.sort_values(
-        by='timestamp',
+        by="timestamp",
         ascending=False,
-    ).groupby('ticker').head(30).reset_index(drop=True)
+    ).groupby("ticker").head(30).reset_index(drop=True)
 
-    prediction_data['timestamp'] = prediction_data['timestamp'].astype(str)
+    prediction_data["timestamp"] = prediction_data["timestamp"].astype(str)
 
     predictions_by_ticker = model_client.generate_predictions(
         data=prediction_data,
@@ -81,6 +81,6 @@ def handler(
     highest_moves_tickers = highest_moves_by_ticker.keys()
 
     if len(highest_moves_tickers) == 0:
-        raise Exception('no tickers to trade')
+        raise Exception("no tickers to trade")
 
     trade_client.set_positions(tickers=highest_moves_tickers)
