@@ -1,6 +1,7 @@
 """Unit tests for Alpaca Client."""
 
 import unittest
+import pytest
 import datetime
 
 from alpaca.data import requests as alpaca_data_requests
@@ -185,7 +186,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
             exception=Exception("get stock bars error"),
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             _ = client.get_range_equities_bars(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
@@ -375,7 +376,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             },
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
@@ -406,7 +407,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             },
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
@@ -448,7 +449,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
 
         self.client._get_forms_information = mock_get_forms_information_error
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
@@ -491,7 +492,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         self.client._get_forms_information = mock_get_forms_information_success
         self.client._get_forms_contents = mock_get_forms_contents_error
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
