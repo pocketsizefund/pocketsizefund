@@ -1,10 +1,9 @@
 import datetime
 
-import numpy
+import numpy as np
 import requests
-from alpaca.data import historical
+from alpaca.data import historical, timeframe
 from alpaca.data import requests as alpaca_data_requests
-from alpaca.data import timeframe
 from alpaca.trading import client as trading_client
 from alpaca.trading import enums
 from alpaca.trading import requests as alpaca_trading_requests
@@ -297,7 +296,7 @@ class Client:
         self,
         returns: list[float],
     ) -> float:
-        cumulative_returns = numpy.prod(1 + numpy.array(returns)) - 1
+        cumulative_returns = np.prod(1 + np.array(returns)) - 1
 
         return round(cumulative_returns, 4)
 

@@ -1,10 +1,9 @@
-from concurrent import futures
 import io
 import tarfile
+from concurrent import futures
 
 import boto3
-import pandas
-
+import pandas as pd
 
 PREFIX_EQUITY_BARS_RAW_PATH = "equity/raw/bars"
 # PREFIX_EQUITY_FILINGS_RAW_PATH = 'equity/raw/filings' # temporarily removed
@@ -55,7 +54,7 @@ class Client:
     def store_dataframes(
         self,
         prefix: str,
-        dataframes_by_file_name: dict[str, pandas.DataFrame],
+        dataframes_by_file_name: dict[str, pd.DataFrame],
     ) -> None:
         return self._store_objects_by_file_name(
             prefix,
@@ -65,7 +64,7 @@ class Client:
 
     def _store_dataframe(
         self,
-        dataframe: pandas.DataFrame,
+        dataframe: pd.DataFrame,
         key: str,
     ) -> None:
         gzip_buffer = io.BytesIO()
@@ -89,7 +88,7 @@ class Client:
         self,
         prefix: str,
         file_names: list[str],
-    ) -> dict[str, pandas.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         return self._load_objects_by_file_name(
             prefix,
             file_names,
@@ -100,7 +99,7 @@ class Client:
         self,
         prefix: str,
         file_name: str,
-    ) -> pandas.DataFrame:
+    ) -> pd.DataFrame:
         key = f"{prefix}/{file_name}"
 
         response = self.s3_client.get_object(
@@ -108,14 +107,14 @@ class Client:
             Key=key,
         )
 
-        dataframe = pandas.read_csv(
+        dataframe = pd.read_csv(
             response["Body"],
             compression="gzip",
         )
 
         if "timestamp" in dataframe.columns:
             dataframe["timestamp"] = dataframe["timestamp"].apply(
-                pandas.Timestamp,
+                pd.Timestamp,
             )
 
         return {file_name: dataframe}

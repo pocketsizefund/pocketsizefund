@@ -6,7 +6,6 @@ from sagemaker.serverless import serverless_inference_config
 
 from pkg.config import config
 
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument(

@@ -1,10 +1,9 @@
-import os
 import datetime
+import os
 
+from pkg.config import config
 from pkg.trade import trade
 from pkg.twitter import twitter
-from pkg.config import config
-
 
 trade_client = trade.Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),

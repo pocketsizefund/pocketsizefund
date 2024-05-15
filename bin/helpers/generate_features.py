@@ -1,9 +1,8 @@
 import argparse
 
 from pkg.config import config
-from pkg.storage import storage
 from pkg.features import features
-
+from pkg.storage import storage
 
 parser = argparse.ArgumentParser(
     prog="backfill data helper script",

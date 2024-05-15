@@ -3,7 +3,6 @@ import argparse
 from pkg.model import model
 from pkg.storage import storage
 
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument(

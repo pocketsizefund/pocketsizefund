@@ -4,10 +4,9 @@ import datetime
 import requests
 
 from pkg.config import config
-from pkg.trade import trade
 from pkg.data import data
 from pkg.model import model
-
+from pkg.trade import trade
 
 parser = argparse.ArgumentParser(
     prog="backfill data helper script",

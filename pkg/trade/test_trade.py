@@ -1,10 +1,10 @@
 import datetime
 import unittest
+
 import pytest
 
-from pkg.trade import trade
 from pkg.config import config
-
+from pkg.trade import trade
 
 DARQUBE_API_KEY = "darqube_api_key"  # noqa: S106
 ALPACA_API_KEY = "alpaca_api_key"  # noqa: S106

@@ -3,15 +3,13 @@
 import datetime
 import time
 
-import requests
-import pandas
-from alpaca.data import historical
-from alpaca.data import requests as alpaca_data_requests
-from alpaca.data import timeframe
 import bs4
+import pandas as pd
+import requests
+from alpaca.data import historical, timeframe
+from alpaca.data import requests as alpaca_data_requests
 
 from pkg.config import config
-
 
 ALPACA_TICKER_CHUNK_SIZE = 50
 ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS = 200
@@ -65,7 +63,7 @@ class Client:
         tickers: list[str],
         start_at: datetime.datetime,
         end_at: datetime.datetime,
-    ) -> pandas.DataFrame:
+    ) -> pd.DataFrame:
         """
         Range equity bars are the bars for a specific equity.
 
@@ -75,7 +73,7 @@ class Client:
             end_at (datetime.datetime): End at.
 
         Returns:
-            pandas.DataFrame: Bars.
+            pd.DataFrame: Bars.
         """
         if self.print_logs:
             self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
@@ -140,7 +138,7 @@ class Client:
 
                     bars.extend(ticker_bars)
 
-        all_bars = pandas.DataFrame.from_dict(
+        all_bars = pd.DataFrame.from_dict(
             data=bars,
         )
 

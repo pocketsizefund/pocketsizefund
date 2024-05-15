@@ -1,9 +1,8 @@
-import os
 import datetime
+import os
 
-from pkg.trade import trade
 from pkg.config import config
-
+from pkg.trade import trade
 
 trade_client = trade.Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),

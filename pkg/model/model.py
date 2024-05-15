@@ -1,15 +1,14 @@
 import os
 import pickle
 
-from sagemaker import tensorflow as sagemaker_tensorflow
-import pandas
-from sklearn import preprocessing
-import numpy
-import tensorflow
 import keras
-from keras import models, layers, losses, optimizers, metrics
+import numpy as np
+import pandas as pd
+import tensorflow as tf
 import wandb
-
+from keras import layers, losses, metrics, models, optimizers
+from sagemaker import tf as sagemaker_tf
+from sklearn import preprocessing
 
 FEATURE_NAMES = tuple(
     [
@@ -57,16 +56,16 @@ class Model:
 
     def preprocess_training_features(
         self,
-        data: pandas.DataFrame,
+        data: pd.DataFrame,
         splits: tuple[float, float, float] = (0.7, 0.2, 0.1),
     ) -> dict[str, any]:
         data_grouped_by_ticker = self._clean_and_group_data(data)
 
         scalers: dict[int, preprocessing.MinMaxScaler] = {}
 
-        scaled_training_data: list[numpy.ndarray] = []
-        scaled_validating_data: list[numpy.ndarray] = []
-        scaled_testing_data: list[numpy.ndarray] = []
+        scaled_training_data: list[np.ndarray] = []
+        scaled_validating_data: list[np.ndarray] = []
+        scaled_testing_data: list[np.ndarray] = []
 
         for ticker, ticker_data in data_grouped_by_ticker.items():
             count = len(ticker_data)
@@ -153,8 +152,8 @@ class Model:
 
     def _create_dataset(
         self,
-        data: numpy.ndarray,
-    ) -> tensorflow.data.Dataset:
+        data: np.ndarray,
+    ) -> tf.data.Dataset:
         dataset = keras.utils.timeseries_dataset_from_array(
             data=data,
             targets=None,
@@ -172,15 +171,15 @@ class Model:
 
     def _split_window(
         self,
-        data: tensorflow.Tensor,
-    ) -> tensorflow.data.Dataset:
+        data: tf.Tensor,
+    ) -> tf.data.Dataset:
         input_slice = slice(0, self.window_input_length)
         labels_slice = slice(self.window_input_length, None)
 
         inputs = data[:, input_slice, :]
         labels = data[:, labels_slice, :]
 
-        labels = tensorflow.stack(
+        labels = tf.stack(
             [labels[:, :, CLOSE_PRICE_INDEX]],
             axis=-1,
         )
@@ -192,12 +191,12 @@ class Model:
 
     def preprocess_predicting_features(
         self,
-        data: pandas.DataFrame,
+        data: pd.DataFrame,
         scalers: dict[str, preprocessing.MinMaxScaler],
-    ) -> dict[str, tensorflow.data.Dataset]:
+    ) -> dict[str, tf.data.Dataset]:
         data_grouped_by_ticker = self._clean_and_group_data(data)
 
-        predicting_datasets: dict[str, tensorflow.data.Dataset] = {}
+        predicting_datasets: dict[str, tf.data.Dataset] = {}
 
         for ticker, ticker_data in data_grouped_by_ticker.items():
             count = len(ticker_data)
@@ -225,8 +224,8 @@ class Model:
 
     def _clean_and_group_data(
         self,
-        data: pandas.DataFrame,
-    ) -> dict[str, pandas.DataFrame]:
+        data: pd.DataFrame,
+    ) -> dict[str, pd.DataFrame]:
         data.dropna(
             inplace=True,
         )
@@ -266,7 +265,7 @@ class Model:
 
     def train_model(
         self,
-        features: dict[str, pandas.DataFrame],
+        features: dict[str, pd.DataFrame],
         epochs: int = 10,
     ) -> dict[str, any]:
         wandb.login(key=self.weights_and_biases_api_key)
@@ -333,7 +332,7 @@ class Model:
 
     def evaluate_model(
         self,
-        data: tensorflow.data.Dataset,
+        data: tf.data.Dataset,
     ) -> dict[str, any]:
         evaluation = self.model.evaluate(
             x=data,
@@ -370,7 +369,7 @@ class Model:
     def save_data(
         self,
         name: str,
-        data: tensorflow.data.Dataset,
+        data: tf.data.Dataset,
     ) -> None:
         data.save(
             path=os.path.join(self.artifact_output_path, name),
@@ -397,7 +396,7 @@ class Model:
 
     def generate_predictions(
         self,
-        features: dict[str, pandas.DataFrame],
+        features: dict[str, pd.DataFrame],
     ) -> dict[str, list[float]]:
         if not self.model or not self.scalers:
             msg = "no model or scalers"
@@ -410,7 +409,7 @@ class Model:
                 verbose=0,
             )
 
-            prediction = numpy.squeeze(prediction, axis=0)
+            prediction = np.squeeze(prediction, axis=0)
 
             scaler = self.scalers[ticker]
 
@@ -429,13 +428,13 @@ class Client:
         self,
         model_endpoint_name: str,
     ) -> None:
-        self.predictor = sagemaker_tensorflow.TensorFlowPredictor(
+        self.predictor = sagemaker_tf.tfPredictor(
             endpoint_name=model_endpoint_name,
         )
 
     def generate_predictions(
         self,
-        data: pandas.DataFrame,
+        data: pd.DataFrame,
     ) -> any:
         data["timestamp"] = data["timestamp"].astype(str)
 

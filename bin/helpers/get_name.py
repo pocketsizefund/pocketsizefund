@@ -1,6 +1,5 @@
 import sys
 
-
 original_name = sys.argv[1]
 environment = sys.argv[2]
 

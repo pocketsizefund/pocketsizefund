@@ -1,16 +1,15 @@
 import argparse
+import json
+import os
 import pickle
 from datetime import datetime
-import os
-import json
 
-import tensorflow
-from matplotlib import pyplot
+import tensorflow as tf
+from matplotlib import pyplot as plt
 
-from pkg.storage import storage
-from pkg.model import model
 from pkg.config import config
-
+from pkg.model import model
+from pkg.storage import storage
 
 parser = argparse.ArgumentParser()
 
@@ -44,7 +43,7 @@ model_model = model.Model(
 
 model_model.load_model()
 
-testing_data = tensorflow.data.Dataset.load(
+testing_data = tf.data.Dataset.load(
     path="./testing_data",
     compression="GZIP",
 )
@@ -76,29 +75,29 @@ validation_mean_absolute_error = training_metrics["val_mean_absolute_error"]
 
 epochs = range(1, len(loss) + 1)
 
-pyplot.figure(figsize=(10, 6))
+plt.figure(figsize=(10, 6))
 
-pyplot.subplot(2, 1, 1)
-pyplot.plot(epochs, loss, "bo-", label="Training Loss")
-pyplot.plot(epochs, validation_loss, "ro-", label="Validation Loss")
-pyplot.title("Training and Validation Loss")
-pyplot.xlabel("Epochs")
-pyplot.ylabel("Loss")
-pyplot.legend()
+plt.subplot(2, 1, 1)
+plt.plot(epochs, loss, "bo-", label="Training Loss")
+plt.plot(epochs, validation_loss, "ro-", label="Validation Loss")
+plt.title("Training and Validation Loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.legend()
 
-pyplot.subplot(2, 1, 2)
-pyplot.plot(epochs, mean_absolute_error, "bo-", label="Training MAE")
-pyplot.plot(
+plt.subplot(2, 1, 2)
+plt.plot(epochs, mean_absolute_error, "bo-", label="Training MAE")
+plt.plot(
     epochs,
     validation_mean_absolute_error,
     "ro-",
     label="Validation MAE",
 )
-pyplot.title("Training and Validation Mean Absolute Error")
-pyplot.xlabel("Epochs")
-pyplot.ylabel("MAE")
-pyplot.legend()
+plt.title("Training and Validation Mean Absolute Error")
+plt.xlabel("Epochs")
+plt.ylabel("MAE")
+plt.legend()
 
-pyplot.tight_layout()
+plt.tight_layout()
 
-pyplot.savefig(f"metrics/{now}/plot.png")
+plt.savefig(f"metrics/{now}/plot.png")

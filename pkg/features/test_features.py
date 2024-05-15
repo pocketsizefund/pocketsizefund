@@ -2,14 +2,13 @@
 
 import unittest
 
-import pandas
-import numpy
-import tensorflow
+import numpy as np
+import pandas as pd
+import tensorflow as tf
 
 from pkg.features import features
 
-
-test_data = pandas.read_csv("pkg/features/test_data.csv")
+test_data = pd.read_csv("pkg/features/test_data.csv")
 
 
 class TestGenerateFeatures(unittest.TestCase):
@@ -18,7 +17,7 @@ class TestGenerateFeatures(unittest.TestCase):
 
         result = client.generate_features(test_data)
 
-        assert isinstance(result, pandas.DataFrame)
+        assert isinstance(result, pd.DataFrame)
 
         assert set(result.columns) == {
             "timestamp",
@@ -52,7 +51,7 @@ class TestCreateDataset(unittest.TestCase):
     def test_create_dataset_success(self) -> None:
         client = features.Client()
 
-        data = numpy.array(
+        data = np.array(
             object=[
                 [1, 2, 3, 4, 5],
                 [4, 5, 6, 7, 8],
@@ -61,14 +60,14 @@ class TestCreateDataset(unittest.TestCase):
                 [13, 14, 15, 16, 17],
                 [16, 17, 18, 19, 20],
             ],
-            dtype=numpy.float32,
+            dtype=np.float32,
         )
 
         dataset = client._create_dataset(data)
 
         assert isinstanc(
             dataset,
-            tensorflow.data.Dataset,
+            tf.data.Dataset,
         )
 
         for inputs, labels in dataset:
@@ -78,8 +77,8 @@ class TestCreateDataset(unittest.TestCase):
             expected_inputs = data[:, :5, :]
             expected_labels = data[:, 3:5, :]
 
-            numpy.testing.assert_array_equal(inputs.numpy(), expected_inputs)
-            numpy.testing.assert_array_equal(labels.numpy(), expected_labels)
+            np.testing.assert_array_equal(inputs.np(), expected_inputs)
+            np.testing.assert_array_equal(labels.np(), expected_labels)
 
 
 class TestSplitWindow(unittest.TestCase):
@@ -89,7 +88,7 @@ class TestSplitWindow(unittest.TestCase):
         client.window_input_length = 3
         client.window_output_length = 2
 
-        data = numpy.array(
+        data = np.array(
             object=[
                 [
                     [1, 2, 3, 4, 5],
@@ -113,10 +112,10 @@ class TestSplitWindow(unittest.TestCase):
                     [29, 30, 31, 32, 33],
                 ],
             ],
-            dtype=numpy.float32,
+            dtype=np.float32,
         )
 
-        result = client._split_window(data=tensorflow.constant(data))
+        result = client._split_window(data=tf.constant(data))
 
         inputs, labels = result
 
@@ -138,7 +137,7 @@ class TestSplitWindow(unittest.TestCase):
         assert inputs.shape.as_list() == list(expected_input_shape)
         assert labels.shape.as_list() == list(expected_labels_shape)
 
-        expected_inputs_values = numpy.array(
+        expected_inputs_values = np.array(
             object=[
                 [
                     [1, 2, 3, 4, 5],
@@ -156,10 +155,10 @@ class TestSplitWindow(unittest.TestCase):
                     [25, 26, 27, 28, 29],
                 ],
             ],
-            dtype=numpy.float32,
+            dtype=np.float32,
         )
 
-        expected_labels_values = numpy.array(
+        expected_labels_values = np.array(
             object=[
                 [
                     [10],
@@ -174,15 +173,15 @@ class TestSplitWindow(unittest.TestCase):
                     [32],
                 ],
             ],
-            dtype=numpy.float32,
+            dtype=np.float32,
         )
 
-        numpy.testing.assert_array_equal(
-            inputs.numpy(),
+        np.testing.assert_array_equal(
+            inputs.np(),
             expected_inputs_values,
         )
-        numpy.testing.assert_array_equal(
-            labels.numpy(),
+        np.testing.assert_array_equal(
+            labels.np(),
             expected_labels_values,
         )
 
@@ -191,7 +190,7 @@ class TestCleanAndGroupData(unittest.TestCase):
     def test_clean_and_group_data_success(self) -> None:
         client = features.Client()
 
-        input = pandas.DataFrame(
+        input = pd.DataFrame(
             {
                 "ticker": [
                     "AAPL",

@@ -2,14 +2,14 @@ import os
 from tempfile import NamedTemporaryFile
 
 import polars as pl
-import tensorflow
+import tensorflow as tf
+import wandb
 from keras import layers, losses, metrics, models, optimizers
 from keras.utils import timeseries_dataset_from_array
 from prefect import get_run_logger, task
-
-import wandb
-from pipelines.types import TimeWindow
 from wandb.keras import WandbMetricsLogger
+
+from pipelines.types import TimeWindow
 
 
 @task
@@ -22,17 +22,17 @@ def shape_timeseries_dataset(
     stride: int = 1,
     shuffle: bool = False,
     batch_size: int = 8,
-) -> tensorflow.data.Dataset:
+) -> tf.data.Dataset:
     def split_window(
-        data: tensorflow.Tensor,
-    ) -> tensorflow.data.Dataset:
+        data: tf.Tensor,
+    ) -> tf.data.Dataset:
         input_slice = slice(0, window.input)
         labels_slice = slice(window.input, None)
 
         inputs = data[:, input_slice, :]
         labels = data[:, labels_slice, :]
 
-        labels = tensorflow.stack(
+        labels = tf.stack(
             [labels[:, :, close_price_index]],
             axis=-1,
         )
@@ -77,8 +77,8 @@ def create_model(label_count: int, window: TimeWindow) -> models.Sequential:
 @task
 def train_model(
     model: models.Sequential,
-    train: tensorflow.DataSet,
-    validation: tensorflow.Dataset,
+    train: tf.DataSet,
+    validation: tf.Dataset,
     epochs: int = 10,
 ) -> models.Sequential:
     wandb.login(key=os.getenv("WANDB_API_KEY"))
@@ -117,7 +117,7 @@ def save_model(model: models.Sequential) -> None:
 @task
 def evaluate_model(
     model: models.Sequential,
-    data: tensorflow.data.Dataset,
+    data: tf.data.Dataset,
 ) -> None:
     logger = get_run_logger()
     evaluation = model.evaluate(

@@ -1,8 +1,8 @@
 """Config module for SAM (Serverless Application Model)"""
 
 import datetime
-import toml
 
+import toml
 
 ENVIRONMENT_DEVELOPMENT = "development"
 TIMEZONE = datetime.timezone.utc

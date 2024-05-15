@@ -1,11 +1,10 @@
-import os
 import datetime
+import os
 
-from pkg.trade import trade
+from pkg.config import config
 from pkg.data import data
 from pkg.model import model
-from pkg.config import config
-
+from pkg.trade import trade
 
 POSITIONS_COUNT = 10
 

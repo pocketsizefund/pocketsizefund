@@ -1,6 +1,5 @@
 import tweepy
 
-
 configuration_orange = "orange"
 configuration_blueberry = "blueberry"
 configuration_banana = "banana"

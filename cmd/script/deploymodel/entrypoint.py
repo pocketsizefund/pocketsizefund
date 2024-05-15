@@ -1,18 +1,17 @@
+import json
 import os
 import pickle
-import json
 
 import flask
-import pandas
+import pandas as pd
 
-from pkg.model import model
 from pkg.features import features
-
+from pkg.model import model
 
 app = flask.Flask(__name__)
 
 
-scalers_file = open(os.getenv("MODEL_DIR")+"/scalers.pkl", "rb")
+scalers_file = open(os.getenv("MODEL_DIR") + "/scalers.pkl", "rb")
 scalers = pickle.load(scalers_file)
 
 model_model = model.Model(
@@ -31,7 +30,7 @@ features_client = features.Client()
 def invocations() -> flask.Response:
     json_data = flask.request.get_json()
 
-    input_data = pandas.DataFrame(
+    input_data = pd.DataFrame(
         data=json_data,
     )
 

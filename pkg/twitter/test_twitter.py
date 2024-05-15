@@ -2,7 +2,6 @@ import unittest
 
 from pkg.twitter import twitter
 
-
 API_KEY = "api_key"
 API_KEY_SECRET = "api_key_secret"  # noqa: S106
 ACCESS_TOKEN = "access_token"  # noqa: S106
