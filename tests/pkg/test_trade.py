@@ -741,7 +741,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
             "insufficient portfolio data",
         )
 
-    def test__get_portfolio_daily_returns_success(self) -> Non:
+    def test__get_portfolio_daily_returns_success(self) -> None:
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
                 data={

@@ -15,7 +15,7 @@ class Model:
 
     def __init__(self) -> None:
         """Initialize the model type to be trained and used."""
-        self.batch_size = 128 # set this between 32 to 128
+        self.batch_size = 128  # set this between 32 to 128
         self.model = None
 
     def train_model(
@@ -36,7 +36,7 @@ class Model:
             train_dataset=train_dataset,
         )
 
-        pl.seed_everything(42) # TEMP
+        pl.seed_everything(42)  # TEMP
 
         early_stop_callback = EarlyStopping(
             monitor="val_loss",
@@ -227,6 +227,7 @@ class Model:
             batch_size=self.batch_size,
             num_workers=0,
         )
+
 
 class Client:
     """Client invokes a trained model to make predictions."""

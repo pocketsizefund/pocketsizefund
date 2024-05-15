@@ -9,7 +9,7 @@ from prefect import get_run_logger, task
 
 import wandb
 from pipelines.types import TimeWindow
-from wandb.keras import WandbMetricsLogger
+from wandb.integration.keras import WandbMetricsLogger
 
 
 @task

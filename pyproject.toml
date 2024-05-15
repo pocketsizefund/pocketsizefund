@@ -10,6 +10,13 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
+prefect = "^2.19.0"
+tweepy = "^4.14.0"
+tensorflow = "^2.16.1"
+alpaca-py = "^0.21.1"
+bs4 = "^0.0.2"
+lxml = "^5.2.2"
+wandb = "^0.17.0"
 
 
 [tool.poetry.group.test.dependencies]

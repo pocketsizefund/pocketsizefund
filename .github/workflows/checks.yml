@@ -1,8 +1,8 @@
 name: Checks
 on: [push]
 env:
-  AWS_ACCESS_KEY_ID: ''
-  AWS_SECRET_ACCESS_KEY: ''
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
   AWS_DEFAULT_REGION: us-east-1
 jobs:
   perform_checks:
@@ -14,13 +14,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: "3.9"
+      - name: Install poetry
+        uses: Gr1N/setup-poetry@v8
       - name: Install dependencies
         run: pip3 install -r requirements.txt
       - name: Run unit tests
-        run: ./bin/run_unit_tests
+        run: make unit-tests
       - name: Collect unit test coverage
-        run: coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
+        run: coverage xml --omit='tests/*'
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:

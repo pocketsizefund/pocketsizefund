@@ -46,3 +46,6 @@ deploy-pipelines:
 
 lint:
 	poetry run ruff check .
+
+unit-tests:
+	poetry run coverage run -m pytest -vvv
