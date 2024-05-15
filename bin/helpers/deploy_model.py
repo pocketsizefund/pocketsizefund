@@ -42,11 +42,7 @@ samconfig_file = config.SAMConfig(
 
 sagemaker_client = boto3.client("sagemaker")
 
-<<<<<<< HEAD
 endpoint_name = f"pocketsizefund-{arguments.environment}-lstm"
-=======
-endpoint_name = "pocketsizefund-{}-lstm".format(arguments.environment)
->>>>>>> 9e24e11 (ruff - double quotes preferred)
 
 try:
     sagemaker_client.delete_endpoint_config(
@@ -68,11 +64,7 @@ model = tensorflow.TensorFlowModel(
         "ALPACA_API_KEY": samconfig_file.get_parameter("AlpacaAPIKey"),
         "ALPACA_API_SECRET": samconfig_file.get_parameter("AlpacaAPISecret"),
         "MODEL_DIR": "/opt/ml/model",
-<<<<<<< HEAD
     },
-=======
-    }
->>>>>>> 9e24e11 (ruff - double quotes preferred)
 )
 
 predictor = model.deploy(
@@ -86,17 +78,10 @@ predictor = model.deploy(
 
 cloudwatch_client = boto3.client("logs")
 
-<<<<<<< HEAD
 endpoint_name = f"pocketsizefund-{arguments.environment}-lstm"
 
 log_groups = cloudwatch_client.describe_log_groups(
     logGroupNamePrefix=f"/aws/sagemaker/Endpoints/{endpoint_name}",
-=======
-endpoint_name = "pocketsizefund-{}-lstm".format(arguments.environment)
-
-log_groups = cloudwatch_client.describe_log_groups(
-    logGroupNamePrefix="/aws/sagemaker/Endpoints/{}".format(endpoint_name),
->>>>>>> 9e24e11 (ruff - double quotes preferred)
 )["logGroups"]
 
 for log_group in log_groups:
