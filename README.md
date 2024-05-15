@@ -55,18 +55,15 @@ This is in ongoing development so expect significant changes going forward.
 
 ### Participation
 
-The best ways to get involved are to _contribute code_ and _co-invest_.  
+Here are the best ways to get involved.  
 
 - **Contribute**: checkout the [process](#process) and [links](#links)  
 - **Co-invest**: reach out via [direct message](https://twitter.com/forstmeier)  
-
-This project is currently intended to be run as a single instance. However, if you'd like to run your own instance, clone this repository and add a `samconfig.toml` like the one in `etc/examples/samconfig.toml` file with the values seen in the `Parameters` section of `template.yaml`. Launch into your AWS account with the `./bin/launch_stack` script.  
 
 ### Links
 
 Here are some places to get started:  
 
-1. [Specific larger initiatives](https://github.com/pocketsizefund/pocketsizefund/milestones) we're currently working on  
-2. [All issues by status](https://github.com/orgs/pocketsizefund/projects/2/views/1) to see ongoing progress  
-3. [Open a discussion](https://discord.com/channels/1230911601704435752/1230911601704435755) to ask questions or share ideas  
-4. [Send a direct message](https://twitter.com/forstmeier) on everything else  
+1. [Our loose collection](https://docs.google.com/document/d/12-yjgh6_fGU_OzStdCHtNmNlM1aLM42aK40lQCRwa3k/edit) of resources and things we're currently working on  
+2. [Open a discussion](https://discord.com/channels/1230911601704435752/1230911601704435755) to ask questions or share ideas  
+3. [Send a direct message](https://twitter.com/forstmeier) on everything else  
