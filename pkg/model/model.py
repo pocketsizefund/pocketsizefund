@@ -11,13 +11,15 @@ from keras import models, layers, losses, optimizers, metrics
 import wandb
 
 
-FEATURE_NAMES = tuple([
-    "open_price",
-    "high_price",
-    "low_price",
-    "close_price",
-    "volume",
-])
+FEATURE_NAMES = tuple(
+    [
+        "open_price",
+        "high_price",
+        "low_price",
+        "close_price",
+        "volume",
+    ]
+)
 
 REQUIRED_COLUMNS = tuple(
     [
@@ -81,31 +83,52 @@ class Model:
 
             scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
 
-            scaled_training_data.append(scaler.fit_transform(
-                X=training_data.values,
-            ))
+            scaled_training_data.append(
+                scaler.fit_transform(
+                    X=training_data.values,
+                )
+            )
 
-            scaled_validating_data.append(scaler.transform(
-                X=validating_data.values,
-            ))
+            scaled_validating_data.append(
+                scaler.transform(
+                    X=validating_data.values,
+                )
+            )
 
-            scaled_testing_data.append(scaler.transform(
-                X=testing_data.values,
-            ))
+            scaled_testing_data.append(
+                scaler.transform(
+                    X=testing_data.values,
+                )
+            )
 
             scalers[ticker] = scaler
 
-        training_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_training_data))
+        training_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_training_data,
+            )
+        )
 
-        validating_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_validating_data))
+        validating_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_validating_data,
+            )
+        )
 
-        testing_datasets = list(map(lambda x: self._create_dataset(
-            data=x,
-        ), scaled_testing_data))
+        testing_datasets = list(
+            map(
+                lambda x: self._create_dataset(
+                    data=x,
+                ),
+                scaled_testing_data,
+            )
+        )
 
         training_dataset = training_datasets[0]
         for dataset in training_datasets[1:]:
@@ -135,7 +158,7 @@ class Model:
         dataset = keras.utils.timeseries_dataset_from_array(
             data=data,
             targets=None,
-            sequence_length=self.window_output_length+self.window_input_length,
+            sequence_length=self.window_output_length + self.window_input_length,
             sequence_stride=1,
             shuffle=True,
             batch_size=32,
@@ -233,8 +256,7 @@ class Model:
             str(ticker): ticker_group.drop(
                 columns=[ticker_column],
             )
-            for ticker, ticker_group
-            in data.groupby(
+            for ticker, ticker_group in data.groupby(
                 by=ticker_column,
                 dropna=True,
             )
@@ -295,12 +317,14 @@ class Model:
         validation_mean_absolute_error = history.history["val_mean_absolute_error"]
 
         for index in range(epochs):
-            wandb.log({
-                "training loss": loss[index],
-                "training mean absolute error": mean_absolute_error[index],
-                "validation loss": validation_loss[index],
-                "validation mean absolute error": validation_mean_absolute_error[index],
-            })
+            wandb.log(
+                {
+                    "training loss": loss[index],
+                    "training mean absolute error": mean_absolute_error[index],
+                    "validation loss": validation_loss[index],
+                    "validation mean absolute error": validation_mean_absolute_error[index],
+                }
+            )
 
         return {
             "model": self.model,
@@ -376,7 +400,8 @@ class Model:
         features: dict[str, pandas.DataFrame],
     ) -> dict[str, list[float]]:
         if not self.model or not self.scalers:
-            raise Exception("no model or scalers")
+            msg = "no model or scalers"
+            raise ValueError(msg)
 
         predictions: dict[str, any] = {}
         for ticker, ticker_features in features.items():
@@ -392,11 +417,7 @@ class Model:
             minimum_value = scaler.data_min_[CLOSE_PRICE_INDEX]
             maximum_value = scaler.data_max_[CLOSE_PRICE_INDEX]
 
-            unscaled_predictions = (
-                prediction*(
-                    maximum_value -
-                    minimum_value)
-            ) + minimum_value
+            unscaled_predictions = (prediction * (maximum_value - minimum_value)) + minimum_value
 
             predictions[ticker] = unscaled_predictions.tolist()
 

@@ -88,6 +88,7 @@ def handler(
     highest_moves_tickers = highest_moves_by_ticker.keys()
 
     if len(highest_moves_tickers) == 0:
-        raise Exception("no tickers to trade")
+        msg = "no tickers to trade"
+        raise ValueError(msg)
 
     trade_client.set_positions(tickers=highest_moves_tickers)

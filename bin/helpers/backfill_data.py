@@ -63,7 +63,8 @@ equity_raw_data = data_client.get_range_equities_bars(
 null_values_check = equity_raw_data.isnull().any().any()
 
 if null_values_check:
-    raise Exception("equity raw data contains null values")
+    msg = "equity raw data contains null values"
+    raise ValueError(msg)
 
 storage_client.store_dataframes(
     prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,

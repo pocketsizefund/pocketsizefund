@@ -164,10 +164,7 @@ class Client:
             executed_futures.append(executed_future)
 
             for executed_future in futures.as_completed(executed_futures):
-                try:
-                    _ = executed_future.result()
-                except Exception as error:
-                    raise error
+                executed_future.result()
 
     def load_texts(
         self,
@@ -216,12 +213,9 @@ class Client:
             executed_futures.append(executed_future)
 
         for executed_future in futures.as_completed(executed_futures):
-            try:
-                result = executed_future.result()
-                for file_name in result.keys():
-                    objects_by_file_name[file_name] = result[file_name]
-            except Exception as error:
-                raise error
+            result = executed_future.result()
+            for file_name in result:
+                objects_by_file_name[file_name] = result[file_name]
 
         return objects_by_file_name
 

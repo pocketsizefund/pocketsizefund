@@ -120,7 +120,8 @@ def mock_get_forms_information_error(
     """Mock get forms information error."""
     _ = start_at, end_at, accession_numbers, acceptance_dates, forms, target_form
 
-    raise Exception("get forms information error")
+    msg = "get forms information error"
+    raise ValueError(msg)
 
 
 def mock_get_forms_information_success(
@@ -149,7 +150,8 @@ def mock_get_forms_contents_error(
     """Mock get forms contents error."""
     _ = cik, forms_information
 
-    raise Exception("get forms contents error")
+    msg = "get forms contents error"
+    raise ValueError(msg)
 
 
 def mock_get_forms_contents_success(
