@@ -163,11 +163,9 @@ class Model:
             batch_size=32,
         )
 
-        windowed_dataset = dataset.map(
+        return dataset.map(
             lambda x: self._split_window(x),
         )
-
-        return windowed_dataset
 
     def _split_window(
         self,
@@ -251,7 +249,7 @@ class Model:
             inplace=True,
         )
 
-        data_grouped_by_ticker = {
+        return {
             str(ticker): ticker_group.drop(
                 columns=[ticker_column],
             )
@@ -260,8 +258,6 @@ class Model:
                 dropna=True,
             )
         }
-
-        return data_grouped_by_ticker
 
     def train_model(
         self,
@@ -438,8 +434,6 @@ class Client:
     ) -> any:
         data["timestamp"] = data["timestamp"].astype(str)
 
-        predictions = self.predictor.predict(
+        return self.predictor.predict(
             data=data.to_dict(orient="records"),
         )
-
-        return predictions

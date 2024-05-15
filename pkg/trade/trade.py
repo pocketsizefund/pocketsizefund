@@ -100,11 +100,14 @@ class Client:
 
             return True
 
-        elif action == CLEAR_ACTION:
+        if action == CLEAR_ACTION:
             if has_positions and is_last_day and is_last_period:
                 return True
 
             return False
+
+        msg = f"unknown {action=}"
+        raise NotImplementedError(msg)
 
     def get_available_tickers(self) -> list[str]:
         return self._get_available_tickers()
@@ -321,6 +324,4 @@ class Client:
             reverse=True,
         )
 
-        risk_free_rate = float(treasury_yields_data_sorted[0]["value"]) * 0.01
-
-        return risk_free_rate
+        return float(treasury_yields_data_sorted[0]["value"]) * 0.01

@@ -31,23 +31,17 @@ class MockTwitterAPI:
     ) -> None:
         _ = location, description, profile_link_color
 
-        return None
-
     def update_profile_banner(
         self,
         filename: str,
     ) -> None:
         _ = filename
 
-        return None
-
     def update_profile_image(
         self,
         filename: str,
     ) -> None:
         _ = filename
-
-        return None
 
 
 class TestSendTweet(unittest.TestCase):

@@ -91,8 +91,8 @@ class MockAlpacaGetAllAssetsResponse:
             value = self.data[self.index]
             self.index += 1
             return value
-        else:
-            raise StopIteration
+
+        raise StopIteration
 
 
 def mock_get_available_tickers_error() -> list[str]:

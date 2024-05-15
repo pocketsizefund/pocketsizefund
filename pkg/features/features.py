@@ -191,11 +191,9 @@ class Client:
             batch_size=32,
         )
 
-        windowed_dataset = dataset.map(
+        return dataset.map(
             lambda x: self._split_window(x),
         )
-
-        return windowed_dataset
 
     def _split_window(
         self,
@@ -307,7 +305,7 @@ class Client:
             inplace=True,
         )
 
-        data_grouped_by_ticker = {
+        return {
             str(ticker): ticker_group.drop(
                 columns=[ticker_column],
             )
@@ -316,5 +314,3 @@ class Client:
                 dropna=True,
             )
         }
-
-        return data_grouped_by_ticker

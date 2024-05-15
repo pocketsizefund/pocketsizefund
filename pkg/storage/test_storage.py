@@ -59,10 +59,9 @@ class MockS3Client:
                 "Body": gzip_buffer,
             }
 
-        else:
-            return {
-                "Body": io.BytesIO(self.data[key].encode()),
-            }
+        return {
+            "Body": io.BytesIO(self.data[key].encode()),
+        }
 
 
 class TestListFileNames(unittest.TestCase):
