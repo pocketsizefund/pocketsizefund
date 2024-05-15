@@ -153,42 +153,6 @@ Resources:
       Tags:
         pocketsizefund: function
       Timeout: 60
-  postPerformanceFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Architectures:
-        - arm64
-      Description: Posts weekly performance
-      Environment:
-        Variables:
-          ALPACA_API_KEY: !Ref AlpacaAPIKey
-          ALPACA_API_SECRET: !Ref AlpacaAPISecret
-          DARQUBE_API_KEY: !Ref DarqubeAPIKey
-          IS_PAPER: !Ref IsPaper
-          TWITTER_API_KEY: !Ref TwitterAPIKey
-          TWITTER_API_KEY_SECRET: !Ref TwitterAPIKeySecret
-          TWITTER_ACCESS_TOKEN: !Ref TwitterAccessToken
-          TWITTER_ACCESS_TOKEN_SECRET: !Ref TwitterAccessTokenSecret
-          IMAGES_FILE_PATH: !Ref ImagesFilePath
-          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
-      Events:
-        PostPerformance:
-          Properties:
-            ScheduleExpression: cron(30 11 ? * SAT *)
-            ScheduleExpressionTimezone: America/New_York
-            State: ENABLED
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-            RoleArn: !GetAtt functionSchedulerRole.Arn
-          Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-function-post-performance
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-post-performance:latest
-      MemorySize: 128
-      PackageType: Image
-      Role: !GetAtt functionRole.Arn
-      Tags:
-        pocketsizefund: function
-      Timeout: 30
   functionRole:
     Type: AWS::IAM::Role
     Properties:

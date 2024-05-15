@@ -1,14 +1,11 @@
-from concurrent import futures
 import io
 import tarfile
+from concurrent import futures
 
 import boto3
-import pandas
+import pandas as pd
 
-
-PREFIX_EQUITY_BARS_RAW_PATH = 'equity/raw/bars'
-# PREFIX_EQUITY_FILINGS_RAW_PATH = 'equity/raw/filings' # temporarily removed
-PREFIX_EQUITY_BARS_FEATURES_PATH = 'equity/features/bars'
+PREFIX_EQUITY_BARS_RAW_PATH = "equity/raw/bars"
 
 
 class Client:
@@ -19,7 +16,7 @@ class Client:
     ) -> None:
         self.s3_data_bucket_name = s3_data_bucket_name
         self.s3_artifacts_bucket_name = s3_artifacts_bucket_name
-        self.s3_client = boto3.client('s3')
+        self.s3_client = boto3.client("s3")
 
     def list_file_names(
         self,
@@ -30,24 +27,24 @@ class Client:
         continuation_token: str = None
         while True:
             list_arguments = {
-                'Bucket': self.s3_data_bucket_name,
-                'Prefix': prefix,
+                "Bucket": self.s3_data_bucket_name,
+                "Prefix": prefix,
             }
 
             if continuation_token:
-                list_arguments['ContinuationToken'] = continuation_token
+                list_arguments["ContinuationToken"] = continuation_token
 
             response = self.s3_client.list_objects_v2(**list_arguments)
 
-            if response['KeyCount'] == 0:
+            if response["KeyCount"] == 0:
                 return file_names
 
-            for content in response['Contents']:
-                key = content['Key']
-                file_name = key.rsplit('/', 1)[1]
+            for content in response["Contents"]:
+                key = content["Key"]
+                file_name = key.rsplit("/", 1)[1]
                 file_names.append(file_name)
 
-            if not response['IsTruncated']:
+            if not response["IsTruncated"]:
                 break
 
         return file_names
@@ -55,7 +52,7 @@ class Client:
     def store_dataframes(
         self,
         prefix: str,
-        dataframes_by_file_name: dict[str, pandas.DataFrame],
+        dataframes_by_file_name: dict[str, pd.DataFrame],
     ) -> None:
         return self._store_objects_by_file_name(
             prefix,
@@ -65,7 +62,7 @@ class Client:
 
     def _store_dataframe(
         self,
-        dataframe: pandas.DataFrame,
+        dataframe: pd.DataFrame,
         key: str,
     ) -> None:
         gzip_buffer = io.BytesIO()
@@ -74,7 +71,7 @@ class Client:
             gzip_buffer,
             index=False,
             header=True,
-            compression='gzip',
+            compression="gzip",
         )
 
         gzip_buffer.seek(0)
@@ -89,7 +86,7 @@ class Client:
         self,
         prefix: str,
         file_names: list[str],
-    ) -> dict[str, pandas.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         return self._load_objects_by_file_name(
             prefix,
             file_names,
@@ -100,22 +97,22 @@ class Client:
         self,
         prefix: str,
         file_name: str,
-    ) -> pandas.DataFrame:
-        key = '{}/{}'.format(prefix, file_name)
+    ) -> pd.DataFrame:
+        key = f"{prefix}/{file_name}"
 
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,
             Key=key,
         )
 
-        dataframe = pandas.read_csv(
-            response['Body'],
-            compression='gzip',
+        dataframe = pd.read_csv(
+            response["Body"],
+            compression="gzip",
         )
 
-        if 'timestamp' in dataframe.columns:
-            dataframe['timestamp'] = dataframe['timestamp'].apply(
-                pandas.Timestamp,
+        if "timestamp" in dataframe.columns:
+            dataframe["timestamp"] = dataframe["timestamp"].apply(
+                pd.Timestamp,
             )
 
         return {file_name: dataframe}
@@ -154,7 +151,7 @@ class Client:
         for file_name in objects_by_file_name:
             object = objects_by_file_name[file_name]
 
-            key = '{}/{}'.format(prefix, file_name)
+            key = f"{prefix}/{file_name}"
 
             executed_future = executor.submit(
                 store_function,
@@ -166,8 +163,8 @@ class Client:
             for executed_future in futures.as_completed(executed_futures):
                 try:
                     _ = executed_future.result()
-                except Exception as error:
-                    raise error
+                except Exception:
+                    raise
 
     def load_texts(
         self,
@@ -185,14 +182,14 @@ class Client:
         prefix: str,
         file_name: str,
     ) -> str:
-        key = '{}/{}'.format(prefix, file_name)
+        key = f"{prefix}/{file_name}"
 
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,
             Key=key,
         )
 
-        text = response['Body'].read().decode('utf-8')
+        text = response["Body"].read().decode("utf-8")
 
         return {file_name: text}
 
@@ -220,8 +217,8 @@ class Client:
                 result = executed_future.result()
                 for file_name in result.keys():
                     objects_by_file_name[file_name] = result[file_name]
-            except Exception as error:
-                raise error
+            except Exception:
+                raise
 
         return objects_by_file_name
 
@@ -234,11 +231,11 @@ class Client:
             Key=model_name,
         )
 
-        compressed_data = response['Body'].read()
+        compressed_data = response["Body"].read()
 
         compressed_file = tarfile.open(
             fileobj=io.BytesIO(compressed_data),
-            mode='r:gz',
+            mode="r:gz",
         )
 
         compressed_file.extractall()

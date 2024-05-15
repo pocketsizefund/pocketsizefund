@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# download data from S3
+
+set -e
+
+python3 ./bin/helpers/download_data.py
