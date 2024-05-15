@@ -99,8 +99,8 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"pkg/trade/test_trade.py" = ["S101"]
-"pkg/model/test_model.py" = ["S101"]
-"pkg/storage/test_storage.py" = ["S101"]
-"pkg/features/test_features.py" = ["S101"]
-"pkg/data/test_data.py" = ["S101"]
+"pkg/trade/test_trade.py" = ["S101", "SLF001"]
+"pkg/model/test_model.py" = ["S101", "SLF001"]
+"pkg/storage/test_storage.py" = ["S101", "SLF001"]
+"pkg/features/test_features.py" = ["S101", "SLF001"]
+"pkg/data/test_data.py" = ["S101", "SLF001"]
