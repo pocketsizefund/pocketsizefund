@@ -124,7 +124,7 @@ class Client:
 
         for ticker in tickers:
             if ticker not in available_tickers:
-                raise Exception('invalid ticker "{}"'.format(ticker))
+                raise Exception(f'invalid ticker "{ticker}"')
 
             request = alpaca_trading_requests.MarketOrderRequest(
                 symbol=ticker,
@@ -230,12 +230,10 @@ class Client:
             subdomain = "api"
 
         portfolio_response = self.http_client.get(
-            url="https://{}.alpaca.markets/v2/account/portfolio/history".format(
-                subdomain,
-            ),
+            url=f"https://{subdomain}.alpaca.markets/v2/account/portfolio/history",
             headers=self.http_headers,
             params={
-                "period": "{}W".format(week_count),
+                "period": f"{week_count}W",
                 "timeframe": "1D",
                 "intraday_reporting": "market_hours",
                 "pnl_reset": "per_day",

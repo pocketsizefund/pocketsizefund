@@ -33,8 +33,8 @@ elif original_name == "evaluatelstm":
     updated_name = "model-evaluate-lstm"
 
 else:
-    exit('"{}" name not found'.format(original_name))
+    exit(f'"{original_name}" name not found')
 
-updated_name = "pocketsizefund-{}-{}".format(environment, updated_name)
+updated_name = f"pocketsizefund-{environment}-{updated_name}"
 
 print(updated_name)

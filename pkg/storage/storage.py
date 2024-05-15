@@ -101,7 +101,7 @@ class Client:
         prefix: str,
         file_name: str,
     ) -> pandas.DataFrame:
-        key = "{}/{}".format(prefix, file_name)
+        key = f"{prefix}/{file_name}"
 
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,
@@ -154,7 +154,7 @@ class Client:
         for file_name in objects_by_file_name:
             object = objects_by_file_name[file_name]
 
-            key = "{}/{}".format(prefix, file_name)
+            key = f"{prefix}/{file_name}"
 
             executed_future = executor.submit(
                 store_function,
@@ -185,7 +185,7 @@ class Client:
         prefix: str,
         file_name: str,
     ) -> str:
-        key = "{}/{}".format(prefix, file_name)
+        key = f"{prefix}/{file_name}"
 
         response = self.s3_client.get_object(
             Bucket=self.s3_data_bucket_name,

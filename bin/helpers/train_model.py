@@ -90,7 +90,7 @@ estimator = tensorflow.TensorFlow(
         "available-tickers": ",".join(available_tickers),
         "notes": notes,
     },
-    output_path="s3://{}/models".format(arguments.s3_artifacts_bucket_name),
+    output_path=f"s3://{arguments.s3_artifacts_bucket_name}/models",
 )
 
 estimator.fit()

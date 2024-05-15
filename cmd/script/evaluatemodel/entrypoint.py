@@ -64,9 +64,9 @@ metrics = {
 
 now = datetime.now(tz=config.TIMEZONE).strftime("%Y%m%d%H%M%S")
 
-os.makedirs("metrics/{}".format(now))
+os.makedirs(f"metrics/{now}")
 
-metrics_file = open("metrics/{}/metrics.json".format(now), "w")
+metrics_file = open(f"metrics/{now}/metrics.json", "w")
 json.dump(metrics, metrics_file)
 
 loss = training_metrics["loss"]
@@ -101,4 +101,4 @@ pyplot.legend()
 
 pyplot.tight_layout()
 
-pyplot.savefig("metrics/{}/plot.png".format(now))
+pyplot.savefig(f"metrics/{now}/plot.png")
