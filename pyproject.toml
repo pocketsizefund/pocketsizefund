@@ -17,7 +17,6 @@ pytest-xdist = "^3.6.1"
 coverage = "^7.5.1"
 
 
-
 [tool.poetry.group.pipelines.dependencies]
 pytorch-forecasting = "^1.0.0"
 polars = "^0.20.26"
@@ -27,7 +26,16 @@ wandb = "^0.17.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.4.4"
+vulture = "^2.11"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.vulture]
+make_whitelist = true
+min_confidence = 80
+paths = ["."]
+sort_by_size = true
+verbose = false

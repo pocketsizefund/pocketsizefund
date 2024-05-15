@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-set -e
-
-vulture . \
-    --ignore-names handler,invocations,ping \
-    --exclude etc/
