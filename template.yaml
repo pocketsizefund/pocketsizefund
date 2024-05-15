@@ -30,22 +30,6 @@ Parameters:
     Type: String
     Description: SageMaker model endpoint name
     Default: pocketsizefund-development-lstm
-  TwitterAPIKey:
-    Type: String
-    Description: Twitter API key
-  TwitterAPIKeySecret:
-    Type: String
-    Description: Twitter API secret
-  TwitterAccessToken:
-    Type: String
-    Description: Twitter access token
-  TwitterAccessTokenSecret:
-    Type: String
-    Description: Twitter access secret
-  ImagesFilePath:
-    Type: String
-    Description: Path to images for Twitter profile updates
-    Default: pkg/twitter/images
   AlphaVantageAPIKey:
     Type: String
     Description: Alpha Vantage API key
@@ -53,7 +37,7 @@ Parameters:
     Type: String
     Description: EDGAR user agent email
 Resources:
-  createPositionsFunction:
+  setPositionsFunction:
     Type: AWS::Serverless::Function
     Properties:
       Architectures:
@@ -69,7 +53,7 @@ Resources:
           ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
           EDGAR_USER_AGENT: !Ref EDGARUserAgent
       Events:
-        FirstCreatePositionsCheck:
+        FirstSetPositionsCheck:
           Properties:
             ScheduleExpression: cron(0 10 ? * 1-5 *)
             ScheduleExpressionTimezone: America/New_York
@@ -78,7 +62,7 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-        SecondCreatePositionsCheck:
+        SecondSetPositionsCheck:
           Properties:
             ScheduleExpression: cron(30 12 ? * 1-5 *)
             ScheduleExpressionTimezone: America/New_York
@@ -87,7 +71,7 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-        ThirdCreatePositionsCheck:
+        ThirdSetPositionsCheck:
           Properties:
             ScheduleExpression: cron(30 15 ? * 1-5 *)
             ScheduleExpressionTimezone: America/New_York
@@ -96,63 +80,14 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-function-create-positions
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-create-positions:latest
+      FunctionName: !Sub ${AWS::StackName}-function-set-positions
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-set-positions:latest
       MemorySize: 768
       PackageType: Image
       Role: !GetAtt functionRole.Arn
       Tags:
         pocketsizefund: function
       Timeout: 300
-  clearPositionsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Architectures:
-        - arm64
-      Description: Executes closing trades
-      Environment:
-        Variables:
-          ALPACA_API_KEY: !Ref AlpacaAPIKey
-          ALPACA_API_SECRET: !Ref AlpacaAPISecret
-          DARQUBE_API_KEY: !Ref DarqubeAPIKey
-          IS_PAPER: !Ref IsPaper
-          ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
-      Events:
-        FirstClearPositionsCheck:
-          Properties:
-            ScheduleExpression: cron(0 10 ? * 1-5 *)
-            ScheduleExpressionTimezone: America/New_York
-            State: ENABLED
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-            RoleArn: !GetAtt functionSchedulerRole.Arn
-          Type: ScheduleV2
-        SecondClearPositionsCheck:
-          Properties:
-            ScheduleExpression: cron(30 12 ? * 1-5 *)
-            ScheduleExpressionTimezone: America/New_York
-            State: ENABLED
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-            RoleArn: !GetAtt functionSchedulerRole.Arn
-          Type: ScheduleV2
-        ThirdClearPositionsCheck:
-          Properties:
-            ScheduleExpression: cron(30 15 ? * 1-5 *)
-            ScheduleExpressionTimezone: America/New_York
-            State: ENABLED
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-            RoleArn: !GetAtt functionSchedulerRole.Arn
-          Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-function-clear-positions
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-clear-positions:latest
-      MemorySize: 128
-      PackageType: Image
-      Role: !GetAtt functionRole.Arn
-      Tags:
-        pocketsizefund: function
-      Timeout: 60
   functionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -212,11 +147,7 @@ Resources:
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow
-                Resource: !GetAtt createPositionsFunction.Arn
-              - Action:
-                  - lambda:InvokeFunction
-                Effect: Allow
-                Resource: !GetAtt clearPositionsFunction.Arn
+                Resource: !GetAtt setPositionsFunction.Arn
           PolicyName: !Sub ${AWS::StackName}-lambda-function-scheduler-policy
       RoleName: !Sub ${AWS::StackName}-lambda-function-scheduler-role
       Tags:
