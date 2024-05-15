@@ -4,8 +4,10 @@ PIPELINE_REQUIREMENTS=pipelines.requirements
 PIPELINE_VENV=.psf-pipelines
 	
 setup:
-	brew install uv
-
+	curl -sSL https://install.python-poetry.org | python3 -
+	curl -LsSf https://astral.sh/uv/install.sh | sh
+	brew install pre-commit
+	pre-commit
 
 sync-requirements:
 	uv venv $(PIPELINE_VENV) && \

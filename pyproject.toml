@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "pocketsizefund"
+version = "0.1.0"
+description = "An open source quantitative proprietary trading firm being built on nights and weekends."
+authors = [
+  "forstmeier <john.forstmeier@gmail.com>",
+  "chrisaddy <chris.william.addy@gmail.com>",
+]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+
+
+[tool.poetry.group.test.dependencies]
+pytest-xdist = "^3.6.1"
+coverage = "^7.5.1"
+
+
+
+[tool.poetry.group.pipelines.dependencies]
+pytorch-forecasting = "^1.0.0"
+polars = "^0.20.26"
+scikit-learn = "^1.4.2"
+wandb = "^0.17.0"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.4.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
