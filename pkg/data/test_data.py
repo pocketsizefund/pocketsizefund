@@ -115,10 +115,12 @@ def mock_get_forms_information_success(
 ) -> list[dict[str, any]]:
     _ = start_at, end_at, accession_numbers, acceptance_dates, forms, target_form
 
-    return [{
-        "accession_number": "0001171843-24-001239",
-        "acceptance_date": "1977-05-26T18:36:45.000Z",
-    }]
+    return [
+        {
+            "accession_number": "0001171843-24-001239",
+            "acceptance_date": "1977-05-26T18:36:45.000Z",
+        }
+    ]
 
 
 def mock_get_forms_contents_error(
@@ -136,14 +138,16 @@ def mock_get_forms_contents_success(
 ) -> list[dict[str, any]]:
     _ = cik, forms_information
 
-    return [{
-        "acceptance_date": "1977-05-26T18:36:45.000Z",
-        "content": "form contents",
-    }]
+    return [
+        {
+            "acceptance_date": "1977-05-26T18:36:45.000Z",
+            "content": "form contents",
+        }
+    ]
 
 
 class TestGetRangeEquitiesBars(unittest.TestCase):
-    def test_get_range_equities_bars_alpaca_get_stock_bars_error(self):
+    def test_get_range_equities_bars_alpaca_get_stock_bars_error(self) -> None:
         client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -164,7 +168,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
 
         self.assertEqual("get stock bars error", str(context.exception))
 
-    def test_get_range_equities_bars_success(self):
+    def test_get_range_equities_bars_success(self) -> None:
         client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -222,7 +226,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
 
 
 class TestPrivateGetFormsInformation(unittest.TestCase):
-    def test_private_get_forms_information_success(self):
+    def test_private_get_forms_information_success(self) -> None:
         client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -254,13 +258,18 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
         self.assertEqual(
             forms_information[0]["acceptance_date"],
             datetime.datetime(
-                1977, 5, 26, 18, 36, 45,
+                1977,
+                5,
+                26,
+                18,
+                36,
+                45,
             ),
         )
 
 
 class TestPrivateGetFormsContents(unittest.TestCase):
-    def test_private_get_forms_contents_success(self):
+    def test_private_get_forms_contents_success(self) -> None:
         client = data.Client(
             alpaca_api_key="alpaca_api_key",
             alpaca_api_secret="alpaca_api_secret",
@@ -282,7 +291,12 @@ class TestPrivateGetFormsContents(unittest.TestCase):
             forms_information=[
                 {
                     "acceptance_date": datetime.datetime(
-                        1977, 5, 26, 18, 36, 45,
+                        1977,
+                        5,
+                        26,
+                        18,
+                        36,
+                        45,
                         tzinfo=datetime.timezone.utc,
                     ),
                     "accession_number": "0001171843-24-001239",
@@ -293,7 +307,12 @@ class TestPrivateGetFormsContents(unittest.TestCase):
         self.assertEqual(
             forms_contents[0]["acceptance_date"],
             datetime.datetime(
-                1977, 5, 26, 18, 36, 45,
+                1977,
+                5,
+                26,
+                18,
+                36,
+                45,
                 tzinfo=datetime.timezone.utc,
             ),
         )
@@ -312,10 +331,10 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             edgar_user_agent="edgar_user_agent",
         )
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         pass
 
-    def test_get_range_corporate_filings_get_tickers_http_error(self):
+    def test_get_range_corporate_filings_get_tickers_http_error(self) -> None:
         self.client.http_client = MockHttpClient(
             responses={},
             exceptions={
@@ -332,13 +351,12 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
 
         self.assertEqual("get tickers http error", str(context.exception))
 
-    def test_get_range_corporate_filings_get_submissions_http_error(self):
+    def test_get_range_corporate_filings_get_submissions_http_error(self) -> None:
         self.client.http_client = MockHttpClient(
             responses={
                 "sec.gov": MockHTTPGetResponse(
                     data={
-                        "0":
-                        {
+                        "0": {
                             "cik_str": 1123494,
                             "ticker": "TICKER",
                         },
@@ -359,7 +377,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
 
         self.assertEqual("get submissions http error", str(context.exception))
 
-    def test_get_range_corporate_filings_get_forms_information_error(self):
+    def test_get_range_corporate_filings_get_forms_information_error(self) -> None:
         self.client.http_client = MockHttpClient(
             responses={
                 "www.sec.gov": MockHTTPGetResponse(
@@ -396,7 +414,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
 
         self.assertEqual("get forms information error", str(context.exception))
 
-    def test_get_range_corporate_filings_get_forms_contents_error(self):
+    def test_get_range_corporate_filings_get_forms_contents_error(self) -> None:
         self.client.http_client = MockHttpClient(
             responses={
                 "www.sec.gov/files/company": MockHTTPGetResponse(
@@ -434,7 +452,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
 
         self.assertEqual("get forms contents error", str(context.exception))
 
-    def test_get_range_corporate_filings_success(self):
+    def test_get_range_corporate_filings_success(self) -> None:
         self.client.http_client = MockHttpClient(
             responses={
                 "www.sec.gov/files/company": MockHTTPGetResponse(

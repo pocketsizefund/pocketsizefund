@@ -48,7 +48,7 @@ from pipelines.transformations import select_columns
         ),
     ],
 )
-def test_select_columns(input_data, subset, expected_output):
+def test_select_columns(input_data, subset, expected_output) -> None:
     result = select_columns(input_data, subset)
     if isinstance(result, list):
         assert result == expected_output

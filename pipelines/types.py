@@ -4,9 +4,7 @@ ColumnSubset = list[str]
 
 
 class Bucket(BaseModel):
-    block: str = Field(
-        ..., description="Name of the prefect block, not the bucket name itself."
-    )
+    block: str = Field(..., description="Name of the prefect block, not the bucket name itself.")
     prefix: str
     key: str
 
@@ -16,5 +14,5 @@ class TimeWindow(BaseModel):
     output: conint(ge=1)
 
     @property
-    def length(self):
+    def length(self) -> int:
         return self.input + self.output
