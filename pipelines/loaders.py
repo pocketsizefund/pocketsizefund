@@ -13,7 +13,7 @@ def load_dataframe(bucket: Bucket) -> pl.DataFrame:
     data = s3_bucket_block.read_path(path=f"{bucket.prefix}/{bucket.key}")
     with tempfile.NamedTemporaryFile("w+", encoding="utf-8", suffix=".csv") as file:
         s3_bucket_block.download_object_to_path(
-            f"{bucket.prefix}/{bucket.key}", file.name
+            f"{bucket.prefix}/{bucket.key}", file.name,
         )
 
         data = pl.read_csv(file.name)

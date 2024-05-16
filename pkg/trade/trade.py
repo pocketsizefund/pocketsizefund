@@ -62,7 +62,7 @@ class Client:
             filters=alpaca_trading_requests.GetCalendarRequest(
                 start=current_datetime.date(),
                 end=(current_datetime + datetime.timedelta(days=5)).date(),
-            )
+            ),
         )
 
         positions = self.alpaca_trading_client.get_all_positions()
@@ -249,7 +249,7 @@ class Client:
 
         for index in range(len(portfolio_data["timestamp"])):
             portfolio_returns.append(
-                round(float(portfolio_data["profit_loss_pct"][index]), 4)
+                round(float(portfolio_data["profit_loss_pct"][index]), 4),
             )
 
         if len(portfolio_returns) < 5:

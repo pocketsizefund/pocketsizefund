@@ -4,7 +4,7 @@ import pytest
 from pipelines.transformations import min_max_scaler
 
 dataframe = pl.DataFrame(
-    {"A": [1, 2, 3, 4, 5], "B": [10, 20, 30, 40, 50], "C": ["x", "y", "z", "w", "v"]}
+    {"A": [1, 2, 3, 4, 5], "B": [10, 20, 30, 40, 50], "C": ["x", "y", "z", "w", "v"]},
 )
 
 
@@ -32,7 +32,7 @@ dataframe = pl.DataFrame(
                     "A": [-1, -0.5, 0, 0.5, 1],
                     "B": [-1, -0.5, 0, 0.5, 1],
                     "C": ["x", "y", "z", "w", "v"],
-                }
+                },
             ),
         ),
         # scale to [0,1], subset of columns

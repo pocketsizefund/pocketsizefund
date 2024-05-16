@@ -8,7 +8,7 @@ dataframe = pl.DataFrame(
         "A": [1, None, 3, None, 5],
         "B": [None, 2, None, 4, 5],
         "C": ["x", "y", "z", None, "v"],
-    }
+    },
 )
 
 
@@ -40,7 +40,7 @@ dataframe = pl.DataFrame(
                     "A": [1, None, 3, 5],
                     "B": [None, 2, None, 5],
                     "C": ["x", "y", "z", "v"],
-                }
+                },
             ),
         ),
         # all nulls is empty
