@@ -1,5 +1,6 @@
 import datetime
 import unittest
+import pytest
 
 from pkg.trade import trade
 from pkg.config import config
@@ -469,7 +470,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
             exception=Exception("darqube get tickers error"),
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client._get_available_tickers()
 
         assert str(context.exception) == "darqube get tickers error"
@@ -493,7 +494,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
             },
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client._get_available_tickers()
 
         assert str(context.exception) == "alpaca get all assets error"
@@ -544,7 +545,7 @@ class TestGetAvailableTickers(unittest.TestCase):
     def test_get_available_tickers_error(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_error
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.get_available_tickers()
 
         assert str(context.exception) == "get available tickers error"
@@ -573,7 +574,7 @@ class TestSetPositions(unittest.TestCase):
     def test_set_positions_get_available_tickers_error(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_error
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.set_positions(
                 tickers=["TICKER"],
             )
@@ -590,7 +591,7 @@ class TestSetPositions(unittest.TestCase):
             },
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.set_positions(
                 tickers=["TICKER"],
             )
@@ -613,7 +614,7 @@ class TestSetPositions(unittest.TestCase):
             },
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.set_positions(
                 tickers=["TICKER"],
             )
@@ -667,7 +668,7 @@ class TestClearPositions(unittest.TestCase):
             },
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.clear_positions()
 
         assert str(context.exception) == "alpaca close all positions error"
@@ -701,7 +702,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
             exception=Exception("alpaca get portfolio returns error"),
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client._get_portoflio_daily_returns(
                 week_count=1,
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
@@ -717,7 +718,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
             exception=None,
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client._get_portoflio_daily_returns(
                 week_count=1,
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
@@ -777,7 +778,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
             },
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client._get_benchmark_daily_returns(
                 week_count=1,
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
@@ -795,7 +796,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
             exceptions=None,
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client._get_benchmark_daily_returns(
                 week_count=1,
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
@@ -881,7 +882,7 @@ class TestPrivateGetRiskFreeRate(unittest.TestCase):
             exception=Exception("get risk free rate error"),
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client._get_risk_free_rate()
 
         assert str(context.exception) == "get risk free rate error"
@@ -934,7 +935,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
             },
         )
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.get_performance_metrics(
                 week_count=1,
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
@@ -955,7 +956,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
 
         self.client._get_portoflio_daily_returns = mock_get_portoflio_daily_returns_error
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.get_performance_metrics(
                 week_count=1,
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
@@ -977,7 +978,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         self.client._get_portoflio_daily_returns = mock_get_portfolio_returns_success
         self.client._get_benchmark_daily_returns = mock_get_benchmark_daily_returns_error
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.get_performance_metrics(
                 week_count=1,
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
@@ -1000,7 +1001,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
         self.client._get_benchmark_daily_returns = mock_get_benchmark_daily_returns_success
         self.client._get_risk_free_rate = mock_get_risk_free_rate_error
 
-        with self.assertRaises(Exception) as context:
+        with pytest.raises(Exception) as context:
             self.client.get_performance_metrics(
                 week_count=1,
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
