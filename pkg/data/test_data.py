@@ -1,14 +1,13 @@
 """Unit tests for Alpaca Client."""
 
-import unittest
-import pytest
 import datetime
+import unittest
 
+import pytest
 from alpaca.data import requests as alpaca_data_requests
 
-from pkg.data import data
 from pkg.config import config
-
+from pkg.data import data
 
 ALPACA_API_KEY = "alpaca_api_key"  # noqa: S106
 ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S106

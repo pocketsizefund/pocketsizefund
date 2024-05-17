@@ -1,8 +1,8 @@
-import unittest
 import gzip
 import io
+import unittest
 
-import pandas
+import pandas as pd
 
 from pkg.storage import storage
 
@@ -30,7 +30,7 @@ class MockS3Client:
         if isinstance(body, bytes):
             decompressed_data = gzip.decompress(body)
 
-            dataframe = pandas.read_csv(io.BytesIO(decompressed_data))
+            dataframe = pd.read_csv(io.BytesIO(decompressed_data))
 
             self.data[key] = dataframe
 
@@ -43,7 +43,7 @@ class MockS3Client:
     ) -> any:
         key = kwargs["Key"]
 
-        if isinstance(self.data[key], pandas.DataFrame):
+        if isinstance(self.data[key], pd.DataFrame):
             dataframe = self.data[key]
 
             gzip_buffer = io.BytesIO()
@@ -111,8 +111,8 @@ class TestStoreDataframes(unittest.TestCase):
             data={},
         )
 
-        first_dataframe = pandas.DataFrame(data={"a": [1, 2]})
-        second_dataframe = pandas.DataFrame(data={"b": [3, 4]})
+        first_dataframe = pd.DataFrame(data={"a": [1, 2]})
+        second_dataframe = pd.DataFrame(data={"b": [3, 4]})
 
         dataframes = {
             "first": first_dataframe,
@@ -138,8 +138,8 @@ class TestLoadDataframes(unittest.TestCase):
 
         client.s3_client = MockS3Client(
             data={
-                "prefix/first": pandas.DataFrame(data={"a": [1, 2]}),
-                "prefix/second": pandas.DataFrame(data={"b": [3, 4]}),
+                "prefix/first": pd.DataFrame(data={"a": [1, 2]}),
+                "prefix/second": pd.DataFrame(data={"b": [3, 4]}),
             },
         )
 

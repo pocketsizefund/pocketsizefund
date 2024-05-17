@@ -1,19 +1,18 @@
-import unittest
 import os
+import pickle
 import shutil
+import unittest
 import warnings
 
-import pandas
-import numpy
-import tensorflow
 import keras
+import numpy as np
+import pandas as pd
+import tensorflow as tf
 from sklearn import preprocessing
-import pickle
 
 from pkg.model import model as model_package
 
-
-test_data = pandas.read_csv("pkg/features/test_data.csv")
+test_data = pd.read_csv("pkg/features/test_data.csv")
 
 
 class TestPreprocessTrainingFeatures(unittest.TestCase):
@@ -42,7 +41,7 @@ class TestCreateDataset(unittest.TestCase):
             weights_and_biases_api_key="",
         )
 
-        data = numpy.array(
+        data = np.array(
             object=[
                 [1, 2, 3, 4, 5],
                 [4, 5, 6, 7, 8],
@@ -51,14 +50,14 @@ class TestCreateDataset(unittest.TestCase):
                 [13, 14, 15, 16, 17],
                 [16, 17, 18, 19, 20],
             ],
-            dtype=numpy.float32,
+            dtype=np.float32,
         )
 
         dataset = model._create_dataset(data)
 
         assert isinstance(
             dataset,
-            tensorflow.data.Dataset,
+            tf.data.Dataset,
         )
 
         for inputs, labels in dataset:
@@ -68,8 +67,8 @@ class TestCreateDataset(unittest.TestCase):
             expected_inputs = data[:, :5, :]
             expected_labels = data[:, 3:5, :]
 
-            numpy.testing.assert_array_equal(inputs.numpy(), expected_inputs)
-            numpy.testing.assert_array_equal(labels.numpy(), expected_labels)
+            np.testing.assert_array_equal(inputs.np(), expected_inputs)
+            np.testing.assert_array_equal(labels.np(), expected_labels)
 
 
 class TestSplitWindow(unittest.TestCase):
@@ -82,7 +81,7 @@ class TestSplitWindow(unittest.TestCase):
         model.window_input_length = 3
         model.window_output_length = 2
 
-        data = numpy.array(
+        data = np.array(
             object=[
                 [
                     [1, 2, 3, 4, 5],
@@ -106,10 +105,10 @@ class TestSplitWindow(unittest.TestCase):
                     [29, 30, 31, 32, 33],
                 ],
             ],
-            dtype=numpy.float32,
+            dtype=np.float32,
         )
 
-        result = model._split_window(data=tensorflow.constant(data))
+        result = model._split_window(data=tf.constant(data))
 
         inputs, labels = result
 
@@ -131,7 +130,7 @@ class TestSplitWindow(unittest.TestCase):
         assert inputs.shape.as_list() == list(expected_input_shape)
         assert labels.shape.as_list() == list(expected_labels_shape)
 
-        expected_inputs_values = numpy.array(
+        expected_inputs_values = np.array(
             object=[
                 [
                     [1, 2, 3, 4, 5],
@@ -149,10 +148,10 @@ class TestSplitWindow(unittest.TestCase):
                     [25, 26, 27, 28, 29],
                 ],
             ],
-            dtype=numpy.float32,
+            dtype=np.float32,
         )
 
-        expected_labels_values = numpy.array(
+        expected_labels_values = np.array(
             object=[
                 [
                     [10],
@@ -167,15 +166,15 @@ class TestSplitWindow(unittest.TestCase):
                     [32],
                 ],
             ],
-            dtype=numpy.float32,
+            dtype=np.float32,
         )
 
-        numpy.testing.assert_array_equal(
-            inputs.numpy(),
+        np.testing.assert_array_equal(
+            inputs.np(),
             expected_inputs_values,
         )
-        numpy.testing.assert_array_equal(
-            labels.numpy(),
+        np.testing.assert_array_equal(
+            labels.np(),
             expected_labels_values,
         )
 
@@ -187,7 +186,7 @@ class TestCleanAndGroupData(unittest.TestCase):
             weights_and_biases_api_key="",
         )
 
-        input = pandas.DataFrame(
+        input = pd.DataFrame(
             {
                 "ticker": [
                     "AAPL",
@@ -278,7 +277,7 @@ class TestSaveData(unittest.TestCase):
 
         model.save_data(
             name="testing_data",
-            data=tensorflow.data.Dataset.from_tensor_slices([1, 2, 3]),
+            data=tf.data.Dataset.from_tensor_slices([1, 2, 3]),
         )
 
         file_path = "./testing_data"
@@ -366,9 +365,9 @@ class TestGeneratePredictions(unittest.TestCase):
         client.predictor = MockPredictor()
 
         predictions = client.generate_predictions(
-            data=pandas.DataFrame(
+            data=pd.DataFrame(
                 data={
-                    "timestamp": pandas.Timestamp("2021-01-01"),
+                    "timestamp": pd.Timestamp("2021-01-01"),
                 },
                 index=[0],
             ),
