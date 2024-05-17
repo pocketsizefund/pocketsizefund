@@ -4,23 +4,15 @@ RUN yum clean all
 
 RUN yum install -y gcc python3-devel
 
-COPY cmd/lambda/createpositions/requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
+COPY cmd/lambda/setpositions/requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
 
 RUN pip3 install --requirement requirements.txt --target "${LAMBDA_TASK_ROOT}"
 
-COPY pkg/storage/storage.py ${LAMBDA_TASK_ROOT}/pkg/storage/storage.py
-
 COPY pkg/trade/trade.py ${LAMBDA_TASK_ROOT}/pkg/trade/trade.py
-
-COPY pkg/data/data.py ${LAMBDA_TASK_ROOT}/pkg/data/data.py
 
 COPY pkg/model/model.py ${LAMBDA_TASK_ROOT}/pkg/model/model.py
 
-COPY cmd/lambda/createpositions/main.py ${LAMBDA_TASK_ROOT}/main.py
-
-ENV S3_DATA_BUCKET_NAME=""
-
-ENV S3_ARTIFACTS_BUCKET_NAME=""
+COPY cmd/lambda/setpositions/main.py ${LAMBDA_TASK_ROOT}/main.py
 
 ENV DARQUBE_API_KEY=""
 
@@ -28,8 +20,10 @@ ENV ALPACA_API_KEY=""
 
 ENV ALPACA_API_SECRET=""
 
-ENV IS_PAPER=""
+ENV ALPHA_VANTAGE_API_KEY=""
 
 ENV MODEL_ENDPOINT_NAME=""
+
+ENV IS_PAPER=""
 
 CMD [ "main.handler" ]
