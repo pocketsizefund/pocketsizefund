@@ -33,8 +33,7 @@ class MockAlpacaHistoricalResponse:
             key = self.keys[self.index]
             self.index += 1
             return key
-        else:
-            raise StopIteration
+        raise StopIteration
 
     def __getitem__(
         self,
@@ -107,6 +106,8 @@ class MockHttpClient:
             for key in keys:
                 if key in url:
                     return self.responses[key]
+
+        return None
 
 
 def mock_get_forms_information_error(
