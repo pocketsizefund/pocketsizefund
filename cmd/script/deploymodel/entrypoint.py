@@ -1,21 +1,3 @@
-<<<<<<< HEAD
-import json
-import os
-import pickle
-
-import flask
-import pandas as pd
-
-from pkg.features import features
-from pkg.model import model
-
-app = flask.Flask(__name__)
-
-
-scalers_file = open(os.getenv("MODEL_DIR") + "/scalers.pkl", "rb")
-scalers = pickle.load(scalers_file)
-
-=======
 """Inference endpoint for price prediction model."""
 
 import json
@@ -29,7 +11,6 @@ from pkg.trade import trade
 
 app = flask.Flask(__name__)
 
->>>>>>> master
 model_model = model.Model(
     artifact_output_path=os.getenv("MODEL_DIR"),
     weights_and_biases_api_key="",
