@@ -1,10 +1,8 @@
 Flask
 pandas
 numpy
-sagemaker
-pandas
-scikit-learn
-tensorflow
-keras
+lightning
+torch
+pytorch-forecasting
 sagemaker-inference
 wandb
