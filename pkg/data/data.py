@@ -92,7 +92,7 @@ class Client:
             tickers_chunk = tickers[i : i + self.alpaca_ticker_chunk_size]
 
             if self.print_logs:
-                print("getting {} bars".format(tickers_chunk))
+                print(f"getting {tickers_chunk} bars")
 
             for j in range(0, difference_in_days, self.alpaca_datetime_chunk_size_in_days):
                 start_at_chunk = start_at + datetime.timedelta(days=j)
@@ -150,7 +150,7 @@ class Client:
             runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
             print("ending get range equities data")
-            print("runtime {} minutes".format(round(runtime_in_minutes, 2)))
+            print(f"runtime {runtime_in_minutes:.2f} minutes")
 
         return all_bars
 
@@ -207,12 +207,10 @@ class Client:
             ticker = ciks_and_tickers[index]["ticker"]
 
             if self.print_logs:
-                print("getting {} corporate filings".format(ticker))
+                print(f"getting {ticker} corporate filings")
 
             submission_response = self.http_client.get(
-                url="https://data.sec.gov/submissions/CIK{:0>10}.json".format(
-                    cik,
-                ),
+                url=f"https://data.sec.gov/submissions/CIK{cik:0>10}.json",
                 headers={
                     "User-Agent": self.edgar_user_agent,
                     "Accept-Encoding": "gzip, deflate",
@@ -260,7 +258,7 @@ class Client:
             runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
             print("ending get range corporate filings data")
-            print("runtime {} minutes".format(round(runtime_in_minutes, 2)))
+            print(f"runtime {runtime_in_minutes:.2f} minutes")
 
         return corporate_filings
 
@@ -310,10 +308,7 @@ class Client:
 
         for form_information in forms_information:
             response = self.http_client.get(
-                url="https://www.sec.gov/Archives/edgar/data/{}/{}.txt".format(
-                    cik,
-                    form_information["accession_number"],
-                ),
+                url=f"https://www.sec.gov/Archives/edgar/data/{cik}/{form_information.get('accession_number')}.txt",
                 headers={
                     "User-Agent": self.edgar_user_agent,
                     "Accept-Encoding": "gzip, deflate",
