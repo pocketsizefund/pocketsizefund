@@ -8,7 +8,6 @@ ENVIRONMENT_DEVELOPMENT = "development"
 
 class SAMConfig:
     """Read and parse a SAM config file."""
-
     def __init__(
         self,
         file_path: str,

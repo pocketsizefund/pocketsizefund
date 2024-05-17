@@ -42,7 +42,7 @@ samconfig_file = config.SAMConfig(
 
 sagemaker_client = boto3.client("sagemaker")
 
-endpoint_name = f"pocketsizefund-{arguments.environment}-lstm"
+endpoint_name = f"pocketsizefund-{arguments.environment}-model-price-predict"
 
 try:
     sagemaker_client.delete_endpoint_config(
@@ -77,8 +77,6 @@ predictor = model.deploy(
 )
 
 cloudwatch_client = boto3.client("logs")
-
-endpoint_name = f"pocketsizefund-{arguments.environment}-lstm"
 
 log_groups = cloudwatch_client.describe_log_groups(
     logGroupNamePrefix=f"/aws/sagemaker/Endpoints/{endpoint_name}",

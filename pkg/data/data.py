@@ -1,5 +1,4 @@
 """Module for downloading data from Alpaca. Alpaca is a brokerage for financial data."""
-
 import datetime
 import time
 
@@ -28,7 +27,6 @@ COLUMN_SOURCE = "source"
 
 class Client:
     """Alpaca Client."""
-
     def __init__(
         self,
         alpaca_api_key: str,
