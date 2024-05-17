@@ -46,3 +46,6 @@ deploy-pipelines:
 
 lint:
 	poetry run ruff check .
+
+lint-dead:
+	poetry run vulture .
