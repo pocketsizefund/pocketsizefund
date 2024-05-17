@@ -2,7 +2,6 @@
 
 import json
 import os
-from datetime import datetime, timedelta
 
 import flask
 
@@ -11,6 +10,11 @@ from pkg.model import model
 from pkg.trade import trade
 
 app = flask.Flask(__name__)
+
+model_model = model.Model(
+    artifact_output_path=os.getenv("MODEL_DIR"),
+    weights_and_biases_api_key="",
+)
 
 trade_client = trade.Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),
@@ -33,28 +37,10 @@ price_prediction_model.load_model(
     file_path="price_prediction_model.ckpt",
 )
 
-
 @app.route("/invocations", methods=["POST"])
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""
-    available_tickers = trade_client.get_available_tickers()
-
-    start_date = datetime.now(
-        tz="UTC",
-    )
-    end_date = start_date - timedelta(
-        days=20,
-    )
-
-    equity_bars_raw_data = data_client.get_range_equities_bars(
-        tickers=available_tickers,
-        start_date=start_date,
-        end_date=end_date,
-    )
-
-    predictions = price_prediction_model.predict(
-        data=equity_bars_raw_data,
-    )
+    predictions = price_prediction_model.get_predictions()
 
     return flask.Response(
         response=json.dumps(predictions),
