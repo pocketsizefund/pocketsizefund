@@ -1,18 +1,16 @@
-"""Read and parse a SAM config file."""
+"""Config module for SAM (Serverless Application Model)"""
+import datetime
+import toml
 import argparse
 
-import toml
-
 ENVIRONMENT_DEVELOPMENT = "development"
+TIMEZONE = datetime.timezone.utc
 
 
 class SAMConfig:
-    """Read and parse a SAM config file."""
-    def __init__(
-        self,
-        file_path: str,
-        environment: str = ENVIRONMENT_DEVELOPMENT,
-    ) -> None:
+    """SAMConfig class."""
+
+    def __init__(self, file_path: str, environment: str = ENVIRONMENT_DEVELOPMENT) -> None:
         """
         SAM Config class.
 

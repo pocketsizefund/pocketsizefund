@@ -1,4 +1,5 @@
 """Module for downloading data from Alpaca. Alpaca is a brokerage for financial data."""
+
 import datetime
 import time
 
@@ -8,6 +9,8 @@ from alpaca.data import historical
 from alpaca.data import requests as alpaca_data_requests
 from alpaca.data import timeframe
 import bs4
+
+from pkg.config import config
 
 
 ALPACA_TICKER_CHUNK_SIZE = 50
@@ -27,6 +30,7 @@ COLUMN_SOURCE = "source"
 
 class Client:
     """Alpaca Client."""
+
     def __init__(
         self,
         alpaca_api_key: str,
@@ -74,7 +78,7 @@ class Client:
             pandas.DataFrame: Bars.
         """
         if self.print_logs:
-            self.runtime_start = datetime.datetime.now()
+            self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
             print("beginning get range equities data")
 
         start_at = start_at.replace(hour=0, minute=0, second=0)
@@ -118,7 +122,7 @@ class Client:
                                 row["t"],
                                 "%Y-%m-%dT%H:%M:%SZ",
                             ).replace(
-                                tzinfo=None,
+                                tzinfo=config.TIMEZONE,
                                 hour=0,
                                 minute=0,
                                 second=0,
@@ -141,7 +145,7 @@ class Client:
         )
 
         if self.print_logs:
-            runtime_stop = datetime.datetime.now()
+            runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
 
             runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
@@ -168,7 +172,7 @@ class Client:
             list[dict[str, any]]: List of filings.
         """
         if self.print_logs:
-            self.runtime_start = datetime.datetime.now()
+            self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
             print("beginning get range corporate filings data")
 
         response = self.http_client.get(
@@ -251,7 +255,7 @@ class Client:
             )
 
         if self.print_logs:
-            runtime_stop = datetime.datetime.now()
+            runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
 
             runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 

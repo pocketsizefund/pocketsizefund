@@ -55,7 +55,7 @@ model_client = model.Client(
 
 available_tickers = trade_client.get_available_tickers()
 
-end_at = datetime.datetime.now(tz="UTC")
+end_at = datetime.datetime.now(tz=config.TIMEZONE)
 start_at = end_at - datetime.timedelta(days=50)
 
 prediction_data = data_client.get_range_equities_bars(
