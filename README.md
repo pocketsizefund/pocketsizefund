@@ -6,7 +6,7 @@
 
 ## About
 
-**Pocket Size Fund** is an open source quantitative proprietary trading firm being built on nights and weekends.  
+**Pocket Size Fund** is an open source quantitative trading firm being built on nights and weekends.  
 
 **pocketsizefund** holds the main resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
 
@@ -38,12 +38,12 @@ We want to rapidly iterate our research-first mindset by constantly launching wi
 
 An unordered and non-exhaustive list of principles we work towards:
 
-- Test in production
-- Always roll forward
-- Systems over process
-- No code is good code
-- Never write documentation
-- Git is truth
+> Test in production  
+> Always roll forward  
+> Systems over process  
+> No code is good code  
+> Never write documentation  
+> Git is truth  
 
 ## Development
 

@@ -1,9 +1,10 @@
+"""Backfill data to S3."""  # noqa: INP001
 import argparse
 import datetime
 
 from pkg.config import config
-from pkg.storage import storage
 from pkg.data import data
+from pkg.storage import storage
 from pkg.trade import trade
 
 parser = argparse.ArgumentParser(
@@ -49,7 +50,7 @@ trade_client = trade.Client(
 
 available_tickers: list[str] = trade_client.get_available_tickers()
 
-print("tickers count: ", len(available_tickers))
+print("tickers count: ", len(available_tickers))  # noqa: T201
 
 full_end_at = datetime.datetime.now(tz=config.TIMEZONE)
 full_start_at = full_end_at - datetime.timedelta(days=365 * 7)
@@ -60,14 +61,15 @@ equity_raw_data = data_client.get_range_equities_bars(
     end_at=full_end_at,
 )
 
-null_values_check = equity_raw_data.isnull().any().any()
+null_values_check = equity_raw_data.isna().any().any()
 
 if null_values_check:
-    raise Exception("equity raw data contains null values")
+    msg = "data contains null values"
+    raise Exception(msg)   # noqa: TRY002
 
 storage_client.store_dataframes(
     prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,
     dataframes_by_file_name={"all.csv": equity_raw_data},
 )
 
-print("backfill data complete")
+print("backfill data complete")  # noqa: T201
