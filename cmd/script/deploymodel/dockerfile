@@ -6,15 +6,19 @@ RUN pip3 install -r requirements.txt
 
 COPY pkg/model/model.py pkg/model/
 
-COPY pkg/features/features.py pkg/features/
+COPY tft_model.ckpt .
+
+ENV DARQUBE_API_KEY=""
+
+ENV ALPACA_API_KEY=""
+
+ENV ALPACA_SECRET_KEY=""
+
+ENV ALPHA_VANTAGE_API_KEY=""
+
+ENV EDGAR_USER_AGENT=""
 
 COPY cmd/script/deploymodel/entrypoint.py .
-
-# conditionally copy model artifact for local builds
-COPY lstm.kera[s] model/
-
-# conditionally copy scalers artifact for local builds
-COPY scalers.pk[l] model/
 
 EXPOSE 8080
 
