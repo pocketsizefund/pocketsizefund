@@ -95,7 +95,8 @@ class MockAlpacaGetAllAssetsResponse:
 
 
 def mock_get_available_tickers_error() -> list[str]:
-    raise Exception("get available tickers error")
+    msg = "get available tickers error"
+    raise ValueError(msg)
 
 
 def mock_get_available_tickers_success() -> list[str]:
@@ -221,7 +222,8 @@ def mock_get_portoflio_daily_returns_error(
     week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
-    raise Exception("get portfolio returns error")
+    msg = "get portfolio returns error"
+    raise ValueError(msg)
 
 
 def mock_get_portfolio_returns_success(
@@ -241,7 +243,8 @@ def mock_get_benchmark_daily_returns_error(
     week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
-    raise Exception("get benchmark returns error")
+    msg = "get benchmark returns error"
+    raise ValueError(msg)
 
 
 def mock_get_benchmark_daily_returns_success(
@@ -258,7 +261,8 @@ def mock_get_benchmark_daily_returns_success(
 
 
 def mock_get_risk_free_rate_error() -> float:
-    raise Exception("get risk free rate error")
+    msg = "get risk free rate error"
+    raise ValueError(msg)
 
 
 def mock_get_risk_free_rate_success() -> float:

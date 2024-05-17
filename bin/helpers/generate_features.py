@@ -47,7 +47,8 @@ generated_features = features_client.generate_features(
 null_values_check = generated_features.isnull().any().any()
 
 if null_values_check:
-    raise Exception("generated features contains null values")
+    msg = "generated features contains null values"
+    raise ValueError(msg)
 
 storage_client.store_dataframes(
     prefix=storage.PREFIX_EQUITY_BARS_FEATURES_PATH,

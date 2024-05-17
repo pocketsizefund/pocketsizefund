@@ -124,7 +124,8 @@ class Client:
 
         for ticker in tickers:
             if ticker not in available_tickers:
-                raise Exception(f'invalid ticker "{ticker}"')
+                msg = f'invalid ticker "{ticker}"'
+                raise ValueError(msg)
 
             request = alpaca_trading_requests.MarketOrderRequest(
                 symbol=ticker,
@@ -148,9 +149,7 @@ class Client:
 
         darqube_response_json = darqube_response.json()
 
-        constituents = [
-            darqube_response_json[key]["Code"] for key in darqube_response_json
-        ]
+        constituents = [darqube_response_json[key]["Code"] for key in darqube_response_json]
 
         request = alpaca_trading_requests.GetAssetsRequest(
             status=enums.AssetStatus.ACTIVE,
@@ -200,13 +199,9 @@ class Client:
 
         adjusted_length = min(len(portfolio_returns), len(benchmark_returns))
 
-        portfolio_returns = portfolio_returns[
-            len(portfolio_returns) - adjusted_length :
-        ]
+        portfolio_returns = portfolio_returns[len(portfolio_returns) - adjusted_length :]
 
-        benchmark_returns = benchmark_returns[
-            len(benchmark_returns) - adjusted_length :
-        ]
+        benchmark_returns = benchmark_returns[len(benchmark_returns) - adjusted_length :]
 
         metrics["cumulative_portfolio_returns"] = self._cumulative_returns(
             returns=portfolio_returns,
@@ -251,7 +246,8 @@ class Client:
             )
 
         if len(portfolio_returns) < 5:
-            raise Exception("insufficient portfolio data")
+            msg = "insufficient portfolio data: {len(portfolio_returns)=}"
+            raise ValueError(msg)
 
         return portfolio_returns
 
@@ -292,7 +288,8 @@ class Client:
             benchmark_returns.append(round(percent_change, 4))
 
         if len(benchmark_returns) < 5:
-            raise Exception("insufficient benchmark data")
+            msg = "insufficient benchmark data: {len(benchmark_returns)=}"
+            raise ValueError(msg)
 
         return benchmark_returns
 
