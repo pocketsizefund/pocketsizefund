@@ -1,3 +1,4 @@
+"""Module for downloading data from Alpaca. Alpaca is a brokerage for financial data."""
 import datetime
 import time
 
@@ -25,6 +26,7 @@ COLUMN_SOURCE = "source"
 
 
 class Client:
+    """Alpaca Client."""
     def __init__(
         self,
         alpaca_api_key: str,
@@ -32,6 +34,15 @@ class Client:
         edgar_user_agent: str,
         print_logs: bool = False,
     ) -> None:
+        """
+        Alpaca Client.
+
+        Args:
+            alpaca_api_key (str): Alpaca API key.
+            alpaca_api_secret (str): Alpaca API secret.
+            edgar_user_agent (str): EDGAR user agent. EDGAR is the SEC's database of publicly available company filings.
+            print_logs (bool, optional): Print logs. Defaults to False.
+        """
         self.alpaca_ticker_chunk_size = ALPACA_TICKER_CHUNK_SIZE
         self.alpaca_datetime_chunk_size_in_days = ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS
         self.alpaca_historical_client = historical.StockHistoricalDataClient(
@@ -51,6 +62,17 @@ class Client:
         start_at: datetime.datetime,
         end_at: datetime.datetime,
     ) -> pandas.DataFrame:
+        """
+        Range equity bars are the bars for a specific equity.
+
+        Args:
+            tickers (list[str]): List of tickers.
+            start_at (datetime.datetime): Start at.
+            end_at (datetime.datetime): End at.
+
+        Returns:
+            pandas.DataFrame: Bars.
+        """
         if self.print_logs:
             self.runtime_start = datetime.datetime.now()
             print("beginning get range equities data")
@@ -133,6 +155,17 @@ class Client:
         start_at: datetime.datetime,
         end_at: datetime.datetime,
     ) -> list[dict[str, any]]:
+        """
+        Range corporate filings are the filings for a specific equity.
+
+        Args:
+            tickers (list[str]): List of tickers.
+            start_at (datetime.datetime): Start at.
+            end_at (datetime.datetime): End at.
+
+        Returns:
+            list[dict[str, any]]: List of filings.
+        """
         if self.print_logs:
             self.runtime_start = datetime.datetime.now()
             print("beginning get range corporate filings data")
@@ -257,6 +290,16 @@ class Client:
         cik: str,
         forms_information: list[dict[str, any]],
     ) -> list[dict[str, any]]:
+        """
+        Form content from SEC.
+
+        Args:
+            cik (str): CIK.
+            forms_information (list[dict[str, any]]): List of forms information.
+
+        Returns:
+            list[dict[str, any]]: List of forms contents.
+        """
         forms_contents = []
 
         for form_information in forms_information:

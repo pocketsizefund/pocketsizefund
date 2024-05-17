@@ -1,3 +1,4 @@
+"""Unit tests for drop_nulls function."""
 import polars as pl
 import pytest
 
@@ -62,4 +63,5 @@ def test_drop_nulls(
     subset: list[str],
     expected_output: pl.DataFrame,
 ) -> None:
+    """Test drop_nulls function."""
     assert drop_nulls(input_data, subset).equals(expected_output)  # noqa: S101

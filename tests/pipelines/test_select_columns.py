@@ -1,3 +1,4 @@
+"""Unit tests for select_columns function."""
 import polars as pl
 import pytest
 
@@ -51,6 +52,7 @@ from pipelines.transformations import select_columns
 def test_select_columns(
     input_data: pl.DataFrame, subset: list[str], expected_output: pl.DataFrame,
 ) -> None:
+    """Test select_columns function."""
     result = select_columns(input_data, subset)
     if isinstance(result, list):
         assert result == expected_output  # noqa: S101
