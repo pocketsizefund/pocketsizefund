@@ -1,3 +1,4 @@
+"""Deploy model artifact to SageMaker endpoint."""  # noqa: INP001
 import argparse
 
 import boto3
@@ -5,7 +6,6 @@ from sagemaker import tensorflow
 from sagemaker.serverless import serverless_inference_config
 
 from pkg.config import config
-
 
 parser = argparse.ArgumentParser()
 
@@ -42,7 +42,7 @@ samconfig_file = config.SAMConfig(
 
 sagemaker_client = boto3.client("sagemaker")
 
-endpoint_name = "pocketsizefund-{}-lstm".format(arguments.environment)
+endpoint_name = f"pocketsizefund-{arguments.environment}-model-price-predict"
 
 try:
     sagemaker_client.delete_endpoint_config(
@@ -53,8 +53,8 @@ try:
         EndpointName=endpoint_name,
     )
 
-except Exception:
-    pass
+except Exception as exception:  # noqa: BLE001
+    print(f"exception: {exception}")  # noqa: T201
 
 model = tensorflow.TensorFlowModel(
     model_data=arguments.model_data,
@@ -78,10 +78,8 @@ predictor = model.deploy(
 
 cloudwatch_client = boto3.client("logs")
 
-endpoint_name = "pocketsizefund-{}-lstm".format(arguments.environment)
-
 log_groups = cloudwatch_client.describe_log_groups(
-    logGroupNamePrefix="/aws/sagemaker/Endpoints/{}".format(endpoint_name),
+    logGroupNamePrefix=f"/aws/sagemaker/Endpoints/{endpoint_name}",
 )["logGroups"]
 
 for log_group in log_groups:
