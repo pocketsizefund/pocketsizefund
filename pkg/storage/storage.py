@@ -6,8 +6,6 @@ import boto3
 import pandas as pd
 
 PREFIX_EQUITY_BARS_RAW_PATH = "equity/raw/bars"
-# PREFIX_EQUITY_FILINGS_RAW_PATH = 'equity/raw/filings' # temporarily removed
-PREFIX_EQUITY_BARS_FEATURES_PATH = "equity/features/bars"
 
 
 class Client:
@@ -163,7 +161,10 @@ class Client:
             executed_futures.append(executed_future)
 
             for executed_future in futures.as_completed(executed_futures):
-                executed_future.result()
+                try:
+                    _ = executed_future.result()
+                except Exception:
+                    raise
 
     def load_texts(
         self,
@@ -212,9 +213,12 @@ class Client:
             executed_futures.append(executed_future)
 
         for executed_future in futures.as_completed(executed_futures):
-            result = executed_future.result()
-            for file_name in result:
-                objects_by_file_name[file_name] = result[file_name]
+            try:
+                result = executed_future.result()
+                for file_name in result.keys():
+                    objects_by_file_name[file_name] = result[file_name]
+            except Exception:
+                raise
 
         return objects_by_file_name
 
