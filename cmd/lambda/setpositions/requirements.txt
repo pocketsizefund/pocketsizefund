@@ -1,0 +1,8 @@
+alpaca-py
+pandas
+requests
+boto3
+sagemaker
+wandb
+torch
+pytorch-forecasting

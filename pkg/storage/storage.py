@@ -1,14 +1,11 @@
-from concurrent import futures
 import io
 import tarfile
+from concurrent import futures
 
 import boto3
-import pandas
-
+import pandas as pd
 
 PREFIX_EQUITY_BARS_RAW_PATH = "equity/raw/bars"
-# PREFIX_EQUITY_FILINGS_RAW_PATH = 'equity/raw/filings' # temporarily removed
-PREFIX_EQUITY_BARS_FEATURES_PATH = "equity/features/bars"
 
 
 class Client:
@@ -55,7 +52,7 @@ class Client:
     def store_dataframes(
         self,
         prefix: str,
-        dataframes_by_file_name: dict[str, pandas.DataFrame],
+        dataframes_by_file_name: dict[str, pd.DataFrame],
     ) -> None:
         return self._store_objects_by_file_name(
             prefix,
@@ -65,7 +62,7 @@ class Client:
 
     def _store_dataframe(
         self,
-        dataframe: pandas.DataFrame,
+        dataframe: pd.DataFrame,
         key: str,
     ) -> None:
         gzip_buffer = io.BytesIO()
@@ -89,7 +86,7 @@ class Client:
         self,
         prefix: str,
         file_names: list[str],
-    ) -> dict[str, pandas.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         return self._load_objects_by_file_name(
             prefix,
             file_names,
@@ -100,7 +97,7 @@ class Client:
         self,
         prefix: str,
         file_name: str,
-    ) -> pandas.DataFrame:
+    ) -> pd.DataFrame:
         key = f"{prefix}/{file_name}"
 
         response = self.s3_client.get_object(
@@ -108,14 +105,14 @@ class Client:
             Key=key,
         )
 
-        dataframe = pandas.read_csv(
+        dataframe = pd.read_csv(
             response["Body"],
             compression="gzip",
         )
 
         if "timestamp" in dataframe.columns:
             dataframe["timestamp"] = dataframe["timestamp"].apply(
-                pandas.Timestamp,
+                pd.Timestamp,
             )
 
         return {file_name: dataframe}
@@ -164,7 +161,10 @@ class Client:
             executed_futures.append(executed_future)
 
             for executed_future in futures.as_completed(executed_futures):
-                executed_future.result()
+                try:
+                    _ = executed_future.result()
+                except Exception:
+                    raise
 
     def load_texts(
         self,
@@ -213,9 +213,12 @@ class Client:
             executed_futures.append(executed_future)
 
         for executed_future in futures.as_completed(executed_futures):
-            result = executed_future.result()
-            for file_name in result:
-                objects_by_file_name[file_name] = result[file_name]
+            try:
+                result = executed_future.result()
+                for file_name in result.keys():
+                    objects_by_file_name[file_name] = result[file_name]
+            except Exception:
+                raise
 
         return objects_by_file_name
 
