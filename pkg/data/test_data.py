@@ -1,4 +1,5 @@
 """Unit tests for Alpaca Client."""
+
 import unittest
 import datetime
 
@@ -7,8 +8,14 @@ from alpaca.data import requests as alpaca_data_requests
 from pkg.data import data
 
 
+ALPACA_API_KEY = "alpaca_api_key"  # noqa: S106
+ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S106
+EDGAR_USER_AGENT = "edgar_user_agent"  # noqa: S106
+
+
 class MockAlpacaHistoricalResponse:
     """Mock Alpaca historical response."""
+
     def __init__(
         self,
         data: dict[str, any],
@@ -37,6 +44,7 @@ class MockAlpacaHistoricalResponse:
 
 class MockAlpacaHistoricalClient:
     """Mock Alpaca historical client."""
+
     def __init__(
         self,
         response: MockAlpacaHistoricalResponse,
@@ -58,6 +66,7 @@ class MockAlpacaHistoricalClient:
 
 class MockHTTPGetResponse:
     """Mock HTTP response."""
+
     def __init__(
         self,
         text: str = None,
@@ -72,6 +81,7 @@ class MockHTTPGetResponse:
 
 class MockHttpClient:
     """Mock HTTP client."""
+
     def __init__(
         self,
         responses: dict[str, any],
@@ -158,12 +168,13 @@ def mock_get_forms_contents_success(
 
 class TestGetRangeEquitiesBars(unittest.TestCase):
     """Unit tests for get range equities bars."""
+
     def test_get_range_equities_bars_alpaca_get_stock_bars_error(self) -> None:
         """Test get range equities bars alpaca get stock bars error."""
         client = data.Client(
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            edgar_user_agent="edgar_user_agent",
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            edgar_user_agent=EDGAR_USER_AGENT,
         )
 
         client.alpaca_historical_client = MockAlpacaHistoricalClient(
@@ -183,9 +194,9 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
     def test_get_range_equities_bars_success(self) -> None:
         """Test get range equities bars success."""
         client = data.Client(
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            edgar_user_agent="edgar_user_agent",
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            edgar_user_agent=EDGAR_USER_AGENT,
         )
 
         client.alpaca_historical_client = MockAlpacaHistoricalClient(
@@ -240,12 +251,13 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
 
 class TestPrivateGetFormsInformation(unittest.TestCase):
     """Unit tests for private get forms information."""
+
     def test_private_get_forms_information_success(self) -> None:
         """Test private get forms information success."""
         client = data.Client(
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            edgar_user_agent="edgar_user_agent",
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            edgar_user_agent=EDGAR_USER_AGENT,
         )
 
         forms_information = client._get_forms_information(
@@ -285,12 +297,13 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
 class TestPrivateGetFormsContents(unittest.TestCase):
     """Unit tests for private get forms contents."""
+
     def test_private_get_forms_contents_success(self) -> None:
         """Test private get forms contents success."""
         client = data.Client(
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            edgar_user_agent="edgar_user_agent",
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            edgar_user_agent=EDGAR_USER_AGENT,
         )
 
         client.http_client = MockHttpClient(
@@ -342,12 +355,13 @@ class TestPrivateGetFormsContents(unittest.TestCase):
 
 class TestGetRangeCorporateFilings(unittest.TestCase):
     """Unit tests for get range corporate filings."""
+
     def setUp(self) -> None:
         """Set up test."""
         self.client = data.Client(
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            edgar_user_agent="edgar_user_agent",
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            edgar_user_agent=EDGAR_USER_AGENT,
         )
 
     def tearDown(self) -> None:

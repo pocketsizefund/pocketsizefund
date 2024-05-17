@@ -3,6 +3,12 @@ import unittest
 from pkg.twitter import twitter
 
 
+API_KEY = "api_key"
+API_KEY_SECRET = "api_key_secret"  # noqa: S106
+ACCESS_TOKEN = "access_token"  # noqa: S106
+ACCESS_TOKEN_SECRET = "access_token_secret"  # noqa: S106
+
+
 class MockTwitterClient:
     def __init__(self) -> None:
         pass
@@ -48,10 +54,10 @@ class MockTwitterAPI:
 class TestSendTweet(unittest.TestCase):
     def test_send_tweet_success(self) -> None:
         client = twitter.Client(
-            api_key="api_key",
-            api_key_secret="api_key_secret",
-            access_token="access_token",
-            access_token_secret="access_token_secret",
+            api_key=API_KEY,
+            api_key_secret=API_KEY_SECRET,
+            access_token=ACCESS_TOKEN,
+            access_token_secret=ACCESS_TOKEN_SECRET,
             image_files_path="image/files/path",
         )
 
@@ -65,10 +71,10 @@ class TestSendTweet(unittest.TestCase):
 class TestUpdateProfile(unittest.TestCase):
     def test_update_profile_success(self) -> None:
         client = twitter.Client(
-            api_key="api_key",
-            api_key_secret="api_key_secret",
-            access_token="access_token",
-            access_token_secret="access_token_secret",
+            api_key=API_KEY,
+            api_key_secret=API_KEY_SECRET,
+            access_token=ACCESS_TOKEN,
+            access_token_secret=ACCESS_TOKEN_SECRET,
             image_files_path="images",
         )
 

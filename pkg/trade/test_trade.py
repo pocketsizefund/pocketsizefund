@@ -4,6 +4,12 @@ import unittest
 from pkg.trade import trade
 
 
+DARQUBE_API_KEY = "darqube_api_key"  # noqa: S106
+ALPACA_API_KEY = "alpaca_api_key"  # noqa: S106
+ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S106
+ALPHA_VANTAGE_API_KEY = "alpha_vantage_api_key"  # noqa: S106
+
+
 class MockAlpacaClock:
     def __init__(
         self,
@@ -261,10 +267,10 @@ def mock_get_risk_free_rate_success() -> float:
 class TestCheckSetPositionAvailability(unittest.TestCase):
     def test_check_position_set_availability_success(self) -> None:
         client = trade.Client(
-            darqube_api_key="darqube_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARQUBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
         monday_calendar_days = [
@@ -443,10 +449,10 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
 class TestPrivateGetAvailableTickers(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="darqube_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARQUBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
@@ -527,10 +533,10 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
 class TestGetAvailableTickers(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="daruqbe_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARUQBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
@@ -559,10 +565,10 @@ class TestGetAvailableTickers(unittest.TestCase):
 class TestSetPositions(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="darqube_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARQUBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
@@ -657,10 +663,10 @@ class TestSetPositions(unittest.TestCase):
 class TestClearPositions(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="daruqbe_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARUQBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
@@ -696,10 +702,10 @@ class TestClearPositions(unittest.TestCase):
 class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="darqube_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARQUBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
@@ -776,10 +782,10 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
 class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="darqube_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARQUBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
@@ -866,10 +872,10 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
 class TestPrivateCumulativeReturns(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="darqube_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARQUBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
@@ -888,10 +894,10 @@ class TestPrivateCumulativeReturns(unittest.TestCase):
 class TestPrivateGetRiskFreeRate(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="darqube_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARQUBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
@@ -942,10 +948,10 @@ class TestPrivateGetRiskFreeRate(unittest.TestCase):
 class TestGetPerformanceMetrics(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key="darqube_api_key",
-            alpaca_api_key="alpaca_api_key",
-            alpaca_api_secret="alpaca_api_secret",
-            alpha_vantage_api_key="alpha_vantage_api_key",
+            darqube_api_key=DARQUBE_API_KEY,
+            alpaca_api_key=ALPACA_API_KEY,
+            alpaca_api_secret=ALPACA_API_SECRET,
+            alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
         )
 
     def tearDown(self) -> None:
