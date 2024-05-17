@@ -94,10 +94,10 @@ class TestListFileNames(unittest.TestCase):
             prefix="prefix",
         )
 
-        self.assertEqual(3, len(file_names))
-        self.assertEqual("2021", file_names[0])
-        self.assertEqual("2022", file_names[1])
-        self.assertEqual("first", file_names[2])
+        assert len(file_names) == 3
+        assert file_names[0] == "2021"
+        assert file_names[1] == "2022"
+        assert file_names[2] == "first"
 
 
 class TestStoreDataframes(unittest.TestCase):
@@ -124,13 +124,9 @@ class TestStoreDataframes(unittest.TestCase):
             dataframes_by_file_name=dataframes,
         )
 
-        self.assertEqual(2, len(client.s3_client.data))
-        self.assertTrue(
-            first_dataframe.equals(client.s3_client.data["prefix/first"]),
-        )
-        self.assertTrue(
-            second_dataframe.equals(client.s3_client.data["prefix/second"]),
-        )
+        assert len(client.s3_client.data) == 2
+        assert first_dataframe.equals(client.s3_client.data["prefix/first"])
+        assert second_dataframe.equals(client.s3_client.data["prefix/second"])
 
 
 class TestLoadDataframes(unittest.TestCase):
@@ -152,13 +148,9 @@ class TestLoadDataframes(unittest.TestCase):
             file_names=["first", "second"],
         )
 
-        self.assertEqual(2, len(dataframes_by_file_name))
-        self.assertTrue(
-            dataframes_by_file_name["first"].equals(client.s3_client.data["prefix/first"]),
-        )
-        self.assertTrue(
-            dataframes_by_file_name["second"].equals(client.s3_client.data["prefix/second"]),
-        )
+        assert len(dataframes_by_file_name) == 2
+        assert dataframes_by_file_name["first"].equals(client.s3_client.data["prefix/first"])
+        assert dataframes_by_file_name["second"].equals(client.s3_client.data["prefix/second"])
 
 
 class TestStoreTexts(unittest.TestCase):
@@ -179,11 +171,8 @@ class TestStoreTexts(unittest.TestCase):
             texts_by_file_name={"text.txt": text},
         )
 
-        self.assertEqual(1, len(client.s3_client.data))
-        self.assertEqual(
-            text,
-            client.s3_client.data["prefix/text.txt"],
-        )
+        assert len(client.s3_client.data) == 1
+        assert text == client.s3_client.data["prefix/text.txt"]
 
 
 class TestLoadTexts(unittest.TestCase):
@@ -204,4 +193,4 @@ class TestLoadTexts(unittest.TestCase):
             file_names=["text.txt"],
         )
 
-        self.assertEqual("text", texts_by_file_name["text.txt"])
+        assert texts_by_file_name["text.txt"] == "text"
