@@ -190,10 +190,10 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
             _ = client.get_range_equities_bars(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
@@ -244,10 +244,10 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
         range_equities_bars = client.get_range_equities_bars(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
         )
 
@@ -274,10 +274,10 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
         forms_information = client._get_forms_information(
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
             accession_numbers=[
                 "0001171843-24-001239",
@@ -296,7 +296,7 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
         assert forms_information[0]["accession_number"] == "0001171843-24-001239"
         assert forms_information[0]["acceptance_date"] == datetime.datetime(
-            1977, 5, 26, 18, 36, 45, tzinfo=config.TIMEZONE
+            1977, 5, 26, 18, 36, 45, tzinfo=config.TIMEZONE,
         )
 
 
@@ -380,10 +380,10 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
@@ -411,10 +411,10 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
@@ -453,10 +453,10 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
@@ -496,10 +496,10 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
@@ -538,10 +538,10 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         corporate_filings = self.client.get_range_corporate_filings(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
         )
 

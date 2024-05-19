@@ -194,7 +194,7 @@ class Client:
                     {
                         "ticker": row["ticker"],
                         "cik": row["cik_str"],
-                    }
+                    },
                 )
 
         corporate_filings = []
@@ -246,7 +246,7 @@ class Client:
                 {
                     "ticker": ticker,
                     "corporate_filings": ticker_corporate_filings,
-                }
+                },
             )
 
         if self.debug:
@@ -281,7 +281,7 @@ class Client:
                     {
                         "accession_number": accession_numbers[index],
                         "acceptance_date": acceptance_date,
-                    }
+                    },
                 )
 
         return forms_information
@@ -318,7 +318,7 @@ class Client:
                 {
                     "acceptance_date": form_information["acceptance_date"],
                     "content": list(parser.stripped_strings),
-                }
+                },
             )
 
             time.sleep(1 / self.edgar_requests_per_second)
