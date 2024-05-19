@@ -1,6 +1,7 @@
 """Module for downloading data from Alpaca. Alpaca is a brokerage for financial data."""
 
 import datetime
+import dateutil.parser
 import time
 
 import bs4
@@ -272,9 +273,12 @@ class Client:
 
         forms_information = []
         for index in indices:
-            acceptance_date = datetime.datetime.fromisoformat(
-                acceptance_dates[index][:-1],  # remove trailing "Z"
+            acceptance_date = dateutil.parser.isoparse(
+                acceptance_dates[index]
             )
+
+            if acceptance_date.tzinfo is None:
+                acceptance_date = acceptance_data.replace(tzinfo=config.TIMEZONE)
 
             if acceptance_date >= start_at and acceptance_date <= end_at:
                 forms_information.append(

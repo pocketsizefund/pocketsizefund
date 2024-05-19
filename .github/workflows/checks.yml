@@ -15,12 +15,12 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+      - name: Install poetry
+        uses: Gr1N/setup-poetry@v8
       - name: Install dependencies
-        run: pip3 install -r requirements.txt
+        run: poetry install
       - name: Run unit tests
-        run: ./bin/run_unit_tests
-      - name: Collect unit test coverage
-        run: coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
+        run: make test
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:

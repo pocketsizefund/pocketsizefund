@@ -197,7 +197,7 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
                 ),
             )
 
-        assert str(context.exception) == "get stock bars error"
+        assert str(context.value) == "get stock bars error"
 
     def test_get_range_equities_bars_success(self) -> None:
         """Test get range equities bars success."""
@@ -387,7 +387,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 ),
             )
 
-        assert str(context.exception) == "get tickers http error"
+        assert str(context.value) == "get tickers http error"
 
     def test_get_range_corporate_filings_get_submissions_http_error(self) -> None:
         """Test get range corporate filings get submissions http error."""
@@ -418,7 +418,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 ),
             )
 
-        assert str(context.exception) == "get submissions http error"
+        assert str(context.value) == "get submissions http error"
 
     def test_get_range_corporate_filings_get_forms_information_error(self) -> None:
         """Test get range corporate filings get forms information error."""
@@ -460,7 +460,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 ),
             )
 
-        assert str(context.exception) == "get forms information error"
+        assert str(context.value) == "get forms information error"
 
     def test_get_range_corporate_filings_get_forms_contents_error(self) -> None:
         """Test get range corporate filings get forms contents error."""
@@ -503,7 +503,7 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 ),
             )
 
-        assert str(context.exception) == "get forms contents error"
+        assert str(context.value) == "get forms contents error"
 
     def test_get_range_corporate_filings_success(self) -> None:
         """Test get range corporate filings success."""

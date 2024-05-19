@@ -17,6 +17,7 @@ etc/meetings/
 etc/packages/
 !etc/examples/samconfig.toml
 .coverage*
+coverage.xml
 cmd/script/trainmodel/secrets.env
 wandb
 lightning_logs/
