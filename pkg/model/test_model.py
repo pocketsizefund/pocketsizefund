@@ -345,7 +345,7 @@ class MockPredictor:
 
     def predict(
         self,
-        data: any,
+        data: any, # noqa: ARG002
     ) -> any:
         return {
             "65": [
