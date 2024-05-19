@@ -8,6 +8,7 @@ import pandas as pd
 import requests
 from alpaca.data import historical, timeframe
 from alpaca.data import requests as alpaca_data_requests
+from loguru import logger
 
 from pkg.config import config
 
@@ -34,7 +35,7 @@ class Client:
         alpaca_api_key: str,
         alpaca_api_secret: str,
         edgar_user_agent: str,
-        print_logs: bool = False,
+        debug: bool = False,
     ) -> None:
         """Alpaca Client.
 
@@ -43,7 +44,7 @@ class Client:
             alpaca_api_secret (str): Alpaca API secret.
             edgar_user_agent (str): EDGAR user agent. EDGAR is the SEC's database
                 of publicly available company filings.
-            print_logs (bool, optional): Print logs. Defaults to False.
+            debug(bool, optional): Print debug logs. Defaults to False.
         """
         self.alpaca_ticker_chunk_size = ALPACA_TICKER_CHUNK_SIZE
         self.alpaca_datetime_chunk_size_in_days = ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS
@@ -55,7 +56,7 @@ class Client:
         self.http_client = requests
         self.edgar_user_agent = edgar_user_agent
         self.edgar_requests_per_second = 10  # EDGAR rate limitation
-        self.print_logs = print_logs
+        self.debug = debug
         self.runtime_start = None
 
     def get_range_equities_bars(
@@ -74,9 +75,9 @@ class Client:
         Returns:
             pd.DataFrame: Bars.
         """
-        if self.print_logs:
+        if self.debug:
             self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
-            print("beginning get range equities data")
+            logger.debug("beginning get range equities data")
 
         start_at = start_at.replace(hour=0, minute=0, second=0)
         end_at = end_at.replace(hour=0, minute=0, second=0)
@@ -88,8 +89,8 @@ class Client:
         for i in range(0, len(tickers), self.alpaca_ticker_chunk_size):
             tickers_chunk = tickers[i : i + self.alpaca_ticker_chunk_size]
 
-            if self.print_logs:
-                print(f"getting {tickers_chunk} bars")
+            if self.debug:
+                logger.debug(f"getting {tickers_chunk} bars")
 
             for j in range(0, difference_in_days, self.alpaca_datetime_chunk_size_in_days):
                 start_at_chunk = start_at + datetime.timedelta(days=j)
@@ -141,13 +142,13 @@ class Client:
             data=bars,
         )
 
-        if self.print_logs:
+        if self.debug:
             runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
 
             runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
-            print("ending get range equities data")
-            print(f"runtime {runtime_in_minutes:.2f} minutes")
+            logger.debug("ending get range equities data")
+            logger.debug(f"runtime {runtime_in_minutes:.2f} minutes")
 
         return all_bars
 
@@ -167,9 +168,9 @@ class Client:
         Returns:
             list[dict[str, any]]: List of filings.
         """
-        if self.print_logs:
+        if self.debug:
             self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
-            print("beginning get range corporate filings data")
+            logger.debug("beginning get range corporate filings data")
 
         response = self.http_client.get(
             url="https://www.sec.gov/files/company_tickers.json",
@@ -202,8 +203,8 @@ class Client:
             cik = ciks_and_tickers[index]["cik"]
             ticker = ciks_and_tickers[index]["ticker"]
 
-            if self.print_logs:
-                print(f"getting {ticker} corporate filings")
+            if self.debug:
+                logger.debug(f"getting {ticker} corporate filings")
 
             submission_response = self.http_client.get(
                 url=f"https://data.sec.gov/submissions/CIK{cik:0>10}.json",
@@ -248,13 +249,13 @@ class Client:
                 }
             )
 
-        if self.print_logs:
+        if self.debug:
             runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
 
             runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
-            print("ending get range corporate filings data")
-            print(f"runtime {runtime_in_minutes:.2f} minutes")
+            logger.debug("ending get range corporate filings data")
+            logger.debug(f"runtime {runtime_in_minutes:.2f} minutes")
 
         return corporate_filings
 
