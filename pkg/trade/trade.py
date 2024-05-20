@@ -323,12 +323,14 @@ class Client:
         self,
         week_count: int,
         end_at: datetime.datetime,
+        threshold: int = 5,
     ) -> list[dict[str, any]]:
         """Retrieve the daily returns of the portfolio for a specified period.
 
         Args:
             week_count (int): The number of weeks to consider for the returns calculation.
             end_at (datetime.datetime): The end date for the returns calculation.
+            threshold (int): Minimum returns.
 
         Returns:
             list[dict[str, any]]: A list of daily returns for the portfolio.
@@ -363,7 +365,7 @@ class Client:
                 round(float(portfolio_data["profit_loss_pct"][index]), 4),
             )
 
-        if len(portfolio_returns) < 5:
+        if len(portfolio_returns) < threshold:
             msg = "insufficient portfolio data: {len(portfolio_returns)=}"
             raise ValueError(msg)
 
@@ -373,12 +375,14 @@ class Client:
         self,
         week_count: int,
         end_at: datetime.datetime,
+        threshold: int = 5,
     ) -> list[dict[str, any]]:
         """Retrieve the daily returns of a benchmark stock over a specified period.
 
         Args:
             week_count (int): The number of weeks to retrieve the benchmark data for.
             end_at (datetime.datetime): The end date of the period.
+            threshold (int): Minimum number of returns in order to benchmark
 
         Returns:
             list[dict[str, any]]: A list of dictionaries containing the daily returns
@@ -418,7 +422,7 @@ class Client:
 
             benchmark_returns.append(round(percent_change, 4))
 
-        if len(benchmark_returns) < 5:
+        if len(benchmark_returns) < threshold:
             msg = "insufficient benchmark data: {len(benchmark_returns)=}"
             raise ValueError(msg)
 
