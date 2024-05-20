@@ -314,7 +314,6 @@ class TestPrivateGetFormsContents(unittest.TestCase):
         client.http_client = MockHttpClient(
             responses={
                 "edgar/data": MockHTTPGetResponse(
-                    # text=['form contents']
                     text="<xml>form contents</xml>",
                 ),
             },
