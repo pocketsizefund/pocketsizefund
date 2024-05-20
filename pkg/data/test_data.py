@@ -9,9 +9,9 @@ from alpaca.data import requests as alpaca_data_requests
 from pkg.config import config
 from pkg.data import data
 
-ALPACA_API_KEY = "alpaca_api_key"  # noqa: S106
-ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S106
-EDGAR_USER_AGENT = "edgar_user_agent"  # noqa: S106
+ALPACA_API_KEY = "alpaca_api_key" # noqa: S105
+ALPACA_API_SECRET = "alpaca_api_secret" # noqa: S105
+EDGAR_USER_AGENT = "edgar_user_agent" # noqa: S105
 
 
 class MockAlpacaHistoricalResponse:
@@ -55,7 +55,7 @@ class MockAlpacaHistoricalClient:
 
     def get_stock_bars(
         self,
-        request: alpaca_data_requests.StockBarsRequest,
+        request: alpaca_data_requests.StockBarsRequest, # noqa: ARG002
     ) -> any:
         """Get stock bars."""
         if self.exception is not None:
@@ -69,8 +69,8 @@ class MockHTTPGetResponse:
 
     def __init__(
         self,
-        text: str = None,
-        data: dict[str, any] = None,
+        text: str | None = None,
+        data: dict[str, any] | None = None,
     ) -> None:
         self.text = text
         self.data = data
@@ -93,7 +93,7 @@ class MockHttpClient:
     def get(
         self,
         url: str,
-        headers: dict[str, str],
+        headers: dict[str, str], # noqa: ARG002
     ) -> any:
         if self.exceptions is not None:
             keys = list(self.exceptions.keys())
@@ -110,7 +110,7 @@ class MockHttpClient:
         return None
 
 
-def mock_get_forms_information_error(
+def mock_get_forms_information_error( # noqa: PLR0913
     start_at: datetime.datetime,
     end_at: datetime.datetime,
     accession_numbers: list[str],
@@ -125,7 +125,7 @@ def mock_get_forms_information_error(
     raise ValueError(msg)
 
 
-def mock_get_forms_information_success(
+def mock_get_forms_information_success( # noqa: PLR0913
     start_at: datetime.datetime,
     end_at: datetime.datetime,
     accession_numbers: list[str],
@@ -186,18 +186,17 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
             exception=Exception("get stock bars error"),
         )
 
-        with pytest.raises(Exception) as context:
+        with pytest.raises(Exception, match="get stock bars"):
             _ = client.get_range_equities_bars(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
-        assert str(context.exception) == "get stock bars error"
 
     def test_get_range_equities_bars_success(self) -> None:
         """Test get range equities bars success."""
@@ -244,10 +243,10 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
         range_equities_bars = client.get_range_equities_bars(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
         )
 
@@ -274,10 +273,10 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
         forms_information = client._get_forms_information(
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
             accession_numbers=[
                 "0001171843-24-001239",
@@ -296,7 +295,7 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
         assert forms_information[0]["accession_number"] == "0001171843-24-001239"
         assert forms_information[0]["acceptance_date"] == datetime.datetime(
-            1977, 5, 26, 18, 36, 45, tzinfo=config.TIMEZONE
+            1977, 5, 26, 18, 36, 45, tzinfo=config.TIMEZONE,
         )
 
 
@@ -331,7 +330,7 @@ class TestPrivateGetFormsContents(unittest.TestCase):
                         18,
                         36,
                         45,
-                        tzinfo=datetime.timezone.utc,
+                        tzinfo=config.TIMEZONE,
                     ),
                     "accession_number": "0001171843-24-001239",
                 },
@@ -345,10 +344,10 @@ class TestPrivateGetFormsContents(unittest.TestCase):
             18,
             36,
             45,
-            tzinfo=datetime.timezone.utc,
+            tzinfo=config.TIMEZONE,
         )
 
-        forms_contents[0]["content"] == ["form contents"]
+        assert forms_contents[0]["content"] == ["form contents"]
 
 
 class TestGetRangeCorporateFilings(unittest.TestCase):
@@ -362,10 +361,6 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             edgar_user_agent=EDGAR_USER_AGENT,
         )
 
-    def tearDown(self) -> None:
-        """Tear down test."""
-        pass
-
     def test_get_range_corporate_filings_get_tickers_http_error(self) -> None:
         """Test get range corporate filings get tickers http error."""
         self.client.http_client = MockHttpClient(
@@ -375,18 +370,17 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             },
         )
 
-        with pytest.raises(Exception) as context:
+        with pytest.raises(Exception, match="get tickers http"):
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
-        assert str(context.exception) == "get tickers http error"
 
     def test_get_range_corporate_filings_get_submissions_http_error(self) -> None:
         """Test get range corporate filings get submissions http error."""
@@ -406,18 +400,17 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
             },
         )
 
-        with pytest.raises(Exception) as context:
+        with pytest.raises(Exception, match="get submissions http"):
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
-        assert str(context.exception) == "get submissions http error"
 
     def test_get_range_corporate_filings_get_forms_information_error(self) -> None:
         """Test get range corporate filings get forms information error."""
@@ -448,18 +441,17 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
 
         self.client._get_forms_information = mock_get_forms_information_error
 
-        with pytest.raises(Exception) as context:
+        with pytest.raises(Exception, match="get forms information"):
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
 
-        assert str(context.exception) == "get forms information error"
 
     def test_get_range_corporate_filings_get_forms_contents_error(self) -> None:
         """Test get range corporate filings get forms contents error."""
@@ -491,18 +483,16 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         self.client._get_forms_information = mock_get_forms_information_success
         self.client._get_forms_contents = mock_get_forms_contents_error
 
-        with pytest.raises(Exception) as context:
+        with pytest.raises(Exception, match="get forms contents"):
             _ = self.client.get_range_corporate_filings(
                 tickers=["TICKER"],
                 start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
                 end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                    tzinfo=config.TIMEZONE
+                    tzinfo=config.TIMEZONE,
                 ),
             )
-
-        assert str(context.exception) == "get forms contents error"
 
     def test_get_range_corporate_filings_success(self) -> None:
         """Test get range corporate filings success."""
@@ -537,10 +527,10 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
         corporate_filings = self.client.get_range_corporate_filings(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE
+                tzinfo=config.TIMEZONE,
             ),
         )
 

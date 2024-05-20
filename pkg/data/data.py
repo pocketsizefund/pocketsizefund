@@ -36,6 +36,7 @@ class Client:
         alpaca_api_key: str,
         alpaca_api_secret: str,
         edgar_user_agent: str,
+        *,
         debug: bool = False,
     ) -> None:
         """Alpaca Client.
@@ -188,14 +189,14 @@ class Client:
 
         ciks_and_tickers = []
 
-        for key in ciks_response_json.keys():
+        for key in ciks_response_json:
             row = ciks_response_json[key]
             if row["ticker"] in tickers:
                 ciks_and_tickers.append(
                     {
                         "ticker": row["ticker"],
                         "cik": row["cik_str"],
-                    }
+                    },
                 )
 
         corporate_filings = []
@@ -247,7 +248,7 @@ class Client:
                 {
                     "ticker": ticker,
                     "corporate_filings": ticker_corporate_filings,
-                }
+                },
             )
 
         if self.debug:
@@ -260,7 +261,7 @@ class Client:
 
         return corporate_filings
 
-    def _get_forms_information(
+    def _get_forms_information( # noqa: PLR0913
         self,
         start_at: datetime.datetime,
         end_at: datetime.datetime,
@@ -271,18 +272,21 @@ class Client:
     ) -> list[dict[str, any]]:
         indices = [index for index, form in enumerate(forms) if form == target_form]
 
+        if start_at.tzinfo is None:
+            start_at = start_at.replace(tzinfo=config.TIMEZONE)
+        if end_at.tzinfo is None:
+            end_at = end_at.replace(tzinfo=config.TIMEZONE)
+
         forms_information = []
         for index in indices:
-            acceptance_date = datetime.datetime.fromisoformat(
-                acceptance_dates[index][:-1],  # remove trailing "Z"
-            )
+            acceptance_date = dateutil.parser.isoparse(acceptance_dates[index])
 
             if acceptance_date >= start_at and acceptance_date <= end_at:
                 forms_information.append(
                     {
                         "accession_number": accession_numbers[index],
                         "acceptance_date": acceptance_date,
-                    }
+                    },
                 )
 
         return forms_information
@@ -319,7 +323,7 @@ class Client:
                 {
                     "acceptance_date": form_information["acceptance_date"],
                     "content": list(parser.stripped_strings),
-                }
+                },
             )
 
             time.sleep(1 / self.edgar_requests_per_second)
