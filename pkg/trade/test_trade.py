@@ -147,7 +147,7 @@ class MockAlpacaTradingClient:
 
     def get_all_assets(
         self,
-        request: any,
+        request: any, # noqa: ARG002
     ) -> any:
         if self.exceptions is not None and self.exceptions["get_all_assets"] is not None:
             raise self.exceptions["get_all_assets"]
@@ -211,7 +211,7 @@ class MockAlpacaHistoricalClient:
 
     def get_stock_bars(
         self,
-        request: any,
+        request: any, # noqa: ARG002
     ) -> any:
         if self.exceptions is not None and self.exceptions["get_stock_bars"] is not None:
             raise self.exceptions["get_stock_bars"]
@@ -220,16 +220,16 @@ class MockAlpacaHistoricalClient:
 
 
 def mock_get_portoflio_daily_returns_error(
-    week_count: int,
-    end_at: datetime.datetime,
+    week_count: int, # noqa: ARG001
+    end_at: datetime.datetime, # noqa: ARG001
 ) -> list[dict[str, any]]:
     msg = "get portfolio returns error"
     raise ValueError(msg)
 
 
 def mock_get_portfolio_returns_success(
-    week_count: int,
-    end_at: datetime.datetime,
+    week_count: int, # noqa: ARG001
+    end_at: datetime.datetime, # noqa: ARG001
 ) -> list[dict[str, any]]:
     return [
         -0.0082,
@@ -241,16 +241,16 @@ def mock_get_portfolio_returns_success(
 
 
 def mock_get_benchmark_daily_returns_error(
-    week_count: int,
-    end_at: datetime.datetime,
+    week_count: int, # noqa: ARG001
+    end_at: datetime.datetime, # noqa: ARG001
 ) -> list[dict[str, any]]:
     msg = "get benchmark returns error"
     raise ValueError(msg)
 
 
 def mock_get_benchmark_daily_returns_success(
-    week_count: int,
-    end_at: datetime.datetime,
+    week_count: int, # noqa: ARG001
+    end_at: datetime.datetime, # noqa: ARG001
 ) -> list[dict[str, any]]:
     return [
         0.01,

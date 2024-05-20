@@ -16,7 +16,7 @@ class MockS3Client:
 
     def list_objects_v2(
         self,
-        **kwargs: any,
+        **kwargs: any, # noqa: ARG002
     ) -> any:
         return self.data
 
