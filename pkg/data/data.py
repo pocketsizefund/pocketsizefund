@@ -4,6 +4,7 @@ import datetime
 import time
 
 import bs4
+import dateutil.parser
 import pandas as pd
 import requests
 from alpaca.data import historical, timeframe
