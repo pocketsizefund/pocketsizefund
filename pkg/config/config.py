@@ -1,7 +1,8 @@
 """Hold all project-level configuration."""
 import datetime
-import toml
 import argparse
+
+import toml
 
 ENVIRONMENT_DEVELOPMENT = "development"
 TIMEZONE = datetime.timezone.utc
