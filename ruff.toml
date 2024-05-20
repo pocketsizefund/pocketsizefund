@@ -96,11 +96,17 @@ select = [
 ignore = [
   "ANN101", # don't need to type annotate `self`
   "PT006",  # Wrong type passed to first argument of `@pytest.mark.parametrize` --> unnecessary
+  "D406", # the D4** conflict with other linting rules, prefer Google Style Docstrings
+  "D406",
+  "D407",
+  "D409",
+  "D413",
+  "D101",
 ]
 
 [lint.per-file-ignores]
-"pkg/trade/test_trade.py" = ["S101", "PLR2004"]
-"pkg/model/test_model.py" = ["S101", "PLR2004"]
-"pkg/storage/test_storage.py" = ["S101", "PLR2004"]
-"pkg/data/test_data.py" = ["S101", "PLR2004"]
-
+"pkg/trade/test_trade.py" = ["S101", "PLR2004", "D"]
+"pkg/model/test_model.py" = ["S101", "PLR2004", "D"]
+"pkg/storage/test_storage.py" = ["S101", "PLR2004", "D"]
+"pkg/data/test_data.py" = ["S101", "PLR2004", "D"]
+"**/*__init__.py" = ["D"]

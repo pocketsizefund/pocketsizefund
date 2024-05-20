@@ -1,3 +1,15 @@
+"""Interact with cloud storage.
+
+The :class:`Client` class provides methods for storing and loading dataframes to/from
+S3, as well as extracting archives from S3.
+
+The :func:`load_dataframes` function takes a prefix and a list of file names, and
+returns a dictionary mapping file names to loaded pandas DataFrames.
+
+The :func:`download_model_artifacts` function takes a model name and downloads the
+corresponding model artifact from S3. It extracts the archive and saves its contents
+to the current working directory.
+"""
 import io
 import tarfile
 from concurrent import futures
@@ -14,6 +26,17 @@ class Client:
         s3_data_bucket_name: str,
         s3_artifacts_bucket_name: str,
     ) -> None:
+        """Initialize a new instance of the `Client` class.
+
+        This is used to interact with AWS S3 buckets.
+
+        Args:
+            s3_data_bucket_name (str): The name of the S3 data bucket.
+            s3_artifacts_bucket_name (str): The name of the S3 artifacts bucket.
+
+        Returns:
+            None
+        """
         self.s3_data_bucket_name = s3_data_bucket_name
         self.s3_artifacts_bucket_name = s3_artifacts_bucket_name
         self.s3_client = boto3.client("s3")
@@ -22,6 +45,17 @@ class Client:
         self,
         prefix: str,
     ) -> list[str]:
+        """Retrieve a list of file names from the S3 data bucket that match the given prefix.
+
+        Args:
+            prefix (str): The prefix to filter the file names by.
+
+        Returns:
+            list[str]: A list of file names that match the given prefix.
+
+        Raises:
+            None
+        """
         file_names: list[str] = []
 
         continuation_token: str = None
@@ -54,6 +88,16 @@ class Client:
         prefix: str,
         dataframes_by_file_name: dict[str, pd.DataFrame],
     ) -> None:
+        """Store multiple pandas DataFrames in the S3 data bucket with the given prefix.
+
+        Args:
+            prefix (str): The prefix to use for the stored dataframes.
+            dataframes_by_file_name (dict[str, pd.DataFrame]): A dictionary mapping file names
+                to pandas DataFrames to store.
+
+        Returns:
+            None
+        """
         return self._store_objects_by_file_name(
             prefix,
             dataframes_by_file_name,
@@ -87,6 +131,15 @@ class Client:
         prefix: str,
         file_names: list[str],
     ) -> dict[str, pd.DataFrame]:
+        """Load multiple pandas DataFrames from the S3 data bucket with the given prefix.
+
+        Args:
+            prefix (str): The prefix to use for the loaded dataframes.
+            file_names (list[str]): A list of file names to load.
+
+        Returns:
+            dict[str, pd.DataFrame]: A dictionary mapping file names to loaded pandas DataFrames.
+        """
         return self._load_objects_by_file_name(
             prefix,
             file_names,
@@ -122,6 +175,16 @@ class Client:
         prefix: str,
         texts_by_file_name: dict[str, str],
     ) -> None:
+        """Store multiple text files in the S3 data bucket with the given prefix.
+
+        Args:
+            prefix (str): The prefix to use for the stored text files.
+            texts_by_file_name (dict[str, str]): A dictionary mapping file names
+                to text content to store.
+
+        Returns:
+            None
+        """
         return self._store_objects_by_file_name(
             prefix,
             texts_by_file_name,
@@ -171,6 +234,15 @@ class Client:
         prefix: str,
         file_names: list[str],
     ) -> str:
+        """Load multiple text files from the S3 data bucket with the given prefix.
+
+        Args:
+            prefix (str): The prefix to use for the loaded text files.
+            file_names (list[str]): A list of file names to load.
+
+        Returns:
+            str: The loaded text content concatenated into a single string.
+        """
         return self._load_objects_by_file_name(
             prefix,
             file_names,
@@ -221,21 +293,3 @@ class Client:
                 raise
 
         return objects_by_file_name
-
-    def download_model_artifacts(
-        self,
-        model_name: str,
-    ) -> None:
-        response = self.s3_client.get_object(
-            Bucket=self.s3_artifacts_bucket_name,
-            Key=model_name,
-        )
-
-        compressed_data = response["Body"].read()
-
-        compressed_file = tarfile.open(
-            fileobj=io.BytesIO(compressed_data),
-            mode="r:gz",
-        )
-
-        compressed_file.extractall()

@@ -36,13 +36,13 @@ class Client:
         edgar_user_agent: str,
         print_logs: bool = False,
     ) -> None:
-        """
-        Alpaca Client.
+        """Alpaca Client.
 
         Args:
             alpaca_api_key (str): Alpaca API key.
             alpaca_api_secret (str): Alpaca API secret.
-            edgar_user_agent (str): EDGAR user agent. EDGAR is the SEC's database of publicly available company filings.
+            edgar_user_agent (str): EDGAR user agent. EDGAR is the SEC's database
+                of publicly available company filings.
             print_logs (bool, optional): Print logs. Defaults to False.
         """
         self.alpaca_ticker_chunk_size = ALPACA_TICKER_CHUNK_SIZE
@@ -64,8 +64,7 @@ class Client:
         start_at: datetime.datetime,
         end_at: datetime.datetime,
     ) -> pd.DataFrame:
-        """
-        Range equity bars are the bars for a specific equity.
+        """Range equity bars are the bars for a specific equity.
 
         Args:
             tickers (list[str]): List of tickers.
@@ -158,8 +157,7 @@ class Client:
         start_at: datetime.datetime,
         end_at: datetime.datetime,
     ) -> list[dict[str, any]]:
-        """
-        Range corporate filings are the filings for a specific equity.
+        """Range corporate filings are the filings for a specific equity.
 
         Args:
             tickers (list[str]): List of tickers.
@@ -292,8 +290,7 @@ class Client:
         cik: str,
         forms_information: list[dict[str, any]],
     ) -> list[dict[str, any]]:
-        """
-        Form content from SEC.
+        """Form content from SEC.
 
         Args:
             cik (str): CIK.

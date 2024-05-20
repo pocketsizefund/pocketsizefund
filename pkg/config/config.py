@@ -1,4 +1,4 @@
-"""Config module for SAM (Serverless Application Model)"""
+"""Hold all project-level configuration."""
 import datetime
 import toml
 import argparse
@@ -11,8 +11,7 @@ class SAMConfig:
     """SAMConfig class."""
 
     def __init__(self, file_path: str, environment: str = ENVIRONMENT_DEVELOPMENT) -> None:
-        """
-        SAM Config class.
+        """SAM Config class.
 
         Args:
             file_path (str): Path to SAM config file.
@@ -27,8 +26,7 @@ class SAMConfig:
             self.parameters[parameter_split[0]] = parameter_split[1]
 
     def get_parameter(self, parameter_name: str) -> str:
-        """
-        Get a parameter from the SAM config file.
+        """Get a parameter from the SAM config file.
 
         Args:
             parameter_name (str): Parameter name.

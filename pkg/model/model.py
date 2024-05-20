@@ -230,7 +230,6 @@ class Model:
 
 
 class Client:
-    """Client invokes a trained model to make predictions."""
     def __init__(
         self,
         model_endpoint_name: str,

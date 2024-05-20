@@ -1,3 +1,23 @@
+"""Core Trading Module.
+
+This module is the core of the trading engine. It is responsible for
+requesting data from Alpaca, Alpha Vantage, and EDGAR, and for executing
+orders on Alpaca. It also handles checking the availability of positions
+for setting.
+
+The client object is the main entry point for all trading operations. It
+is instantiated with Alpaca API keys and user agent strings for EDGAR.
+
+All methods on the client object return a pandas DataFrame or a list of
+dictionaries, unless otherwise specified in their docstrings.
+
+The client methods are grouped into the following categories:
+
+- Data: These methods request data from Alpaca, Alpha Vantage, and EDGAR.
+- Order Execution: These methods place orders on Alpaca.
+- Position Availability: These methods check the availability of positions
+    for setting.
+"""
 import datetime
 
 import numpy as np
@@ -21,6 +41,24 @@ class Client:
         alpha_vantage_api_key: str,
         is_paper: bool = True,
     ) -> None:
+        """Initialize a new instance of the Client class.
+
+        This is used to interact with several systems including:
+        - Darqube
+        - Alpaca
+        - Alpha Vantage
+
+        Args:
+            darqube_api_key (str): The API key for Darqube.
+            alpaca_api_key (str): The API key for Alpaca.
+            alpaca_api_secret (str): The API secret key for Alpaca.
+            alpha_vantage_api_key (str): The API key for Alpha Vantage.
+            is_paper (bool, optional): Indicates whether the client is in paper trading mode.
+                Defaults to True.
+
+        Returns:
+            None
+        """
         self.darqube_api_key = darqube_api_key
         self.http_client = requests
         self.http_headers = {
@@ -52,6 +90,21 @@ class Client:
         action: str,
         current_datetime: datetime.datetime,
     ) -> bool:
+        """Check the availability of setting a position.
+
+        Uses the clock from Alpaca.
+
+        Args:
+            action (str): The action to perform.
+                Can be either "CREATE_ACTION" or "CLEAR_ACTION".
+            current_datetime (datetime.datetime): The current datetime.
+
+        Returns:
+            bool: True if the position can be set, False otherwise.
+
+        Raises:
+            NotImplementedError: If the action is unknown.
+        """
         clock = self.alpaca_trading_client.get_clock()
 
         if not clock.is_open:
@@ -110,12 +163,29 @@ class Client:
         raise NotImplementedError(msg)
 
     def get_available_tickers(self) -> list[str]:
+        """Retrieve a list of available tickers.
+
+        Returns:
+            list[str]: A list of strings representing the available tickers.
+
+        """
         return self._get_available_tickers()
 
     def set_positions(
         self,
         tickers: list[str],
     ) -> None:
+        """Set positions for the given list of tickers.
+
+        Args:
+            tickers (list[str]): A list of tickers for the positions to be set.
+
+        Returns:
+            None: This function does not return anything.
+
+        Raises:
+            ValueError: If any of the tickers in the list are invalid.
+        """
         available_tickers = self._get_available_tickers()
 
         account = self.alpaca_trading_client.get_account()
@@ -140,8 +210,14 @@ class Client:
             self.alpaca_trading_client.submit_order(request)
 
     def _get_available_tickers(self) -> list[str]:
-        # "GSPC" is the S&P 500 Index
-        # "DJI" is the Dow Jones Industrial Average
+        """Retrieve a list of available tickers from Darqube API and Alpaca Trading API.
+
+        `GSPC` is the S&P 500 Index
+        `DJI` is the Dow Jones Industrial Average
+
+        Returns:
+            A list of strings representing the available tickers.
+        """
         darqube_response = self.http_client.get(
             url="https://api.darqube.com/data-api/fundamentals/indexes/index_constituents/DJI",
             params={
@@ -174,6 +250,18 @@ class Client:
         return tickers
 
     def clear_positions(self) -> None:
+        """Clear all positions held by the client.
+
+        This method calls the `close_all_positions` method of the `alpaca_trading_client` object,
+        passing `True` as the `cancel_orders` parameter. This will close all open positions and
+        cancel any associated orders.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.alpaca_trading_client.close_all_positions(
             cancel_orders=True,
         )
@@ -183,6 +271,20 @@ class Client:
         week_count: int,
         end_at: datetime.datetime,
     ) -> dict[str, any]:
+        """Retrieve performance metrics for the portfolio.
+
+        Args:
+            week_count (int): The number of weeks to consider for the metrics calculation.
+            end_at (datetime.datetime): The end date for the metrics calculation.
+
+        Returns:
+            dict[str, any]: A dictionary containing the performance metrics. The keys are:
+                - "current_portfolio_value" (float): The current value of the portfolio.
+                - "cumulative_portfolio_returns" (float): The cumulative returns of the portfolio.
+                - "cumulative_benchmark_returns" (float): The cumulative returns of the benchmark.
+                - "risk_free_rate" (float): The risk-free rate used in the calculations.
+
+        """
         metrics = {}
 
         account = self.alpaca_trading_client.get_account()
@@ -222,6 +324,20 @@ class Client:
         week_count: int,
         end_at: datetime.datetime,
     ) -> list[dict[str, any]]:
+        """Retrieve the daily returns of the portfolio for a specified period.
+
+        Args:
+            week_count (int): The number of weeks to consider for the returns calculation.
+            end_at (datetime.datetime): The end date for the returns calculation.
+
+        Returns:
+            list[dict[str, any]]: A list of daily returns for the portfolio.
+                Each element of the list is a dictionary containing the timestamp
+                and the profit/loss percentage for that day.
+
+        Raises:
+            ValueError: If the number of portfolio returns is less than 5.
+        """
         subdomain = "paper-api"
         if not self.is_paper:
             subdomain = "api"
@@ -258,6 +374,19 @@ class Client:
         week_count: int,
         end_at: datetime.datetime,
     ) -> list[dict[str, any]]:
+        """Retrieve the daily returns of a benchmark stock over a specified period.
+
+        Args:
+            week_count (int): The number of weeks to retrieve the benchmark data for.
+            end_at (datetime.datetime): The end date of the period.
+
+        Returns:
+            list[dict[str, any]]: A list of dictionaries containing the daily returns
+                of the benchmark stock.
+
+        Raises:
+            ValueError: If there is insufficient benchmark data.
+        """
         benchmark_ticker = "SPY"
 
         # adjusting due to Alpaca API limitations
@@ -299,6 +428,15 @@ class Client:
         self,
         returns: list[float],
     ) -> float:
+        """Calculate the cumulative returns of a list of returns.
+
+        Args:
+            returns (list[float]): A list of returns.
+
+        Returns:
+            float: The cumulative returns rounded to 4 decimal places.
+
+        """
         cumulative_returns = np.prod(1 + np.array(returns)) - 1
 
         return round(cumulative_returns, 4)
