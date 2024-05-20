@@ -55,7 +55,7 @@ class MockAlpacaHistoricalClient:
 
     def get_stock_bars(
         self,
-        request: alpaca_data_requests.StockBarsRequest, # noqa: ARG002
+        request: alpaca_data_requests.StockBarsRequest,
     ) -> any:
         """Get stock bars."""
         if self.exception is not None:
@@ -93,7 +93,7 @@ class MockHttpClient:
     def get(
         self,
         url: str,
-        headers: dict[str, str], # noqa: ARG002
+        headers: dict[str, str],
     ) -> any:
         if self.exceptions is not None:
             keys = list(self.exceptions.keys())
