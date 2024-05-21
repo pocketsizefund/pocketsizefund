@@ -1,4 +1,5 @@
-"""Deploy model artifact to SageMaker endpoint."""  # noqa: INP001
+"""Deploy model artifact to SageMaker endpoint."""
+
 import argparse
 
 import boto3
