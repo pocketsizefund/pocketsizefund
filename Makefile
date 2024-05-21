@@ -18,3 +18,4 @@ unit-test:
 	poetry run coverage report
 	poetry run coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
 	rm -rf .coverage/
+	rm -rf .coverage/
