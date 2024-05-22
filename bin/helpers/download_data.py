@@ -1,4 +1,5 @@
-"""Download all raw data from S3."""  # noqa: INP001
+"""Download all raw data from S3."""
+
 from pkg.config import config
 from pkg.storage import storage
 
@@ -20,4 +21,3 @@ equity_bars_raw_data_by_file_name = storage_client.load_dataframes(
 equity_bars_raw_data_by = equity_bars_raw_data_by_file_name["all.csv"]
 
 equity_bars_raw_data_by.to_csv("equity_bars_raw_data.csv", index=False)
-

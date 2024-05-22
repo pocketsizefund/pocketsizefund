@@ -1,23 +1,5 @@
-"""Core Trading Module.
+"""Manage and execute trades."""
 
-This module is the core of the trading engine. It is responsible for
-requesting data from Alpaca, Alpha Vantage, and EDGAR, and for executing
-orders on Alpaca. It also handles checking the availability of positions
-for setting.
-
-The client object is the main entry point for all trading operations. It
-is instantiated with Alpaca API keys and user agent strings for EDGAR.
-
-All methods on the client object return a pandas DataFrame or a list of
-dictionaries, unless otherwise specified in their docstrings.
-
-The client methods are grouped into the following categories:
-
-- Data: These methods request data from Alpaca, Alpha Vantage, and EDGAR.
-- Order Execution: These methods place orders on Alpaca.
-- Position Availability: These methods check the availability of positions
-    for setting.
-"""
 import datetime
 
 import numpy as np
@@ -33,13 +15,13 @@ CLEAR_ACTION = "clear"
 
 
 class Client:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         darqube_api_key: str,
         alpaca_api_key: str,
         alpaca_api_secret: str,
         alpha_vantage_api_key: str,
-        is_paper: bool = True,
+        is_paper: bool = True,  # noqa: FBT001, FBT002
     ) -> None:
         """Initialize a new instance of the Client class.
 
@@ -245,7 +227,7 @@ class Client:
                 and asset.symbol in constituents
                 and "." not in asset.symbol
             ):
-                tickers.append(asset.symbol)
+                tickers.append(asset.symbol)  # noqa: PERF401
 
         return tickers
 
@@ -361,12 +343,12 @@ class Client:
         portfolio_returns = []
 
         for index in range(len(portfolio_data["timestamp"])):
-            portfolio_returns.append(
+            portfolio_returns.append(  # noqa: PERF401
                 round(float(portfolio_data["profit_loss_pct"][index]), 4),
             )
 
         if len(portfolio_returns) < threshold:
-            msg = "insufficient portfolio data: {len(portfolio_returns)=}"
+            msg = f"insufficient portfolio data: {len(portfolio_returns)}"
             raise ValueError(msg)
 
         return portfolio_returns
@@ -423,7 +405,7 @@ class Client:
             benchmark_returns.append(round(percent_change, 4))
 
         if len(benchmark_returns) < threshold:
-            msg = "insufficient benchmark data: {len(benchmark_returns)=}"
+            msg = f"insufficient benchmark data: {len(benchmark_returns)}"
             raise ValueError(msg)
 
         return benchmark_returns

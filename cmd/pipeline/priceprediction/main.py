@@ -1,4 +1,5 @@
 """Pipeline to train and save a price prediction model."""
+
 import pandas as pd
 from prefect import flow, task
 
@@ -25,6 +26,7 @@ def download_data(
 
     return equity_bars_raw_dataframes["all.csv"]
 
+
 @task
 def train_model(
     data: pd.DataFrame,
@@ -38,12 +40,14 @@ def train_model(
 
     return price_prediction_model
 
+
 @task
 def save_model(
     price_prediction_model: model.Model,
 ) -> None:
     """Save the price prediction model to local file."""
     price_prediction_model.save_model()
+
 
 @flow
 def pipeline(

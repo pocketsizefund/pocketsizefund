@@ -1,4 +1,5 @@
-"""Backfill data to S3."""  # noqa: INP001
+"""Backfill data to S3."""
+
 import argparse
 import datetime
 
@@ -65,7 +66,7 @@ null_values_check = equity_raw_data.isna().any().any()
 
 if null_values_check:
     msg = "data contains null values"
-    raise Exception(msg)   # noqa: TRY002
+    raise Exception(msg)  # noqa: TRY002
 
 storage_client.store_dataframes(
     prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,

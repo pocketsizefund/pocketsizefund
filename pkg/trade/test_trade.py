@@ -1,5 +1,6 @@
 import datetime
 import unittest
+from typing import Optional
 
 import pytest
 
@@ -8,14 +9,14 @@ from pkg.trade import trade
 
 DARQUBE_API_KEY = "darqube_api_key"  # noqa: S106
 ALPACA_API_KEY = "alpaca_api_key"  # noqa: S106
-ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S106
+ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S106, S105
 ALPHA_VANTAGE_API_KEY = "alpha_vantage_api_key"  # noqa: S106
 
 
 class MockAlpacaClock:
     def __init__(
         self,
-        is_open: bool,
+        is_open: bool,  # noqa: FBT001
     ) -> None:
         self.is_open = is_open
 
@@ -44,7 +45,7 @@ class MockHTTPClient:
         self,
         url: str,
         params: any,
-        headers: any = None,
+        headers: Optional[any] = None,  # noqa: UP007
     ) -> any:
         _ = url, params, headers
 
@@ -176,7 +177,7 @@ class MockAlpacaTradingClient:
 
     def close_all_positions(
         self,
-        cancel_orders: bool,
+        cancel_orders: bool,  # noqa: FBT001
     ) -> any:
         _ = cancel_orders
 
@@ -281,27 +282,27 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
 
         monday_calendar_days = [
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 23, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 5, 23),
                 open_value=datetime.datetime(1977, 5, 23, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 5, 23, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 24, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 5, 24),
                 open_value=datetime.datetime(1977, 5, 24, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 5, 24, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 25, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 5, 25),
                 open_value=datetime.datetime(1977, 5, 25, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 5, 25, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 26, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 5, 26),
                 open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 27, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 5, 27),
                 open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
             ),
@@ -309,27 +310,27 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
 
         friday_calendar_days = [
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 27, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 5, 27),
                 open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 30, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 5, 30),
                 open_value=datetime.datetime(1977, 5, 30, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 5, 30, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 5, 31, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 5, 31),
                 open_value=datetime.datetime(1977, 5, 31, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 5, 31, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 6, 1, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 6, 1),
                 open_value=datetime.datetime(1977, 6, 1, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 6, 1, 16, 0, tzinfo=config.TIMEZONE),
             ),
             MockAlpacaCalendar(
-                date_value=datetime.date(1977, 6, 2, tzinfo=config.TIMEZONE),
+                date_value=datetime.date(1977, 6, 2),
                 open_value=datetime.datetime(1977, 6, 2, 9, 30, tzinfo=config.TIMEZONE),
                 close_value=datetime.datetime(1977, 6, 2, 16, 0, tzinfo=config.TIMEZONE),
             ),
@@ -350,7 +351,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
                 "is_market_open": True,
                 "calendar_days": [
                     MockAlpacaCalendar(
-                        date_value=datetime.date(1977, 5, 26, tzinfo=config.TIMEZONE),
+                        date_value=datetime.date(1977, 5, 26),
                         open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
                         close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
                     ),
@@ -397,7 +398,7 @@ class TestCheckSetPositionAvailability(unittest.TestCase):
                 "is_market_open": True,
                 "calendar_days": [
                     MockAlpacaCalendar(
-                        date_value=datetime.date(1977, 5, 26, tzinfo=config.TIMEZONE),
+                        date_value=datetime.date(1977, 5, 26),
                         open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
                         close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
                     ),
@@ -473,7 +474,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
         with pytest.raises(Exception) as context:
             self.client._get_available_tickers()
 
-        assert str(context.exception) == "darqube get tickers error"
+        assert str(context.value) == "darqube get tickers error"
 
     def test__get_available_tickers_alpaca_get_all_assets_error(self) -> None:
         self.client.http_client = MockHTTPClient(
@@ -497,7 +498,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
         with pytest.raises(Exception) as context:
             self.client._get_available_tickers()
 
-        assert str(context.exception) == "alpaca get all assets error"
+        assert str(context.value) == "alpaca get all assets error"
 
     def test__get_available_tickers_success(self) -> None:
         self.client.http_client = MockHTTPClient(
@@ -533,7 +534,7 @@ class TestPrivateGetAvailableTickers(unittest.TestCase):
 class TestGetAvailableTickers(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key=DARUQBE_API_KEY,
+            darqube_api_key=DARQUBE_API_KEY,
             alpaca_api_key=ALPACA_API_KEY,
             alpaca_api_secret=ALPACA_API_SECRET,
             alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
@@ -548,7 +549,7 @@ class TestGetAvailableTickers(unittest.TestCase):
         with pytest.raises(Exception) as context:
             self.client.get_available_tickers()
 
-        assert str(context.exception) == "get available tickers error"
+        assert str(context.value) == "get available tickers error"
 
     def test_get_available_tickers_success(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_success
@@ -579,7 +580,7 @@ class TestSetPositions(unittest.TestCase):
                 tickers=["TICKER"],
             )
 
-        assert str(context.exception) == "get available tickers error"
+        assert str(context.value) == "get available tickers error"
 
     def test_set_positions_get_account_error(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_success
@@ -596,7 +597,7 @@ class TestSetPositions(unittest.TestCase):
                 tickers=["TICKER"],
             )
 
-        assert str(context.exception) == "alpaca get account error"
+        assert str(context.value) == "alpaca get account error"
 
     def test_set_positions_submit_order_error(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_success
@@ -619,7 +620,7 @@ class TestSetPositions(unittest.TestCase):
                 tickers=["TICKER"],
             )
 
-        assert str(context.exception) == "alpaca submit order error"
+        assert str(context.value) == "alpaca submit order error"
 
     def test_set_positions_success(self) -> None:
         self.client._get_available_tickers = mock_get_available_tickers_success
@@ -651,7 +652,7 @@ class TestSetPositions(unittest.TestCase):
 class TestClearPositions(unittest.TestCase):
     def setUp(self) -> None:
         self.client = trade.Client(
-            darqube_api_key=DARUQBE_API_KEY,
+            darqube_api_key=DARQUBE_API_KEY,
             alpaca_api_key=ALPACA_API_KEY,
             alpaca_api_secret=ALPACA_API_SECRET,
             alpha_vantage_api_key=ALPHA_VANTAGE_API_KEY,
@@ -671,7 +672,7 @@ class TestClearPositions(unittest.TestCase):
         with pytest.raises(Exception) as context:
             self.client.clear_positions()
 
-        assert str(context.exception) == "alpaca close all positions error"
+        assert str(context.value) == "alpaca close all positions error"
 
     def test_clear_positions_success(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -681,7 +682,7 @@ class TestClearPositions(unittest.TestCase):
 
         self.client.clear_positions()
 
-        assert True  # TODO: needs test
+        assert True
 
 
 class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
@@ -708,7 +709,7 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
-        assert str(context.exception) == "alpaca get portfolio returns error"
+        assert str(context.value) == "alpaca get portfolio returns error"
 
     def test__get_portfolio_daily_returns_insufficient_data_error(self) -> None:
         self.client.http_client = MockHTTPClient(
@@ -724,9 +725,9 @@ class TestPrivateGetPortfolioDailyReturns(unittest.TestCase):
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
-        assert str(context.exception) == "insufficient portfolio data"
+        assert str(context.value) == "insufficient portfolio data: 0"
 
-    def test__get_portfolio_daily_returns_success(self) -> Non:
+    def test__get_portfolio_daily_returns_success(self) -> None:
         self.client.http_client = MockHTTPClient(
             response=MockHTTPResponse(
                 data={
@@ -784,7 +785,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
-        assert str(context.exception) == "alpaca get benchmark returns error"
+        assert str(context.value) == "alpaca get benchmark returns error"
 
     def test__get_benchmark_daily_returns_insufficient_data_error(self) -> None:
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
@@ -802,7 +803,7 @@ class TestPrivateGetBenchmarkDailyReturns(unittest.TestCase):
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
-        assert str(context.exception) == "insufficient benchmark data"
+        assert str(context.value) == "insufficient benchmark data: 0"
 
     def test__get_benchmark_daily_returns_success(self) -> None:
         self.client.alpaca_historical_client = MockAlpacaHistoricalClient(
@@ -885,7 +886,7 @@ class TestPrivateGetRiskFreeRate(unittest.TestCase):
         with pytest.raises(Exception) as context:
             self.client._get_risk_free_rate()
 
-        assert str(context.exception) == "get risk free rate error"
+        assert str(context.value) == "get risk free rate error"
 
     def test__get_risk_free_rate_success(self) -> None:
         self.client.http_client = MockHTTPClient(
@@ -941,7 +942,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
-        assert str(context.exception) == "alpaca get account error"
+        assert str(context.value) == "alpaca get account error"
 
     def test_get_performance_metrics_get_portfolio_returns_error(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -962,7 +963,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
-        assert str(context.exception) == "get portfolio returns error"
+        assert str(context.value) == "get portfolio returns error"
 
     def test_get_performance_metrics_get_benchmark_daily_returns_error(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -984,7 +985,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
-        assert str(context.exception) == "get benchmark returns error"
+        assert str(context.value) == "get benchmark returns error"
 
     def test_get_performance_metrics_get_risk_free_rate_error(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(
@@ -1007,7 +1008,7 @@ class TestGetPerformanceMetrics(unittest.TestCase):
                 end_at=datetime.datetime.now(tz=config.TIMEZONE),
             )
 
-        assert str(context.exception) == "get risk free rate error"
+        assert str(context.value) == "get risk free rate error"
 
     def test_get_performance_metrics_success(self) -> None:
         self.client.alpaca_trading_client = MockAlpacaTradingClient(

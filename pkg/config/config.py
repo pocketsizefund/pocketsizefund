@@ -1,11 +1,12 @@
 """Hold all project-level configuration."""
-import datetime
+
 import argparse
+import datetime
 
 import toml
 
 ENVIRONMENT_DEVELOPMENT = "development"
-TIMEZONE = datetime.timezone.utc
+TIMEZONE = datetime.timezone.utc  # noqa: UP017
 
 
 class SAMConfig:

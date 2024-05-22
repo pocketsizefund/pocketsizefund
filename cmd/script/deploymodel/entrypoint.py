@@ -37,6 +37,7 @@ price_prediction_model.load_model(
     file_path="price_prediction_model.ckpt",
 )
 
+
 @app.route("/invocations", methods=["POST"])
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""

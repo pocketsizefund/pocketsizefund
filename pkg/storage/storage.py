@@ -1,17 +1,6 @@
-"""Interact with cloud storage.
+"""Interact with cloud storage."""
 
-The :class:`Client` class provides methods for storing and loading dataframes to/from
-S3, as well as extracting archives from S3.
-
-The :func:`load_dataframes` function takes a prefix and a list of file names, and
-returns a dictionary mapping file names to loaded pandas DataFrames.
-
-The :func:`download_model_artifacts` function takes a model name and downloads the
-corresponding model artifact from S3. It extracts the archive and saves its contents
-to the current working directory.
-"""
 import io
-import tarfile
 from concurrent import futures
 
 import boto3
@@ -212,22 +201,19 @@ class Client:
 
         executed_futures: list[futures.Future] = []
         for file_name in objects_by_file_name:
-            object = objects_by_file_name[file_name]
+            object_to_store = objects_by_file_name[file_name]
 
             key = f"{prefix}/{file_name}"
 
             executed_future = executor.submit(
                 store_function,
-                object,
+                object_to_store,
                 key,
             )
             executed_futures.append(executed_future)
 
             for executed_future in futures.as_completed(executed_futures):
-                try:
-                    _ = executed_future.result()
-                except Exception:
-                    raise
+                _ = executed_future.result()
 
     def load_texts(
         self,
@@ -285,11 +271,8 @@ class Client:
             executed_futures.append(executed_future)
 
         for executed_future in futures.as_completed(executed_futures):
-            try:
-                result = executed_future.result()
-                for file_name in result.keys():
-                    objects_by_file_name[file_name] = result[file_name]
-            except Exception:
-                raise
+            result = executed_future.result()
+            for file_name in result:
+                objects_by_file_name[file_name] = result[file_name]
 
         return objects_by_file_name

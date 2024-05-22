@@ -261,7 +261,7 @@ class Client:
 
         return corporate_filings
 
-    def _get_forms_information( # noqa: PLR0913
+    def _get_forms_information(  # noqa: PLR0913
         self,
         start_at: datetime.datetime,
         end_at: datetime.datetime,
