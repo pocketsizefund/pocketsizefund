@@ -2,6 +2,7 @@
 
 import datetime
 import unittest
+from typing import Optional
 
 import pytest
 from alpaca.data import requests as alpaca_data_requests
@@ -9,9 +10,9 @@ from alpaca.data import requests as alpaca_data_requests
 from pkg.config import config
 from pkg.data import data
 
-ALPACA_API_KEY = "alpaca_api_key" # noqa: S105
-ALPACA_API_SECRET = "alpaca_api_secret" # noqa: S105
-EDGAR_USER_AGENT = "edgar_user_agent" # noqa: S105
+ALPACA_API_KEY = "alpaca_api_key"  # noqa: S105
+ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S105
+EDGAR_USER_AGENT = "edgar_user_agent"  # noqa: S105
 
 
 class MockAlpacaHistoricalResponse:
@@ -55,7 +56,7 @@ class MockAlpacaHistoricalClient:
 
     def get_stock_bars(
         self,
-        request: alpaca_data_requests.StockBarsRequest, # noqa: ARG002
+        request: alpaca_data_requests.StockBarsRequest,  # noqa: ARG002
     ) -> any:
         """Get stock bars."""
         if self.exception is not None:
@@ -69,8 +70,8 @@ class MockHTTPGetResponse:
 
     def __init__(
         self,
-        text: str | None = None,
-        data: dict[str, any] | None = None,
+        text: Optional[str] = None,  # noqa: UP007
+        data: Optional[dict[str, any]] = None,  # noqa: UP007
     ) -> None:
         self.text = text
         self.data = data
@@ -93,7 +94,7 @@ class MockHttpClient:
     def get(
         self,
         url: str,
-        headers: dict[str, str], # noqa: ARG002
+        headers: dict[str, str],  # noqa: ARG002
     ) -> any:
         if self.exceptions is not None:
             keys = list(self.exceptions.keys())
@@ -110,7 +111,7 @@ class MockHttpClient:
         return None
 
 
-def mock_get_forms_information_error( # noqa: PLR0913
+def mock_get_forms_information_error(  # noqa: PLR0913
     start_at: datetime.datetime,
     end_at: datetime.datetime,
     accession_numbers: list[str],
@@ -125,7 +126,7 @@ def mock_get_forms_information_error( # noqa: PLR0913
     raise ValueError(msg)
 
 
-def mock_get_forms_information_success( # noqa: PLR0913
+def mock_get_forms_information_success(  # noqa: PLR0913
     start_at: datetime.datetime,
     end_at: datetime.datetime,
     accession_numbers: list[str],
@@ -196,7 +197,6 @@ class TestGetRangeEquitiesBars(unittest.TestCase):
                     tzinfo=config.TIMEZONE,
                 ),
             )
-
 
     def test_get_range_equities_bars_success(self) -> None:
         """Test get range equities bars success."""
@@ -295,7 +295,13 @@ class TestPrivateGetFormsInformation(unittest.TestCase):
 
         assert forms_information[0]["accession_number"] == "0001171843-24-001239"
         assert forms_information[0]["acceptance_date"] == datetime.datetime(
-            1977, 5, 26, 18, 36, 45, tzinfo=config.TIMEZONE,
+            1977,
+            5,
+            26,
+            18,
+            36,
+            45,
+            tzinfo=config.TIMEZONE,
         )
 
 
@@ -381,7 +387,6 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                 ),
             )
 
-
     def test_get_range_corporate_filings_get_submissions_http_error(self) -> None:
         """Test get range corporate filings get submissions http error."""
         self.client.http_client = MockHttpClient(
@@ -410,7 +415,6 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                     tzinfo=config.TIMEZONE,
                 ),
             )
-
 
     def test_get_range_corporate_filings_get_forms_information_error(self) -> None:
         """Test get range corporate filings get forms information error."""
@@ -451,7 +455,6 @@ class TestGetRangeCorporateFilings(unittest.TestCase):
                     tzinfo=config.TIMEZONE,
                 ),
             )
-
 
     def test_get_range_corporate_filings_get_forms_contents_error(self) -> None:
         """Test get range corporate filings get forms contents error."""

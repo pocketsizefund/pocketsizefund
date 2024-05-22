@@ -1,8 +1,8 @@
 setup:
 	curl -sSL https://install.python-poetry.org | python3 -
 	curl -LsSf https://astral.sh/uv/install.sh | sh
-	brew install pre-commit
-	pre-commit
+	curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
+	poetry install
 
 lint:
 	poetry run ruff check --output-format=github .
