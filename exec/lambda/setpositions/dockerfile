@@ -4,7 +4,7 @@ RUN yum clean all
 
 RUN yum install -y gcc python3-devel
 
-COPY cmd/lambda/setpositions/requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
+COPY exec/lambda/setpositions/requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
 
 RUN pip3 install --requirement requirements.txt --target "${LAMBDA_TASK_ROOT}"
 
@@ -12,7 +12,7 @@ COPY pkg/trade/trade.py ${LAMBDA_TASK_ROOT}/pkg/trade/trade.py
 
 COPY pkg/model/model.py ${LAMBDA_TASK_ROOT}/pkg/model/model.py
 
-COPY cmd/lambda/setpositions/main.py ${LAMBDA_TASK_ROOT}/main.py
+COPY exec/lambda/setpositions/main.py ${LAMBDA_TASK_ROOT}/main.py
 
 ENV DARQUBE_API_KEY=""
 

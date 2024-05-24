@@ -12,7 +12,7 @@ if [[ -z "$name" ]]; then
     echo "valid name required:"
     echo ""
     echo "functions":
-    ls -ld cmd/lambda/*/ | awk '{print $NF}' | xargs -I {} basename {}
+    ls -ld exec/lambda/*/ | awk '{print $NF}' | xargs -I {} basename {}
     echo ""
     echo "models:"
     echo "predictprice"
