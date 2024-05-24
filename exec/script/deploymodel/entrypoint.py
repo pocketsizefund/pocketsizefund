@@ -1,10 +1,12 @@
 """Inference endpoint for price prediction model."""
 
+import datetime
 import json
 import os
 
 import flask
 
+from pkg.config import config
 from pkg.data import data
 from pkg.model import model
 from pkg.trade import trade
@@ -41,7 +43,20 @@ price_prediction_model.load_model(
 @app.route("/invocations", methods=["POST"])
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""
-    predictions = price_prediction_model.get_predictions()
+    available_tickers = trade_client.get_available_tickers()
+
+    end_at = datetime.datetime.now(tz=config.TIMEZONE)
+    start_at = end_at - datetime.timedelta(days=20)
+
+    equity_bars_raw_data = data_client.get_range_equities_bars(
+        tickers=available_tickers,
+        start_at=start_at,
+        end_at=end_at,
+    )
+
+    predictions = price_prediction_model.get_predictions(
+        data=equity_bars_raw_data,
+    )
 
     return flask.Response(
         response=json.dumps(predictions),
