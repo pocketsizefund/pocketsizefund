@@ -19,12 +19,20 @@ def download_data(
         s3_artifacts_bucket_name=s3_artifacts_bucket_name,
     )
 
-    equity_bars_raw_dataframes = storage_client.load_dataframes(
+    file_names = storage_client.list_file_names(
         prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,
-        file_names=["all.csv"],
     )
 
-    return equity_bars_raw_dataframes["all.csv"]
+    file_names = sorted(file_names, reverse=True)
+
+    file_name = f"{file_names[0]}-all.csv"
+
+    equity_bars_raw_dataframes = storage_client.load_dataframes(
+        prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,
+        file_names=[file_name],
+    )
+
+    return equity_bars_raw_dataframes[file_name]
 
 
 @task
