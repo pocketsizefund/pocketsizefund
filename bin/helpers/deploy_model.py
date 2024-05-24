@@ -3,7 +3,7 @@
 import argparse
 
 import boto3
-from sagemaker import tensorflow
+from sagemaker import pytorch
 from sagemaker.serverless import serverless_inference_config
 
 from pkg.config import config
@@ -57,7 +57,7 @@ try:
 except Exception as exception:  # noqa: BLE001
     print(f"exception: {exception}")  # noqa: T201
 
-model = tensorflow.TensorFlowModel(
+model = pytorch.PyTorchModel(
     model_data=arguments.model_data,
     role=arguments.iam_role,
     image_uri=arguments.model_image_uri,
