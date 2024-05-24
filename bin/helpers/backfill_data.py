@@ -38,7 +38,7 @@ data_client = data.Client(
     alpaca_api_key=samconfig_file.get_parameter("AlpacaAPIKey"),
     alpaca_api_secret=samconfig_file.get_parameter("AlpacaAPISecret"),
     edgar_user_agent=samconfig_file.get_parameter("EDGARUserAgent"),
-    print_logs=True,
+    debug=True,
 )
 
 trade_client = trade.Client(

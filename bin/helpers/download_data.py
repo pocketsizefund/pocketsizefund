@@ -19,7 +19,7 @@ file_names = storage_client.list_file_names(
 
 file_names = sorted(file_names, reverse=True)
 
-file_name = f"{file_names[0]}-all.csv"
+file_name = f"{file_names[0]}"
 
 equity_bars_raw_data_by_file_name = storage_client.load_dataframes(
     prefix=storage.PREFIX_EQUITY_BARS_RAW_PATH,
