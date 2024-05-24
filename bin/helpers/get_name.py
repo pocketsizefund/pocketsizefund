@@ -6,11 +6,8 @@ original_name = sys.argv[1]
 environment = sys.argv[2]
 
 updated_name = ""
-if original_name == "createpositions":
-    updated_name = "function-create-positions"
-
-elif original_name == "clearpositions":
-    updated_name = "function-clear-positions"
+if original_name == "setpositions":
+    updated_name = "function-set-positions"
 
 elif original_name == "predictprice":
     updated_name = "model-predict-price"
