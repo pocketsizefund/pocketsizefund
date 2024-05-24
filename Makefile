@@ -11,11 +11,10 @@ dead-code:
 	poetry run vulture --min-confidence 80 .
 
 unit-test:
-	poetry run coverage run --module --parallel-mode unittest discover pkg/data
-	poetry run coverage run --module --parallel-mode unittest discover pkg/trade
-	poetry run coverage run --module --parallel-mode unittest discover pkg/storage
+	poetry run coverage run --parallel-mode --module pytest pkg/data
+	poetry run coverage run --parallel-mode --module pytest pkg/trade
+	poetry run coverage run --parallel-mode --module pytest pkg/storage
 	poetry run coverage combine
 	poetry run coverage report
 	poetry run coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
-	rm -rf .coverage/
 	rm -rf .coverage/

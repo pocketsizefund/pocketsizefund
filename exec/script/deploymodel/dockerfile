@@ -1,6 +1,6 @@
 FROM python:3.11.6
 
-COPY cmd/script/deploymodel/requirements.txt .
+COPY exec/script/deploymodel/requirements.txt .
 
 RUN pip3 install -r requirements.txt
 
@@ -18,7 +18,7 @@ ENV ALPHA_VANTAGE_API_KEY=""
 
 ENV EDGAR_USER_AGENT=""
 
-COPY cmd/script/deploymodel/entrypoint.py .
+COPY exec/script/deploymodel/entrypoint.py .
 
 EXPOSE 8080
 
