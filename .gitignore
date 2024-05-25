@@ -17,3 +17,4 @@ lightning_logs/
 tft_model.ckpt
 .python-version
 .mise.toml
+*-all.csv
