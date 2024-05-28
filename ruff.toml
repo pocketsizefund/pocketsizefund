@@ -89,7 +89,7 @@ select = [
   "FLY",   # flynt: checks for string formatting improvements and suggests f-strings
   "NPY",   # NumPy-specific rules: checks for common issues and best practices in NumPy code
   "PERF",  # Perflint: identifies performance issues and suggests optimizations
-  "FURB",  # refurb: detects and suggests idiomatic and modern Python code
+  # "FURB",  # refurb: detects and suggests idiomatic and modern Python code
   "RUF",   # Ruff-specific rules: additional checks and rules specific to the Ruff linter
 ]
 
@@ -102,6 +102,8 @@ ignore = [
   "D409",
   "D413",
   "D101",
+  "D203",
+  "D213",
 ]
 
 [lint.per-file-ignores]

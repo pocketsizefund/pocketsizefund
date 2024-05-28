@@ -38,8 +38,6 @@ image_name=$(python3 ./bin/helpers/get_name.py inferenceendpoint ${environment})
 model_image_uri=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
 
 if [[ "${location}" == "local" ]]; then
-    output=$(python3 ./bin/helpers/get_config_as_json.py)
-
     alpaca_api_key=$(python3 pkg/config/config.py --parameter AlpacaAPIKey)
     alpaca_api_secret=$(python3 pkg/config/config.py --parameter AlpacaAPISecret)
     aws_access_key_id=$(sed -n 's/^aws_access_key_id = //p' ~/.aws/credentials)
