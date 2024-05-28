@@ -6,14 +6,11 @@ original_name = sys.argv[1]
 environment = sys.argv[2]
 
 updated_name = ""
-if original_name == "createpositions":
-    updated_name = "function-create-positions"
+if original_name == "inferenceendpoint":
+    updated_name = "model-inference-endpoint"
 
-elif original_name == "clearpositions":
-    updated_name = "function-clear-positions"
-
-elif original_name == "predictprice":
-    updated_name = "model-predict-price"
+elif original_name == "positionmanager":
+    updated_name = "function-position-manager"
 
 else:
     sys.exit(f'"{original_name}" name not found')

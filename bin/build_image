@@ -10,11 +10,8 @@ dockerfile=$2
 if [[ -z "$name" ]]; then
     echo "valid name required:"
     echo ""
-    echo "functions":
-    ls -ld exec/lambda/*/ | awk '{print $NF}' | xargs -I {} basename {}
-    echo ""
-    echo "models:"
-    echo "predictprice"
+    echo "positionmanager"
+    echo "inferenceendpoint"
     exit 0
 fi
 
