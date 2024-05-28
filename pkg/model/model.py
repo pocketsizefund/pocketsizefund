@@ -71,16 +71,20 @@ class Model:
             dropout=0.1,
             hidden_continuous_size=8,
             loss=RMSE(),
-            log_interval=10,
             optimizer="Ranger",
             reduce_on_plateau_patience=4,
         )
 
+        del train_dataset
+
         trainer.fit(
-            model,
+            model=model,
             train_dataloaders=train_dataloader,
             val_dataloaders=validation_dataloader,
         )
+
+        del train_dataloader
+        del validation_dataloader
 
         self.model = model
 
@@ -216,8 +220,8 @@ class Model:
         train_dataset: TimeSeriesDataSet,
     ) -> DataLoader:
         validation = TimeSeriesDataSet.from_dataset(
-            train_dataset,
-            data,
+            dataset=train_dataset,
+            data=data,
             predict=True,
             stop_randomization=True,
         )
