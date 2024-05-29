@@ -54,7 +54,9 @@ def save_model(
     price_prediction_model: model.Model,
 ) -> None:
     """Save the price prediction model to local file."""
-    price_prediction_model.save_model()
+    price_prediction_model.save_model(
+        file_path="model.ckpt",
+    )
 
 
 @flow
