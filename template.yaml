@@ -29,7 +29,7 @@ Parameters:
   ModelEndpointName:
     Type: String
     Description: SageMaker model endpoint name
-    Default: pocketsizefund-development-model-predict-price
+    Default: pocketsizefund-development-model-inference-endpoint
   AlphaVantageAPIKey:
     Type: String
     Description: Alpha Vantage API key
@@ -37,7 +37,7 @@ Parameters:
     Type: String
     Description: EDGAR user agent email
 Resources:
-  setPositionsFunction:
+  positionManagerFunction:
     Type: AWS::Serverless::Function
     Properties:
       Architectures:
@@ -53,7 +53,7 @@ Resources:
           ALPHA_VANTAGE_API_KEY: !Ref AlphaVantageAPIKey
           EDGAR_USER_AGENT: !Ref EDGARUserAgent
       Events:
-        FirstSetPositionsCheck:
+        FirstPositionManagerCheck:
           Properties:
             ScheduleExpression: cron(0 10 ? * 1-5 *)
             ScheduleExpressionTimezone: America/New_York
@@ -62,7 +62,7 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-        SecondSetPositionsCheck:
+        SecondPositionManagerCheck:
           Properties:
             ScheduleExpression: cron(30 12 ? * 1-5 *)
             ScheduleExpressionTimezone: America/New_York
@@ -71,7 +71,7 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-        ThirdSetPositionsCheck:
+        ThirdPositionManagerCheck:
           Properties:
             ScheduleExpression: cron(30 15 ? * 1-5 *)
             ScheduleExpressionTimezone: America/New_York
@@ -147,7 +147,7 @@ Resources:
               - Action:
                   - lambda:InvokeFunction
                 Effect: Allow
-                Resource: !GetAtt setPositionsFunction.Arn
+                Resource: !GetAtt positionManagerFunction.Arn
           PolicyName: !Sub ${AWS::StackName}-lambda-function-scheduler-policy
       RoleName: !Sub ${AWS::StackName}-lambda-function-scheduler-role
       Tags:
