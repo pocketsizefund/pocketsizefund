@@ -1,5 +1,7 @@
 """Pipeline to train and save a price prediction model."""
 
+import datetime
+
 import pandas as pd
 from prefect import flow, task
 
@@ -54,8 +56,12 @@ def save_model(
     price_prediction_model: model.Model,
 ) -> None:
     """Save the price prediction model to local file."""
+    now = datetime.datetime.now(tz=config.TIMEZONE)
+
+    tag = now.strftime("%Y-%m-%d-%H-%M-%S")
+
     price_prediction_model.save_model(
-        file_path="model.ckpt",
+        file_path=f"model-{tag}.ckpt",
     )
 
 

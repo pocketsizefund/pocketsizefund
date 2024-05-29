@@ -54,9 +54,15 @@ def invocations() -> flask.Response:
         end_at=end_at,
     )
 
-    predictions = price_prediction_model.get_predictions(
-        data=equity_bars_raw_data,
-    )
+    equity_bars_raw_data_grouped_by_ticker = equity_bars_raw_data.groupby("ticker")
+
+    predictions = {}
+    for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
+        ticker_predictions = price_prediction_model.get_predictions(
+            data=ticker_bars_raw_data,
+        )
+
+        predictions[ticker] = ticker_predictions[0]
 
     return flask.Response(
         response=json.dumps(predictions),

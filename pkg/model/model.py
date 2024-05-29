@@ -2,12 +2,38 @@
 
 import lightning.pytorch as pl
 import pandas as pd
-from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor
+from lightning.pytorch.callbacks import Callback, EarlyStopping, LearningRateMonitor
 from lightning.pytorch.loggers import TensorBoardLogger
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
 from pytorch_forecasting.data import GroupNormalizer, MultiNormalizer
 from pytorch_forecasting.metrics import RMSE
+from sagemaker.pytorch.model import PyTorchPredictor
 from torch.utils.data import DataLoader
+
+import wandb
+
+
+class WeightsAndBiasesLogger(Callback):
+    def __init__(self) -> None:
+        """Initialize the WeightsAndBiasesLogger class."""
+        super().__init__()
+
+        wandb.init(project="price-prediction-temporal-fusion-transformer")
+
+    def on_train_epoch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+    ) -> None:
+        """Capture and send epoch metrics to Weights and Biases."""
+        _ = pl_module
+
+        wandb.log(
+            {
+                "training_loss": trainer.callback_metrics.get("train_loss", None),
+                "validation_loss": trainer.callback_metrics.get("val_loss", None),
+            },
+        )
 
 
 class Model:
@@ -45,8 +71,10 @@ class Model:
             verbose=False,
             mode="min",
         )
-        learning_rate_logger = LearningRateMonitor()  # log the learning rate
-        logger = TensorBoardLogger("lightning_logs")  # logging results to a tensorboard
+        learning_rate_logger = LearningRateMonitor()
+        logger = TensorBoardLogger("lightning_logs")
+
+        weights_and_biases_logger = WeightsAndBiasesLogger()
 
         trainer = pl.Trainer(
             max_epochs=50,
@@ -57,6 +85,7 @@ class Model:
             callbacks=[
                 learning_rate_logger,
                 early_stop_callback,
+                weights_and_biases_logger,
             ],
             logger=logger,
         )
@@ -115,7 +144,11 @@ class Model:
 
         predict_dataloader = self._generate_input_dataloader(predict_dataset)
 
-        return self.model.predict(predict_dataloader)
+        return self.model.predict(
+            data=predict_dataloader,
+            mode="raw",
+            return_x=True,
+        )
 
     def _generate_features(
         self,
@@ -239,6 +272,10 @@ class Client:
         model_endpoint_name: str,
     ) -> None:
         """Initialize the client to make predictions."""
+        self.predictor = PyTorchPredictor(
+            endpoint_name=model_endpoint_name,
+        )
+
         self.model_endpoint_name = model_endpoint_name
 
     def get_predictions(

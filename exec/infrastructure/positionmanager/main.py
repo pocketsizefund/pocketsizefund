@@ -48,7 +48,7 @@ def handler(
         predictions_by_ticker = model_client.get_predictions()
 
         moves_by_ticker = {
-            ticker: predictions_by_ticker[ticker][0][0] - predictions_by_ticker[ticker][4][0]
+            ticker: predictions_by_ticker[ticker][0] - predictions_by_ticker[ticker][4]
             for ticker in predictions_by_ticker
         }
 
