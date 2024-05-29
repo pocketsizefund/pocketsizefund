@@ -61,7 +61,7 @@ def save_model(
     tag = now.strftime("%Y-%m-%d-%H-%M-%S")
 
     price_prediction_model.save_model(
-        file_path=f"model-{tag}.ckpt",
+        file_path=f"{tag}-model.ckpt",
     )
 
 
