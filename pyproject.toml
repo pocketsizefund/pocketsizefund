@@ -1,12 +1,15 @@
 [tool.poetry]
 name = "pocketsizefund"
 version = "0.1.0"
-description = "An open source quantitative proprietary trading firm being built on nights and weekends."
+description = "Open source quantitative trading"
 authors = [
   "forstmeier <john.forstmeier@gmail.com>",
   "chrisaddy <chris.william.addy@gmail.com>",
 ]
+license = "MIT"
 readme = "README.md"
+homepage = "https://www.pocketsize.fund/"
+repository = "https://github.com/pocketsizefund/pocketsizefund"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
