@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: price-model
-        image: pocketsizefund-{ENVIRONMENT}-price-model:latest
+        image: pocketsizefund/price-model:latest
         imagePullPolicy: IfNotPresent # or Never
         ports:
         - containerPort: 8080
@@ -75,7 +75,7 @@ spec:
         spec:
           containers:
           - name: position-manager
-            image: pocketsizefund-{ENVIRONMENT}-position-manager:latest
+            image: pocketsizefund/position-manager:latest
             imagePullPolicy: IfNotPresent # or Never
             command: ["python", "entrypoint.py"]
             env:

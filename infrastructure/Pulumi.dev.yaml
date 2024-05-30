@@ -1,0 +1,7 @@
+config:
+  aws:region: us-east-1
+  psf-infra:desiredClusterSize: "3"
+  psf-infra:eksNodeInstanceType: t3.medium
+  psf-infra:maxClusterSize: "6"
+  psf-infra:minClusterSize: "3"
+  psf-infra:vpcNetworkCidr: 10.0.0.0/16
