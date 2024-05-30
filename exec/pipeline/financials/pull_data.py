@@ -5,9 +5,12 @@ from openai import OpenAI
 import tempfile
 
 from exec.pipeline.financials.structs import FinancialStatement, EarningsStatement
+from exec.pipeline.financials.config import Config, StatementConfig
 
 import PyPDF2
 from bs4 import BeautifulSoup
+from prefect_ray import RayTaskRunner
+
 
 @task
 def read_remote_pdf(url) -> str:
@@ -24,7 +27,7 @@ def read_remote_pdf(url) -> str:
     return text
 
 @task
-def read_webpage(url) -> str:
+def read_html(url) -> str:
     response = requests.get(url)
     response.raise_for_status()
 
@@ -67,11 +70,16 @@ def parse_earnings_statement(data: str) -> EarningsStatement:
     )
 
 @flow
-def pull_financial_statements(
-        financial_statement_url: str,
-        earnings_statement_url: str):
-    financial_statements = read_remote_pdf(financial_statement_url)
-    quarterly_earnings_statement = read_webpage(earnings_statement_url)
+def pull_financial_statements(config: Config) -> None:
+    if config.financial_statement.filetype == "pdf":
+        financial_statements = read_remote_pdf(config.financial_statement.url)
+    elif config.financial_statement.filetype == "html":
+        financial_statements = read_html(config.financial_statement.url)
+
+    if config.earnings_statement.filetype == "pdf":
+        quarterly_earnings_statement = read_remote_pdf(config.earnings_statement.url)
+    elif config.earnings_statement.filetype == "html":
+        quarterly_earnings_statement = read_html(config.earnings_statement.url)
 
     parsed_financial_statements = parse_financial_statements(financial_statements)
     earnings_statement = parse_earnings_statement(quarterly_earnings_statement)
@@ -79,8 +87,28 @@ def pull_financial_statements(
     print(parsed_financial_statements)
     print(earnings_statement)
 
-if __name__ == "__main__":
-    financial_statement_url = "https://www.apple.com/newsroom/pdfs/fy2024-q2/FY24_Q2_Consolidated_Financial_Statements.pdf"
-    earnings_statement_url = "https://www.apple.com/newsroom/2024/05/apple-reports-second-quarter-results/"
 
-    pull_financial_statements(financial_statement_url, earnings_statement_url)
+
+@flow(task_runner=RayTaskRunner())
+def statements_pipeline(configs):
+    for config in configs:
+        pull_financial_statements(config)
+
+
+if __name__ == "__main__":
+    apple = Config(
+        financial_statement=StatementConfig(url="https://www.apple.com/newsroom/pdfs/fy2024-q2/FY24_Q2_Consolidated_Financial_Statements.pdf", filetype="pdf"),
+        earnings_statement=StatementConfig(url="https://www.apple.com/newsroom/2024/05/apple-reports-second-quarter-results/", filetype="html"),
+    )
+
+    amazon = Config(
+        financial_statement = StatementConfig(url="https://s2.q4cdn.com/299287126/files/doc_financials/2024/q1/AMZN-Q1-2024-Earnings-Release.pdf", filetype="pdf"),
+        earnings_statement = StatementConfig(url="https://ir.aboutamazon.com/news-release/news-release-details/2024/Amazon.com-Announces-First-Quarter-Results-68b9258cd/", filetype="html"),
+    )
+
+    exxon_mobil = Config(
+        financial_statement = StatementConfig(url="https://d1io3yog0oux5.cloudfront.net/_2015997b5f161254d9ac4d3d42a6ccb7/exxonmobil/db/2288/22249/earnings_release/1Q24+Earnings+Press+Release+Website.pdf", filetype="pdf"),
+        earnings_statement = StatementConfig(url="https://d1io3yog0oux5.cloudfront.net/_2015997b5f161254d9ac4d3d42a6ccb7/exxonmobil/db/2288/22249/webcast_transcript/1Q24+Earnings+Call+Transcript_Final.pdf", filetype="pdf"),
+    )
+
+    statements_pipeline([exxon_mobil])
