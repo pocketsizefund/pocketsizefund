@@ -1,21 +1,15 @@
-#[tokio::test]
-async fn health_check_works() {
-    spawn_app();
+#[cfg(test)]
+mod tests {
+    use actix_web::{test, App};
+    use edgar::health_check;
 
-    let client = reqwest::Client::new();
-
-    let response = client
-        .get("http://127.0.0.1:8000/health")
-        .send()
-        .await
-        .expect("Failed to execute request.");
-
-    assert!(response.status().is_success());
-    assert_eq!(Some(0), response.content_length());
-}
-
-
-fn spawn_app() {
-    let server = edgar::run().expect("Failed to bind address.");
-    let _ = tokio::spawn(server);
+    #[actix_web::test]
+    async fn test_health_check() {
+        let app = test::init_service(App::new().service(health_check)).await;
+        let req = test::TestRequest::get()
+            .uri("/health")
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
 }

@@ -1,9 +1,11 @@
-use actix_web::{get, post, error, web::{self, Json, ServiceConfig}, Result, Responder, HttpResponse};
+use actix_web::{get, post, error, web::{self, Json, ServiceConfig}, Result };
 use actix_web::middleware::Logger;
 use shuttle_actix_web::ShuttleActixWeb;
 use shuttle_runtime::{CustomError};
 use sqlx::{Executor, FromRow, PgPool};
 use serde::{Deserialize, Serialize};
+
+use edgar::health_check;
 
 
 
@@ -22,10 +24,6 @@ struct AppState {
 }
 
 
-#[get("/health")]
-async fn health_check() -> impl Responder {
-    HttpResponse::Ok()
-}
 
 #[post("/ticker")]
 async fn new_ticker(ticker: web::Json<Ticker>, state: web::Data<AppState>) -> Result<Json<Ticker>> {
