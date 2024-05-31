@@ -67,7 +67,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Run tests with `cargo test`
+      - name: run unit tests with `cargo test`
       - uses: actions-rs/cargo@v1
         with:
           command: test

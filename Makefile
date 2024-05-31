@@ -19,10 +19,9 @@ unit-test:
 	poetry run coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
 	rm -rf .coverage/
 
-rust-fmt:
-	cd edgar-feed && \
-		cargo clippy --all-targets --all-features -- -Dclippy::all
-
 rust-lint:
 	cd edgar-feed && \
 		cargo fmt --all --
+
+rust-fmt:
+	cd edgar-feed && cargo fmt --all --

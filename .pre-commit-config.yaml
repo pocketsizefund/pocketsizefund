@@ -10,15 +10,15 @@ repos:
       - id: vulture
   - repo: local
     hooks:
-    -   id: rust-linting
-        name: Rust linting
+    -   id: rust-formatting
+        name: Rust formatting
         description: Run cargo fmt on files included in the commit. rustfmt should be installed before-hand.
-        entry: make rust-lint
+        entry: make rust-fmt
         pass_filenames: true
         types: [file, rust]
         language: system
-    -   id: rust-clippy
-        name: Rust clippy
+    -   id: rust-linting
+        name: Rust linting with clippy
         description: Run cargo clippy on files included in the commit. clippy should be installed before-hand.
         entry: make rust-lint
         pass_filenames: false
