@@ -29,6 +29,7 @@ prefect = "^2.19.1"
 flask = "^3.0.3"
 lxml = "^5.2.2"
 sagemaker = "^2.220.0"
+llama-index = "^0.10.40"
 
 [tool.poetry.group.test.dependencies]
 pytest-xdist = "^3.6.1"
