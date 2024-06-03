@@ -1,11 +1,16 @@
 [package]
-name = "edgar"
+name = "pocketsizefund"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+actix-service = "2.0.2"
 actix-web = "4.3.1"
-reqwest = "0.12.4"
+actix-web-httpauth = "0.8.1"
+clerk-rs = { version = "0.3.0", features = ["actix"] }
+futures-util = "0.3.30"
+jsonwebtoken = "9.3.0"
+kafka = "0.10.0"
 serde = "1.0.203"
 serde_json = "1.0.117"
 shuttle-actix-web = "0.45.0"
