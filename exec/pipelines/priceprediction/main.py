@@ -42,7 +42,13 @@ def train_model(
     data: pd.DataFrame,
 ) -> model.Model:
     """Train the price prediction model."""
-    price_prediction_model = model.Model()
+    sam_config = config.SAMConfig(
+        file_path="samconfig.toml",
+    )
+
+    price_prediction_model = model.Model(
+        weights_and_biases_api_key=sam_config.get_parameter("WeightsAndBiasesAPIKey"),
+    )
 
     price_prediction_model.train_model(
         data=data,

@@ -2,9 +2,9 @@
 
 import datetime
 import os
+import requests
 
 from pkg.config import config
-from pkg.model import model
 from pkg.trade import trade
 
 POSITIONS_COUNT = 10
@@ -17,18 +17,9 @@ trade_client = trade.Client(
     is_paper=os.getenv("IS_PAPER") == "true",
 )
 
-model_client = model.Client(
-    model_endpoint_name=os.getenv("MODEL_ENDPOINT_NAME"),
-)
 
-
-def handler(
-    event: any,
-    context: any,
-) -> dict[str, any]:
+def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
-    _ = event, context
-
     now = datetime.datetime.now(tz=config.TIMEZONE)
 
     is_clear = trade_client.check_set_position_availability(
@@ -45,7 +36,12 @@ def handler(
         trade_client.clear_positions()
 
     if is_create:
-        predictions_by_ticker = model_client.get_predictions()
+        price_mode_url = os.getenv("PRICE_MODE_URL")
+        response = requests.get(f"http://{price_mode_url}:8080/predictions")
+        if response.status_code != 200:
+            raise Exception(f"error getting predictions: {response.text}")
+
+        predictions_by_ticker = response.json()
 
         moves_by_ticker = {
             ticker: predictions_by_ticker[ticker][0] - predictions_by_ticker[ticker][4]
@@ -67,7 +63,6 @@ def handler(
         highest_moves_tickers = highest_moves_by_ticker.keys()
 
         if len(highest_moves_tickers) == 0:
-            msg = "no tickers to trade"
-            raise Exception(msg)  # noqa: TRY002
+            raise Exception("no tickers to trade")
 
         trade_client.set_positions(tickers=highest_moves_tickers)

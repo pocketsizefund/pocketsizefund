@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 
-# tears down the
-# CloudFormation stack
+# TODO: REDO THIS FILE
 
-set -e
+# # tears down the
+# # CloudFormation stack
 
-environment="development"
-if [[ "$1" == "production" ]]; then
-    environment="production"
-fi
+# set -e
 
-aws cloudformation delete-stack --stack-name pocketsizefund-${environment}
+# environment="development"
+# if [[ "$1" == "production" ]]; then
+#     environment="production"
+# fi
+
+# aws cloudformation delete-stack --stack-name pocketsizefund-${environment}

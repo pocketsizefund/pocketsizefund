@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: price-model
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: price-model
+  template:
+    metadata:
+      labels:
+        app: price-model
+    spec:
+      containers:
+      - name: price-model
+        image: pocketsizefund-development-price-model:latest # TODO: remove hard-coding
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: price-model
+spec:
+  selector:
+    app: price-model
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: position-manager
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: position-manager
+  template:
+    metadata:
+      labels:
+        app: position-manager
+    spec:
+      containers:
+      - name: position-manager
+        image: pocketsizefund-development-position-manager:latest # TODO: remove hard-coding
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: position-manager
+spec:
+  selector:
+    app: position-manager
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

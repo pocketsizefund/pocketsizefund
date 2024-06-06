@@ -1,8 +1,8 @@
-alpaca-py
-pandas
-requests
-boto3
-sagemaker
-wandb
-torch
-pytorch-forecasting
+alpaca-py==0.21.1
+pandas==2.2.2
+requests==2.31.0
+boto3==1.34.108
+sagemaker==2.220.0
+wandb==0.17.0
+torch==2.3.0
+pytorch-forecasting==1.0.0

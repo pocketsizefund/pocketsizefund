@@ -1,0 +1,11 @@
+Flask==3.0.3
+pandas==2.2.2
+numpy==1.26.4
+lightning==2.2.4
+torch==2.3.0
+pytorch-forecasting==1.0.0
+wandb==0.17.0
+toml==0.10.2
+beautifulsoup4==4.12.3
+alpaca-py==0.21.1
+loguru==0.7.2

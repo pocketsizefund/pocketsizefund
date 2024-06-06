@@ -14,9 +14,16 @@ import wandb
 
 
 class WeightsAndBiasesLogger(Callback):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        weights_and_biases_api_key: str = "",
+    ) -> None:
         """Initialize the WeightsAndBiasesLogger class."""
         super().__init__()
+
+        wandb.login(
+            key=weights_and_biases_api_key,
+        )
 
         wandb.init(project="price-prediction-temporal-fusion-transformer")
 
@@ -39,8 +46,12 @@ class WeightsAndBiasesLogger(Callback):
 class Model:
     """Model holds a trained model for making predictions."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        weights_and_biases_api_key: str = "",
+    ) -> None:
         """Initialize the model type to be trained and used."""
+        self.weights_and_biases_api_key = weights_and_biases_api_key
         self.batch_size = 128  # set this between 32 to 128
         self.model = None
 
@@ -74,7 +85,9 @@ class Model:
         learning_rate_logger = LearningRateMonitor()
         logger = TensorBoardLogger("lightning_logs")
 
-        weights_and_biases_logger = WeightsAndBiasesLogger()
+        weights_and_biases_logger = WeightsAndBiasesLogger(
+            weights_and_biases_api_key=self.weights_and_biases_api_key,
+        )
 
         trainer = pl.Trainer(
             max_epochs=50,
