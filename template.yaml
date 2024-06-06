@@ -80,8 +80,8 @@ Resources:
               MaximumRetryAttempts: 0
             RoleArn: !GetAtt functionSchedulerRole.Arn
           Type: ScheduleV2
-      FunctionName: !Sub ${AWS::StackName}-function-set-positions
-      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-set-positions:latest
+      FunctionName: !Sub ${AWS::StackName}-function-position-manager
+      ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-function-position-manager:latest
       MemorySize: 768
       PackageType: Image
       Role: !GetAtt functionRole.Arn

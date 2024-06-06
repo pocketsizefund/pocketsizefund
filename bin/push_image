@@ -10,9 +10,7 @@ name=$1
 
 if [[ -z "$name" ]]; then
     echo "valid name required:"
-    echo ""
-    echo "positionmanager"
-    echo "inferenceendpoint"
+    ls -ld exec/infrastructure/*/ | awk '{print $NF}' | xargs -I {} basename {}
     exit 0
 fi
 

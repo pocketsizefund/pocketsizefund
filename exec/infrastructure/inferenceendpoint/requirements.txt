@@ -1,8 +1,0 @@
-Flask
-pandas
-numpy
-lightning
-torch
-pytorch-forecasting
-sagemaker-inference
-wandb
