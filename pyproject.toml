@@ -72,7 +72,7 @@ line-length = 100
 indent-width = 4
 target-version = "py312"
 
-[format]
+[tool.ruff.format]
 quote-style = "double"            # black-compatible
 indent-style = "space"            # black-compatible
 skip-magic-trailing-comma = false # black-compatible
@@ -80,7 +80,7 @@ line-ending = "auto"              # black-compatible
 
 docstring-code-line-length = "dynamic"
 
-[lint]
+[tool.ruff.lint]
 # for details see:
 # https://docs.astral.sh/ruff/rules/
 select = [
@@ -157,7 +157,7 @@ ignore = [
   "D213",
 ]
 
-[lint.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "pkg/trade/test_trade.py" = ["RUF100", "S101", "PLR2004", "D", "SLF001", "PT011", "ARG001", "ARG002"]
 "pkg/storage/test_storage.py" = ["RUF100", "S101", "PLR2004", "D", "SLF001", "PT011", "ARG001", "ARG002"]
 "pkg/data/test_data.py" = ["RUF100", "S101", "PLR2004", "D", "SLF001", "PT011", "ARG001", "ARG002"]
