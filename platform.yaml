@@ -13,11 +13,42 @@ spec:
         app: price-model
     spec:
       containers:
-      - name: price-model
-        image: pocketsizefund-development-price-model:latest # TODO: remove hard-coding
-        imagePullPolicy: IfNotPresent
+      - name: price-model-container
+        image: pocketsizefund-{ENVIRONMENT}-price-model:latest # TODO: remove hard-coding
+        imagePullPolicy: IfNotPresent # or Never
         ports:
         - containerPort: 8080
+        env:
+        - name: DARQUBE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: darqube_api_key
+        - name: ALPACA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: alpaca_api_key
+        - name: ALPACA_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: alpaca_api_secret
+        - name: ALPHA_VANTAGE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: alpha_vantage_api_key
+        - name: EDGAR_USER_AGENT
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: edgar_user_agent
+        - name: MODEL_FILE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: model_file_name
 ---
 apiVersion: v1
 kind: Service
@@ -27,41 +58,46 @@ spec:
   selector:
     app: price-model
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
   type: ClusterIP
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: CronJob
 metadata:
   name: position-manager
 spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: position-manager
-  template:
-    metadata:
-      labels:
-        app: position-manager
+  schedule: "0 10,12,15 * * 1-5"
+  jobTemplate:
     spec:
-      containers:
-      - name: position-manager
-        image: pocketsizefund-development-position-manager:latest # TODO: remove hard-coding
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: position-manager
-spec:
-  selector:
-    app: position-manager
-  ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
-  type: ClusterIP
+      template:
+        spec:
+          containers:
+          - name: position-manager
+            image: pocketsizefund-{ENVIRONMENT}-position-manager:latest # TODO: remove hard-coding
+            imagePullPolicy: IfNotPresent # or Never
+            command: ["python", "main.py"]
+            imagePullPolicy: IfNotPresent # or Never
+            env:
+            - name: DARQUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: darqube_api_key
+            - name: ALPACA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: alpaca_api_key
+            - name: ALPACA_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: alpaca_api_secret
+            - name: ALPHA_VANTAGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: alpha_vantage_api_key
+          restartPolicy: OnFailure

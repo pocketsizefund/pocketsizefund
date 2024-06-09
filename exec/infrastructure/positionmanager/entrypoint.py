@@ -36,8 +36,7 @@ def get_predictions() -> dict[str, any]:
         trade_client.clear_positions()
 
     if is_create:
-        price_mode_url = os.getenv("PRICE_MODE_URL")
-        response = requests.get(f"http://{price_mode_url}:8080/predictions")
+        response = requests.get("http://price-model:8080/predictions")
         if response.status_code != 200:
             raise Exception(f"error getting predictions: {response.text}")
 

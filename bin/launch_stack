@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-# conditionally launch a 
-# Kubernetes cluster and
-# deploy resources to it
+# launch Kubernetes resources
 
 set -e
 
@@ -10,63 +8,18 @@ location=${1:-"remote"}
 
 environment=${2:-"development"}
 
-# role_name=pocketsizefund-${environment}-eks-role
+# NOTE: potentially add in conditional cluster creation here
 
-# roles=$(aws iam list-roles --path-prefix /${role_name} | jq -r '.Roles')
+if [[ $location == "local" ]]; then
+    minikube start
+    minikube image load image pocketsizefund-${environment}-price-model:latest
+    minikube image load image pocketsizefund-${environment}-position-manager:latest
+else
+    account_region=$(aws --profile default configure get region)
 
-# if [ "$roles" == "[]" && $location == "remote" ]; then
-#     aws iam create-role \
-#         --role-name ${role_name} \
-#         --assume-role-policy-document file://eks-role-trust-policy.json \
-#         --no-paginate
-# fi
+    aws eks update-kubeconfig \
+        --region ${account_region} \
+        --name pocketsizefund-platform
+fi
 
-# outline:
-# [x] parameters
-# - [x] location
-# - - [x] local
-# - - [x] remote
-# - [x] environment
-# - - [x] development
-# - - [x] production
-# [x] check for role
-# - [x] does exist
-# - - [x] continue
-# - [x] does not exist
-# - - [x] create role
-# [ ] check location
-# - [ ] remote
-# - - [ ] check for stack
-# - - - [ ] does exist
-# - - - - [ ] continue
-# - - - [ ] does not exist
-# - - - - [ ] create stack
-# - - - - - [ ] vpc configuration
-# - - - - - [ ] cloudwatch logging configuration
-# - - - - - [ ] no pagination
-# - [ ] local
-# - - [ ] start minikube
-# [ ] read in kubernetes definition
-# [ ] read + overwrite secret values
-# [ ] push kubernetes definition to cluster
-
-
-# # lint, build, and launch
-# # the CloudFormation stack
-
-# set -e
-
-# environment="development"
-# if [[ "$1" == "production" ]]; then
-#     environment="production"
-# fi
-
-# cfn-lint template.yaml
-
-# sam build --use-container --cached --parallel
-
-# sam deploy \
-#     --no-confirm-changeset \
-#     --resolve-image-repos \
-#     --on-failure DELETE \
-#     --config-env ${environment}
+sed 's/{ENVIRONMENT}/'${environment}'/g' platform.yaml | kubectl create --filename -

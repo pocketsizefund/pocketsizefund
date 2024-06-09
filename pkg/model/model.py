@@ -7,7 +7,6 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
 from pytorch_forecasting.data import GroupNormalizer, MultiNormalizer
 from pytorch_forecasting.metrics import RMSE
-from sagemaker.pytorch.model import PyTorchPredictor
 from torch.utils.data import DataLoader
 
 import wandb
@@ -277,22 +276,3 @@ class Model:
             batch_size=self.batch_size,
             num_workers=0,
         )
-
-
-class Client:
-    def __init__(
-        self,
-        model_endpoint_name: str,
-    ) -> None:
-        """Initialize the client to make predictions."""
-        self.predictor = PyTorchPredictor(
-            endpoint_name=model_endpoint_name,
-        )
-
-        self.model_endpoint_name = model_endpoint_name
-
-    def get_predictions(
-        self,
-    ) -> pd.DataFrame:
-        """Get predictions for the input data."""
-        return self.predictor.predict()

@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 
-# TODO: REDO THIS FILE
+# removes Kubernetes resources
 
-# # tears down the
-# # CloudFormation stack
+set -e
 
-# set -e
+location=${1:-"remote"}
 
-# environment="development"
-# if [[ "$1" == "production" ]]; then
-#     environment="production"
-# fi
+environment=${2:-"development"}
 
-# aws cloudformation delete-stack --stack-name pocketsizefund-${environment}
+if [[ "$location" == "remote" ]]; then
+    aws eks update-kubeconfig \
+        --region ${account_region} \
+        --name pocketsizefund-platform
+fi
+
+sed 's/{ENVIRONMENT}/'${environment}'/g' platform.yaml | kubectl delete --filename -
+
+if [[ "$location" == "local" ]]; then
+    minikube stop
+fi
