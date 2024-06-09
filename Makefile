@@ -6,7 +6,7 @@ setup:
 	curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-darwin-arm64
 	sudo install minikube-darwin-arm64 /usr/local/bin/minikube
 	curl -L https://github.com/a8m/envsubst/releases/download/v1.2.0/envsubst-`uname -s`-`uname -m` -o envsubst
-	poetry install --with dev
+	poetry install --with dev,test
 
 lint:
 	poetry run ruff check --output-format=github .
