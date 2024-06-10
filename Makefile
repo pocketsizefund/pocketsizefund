@@ -1,8 +1,8 @@
 setup:
 	curl -sSL https://install.python-poetry.org | python3 -
 	curl -LsSf https://astral.sh/uv/install.sh | sh
-	curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/darwin/arm64/kubectl"
+	curl -LO https://dl.k8s.io/release/v1.29.2/bin/darwin/arm64/kubectl
+	sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 	curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-darwin-arm64
 	sudo install minikube-darwin-arm64 /usr/local/bin/minikube
 	curl -L https://github.com/a8m/envsubst/releases/download/v1.2.0/envsubst-`uname -s`-`uname -m` -o envsubst
