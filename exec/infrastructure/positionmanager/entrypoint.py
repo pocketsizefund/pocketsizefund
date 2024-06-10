@@ -2,11 +2,13 @@
 
 import datetime
 import os
+
 import requests
 
 from pkg.config import config
 from pkg.trade import trade
 
+STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
 trade_client = trade.Client(
@@ -36,9 +38,13 @@ def get_predictions() -> dict[str, any]:
         trade_client.clear_positions()
 
     if is_create:
-        response = requests.get("http://price-model:8080/predictions")
-        if response.status_code != 200:
-            raise Exception(f"error getting predictions: {response.text}")
+        response = requests.get(
+            url="http://price-model:8080/predictions",
+            timeout=5,
+        )
+        if response.status_code != STATUS_CODE_OK:
+            msg = f"error getting predictions: {response.text}"
+            raise Exception(msg)  # noqa: TRY002
 
         predictions_by_ticker = response.json()
 
@@ -62,6 +68,7 @@ def get_predictions() -> dict[str, any]:
         highest_moves_tickers = highest_moves_by_ticker.keys()
 
         if len(highest_moves_tickers) == 0:
-            raise Exception("no tickers to trade")
+            msg = "no tickers to trade"
+            raise Exception(msg)  # noqa: TRY002
 
         trade_client.set_positions(tickers=highest_moves_tickers)
