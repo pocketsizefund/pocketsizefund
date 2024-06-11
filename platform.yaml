@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: price-model-container
-        image: pocketsizefund-{ENVIRONMENT}-price-model:latest # TODO: remove hard-coding
+        image: pocketsizefund-{ENVIRONMENT}-price-model:latest
         imagePullPolicy: IfNotPresent # or Never
         ports:
         - containerPort: 8080
@@ -75,10 +75,9 @@ spec:
         spec:
           containers:
           - name: position-manager
-            image: pocketsizefund-{ENVIRONMENT}-position-manager:latest # TODO: remove hard-coding
+            image: pocketsizefund-{ENVIRONMENT}-position-manager:latest
             imagePullPolicy: IfNotPresent # or Never
             command: ["python", "main.py"]
-            imagePullPolicy: IfNotPresent # or Never
             env:
             - name: DARQUBE_API_KEY
               valueFrom:
