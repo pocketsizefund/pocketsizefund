@@ -1,3 +1,4 @@
+"""Pipeline to pull financial statements from a website."""
 import tempfile
 
 import instructor
@@ -13,7 +14,8 @@ from exec.pipeline.financials.structs import EarningsStatement, FinancialStateme
 
 
 @task
-def read_remote_pdf(url) -> str:
+def read_remote_pdf(url: str) -> str:
+    """Read a remote PDF file and return the text."""
     response = requests.get(url)
 
     with tempfile.NamedTemporaryFile(mode="wb", delete=False) as f:
@@ -27,7 +29,8 @@ def read_remote_pdf(url) -> str:
     return text
 
 @task
-def read_html(url) -> str:
+def read_html(url: str) -> str:
+    """Read a remote HTML file and return the text."""
     response = requests.get(url)
     response.raise_for_status()
 
@@ -46,6 +49,7 @@ def read_html(url) -> str:
 
 @task
 def parse_financial_statements(data: str) -> FinancialStatement:
+    """Parse a financial statement from a string."""
     client = instructor.from_openai(OpenAI())
 
     return client.chat.completions.create(
@@ -59,6 +63,7 @@ def parse_financial_statements(data: str) -> FinancialStatement:
 
 @task
 def parse_earnings_statement(data: str) -> EarningsStatement:
+    """Parse an earnings statement from a string."""
     client = instructor.from_openai(OpenAI())
 
     return client.chat.completions.create(
@@ -71,26 +76,23 @@ def parse_earnings_statement(data: str) -> EarningsStatement:
 
 @flow
 def pull_financial_statements(config: Config) -> None:
+    """Pull financial statements from a website."""
     if config.financial_statement.filetype == "pdf":
-        financial_statements = read_remote_pdf(config.financial_statement.url)
+        read_remote_pdf(config.financial_statement.url)
     elif config.financial_statement.filetype == "html":
-        financial_statements = read_html(config.financial_statement.url)
+        read_html(config.financial_statement.url)
 
     if config.earnings_statement.filetype == "pdf":
-        quarterly_earnings_statement = read_remote_pdf(config.earnings_statement.url)
+        read_remote_pdf(config.earnings_statement.url)
     elif config.earnings_statement.filetype == "html":
-        quarterly_earnings_statement = read_html(config.earnings_statement.url)
+        read_html(config.earnings_statement.url)
 
-    parsed_financial_statements = parse_financial_statements(financial_statements)
-    earnings_statement = parse_earnings_statement(quarterly_earnings_statement)
-
-    print(parsed_financial_statements)
-    print(earnings_statement)
 
 
 
 @flow(task_runner=RayTaskRunner())
-def statements_pipeline(configs):
+def statements_pipeline(configs: list[Config]) -> None:
+    """Pipeline to pull financial statements from a website."""
     for config in configs:
         pull_financial_statements(config)
 
