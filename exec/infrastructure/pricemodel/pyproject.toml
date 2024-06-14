@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "pricemodel"
+version = "0.1.5"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+toml = "^0.10.2"
+beautifulsoup4 = "^4.12.3"
+flask = "^3.0.3"
+pocketsizefund = "^0.1.1"
+gunicorn = "^22.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

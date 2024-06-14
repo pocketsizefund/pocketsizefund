@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: price-model
-        image: pocketsizefund/price-model:latest
+        image: pocketsizefund/price-model:0.1.5
         imagePullPolicy: IfNotPresent # or Never
         ports:
         - containerPort: 8080
@@ -50,18 +50,18 @@ spec:
               name: platform
               key: model_file_name
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: price-model
-spec:
-  selector:
-    app: price-model
-  ports:
-  - protocol: TCP
-    port: 8080
-    targetPort: 8080
-  type: ClusterIP
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: price-model
+# spec:
+#   selector:
+#     app: price-model
+#   ports:
+#   - protocol: TCP
+#     port: 8080
+#     targetPort: 8080
+#   type: ClusterIP
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -75,9 +75,9 @@ spec:
         spec:
           containers:
           - name: position-manager
-            image: pocketsizefund/position-manager:latest
+            image: pocketsizefund/position-manager:0.1.0
             imagePullPolicy: IfNotPresent # or Never
-            command: ["python", "entrypoint.py"]
+            command: ["python", "main.py"]
             env:
             - name: DARQUBE_API_KEY
               valueFrom:
@@ -100,3 +100,16 @@ spec:
                   name: platform
                   key: alpha_vantage_api_key
           restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: price-model
+spec:
+  type: LoadBalancer
+  selector:
+    app: price-model
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

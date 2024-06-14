@@ -32,3 +32,6 @@ rust-fmt:
 
 rust-unit-test:
 	cd edgar-feed && cargo test
+
+sync-k8s:
+	cd infrastructure && pulumi stack output kubeconfig > ~/.kube/config

@@ -2,11 +2,13 @@
 
 # launch Kubernetes resources
 
-set -e
+set -ex
 
 location=${1:-"remote"}
 
 environment=${2:-"development"}
+
+model_file_name=$3
 
 # NOTE: potentially add in conditional cluster creation here
 
@@ -15,11 +17,13 @@ if [[ $location == "local" ]]; then
     minikube image load pocketsizefund-${environment}-price-model:latest
     minikube image load pocketsizefund-${environment}-position-manager:latest
 else
-    account_region=$(aws --profile default configure get region)
-
-    aws eks update-kubeconfig \
-        --region ${account_region} \
-        --name pocketsizefund-platform
+    kubectl apply -f platform.yaml
 fi
 
+temorary_mode_file_name_file=$(mktemp)
+
+sed 's/"{MODEL_FILE_NAME}"/'${model_file_name}'/g' etc/.env.${environment} > $temorary_mode_file_name_file
+
 sed 's/{ENVIRONMENT}/'${environment}'/g' platform.yaml | kubectl create --filename -
+
+rm $temorary_mode_file_name_file
