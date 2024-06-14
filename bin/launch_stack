@@ -8,6 +8,8 @@ location=${1:-"remote"}
 
 environment=${2:-"development"}
 
+model_file_name=$3
+
 # NOTE: potentially add in conditional cluster creation here
 
 if [[ $location == "local" ]]; then
@@ -22,4 +24,10 @@ else
         --name pocketsizefund-platform
 fi
 
+temorary_mode_file_name_file=$(mktemp)
+
+sed 's/"{MODEL_FILE_NAME}"/'${model_file_name}'/g' etc/.env.${environment} > $temorary_mode_file_name_file
+
 sed 's/{ENVIRONMENT}/'${environment}'/g' platform.yaml | kubectl create --filename -
+
+rm $temorary_mode_file_name_file
