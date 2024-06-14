@@ -1,5 +1,5 @@
 [package]
-name = "edgar-feed"
+name = "edgar"
 version = "0.1.0"
 edition = "2021"
 
