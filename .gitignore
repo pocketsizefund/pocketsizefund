@@ -19,3 +19,7 @@ tft_model.ckpt
 .mise.toml
 *-all.csv
 *.ckpt
+
+edgar-feed/target
+edgar-feed/.shuttle-storage
+edgar-feed/Secrets*.toml
