@@ -28,9 +28,9 @@ data_client = data.Client(
     debug=False,
 )
 
-model_model = model.Model()
+price_model = model.PriceModel()
 
-model_model.load_model(
+price_model.load_model(
     file_path=os.getenv("MODEL_FILE_NAME"),
 )
 
@@ -53,7 +53,7 @@ def invocations() -> flask.Response:
 
     predictions = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
-        ticker_predictions = model_model.get_predictions(
+        ticker_predictions = price_model.get_predictions(
             data=ticker_bars_raw_data,
         )
 
