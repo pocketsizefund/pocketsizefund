@@ -77,7 +77,7 @@ spec:
           - name: position-manager
             image: pocketsizefund-{ENVIRONMENT}-position-manager:latest
             imagePullPolicy: IfNotPresent # or Never
-            command: ["python", "main.py"]
+            command: ["python", "entrypoint.py"]
             env:
             - name: DARQUBE_API_KEY
               valueFrom:

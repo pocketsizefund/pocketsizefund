@@ -6,3 +6,5 @@ sagemaker==2.220.0
 wandb==0.17.0
 torch==2.3.0
 pytorch-forecasting==1.0.0
+toml==0.10.2
+loguru==0.7.2

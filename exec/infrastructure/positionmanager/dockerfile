@@ -4,9 +4,9 @@ COPY exec/infrastructure/positionmanager/requirements.txt .
 
 RUN pip3 install -r requirements.txt
 
-COPY pkg/trade/trade.py .
+COPY pkg/config/config.py pkg/config/
 
-COPY pkg/model/model.py .
+COPY pkg/trade/trade.py pkg/trade/
 
 COPY exec/infrastructure/positionmanager/entrypoint.py .
 
@@ -18,8 +18,6 @@ ENV ALPACA_API_SECRET=""
 
 ENV ALPHA_VANTAGE_API_KEY=""
 
-ENV MODEL_ENDPOINT_NAME=""
-
-ENV IS_PAPER=""
+ENV IS_PAPER="true"
 
 CMD [ "python3", "entrypoint.py" ]

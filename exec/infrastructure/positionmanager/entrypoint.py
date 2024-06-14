@@ -4,6 +4,7 @@ import datetime
 import os
 
 import requests
+from loguru import logger
 
 from pkg.config import config
 from pkg.trade import trade
@@ -11,17 +12,17 @@ from pkg.trade import trade
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
-trade_client = trade.Client(
-    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
-    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-    is_paper=os.getenv("IS_PAPER") == "true",
-)
-
 
 def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
+    trade_client = trade.Client(
+        darqube_api_key=os.getenv("DARQUBE_API_KEY"),
+        alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+        alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+        alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
+        is_paper=os.getenv("IS_PAPER") == "true",
+    )
+
     now = datetime.datetime.now(tz=config.TIMEZONE)
 
     is_clear = trade_client.check_set_position_availability(
@@ -40,8 +41,9 @@ def get_predictions() -> dict[str, any]:
     if is_create:
         response = requests.get(
             url="http://price-model:8080/predictions",
-            timeout=5,
+            timeout=30,
         )
+
         if response.status_code != STATUS_CODE_OK:
             msg = f"error getting predictions: {response.text}"
             raise Exception(msg)  # noqa: TRY002
@@ -72,3 +74,12 @@ def get_predictions() -> dict[str, any]:
             raise Exception(msg)  # noqa: TRY002
 
         trade_client.set_positions(tickers=highest_moves_tickers)
+
+    return None
+
+
+if __name__ == "__main__":
+    try:
+        get_predictions()
+    except Exception as e:  # noqa: BLE001
+        logger.debug(f"error getting predictions: {e}")

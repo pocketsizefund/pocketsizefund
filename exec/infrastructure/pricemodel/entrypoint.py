@@ -57,7 +57,7 @@ def invocations() -> flask.Response:
             data=ticker_bars_raw_data,
         )
 
-        predictions[ticker] = ticker_predictions[0]
+        predictions[ticker] = ticker_predictions
 
     return flask.Response(
         response=json.dumps(predictions),

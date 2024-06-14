@@ -12,8 +12,8 @@ environment=${2:-"development"}
 
 if [[ $location == "local" ]]; then
     minikube start
-    minikube image load image pocketsizefund-${environment}-price-model:latest
-    minikube image load image pocketsizefund-${environment}-position-manager:latest
+    minikube image load pocketsizefund-${environment}-price-model:latest
+    minikube image load pocketsizefund-${environment}-position-manager:latest
 else
     account_region=$(aws --profile default configure get region)
 

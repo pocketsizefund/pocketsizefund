@@ -156,11 +156,13 @@ class Model:
 
         predict_dataloader = self._generate_input_dataloader(predict_dataset)
 
-        return self.model.predict(
+        predictions = self.model.predict(
             data=predict_dataloader,
             mode="raw",
             return_x=True,
         )
+
+        return [x[0] for x in predictions[0][0][0][3].tolist()]  # closing prices
 
     def _generate_features(
         self,
