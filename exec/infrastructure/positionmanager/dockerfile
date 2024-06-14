@@ -1,18 +1,14 @@
-FROM public.ecr.aws/lambda/python:3.11-arm64
+FROM python:3.9.6
 
-RUN yum clean all
+COPY exec/infrastructure/positionmanager/requirements.txt .
 
-RUN yum install -y gcc python3-devel
+RUN pip3 install -r requirements.txt
 
-COPY exec/infrastructure/positionmanager/requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
+COPY pkg/config/config.py pkg/config/
 
-RUN pip3 install --requirement requirements.txt --target "${LAMBDA_TASK_ROOT}"
+COPY pkg/trade/trade.py pkg/trade/
 
-COPY pkg/trade/trade.py ${LAMBDA_TASK_ROOT}/pkg/trade/trade.py
-
-COPY pkg/model/model.py ${LAMBDA_TASK_ROOT}/pkg/model/model.py
-
-COPY exec/infrastructure/positionmanager/main.py ${LAMBDA_TASK_ROOT}/main.py
+COPY exec/infrastructure/positionmanager/entrypoint.py .
 
 ENV DARQUBE_API_KEY=""
 
@@ -22,8 +18,6 @@ ENV ALPACA_API_SECRET=""
 
 ENV ALPHA_VANTAGE_API_KEY=""
 
-ENV MODEL_ENDPOINT_NAME=""
+ENV IS_PAPER="true"
 
-ENV IS_PAPER=""
-
-CMD [ "main.handler" ]
+CMD [ "python3", "entrypoint.py" ]

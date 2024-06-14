@@ -1,0 +1,33 @@
+FROM python:3.9.6
+
+ARG MODEL_FILE_NAME
+
+COPY exec/infrastructure/pricemodel/requirements.txt .
+
+RUN pip3 install -r requirements.txt
+
+COPY pkg/config/config.py pkg/config/
+
+COPY pkg/data/data.py pkg/data/
+
+COPY pkg/trade/trade.py pkg/trade/
+
+COPY pkg/model/model.py pkg/model/
+
+COPY exec/infrastructure/pricemodel/entrypoint.py .
+
+COPY $MODEL_FILE_NAME .
+
+ENV MODEL_FILE_NAME=$MODEL_FILE_NAME
+
+ENV DARQUBE_API_KEY=""
+
+ENV ALPACA_API_KEY=""
+
+ENV ALPACA_API_SECRET=""
+
+ENV ALPHA_VANTAGE_API_KEY=""
+
+ENV EDGAR_USER_AGENT=""
+
+ENTRYPOINT ["python3", "entrypoint.py"]

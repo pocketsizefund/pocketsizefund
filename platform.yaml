@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: price-model
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: price-model
+  template:
+    metadata:
+      labels:
+        app: price-model
+    spec:
+      containers:
+      - name: price-model
+        image: pocketsizefund-{ENVIRONMENT}-price-model:latest
+        imagePullPolicy: IfNotPresent # or Never
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DARQUBE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: darqube_api_key
+        - name: ALPACA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: alpaca_api_key
+        - name: ALPACA_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: alpaca_api_secret
+        - name: ALPHA_VANTAGE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: alpha_vantage_api_key
+        - name: EDGAR_USER_AGENT
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: edgar_user_agent
+        - name: MODEL_FILE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: model_file_name
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: price-model
+spec:
+  selector:
+    app: price-model
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: position-manager
+spec:
+  schedule: "0 10,12,15 * * 1-5"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: position-manager
+            image: pocketsizefund-{ENVIRONMENT}-position-manager:latest
+            imagePullPolicy: IfNotPresent # or Never
+            command: ["python", "entrypoint.py"]
+            env:
+            - name: DARQUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: darqube_api_key
+            - name: ALPACA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: alpaca_api_key
+            - name: ALPACA_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: alpaca_api_secret
+            - name: ALPHA_VANTAGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: alpha_vantage_api_key
+          restartPolicy: OnFailure
