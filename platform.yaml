@@ -13,7 +13,7 @@ spec:
         app: price-model
     spec:
       containers:
-      - name: price-model-container
+      - name: price-model
         image: pocketsizefund-{ENVIRONMENT}-price-model:latest
         imagePullPolicy: IfNotPresent # or Never
         ports:
