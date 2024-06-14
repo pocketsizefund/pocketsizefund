@@ -1,3 +1,4 @@
+"""Configuration for the financials pipeline."""
 from typing import Literal
 
 from pydantic import AnyUrl, BaseModel

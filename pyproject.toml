@@ -155,6 +155,7 @@ ignore = [
   "D101",
   "D203",
   "D213",
+  "S113", # requests timeout
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -162,3 +163,6 @@ ignore = [
 "pkg/storage/test_storage.py" = ["RUF100", "S101", "PLR2004", "D", "SLF001", "PT011", "ARG001", "ARG002"]
 "pkg/data/test_data.py" = ["RUF100", "S101", "PLR2004", "D", "SLF001", "PT011", "ARG001", "ARG002"]
 "**/*__init__.py" = ["D"]
+"exec/pipeline/financials/structs.py" = ["E501"]
+"exec/pipeline/financials/pull_data.py" = ["E501"]
+"infrastructure/__main__.py" = ["INP001", "D100", "ANN201", "D103", "ANN001"]

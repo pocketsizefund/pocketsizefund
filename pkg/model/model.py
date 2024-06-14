@@ -41,8 +41,8 @@ class WeightsAndBiasesLogger(Callback):
         )
 
 
-class Model:
-    """Model holds a trained model for making predictions."""
+class PriceModel:
+    """PriceModel holds a trained model for making predictions."""
 
     def __init__(
         self,

@@ -1,3 +1,4 @@
+"""Structs for financials pipeline."""
 from decimal import Decimal
 
 from pydantic import BaseModel, Field

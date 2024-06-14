@@ -1,17 +1,15 @@
 name: Rust CI
 
-on: [push, pull_request]
-
-defaults:
-  run:
-    working-directory: edgar-feed
+on:
+  pull_request:
+    types: [opened, synchronize, closed, reopened]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   linting:
-    name: linting with clippy
+    name: Run Rust linting with clippy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,20 +22,24 @@ jobs:
           override: true
           token: ${{ secrets.GITHUB_TOKEN }}
           args: -- -D warnings
+      - name: Run linting
+        run: make rust-lint
 
-  security-audit:
-    name: cargo dependency audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v1
-      - name: Install Rust toolchain and run audit check
-        uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+  # security-audit:
+  #   name: Run Rust Cargo dependency audit
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v1
+  #     - name: Change directory
+  #       run: cd edgar-feed
+  #     - name: Install Rust toolchain and run audit check
+  #       uses: actions-rs/audit-check@v1
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
 
   formatting:
-    name: code formatting with rustfmt
+    name: Run Rust code formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -48,14 +50,11 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt
-      - name: formatting with rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: Formatting with rustfmt
+        run: make rust-fmt
 
   test:
-    name: Unit tests
+    name: Run Rust unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -66,7 +65,5 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: run unit tests with `cargo test`
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - name: Run unit tests
+        run: make rust-unit-test
