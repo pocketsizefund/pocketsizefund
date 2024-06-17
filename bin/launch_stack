@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 
-# lint, build, and launch
-# the CloudFormation stack
+# launch Kubernetes resources
 
 set -e
 
-environment="development"
-if [[ "$1" == "production" ]]; then
-    environment="production"
+location=${1:-"remote"}
+
+environment=${2:-"development"}
+
+# NOTE: potentially add in conditional cluster creation here
+
+if [[ $location == "local" ]]; then
+    minikube start
+    minikube image load pocketsizefund-${environment}-price-model:latest
+    minikube image load pocketsizefund-${environment}-position-manager:latest
+else
+    account_region=$(aws --profile default configure get region)
+
+    aws eks update-kubeconfig \
+        --region ${account_region} \
+        --name pocketsizefund-platform
 fi
 
-cfn-lint template.yaml
-
-sam build --use-container --cached --parallel
-
-sam deploy \
-    --no-confirm-changeset \
-    --resolve-image-repos \
-    --on-failure DELETE \
-    --config-env ${environment}
+sed 's/{ENVIRONMENT}/'${environment}'/g' platform.yaml | kubectl create --filename -

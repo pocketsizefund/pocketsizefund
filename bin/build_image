@@ -9,9 +9,7 @@ dockerfile=$2
 
 if [[ -z "$name" ]]; then
     echo "valid name required:"
-    echo ""
-    echo "positionmanager"
-    echo "inferenceendpoint"
+    ls -ld exec/infrastructure/*/ | awk '{print $NF}' | xargs -I {} basename {}
     exit 0
 fi
 
@@ -25,10 +23,7 @@ if [[ "$3" == "production" ]]; then
     environment="production"
 fi
 
-location="remote"
-if [[ "$4" == "local" ]]; then
-    location="local"
-fi
+model_file_name=$4
 
 account_id=$(aws sts get-caller-identity --query Account --output text)
 
@@ -36,25 +31,17 @@ image_name=$(python3 ./bin/helpers/get_name.py ${name} ${environment})
 
 account_region=$(aws --profile default configure get region)
 
-tag=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
+ecr_name=${account_id}.dkr.ecr.${account_region}.amazonaws.com/${image_name}:latest
 
-if [[ $image_name == *"function"* ]]; then
-    docker build \
-        --build-arg FUNCTION_NAME=${name} \
-        --file ${dockerfile} \
-        --platform linux/arm64 \
-        --tag ${tag} .
-else
-    platform="linux/amd64"
-    if [[ "${location}" == "local" ]]; then
-        platform="linux/arm64"
-    fi
+local_name=${image_name}:latest
 
-    docker build \
-        --file ${dockerfile} \
-        --platform ${platform} \
-        --tag ${tag} .
-fi
+docker build \
+    --build-arg MODEL_FILE_NAME=${model_file_name} \
+    --file ${dockerfile} \
+    --platform linux/arm64 \
+    --tag ${local_name} \
+    --tag ${ecr_name} \
+    .
 
-echo "built image: ${tag}"
+echo "built image: ${local_name}"
 echo "push image to use in cloud environment"

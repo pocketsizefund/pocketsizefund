@@ -7,16 +7,22 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
 from pytorch_forecasting.data import GroupNormalizer, MultiNormalizer
 from pytorch_forecasting.metrics import RMSE
-from sagemaker.pytorch.model import PyTorchPredictor
 from torch.utils.data import DataLoader
 
 import wandb
 
 
 class WeightsAndBiasesLogger(Callback):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        weights_and_biases_api_key: str = "",
+    ) -> None:
         """Initialize the WeightsAndBiasesLogger class."""
         super().__init__()
+
+        wandb.login(
+            key=weights_and_biases_api_key,
+        )
 
         wandb.init(project="price-prediction-temporal-fusion-transformer")
 
@@ -39,8 +45,12 @@ class WeightsAndBiasesLogger(Callback):
 class Model:
     """Model holds a trained model for making predictions."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        weights_and_biases_api_key: str = "",
+    ) -> None:
         """Initialize the model type to be trained and used."""
+        self.weights_and_biases_api_key = weights_and_biases_api_key
         self.batch_size = 128  # set this between 32 to 128
         self.model = None
 
@@ -74,7 +84,9 @@ class Model:
         learning_rate_logger = LearningRateMonitor()
         logger = TensorBoardLogger("lightning_logs")
 
-        weights_and_biases_logger = WeightsAndBiasesLogger()
+        weights_and_biases_logger = WeightsAndBiasesLogger(
+            weights_and_biases_api_key=self.weights_and_biases_api_key,
+        )
 
         trainer = pl.Trainer(
             max_epochs=50,
@@ -144,11 +156,13 @@ class Model:
 
         predict_dataloader = self._generate_input_dataloader(predict_dataset)
 
-        return self.model.predict(
+        predictions = self.model.predict(
             data=predict_dataloader,
             mode="raw",
             return_x=True,
         )
+
+        return [x[0] for x in predictions[0][0][0][3].tolist()]  # closing prices
 
     def _generate_features(
         self,
@@ -264,22 +278,3 @@ class Model:
             batch_size=self.batch_size,
             num_workers=0,
         )
-
-
-class Client:
-    def __init__(
-        self,
-        model_endpoint_name: str,
-    ) -> None:
-        """Initialize the client to make predictions."""
-        self.predictor = PyTorchPredictor(
-            endpoint_name=model_endpoint_name,
-        )
-
-        self.model_endpoint_name = model_endpoint_name
-
-    def get_predictions(
-        self,
-    ) -> pd.DataFrame:
-        """Get predictions for the input data."""
-        return self.predictor.predict()
