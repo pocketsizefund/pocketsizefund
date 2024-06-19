@@ -28,6 +28,8 @@ temorary_mode_file_name_file=$(mktemp)
 
 sed 's/"{MODEL_FILE_NAME}"/'${model_file_name}'/g' etc/.env.${environment} > $temorary_mode_file_name_file
 
+kubectl create secret generic platform --from-env-file=etc/.env.${environment}
+
 sed 's/{ENVIRONMENT}/'${environment}'/g' platform.yaml | kubectl create --filename -
 
 rm $temorary_mode_file_name_file
