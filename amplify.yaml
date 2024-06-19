@@ -2,15 +2,10 @@ version: 1
 frontend:
   phases:
     preBuild:
-      commands:
-        - yarn install
+      commands: []
     build:
-      commands:
-        - yarn run build
+      commands: []
   artifacts:
-    baseDirectory: dist
+    baseDirectory: frontend
     files:
       - '**/*'
-  cache:
-    paths:
-      - node_modules/**/*
