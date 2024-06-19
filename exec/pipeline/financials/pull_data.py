@@ -1,15 +1,15 @@
-from prefect import flow, task
-import requests
-import instructor
-from openai import OpenAI
 import tempfile
 
-from exec.pipeline.financials.structs import FinancialStatement, EarningsStatement
-from exec.pipeline.financials.config import Config, StatementConfig
-
+import instructor
 import PyPDF2
+import requests
 from bs4 import BeautifulSoup
+from openai import OpenAI
+from prefect import flow, task
 from prefect_ray import RayTaskRunner
+
+from exec.pipeline.financials.config import Config, StatementConfig
+from exec.pipeline.financials.structs import EarningsStatement, FinancialStatement
 
 
 @task
@@ -31,14 +31,14 @@ def read_html(url) -> str:
     response = requests.get(url)
     response.raise_for_status()
 
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(response.text, "html.parser")
     body = soup.find("body").get_text(strip=True)
 
     client = instructor.from_openai(OpenAI())
     return client.chat.completions.create(
         model="gpt-3.5-turbo-16k",
         response_model=str,
-        messages=[{"role": "system", 
+        messages=[{"role": "system",
                    "content": "You are reading a webpage and returning only the content, ignoring all HTML/JS in it"},
                   {"role": "user", "content": body}],
     )
@@ -51,7 +51,7 @@ def parse_financial_statements(data: str) -> FinancialStatement:
     return client.chat.completions.create(
         model="gpt-3.5-turbo-16k",
         response_model=FinancialStatement,
-        messages=[{"role": "system", 
+        messages=[{"role": "system",
                    "content": "You are extracting data from a public financial document and structuring its output"},
                   {"role": "user", "content": data}],
     )
@@ -64,7 +64,7 @@ def parse_earnings_statement(data: str) -> EarningsStatement:
     return client.chat.completions.create(
         model="gpt-3.5-turbo-16k",
         response_model=EarningsStatement,
-        messages=[{"role": "system", 
+        messages=[{"role": "system",
                    "content": "You are extracting the sentiment from a quarterly earnings statement"},
                   {"role": "user", "content": data}],
     )

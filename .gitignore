@@ -23,3 +23,5 @@ tft_model.ckpt
 edgar-feed/target
 edgar-feed/.shuttle-storage
 edgar-feed/Secrets*.toml
+
+.envrc

@@ -1,5 +1,7 @@
-from pydantic import BaseModel, AnyUrl
 from typing import Literal
+
+from pydantic import AnyUrl, BaseModel
+
 
 class StatementConfig(BaseModel):
     url: AnyUrl
