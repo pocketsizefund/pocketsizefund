@@ -1,13 +1,15 @@
-use actix_web::{get, post, error, web::{self, Json, ServiceConfig}, Result };
 use actix_web::middleware::Logger;
-use shuttle_actix_web::ShuttleActixWeb;
-use shuttle_runtime::{CustomError};
-use sqlx::{Executor, FromRow, PgPool};
+use actix_web::{
+    error, get, post,
+    web::{self, Json, ServiceConfig},
+    Result,
+};
 use serde::{Deserialize, Serialize};
+use shuttle_actix_web::ShuttleActixWeb;
+use shuttle_runtime::CustomError;
+use sqlx::{Executor, FromRow, PgPool};
 
 use edgar::health_check;
-
-
 
 #[derive(Serialize, Deserialize, FromRow)]
 struct Ticker {
@@ -23,22 +25,21 @@ struct AppState {
     pool: PgPool,
 }
 
-
-
 #[post("/ticker")]
 async fn new_ticker(ticker: web::Json<Ticker>, state: web::Data<AppState>) -> Result<Json<Ticker>> {
-    let ticker = sqlx::query_as("INSERT INTO edgar (ticker, edgar_id, cik, title) VALUES ($1, $2, $3, $4) RETURNING *")
-        .bind(&ticker.ticker)
-        .bind(&ticker.edgar_id)
-        .bind(&ticker.cik)
-        .bind(&ticker.title)
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|err| error::ErrorBadRequest(err.to_string()))?;
+    let ticker = sqlx::query_as(
+        "INSERT INTO edgar (ticker, edgar_id, cik, title) VALUES ($1, $2, $3, $4) RETURNING *",
+    )
+    .bind(&ticker.ticker)
+    .bind(&ticker.edgar_id)
+    .bind(&ticker.cik)
+    .bind(&ticker.title)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|err| error::ErrorBadRequest(err.to_string()))?;
 
     Ok(Json(ticker))
 }
-
 
 #[get("/ticker/{ticker}")]
 async fn get_ticker(path: web::Path<String>, state: web::Data<AppState>) -> Result<Json<Ticker>> {
@@ -51,11 +52,9 @@ async fn get_ticker(path: web::Path<String>, state: web::Data<AppState>) -> Resu
     Ok(Json(ticker))
 }
 
-
 #[shuttle_runtime::main]
 async fn main(
-    #[shuttle_shared_db::Postgres]
-    pool: PgPool,
+    #[shuttle_shared_db::Postgres] pool: PgPool,
 ) -> ShuttleActixWeb<impl FnOnce(&mut ServiceConfig) + Send + Clone + 'static> {
     pool.execute(include_str!("./schema.sql"))
         .await
