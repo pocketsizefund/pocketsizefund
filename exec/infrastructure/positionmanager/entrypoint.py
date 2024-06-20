@@ -5,8 +5,7 @@ import os
 
 import requests
 from loguru import logger
-from pocketsizefund.config import config
-from pocketsizefund.trade import trade
+from pocketsizefund import config, trade
 
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10

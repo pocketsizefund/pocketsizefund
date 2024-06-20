@@ -10,6 +10,7 @@ license = "MIT"
 readme = "README.md"
 homepage = "https://www.pocketsize.fund/"
 repository = "https://github.com/pocketsizefund/pocketsizefund"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
@@ -29,6 +30,7 @@ prefect = "^2.19.1"
 flask = "^3.0.3"
 lxml = "^5.2.2"
 llama-index = "^0.10.40"
+coverage = "^7.5.3"
 
 [tool.poetry.group.test.dependencies]
 pytest-xdist = "^3.6.1"
