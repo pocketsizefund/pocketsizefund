@@ -1,4 +1,4 @@
-name: Checks
+name: Python CI
 on:
   pull_request:
     types: [opened, synchronize, closed, reopened]
@@ -20,7 +20,7 @@ jobs:
       - name: Setup application
         run: make setup
       - name: Run unit tests
-        run: make unit-test
+        run: make python-unit-test
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
@@ -38,7 +38,7 @@ jobs:
       - name: Setup application
         run: make setup
       - name: Run lint
-        run: make lint
+        run: make python-lint
   run_dead_code:
     name: Run dead code
     runs-on: ubuntu-latest
@@ -52,4 +52,4 @@ jobs:
       - name: Setup application
         run: make setup
       - name: Run dead code
-        run: make dead-code
+        run: make python-dead-code

@@ -8,13 +8,13 @@ setup:
 	curl -L https://github.com/a8m/envsubst/releases/download/v1.2.0/envsubst-`uname -s`-`uname -m` -o envsubst
 	poetry install --with dev,test
 
-lint:
+python-lint:
 	poetry run ruff check --output-format=github .
 
-dead-code:
+python-dead-code:
 	poetry run vulture --min-confidence 80 .
 
-unit-test:
+python-unit-test:
 	poetry run coverage run --parallel-mode --module pytest pkg/data
 	poetry run coverage run --parallel-mode --module pytest pkg/trade
 	poetry run coverage run --parallel-mode --module pytest pkg/storage

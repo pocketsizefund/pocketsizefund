@@ -1,6 +1,8 @@
 name: Rust CI
 
-on: [push, pull_request]
+on:
+  pull_request:
+    types: [opened, synchronize, closed, reopened]
 
 defaults:
   run:
@@ -11,7 +13,7 @@ env:
 
 jobs:
   linting:
-    name: linting with clippy
+    name: Linting with clippy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -26,7 +28,7 @@ jobs:
           args: -- -D warnings
 
   security-audit:
-    name: cargo dependency audit
+    name: Cargo dependency audit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -37,7 +39,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   formatting:
-    name: code formatting with rustfmt
+    name: Code formatting with rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -48,14 +50,14 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt
-      - name: formatting with rustfmt
+      - name: Formatting with rustfmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
   test:
-    name: Unit tests
+    name: Run unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -66,7 +68,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: run unit tests with `cargo test`
+      - name: Run unit tests with `cargo test`
         uses: actions-rs/cargo@v1
         with:
           command: test
