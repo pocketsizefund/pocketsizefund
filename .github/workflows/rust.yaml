@@ -4,10 +4,6 @@ on:
   pull_request:
     types: [opened, synchronize, closed, reopened]
 
-defaults:
-  run:
-    working-directory: edgar-feed
-
 env:
   CARGO_TERM_COLOR: always
 
@@ -26,6 +22,8 @@ jobs:
           override: true
           token: ${{ secrets.GITHUB_TOKEN }}
           args: -- -D warnings
+      - name: Run unit tests
+        run: make rust-unit-test
 
   security-audit:
     name: Run Rust Cargo dependency audit

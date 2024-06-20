@@ -29,3 +29,6 @@ rust-lint:
 
 rust-fmt:
 	cd edgar-feed && cargo fmt --all --
+
+rust-unit-test:
+	cd edgar-feed && cargo clippy
