@@ -5,9 +5,8 @@ import os
 
 import requests
 from loguru import logger
-
-from pkg.config import config
-from pkg.trade import trade
+from pocketsizefund.config import config
+from pocketsizefund.trade import trade
 
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
@@ -81,5 +80,5 @@ def get_predictions() -> dict[str, any]:
 if __name__ == "__main__":
     try:
         get_predictions()
-    except Exception as e:  # noqa: BLE001
+    except ValueError as e:
         logger.debug(f"error getting predictions: {e}")

@@ -3,13 +3,12 @@ from typing import Optional
 
 import pytest
 from alpaca.data import requests as alpaca_data_requests
+from pocketsizefund.config import config
+from pocketsizefund.data import data
 
-from pkg.config import config
-from pkg.data import data
-
-ALPACA_API_KEY = "alpaca_api_key"  # noqa: S105
+ALPACA_API_KEY = "alpaca_api_key"
 ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S105
-EDGAR_USER_AGENT = "edgar_user_agent"  # noqa: S105
+EDGAR_USER_AGENT = "edgar_user_agent"
 
 
 class MockAlpacaHistoricalResponse:

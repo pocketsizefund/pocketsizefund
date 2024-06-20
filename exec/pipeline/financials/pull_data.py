@@ -87,6 +87,8 @@ def pull_financial_statements(config: Config) -> None:
     elif config.earnings_statement.filetype == "html":
         read_html(config.earnings_statement.url)
 
+    parse_financial_statements(financial_statements)
+    parse_earnings_statement(quarterly_earnings_statement)
 
 
 
