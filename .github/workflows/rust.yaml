@@ -22,8 +22,8 @@ jobs:
           override: true
           token: ${{ secrets.GITHUB_TOKEN }}
           args: -- -D warnings
-      - name: Run unit tests
-        run: make rust-unit-test
+      - name: Run linting
+        run: make rust-lint
 
   security-audit:
     name: Run Rust Cargo dependency audit
@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v1
+      - name: Change directory
+        run: cd edgar-feed
       - name: Install Rust toolchain and run audit check
         uses: actions-rs/audit-check@v1
         with:
@@ -49,10 +51,7 @@ jobs:
           override: true
           components: rustfmt
       - name: Formatting with rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: make rust-fmt
 
   test:
     name: Run Rust unit tests
@@ -66,7 +65,5 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Run unit tests with `cargo test`
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - name: Run unit tests
+        run: make rust-unit-test
