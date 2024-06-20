@@ -1,4 +1,4 @@
-name: Checks
+name: Python CI
 on:
   pull_request:
     types: [opened, synchronize, closed, reopened]
@@ -8,7 +8,7 @@ env:
   AWS_DEFAULT_REGION: us-east-1
 jobs:
   run_unit_tests:
-    name: Run unit tests
+    name: Run Python unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,13 +20,13 @@ jobs:
       - name: Setup application
         run: make setup
       - name: Run unit tests
-        run: make unit-test
+        run: make python-unit-test
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
           path-to-lcov: coverage.xml
   run_lint:
-    name: Run lint
+    name: Run Python lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -38,9 +38,9 @@ jobs:
       - name: Setup application
         run: make setup
       - name: Run lint
-        run: make lint
+        run: make python-lint
   run_dead_code:
-    name: Run dead code
+    name: Run Python dead code check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -52,4 +52,4 @@ jobs:
       - name: Setup application
         run: make setup
       - name: Run dead code
-        run: make dead-code
+        run: make python-dead-code
