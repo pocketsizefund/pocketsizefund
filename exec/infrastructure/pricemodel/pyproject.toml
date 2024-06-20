@@ -1,8 +1,11 @@
 [tool.poetry]
 name = "pricemodel"
-version = "0.1.5"
+version = "0.1.6"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = [
+  "forstmeier <john.forstmeier@gmail.com>",
+  "chrisaddy <chris.william.addy@gmail.com>",
+]
 readme = "README.md"
 
 [tool.poetry.dependencies]

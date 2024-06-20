@@ -4,3 +4,10 @@ services:
       context: .
     ports:
       - 8080:8080
+    environment:
+      - DARQUBE_API_KEY
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
+      - ALPHA_VANTAGE_API_KEY
+      - EDGAR_USER_AGENT
+      - MODEL_FILE_NAME
