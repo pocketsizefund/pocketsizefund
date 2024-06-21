@@ -1,15 +1,10 @@
-samconfig.toml
 __pycache__/
 *.py[cod]
 .vscode/
 etc/
 model.tar.gz
-*.keras
-*.pkl
-.aws-sam/
 .DS_Store
 node_modules
-/dist
 .coverage*
 coverage.xml
 wandb
