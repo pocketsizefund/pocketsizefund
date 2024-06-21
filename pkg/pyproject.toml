@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "pocketsizefund"
+version = "0.1.1"
+description = "Open source quantitative trading"
+authors = [
+  "forstmeier <john.forstmeier@gmail.com>",
+  "chrisaddy <chris.william.addy@gmail.com>",
+]
+license = "MIT"
+readme = "README.md"
+homepage = "https://www.pocketsize.fund/"
+repository = "https://github.com/pocketsizefund/pocketsizefund"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+loguru = "^0.7.2"
+pytorch-forecasting = "^1.0.0"
+wandb = "^0.17.0"
+toml = "^0.10.2"
+alpaca-py = "^0.21.1"
+beautifulsoup4 = "^4.12.3"
+pandas = "^2.2.2"
+requests = "^2.31.0"
+lightning = "^2.2.4"
+torch = "^2.3.0"
+boto3 = "^1.34.108"
+numpy = "^1.26.4"
+prefect = "^2.19.1"
+flask = "^3.0.3"
+lxml = "^5.2.2"
+llama-index = "^0.10.40"
+
+[tool.poetry.group.test.dependencies]
+pytest-xdist = "^3.6.1"
+coverage = "^7.5.1"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.4.4"
+vulture = "^2.11"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

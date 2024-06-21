@@ -1,4 +1,5 @@
 """Pipeline to pull financial statements from a website."""
+
 import tempfile
 
 import instructor
@@ -28,6 +29,7 @@ def read_remote_pdf(url: str) -> str:
 
     return text
 
+
 @task
 def read_html(url: str) -> str:
     """Read a remote HTML file and return the text."""
@@ -41,9 +43,13 @@ def read_html(url: str) -> str:
     return client.chat.completions.create(
         model="gpt-3.5-turbo-16k",
         response_model=str,
-        messages=[{"role": "system",
-                   "content": "You are reading a webpage and returning only the content, ignoring all HTML/JS in it"},
-                  {"role": "user", "content": body}],
+        messages=[
+            {
+                "role": "system",
+                "content": "You are reading a webpage and returning only the content, ignoring all HTML/JS in it",
+            },
+            {"role": "user", "content": body},
+        ],
     )
 
 
@@ -55,9 +61,13 @@ def parse_financial_statements(data: str) -> FinancialStatement:
     return client.chat.completions.create(
         model="gpt-3.5-turbo-16k",
         response_model=FinancialStatement,
-        messages=[{"role": "system",
-                   "content": "You are extracting data from a public financial document and structuring its output"},
-                  {"role": "user", "content": data}],
+        messages=[
+            {
+                "role": "system",
+                "content": "You are extracting data from a public financial document and structuring its output",
+            },
+            {"role": "user", "content": data},
+        ],
     )
 
 
@@ -69,10 +79,15 @@ def parse_earnings_statement(data: str) -> EarningsStatement:
     return client.chat.completions.create(
         model="gpt-3.5-turbo-16k",
         response_model=EarningsStatement,
-        messages=[{"role": "system",
-                   "content": "You are extracting the sentiment from a quarterly earnings statement"},
-                  {"role": "user", "content": data}],
+        messages=[
+            {
+                "role": "system",
+                "content": "You are extracting the sentiment from a quarterly earnings statement",
+            },
+            {"role": "user", "content": data},
+        ],
     )
+
 
 @flow
 def pull_financial_statements(config: Config) -> None:
@@ -87,7 +102,8 @@ def pull_financial_statements(config: Config) -> None:
     elif config.earnings_statement.filetype == "html":
         read_html(config.earnings_statement.url)
 
-
+    # parse_financial_statements(financial_statements)  # noqa: ERA001
+    # parse_earnings_statement(quarterly_earnings_statement)  # noqa: ERA001
 
 
 @flow(task_runner=RayTaskRunner())
@@ -99,18 +115,36 @@ def statements_pipeline(configs: list[Config]) -> None:
 
 if __name__ == "__main__":
     apple = Config(
-        financial_statement=StatementConfig(url="https://www.apple.com/newsroom/pdfs/fy2024-q2/FY24_Q2_Consolidated_Financial_Statements.pdf", filetype="pdf"),
-        earnings_statement=StatementConfig(url="https://www.apple.com/newsroom/2024/05/apple-reports-second-quarter-results/", filetype="html"),
+        financial_statement=StatementConfig(
+            url="https://www.apple.com/newsroom/pdfs/fy2024-q2/FY24_Q2_Consolidated_Financial_Statements.pdf",
+            filetype="pdf",
+        ),
+        earnings_statement=StatementConfig(
+            url="https://www.apple.com/newsroom/2024/05/apple-reports-second-quarter-results/",
+            filetype="html",
+        ),
     )
 
     amazon = Config(
-        financial_statement = StatementConfig(url="https://s2.q4cdn.com/299287126/files/doc_financials/2024/q1/AMZN-Q1-2024-Earnings-Release.pdf", filetype="pdf"),
-        earnings_statement = StatementConfig(url="https://ir.aboutamazon.com/news-release/news-release-details/2024/Amazon.com-Announces-First-Quarter-Results-68b9258cd/", filetype="html"),
+        financial_statement=StatementConfig(
+            url="https://s2.q4cdn.com/299287126/files/doc_financials/2024/q1/AMZN-Q1-2024-Earnings-Release.pdf",
+            filetype="pdf",
+        ),
+        earnings_statement=StatementConfig(
+            url="https://ir.aboutamazon.com/news-release/news-release-details/2024/Amazon.com-Announces-First-Quarter-Results-68b9258cd/",
+            filetype="html",
+        ),
     )
 
     exxon_mobil = Config(
-        financial_statement = StatementConfig(url="https://d1io3yog0oux5.cloudfront.net/_2015997b5f161254d9ac4d3d42a6ccb7/exxonmobil/db/2288/22249/earnings_release/1Q24+Earnings+Press+Release+Website.pdf", filetype="pdf"),
-        earnings_statement = StatementConfig(url="https://d1io3yog0oux5.cloudfront.net/_2015997b5f161254d9ac4d3d42a6ccb7/exxonmobil/db/2288/22249/webcast_transcript/1Q24+Earnings+Call+Transcript_Final.pdf", filetype="pdf"),
+        financial_statement=StatementConfig(
+            url="https://d1io3yog0oux5.cloudfront.net/_2015997b5f161254d9ac4d3d42a6ccb7/exxonmobil/db/2288/22249/earnings_release/1Q24+Earnings+Press+Release+Website.pdf",
+            filetype="pdf",
+        ),
+        earnings_statement=StatementConfig(
+            url="https://d1io3yog0oux5.cloudfront.net/_2015997b5f161254d9ac4d3d42a6ccb7/exxonmobil/db/2288/22249/webcast_transcript/1Q24+Earnings+Call+Transcript_Final.pdf",
+            filetype="pdf",
+        ),
     )
 
     statements_pipeline([exxon_mobil])

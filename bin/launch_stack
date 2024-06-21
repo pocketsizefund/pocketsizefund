@@ -2,7 +2,7 @@
 
 # launch Kubernetes resources
 
-set -e
+set -ex
 
 location=${1:-"remote"}
 
@@ -17,11 +17,7 @@ if [[ $location == "local" ]]; then
     minikube image load pocketsizefund-${environment}-price-model:latest
     minikube image load pocketsizefund-${environment}-position-manager:latest
 else
-    account_region=$(aws --profile default configure get region)
-
-    aws eks update-kubeconfig \
-        --region ${account_region} \
-        --name pocketsizefund-platform
+    kubectl apply -f platform.yaml
 fi
 
 temorary_mode_file_name_file=$(mktemp)

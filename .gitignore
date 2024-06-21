@@ -24,4 +24,10 @@ edgar-feed/target
 edgar-feed/.shuttle-storage
 edgar-feed/Secrets*.toml
 
+infrastructure/venv
+
+pkg/dist
+
 .envrc
+
+env*
