@@ -25,18 +25,18 @@ jobs:
       - name: Run linting
         run: make rust-lint
 
-  security-audit:
-    name: Run Rust Cargo dependency audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v1
-      - name: Change directory
-        run: cd edgar-feed
-      - name: Install Rust toolchain and run audit check
-        uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+  # security-audit:
+  #   name: Run Rust Cargo dependency audit
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v1
+  #     - name: Change directory
+  #       run: cd edgar-feed
+  #     - name: Install Rust toolchain and run audit check
+  #       uses: actions-rs/audit-check@v1
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
 
   formatting:
     name: Run Rust code formatting

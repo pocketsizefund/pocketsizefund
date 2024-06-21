@@ -15,12 +15,12 @@ python-dead-code:
 	poetry run vulture --min-confidence 80 .
 
 python-unit-test:
-	poetry run coverage run --parallel-mode --module pytest pkg/data
-	poetry run coverage run --parallel-mode --module pytest pkg/trade
-	poetry run coverage run --parallel-mode --module pytest pkg/storage
+	poetry run coverage run --parallel-mode --module pytest pkg/tests/test_data.py
+	poetry run coverage run --parallel-mode --module pytest pkg/tests/test_trade.py
+	poetry run coverage run --parallel-mode --module pytest pkg/tests/test_storage.py
 	poetry run coverage combine
 	poetry run coverage report
-	poetry run coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
+	poetry run coverage xml --omit='pkg/tests/*/test_*.py' --include='pkg/pocketsizefund/*'
 	rm -rf .coverage/
 
 rust-lint:

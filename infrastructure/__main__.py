@@ -3,24 +3,6 @@ import pulumi_awsx as awsx
 import pulumi_eks as eks
 import pulumi_kubernetes as k8s
 
-# darqube_api_key = os.getenv("DARQUBE_API_KEY")
-# darqube_api_key = base64.b64encode(darqube_api_key.encode()).decode()
-#
-# alpaca_api_key = os.getenv("ALPACA_API_KEY")
-# alpaca_api_key = base64.b64encode(alpaca_api_key.encode()).decode()
-#
-# alpaca_api_secret = os.getenv("ALPACA_API_SECRET")
-# alpaca_api_secret = base64.b64encode(alpaca_api_secret.encode()).decode()
-#
-# alpha_vantage_api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
-# alpha_vantage_api_key = base64.b64encode(alpha_vantage_api_key.encode()).decode()
-#
-# edgar_user_agent = os.getenv("EDGAR_USER_AGENT")
-# edgar_user_agent = base64.b64encode(edgar_user_agent.encode()).decode()
-#
-# model_file_name = os.getenv("MODEL_FILE_NAME")
-# model_file_name = base64.b64encode(model_file_name.encode()).decode()
-#
 config = pulumi.Config()
 min_cluster_size = config.get_int("minClusterSize", 3)
 max_cluster_size = config.get_int("maxClusterSize", 6)
@@ -45,14 +27,6 @@ eks_cluster = eks.Cluster(
 )
 
 
-# darqube_api_key = base64.b64encode(darqube_api_key.encode()).decode()
-# alpaca_api_key = base64.b64encode(alpaca_api_key.encode()).decode()
-# alpaca_api_secret = base64.b64encode(alpaca_api_secret.encode()).decode()
-# alpha_vantage_api_key = base64.b64encode(alpha_vantage_api_key.encode()).decode()
-# edgar_user_agent = base64.b64encode(edgar_user_agent.encode()).decode()
-# model_file_name = base64.b64encode(model_file_name.encode()).decode()
-#
-#
 def create_secret(name, data, namespace="default"):
     return k8s.core.v1.Secret(
         name,
@@ -64,17 +38,6 @@ def create_secret(name, data, namespace="default"):
         type="Opaque",
     )
 
-# secrets = create_secret(
-#     "platform",
-#     {
-#         "darqube_api_key": darqube_api_key,
-#         "alpaca_api_key": alpaca_api_key,
-#         "alpaca_api_secret": alpaca_api_secret,
-#         "alpha_vantage_api_key": alpha_vantage_api_key,
-#         "edgar_user_agent": edgar_user_agent,
-#         "model_file_name": model_file_name,
-#     },
-# )
-#
+
 pulumi.export("kubeconfig", eks_cluster.kubeconfig)
 pulumi.export("vpcId", eks_vpc.vpc_id)
