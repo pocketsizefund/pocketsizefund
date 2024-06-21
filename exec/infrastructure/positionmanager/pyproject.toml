@@ -11,6 +11,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
 pocketsizefund = "^0.1.1"
+sentry-sdk = "^2.6.0"
 
 
 [build-system]

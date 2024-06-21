@@ -4,8 +4,20 @@ import datetime
 import json
 import os
 
-import flask
+import sentry_sdk
 from pocketsizefund import config, data, model, trade
+from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+
+sentry_loguru = LoguruIntegration(
+    level=LoggingLevels.INFO.value, event_level=LoggingLevels.ERROR.value,
+)
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    integrations=[sentry_loguru],
+    traces_sample_rate=1.0,
+)
+
 
 app = flask.Flask(__name__)
 
@@ -31,9 +43,11 @@ try:
         file_path=os.getenv("MODEL_FILE_NAME"),
     )
 except FileNotFoundError:
+    logger.error("model not found, make sure MODEL_FILE_NAME is set")
     price_model = None
 
 except IsADirectoryError:
+    logger.error("model is a directory, make sure MODEL_FILE_NAME is set")
     price_model = None
 
 
