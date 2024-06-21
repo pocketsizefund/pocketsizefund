@@ -7,11 +7,12 @@ import requests
 from loguru import logger
 from pocketsizefund.config import config
 from pocketsizefund.trade import trade
+from bin.helpers.api_check import api_key_required
 
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
-
+@api_key_required
 def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
     trade_client = trade.Client(
