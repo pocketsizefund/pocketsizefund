@@ -1,15 +1,15 @@
-"""Inference endpoint for price prediction model."""
+"""Inference endpoint for price prediction model."""  # noqa: INP001
 
 import datetime
 import json
 import os
 
 import flask
+from loguru import logger
 from pocketsizefund import config
 from pocketsizefund.data import data
 from pocketsizefund.model import model
 from pocketsizefund.trade import trade
-from loguru import logger
 
 app = flask.Flask(__name__)
 
@@ -21,7 +21,8 @@ try:
         alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
         is_paper=True,
     )
-except Exception as e:
+
+except Exception as e:  # noqa: BLE001
     logger.error(e)
 
 
@@ -32,19 +33,21 @@ try:
         edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
         debug=False,
     )
-except Exception as e:
+
+except Exception as e:  # noqa: BLE001
     logger.error(e)
 
-model = model.Model()
+price_model = model.Model()
 
 try:
-    model.load_model(
+    price_model.load_model(
         file_path=os.getenv("MODEL_FILE_NAME"),
     )
 except FileNotFoundError:
-    model = None
+    price_model = None
+
 except IsADirectoryError:
-    model = None
+    price_model = None
 
 
 @app.route("/health", methods=["GET"])
@@ -56,7 +59,7 @@ def health() -> flask.Response:
 @app.route("/predictions", methods=["GET"])
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""
-    if model is None:
+    if price_model is None:
         return flask.Response(
             response="model not found, make sure MODEL_FILE_NAME is set",
             status=404,
@@ -77,7 +80,7 @@ def invocations() -> flask.Response:
 
     predictions = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
-        ticker_predictions = model.get_predictions(
+        ticker_predictions = price_model.get_predictions(
             data=ticker_bars_raw_data,
         )
 
@@ -90,4 +93,8 @@ def invocations() -> flask.Response:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=False)
+    app.run(
+        host="0.0.0.0",  # noqa: S104
+        port=8080,
+        debug=False,
+    )
