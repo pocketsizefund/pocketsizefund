@@ -18,11 +18,15 @@ sentry_sdk.init(
     integrations=[sentry_loguru],
     traces_sample_rate=1.0,
 )
+from pocketsizefund.config import config
+from pocketsizefund.trade import trade
+
+from bin.helpers.api_check import api_key_required
 
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
-
+@api_key_required
 def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
     trade_client = trade.Client(
@@ -93,3 +97,4 @@ if __name__ == "__main__":
         get_predictions()
     except ValueError as e:
         logger.debug(f"error getting predictions: {e}")
+

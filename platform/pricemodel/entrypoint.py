@@ -21,6 +21,11 @@ sentry_sdk.init(
     traces_sample_rate=1.0,
 )
 
+from pocketsizefund.data import data
+from pocketsizefund.model import model
+from pocketsizefund.trade import trade
+
+from bin.helpers.api_check import api_key_required
 
 app = flask.Flask(__name__)
 
@@ -55,12 +60,14 @@ except IsADirectoryError:
 
 
 @app.route("/health", methods=["GET"])
+@api_key_required
 def health() -> flask.Response:
     """Health endpoint for the inference endpoint."""
     return flask.Response(status=200)
 
 
 @app.route("/predictions", methods=["GET"])
+@api_key_required
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""
     if price_model is None:
@@ -102,3 +109,4 @@ if __name__ == "__main__":
         port=8080,
         debug=False,
     )
+
