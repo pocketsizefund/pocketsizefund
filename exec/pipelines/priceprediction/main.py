@@ -40,33 +40,33 @@ def download_data(
 @task
 def train_model(
     data: pd.DataFrame,
-) -> model.Model:
+) -> model.PriceModel:
     """Train the price prediction model."""
     sam_config = config.SAMConfig(
         file_path="samconfig.toml",
     )
 
-    price_prediction_model = model.Model(
+    price_model = model.PriceModel(
         weights_and_biases_api_key=sam_config.get_parameter("WeightsAndBiasesAPIKey"),
     )
 
-    price_prediction_model.train_model(
+    price_model.train_model(
         data=data,
     )
 
-    return price_prediction_model
+    return price_model
 
 
 @task
 def save_model(
-    price_prediction_model: model.Model,
+    price_model: model.PriceModel,
 ) -> None:
     """Save the price prediction model to local file."""
     now = datetime.datetime.now(tz=config.TIMEZONE)
 
     tag = now.strftime("%Y-%m-%d-%H-%M-%S")
 
-    price_prediction_model.save_model(
+    price_model.save_model(
         file_path=f"{tag}-model.ckpt",
     )
 
@@ -82,12 +82,12 @@ def pipeline(
         s3_artifacts_bucket_name=s3_artifacts_bucket_name,
     )
 
-    price_prediction_model = train_model(
+    price_model = train_model(
         data=data,
     )
 
     save_model(
-        price_prediction_model=price_prediction_model,
+        price_model=price_model,
     )
 
 

@@ -1,43 +1,70 @@
-"""Inference endpoint for price prediction model."""
+"""Inference endpoint for price prediction model."""  # noqa: INP001
 
 import datetime
 import json
 import os
 
 import flask
-
-from pkg.config import config
-from pkg.data import data
-from pkg.model import model
-from pkg.trade import trade
+from loguru import logger
+from pocketsizefund import config
+from pocketsizefund.data import data
+from pocketsizefund.model import model
+from pocketsizefund.trade import trade
 
 app = flask.Flask(__name__)
 
-trade_client = trade.Client(
-    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
-    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-    is_paper=True,
-)
+try:
+    trade_client = trade.Client(
+        darqube_api_key=os.getenv("DARQUBE_API_KEY"),
+        alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+        alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+        alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
+        is_paper=True,
+    )
 
-data_client = data.Client(
-    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-    edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
-    debug=False,
-)
+except Exception as e:  # noqa: BLE001
+    logger.error(e)
 
-model_model = model.Model()
 
-model_model.load_model(
-    file_path=os.getenv("MODEL_FILE_NAME"),
-)
+try:
+    data_client = data.Client(
+        alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+        alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+        edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
+        debug=False,
+    )
+
+except Exception as e:  # noqa: BLE001
+    logger.error(e)
+
+price_model = model.Model()
+
+try:
+    price_model.load_model(
+        file_path=os.getenv("MODEL_FILE_NAME"),
+    )
+except FileNotFoundError:
+    price_model = None
+
+except IsADirectoryError:
+    price_model = None
+
+
+@app.route("/health", methods=["GET"])
+def health() -> flask.Response:
+    """Health endpoint for the inference endpoint."""
+    return flask.Response(status=200)
 
 
 @app.route("/predictions", methods=["GET"])
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""
+    if price_model is None:
+        return flask.Response(
+            response="model not found, make sure MODEL_FILE_NAME is set",
+            status=404,
+        )
+
     available_tickers = trade_client.get_available_tickers()
 
     end_at = datetime.datetime.now(tz=config.TIMEZONE)
@@ -53,7 +80,7 @@ def invocations() -> flask.Response:
 
     predictions = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
-        ticker_predictions = model_model.get_predictions(
+        ticker_predictions = price_model.get_predictions(
             data=ticker_bars_raw_data,
         )
 
@@ -69,4 +96,5 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",  # noqa: S104
         port=8080,
+        debug=False,
     )

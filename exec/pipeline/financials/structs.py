@@ -1,4 +1,4 @@
-"""Structs for financials pipeline."""
+"""Runtime data structures for financial statements."""
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -112,19 +112,34 @@ class FinancialStatement(BaseModel):
 
 
 class EarningsStatement(BaseModel):
-    confidence: int = Field(..., description="Confidence: Indicates strong belief in future performance.")
-    optimism: int = Field(..., description="Optimism: Shows positive outlook and expectations.")
-    satisfaction: int = Field(..., description="Satisfaction: Reflects contentment with current performance.")
-    excitement: int = Field(..., description="Excitement: Demonstrates enthusiasm about recent achievements or future prospects.")
-    concern: int = Field(..., description="Concern: Indicates worry about potential issues or risks.")
-    uncertainty: int = Field(..., description="Uncertainty: Reflects lack of clarity about future outcomes.")
-    disappointment: int = Field(..., description="Disappointment: Shows dissatisfaction with current or past performance.")
-    pessimism: int = Field(..., description="Pessimism: Demonstrates a negative outlook and expectations.")
-    cautious_optimism: int = Field(..., description="Cautious Optimism: Combination of hopefulness and caution.")
-    neutrality: int = Field(..., description="Neutrality: Balanced view without strong positive or negative bias.")
-    mixed_emotions: int = Field(..., description="Mixed Emotions: Conflicting feelings about different aspects of performance.")
-    trust: int = Field(..., description="Trust: Confidence in the management team and their decisions.")
-    anticipation: int = Field(..., description="Anticipation: Looking forward to upcoming events or developments.")
-    regret: int = Field(..., description="Regret: Expressing remorse over past decisions or performance.")
-    relief: int = Field(..., description="Relief: Feeling of alleviation after overcoming challenges.")
+    confidence: int = Field(...,
+                            description="Confidence: Indicates strong belief in future performance.")
+    optimism: int = Field(...,
+                          description="Optimism: Shows positive outlook and expectations.")
+    satisfaction: int = Field(...,
+                              description="Satisfaction: Reflects contentment with current performance.")
+    excitement: int = Field(...,
+                            description="Excitement: Demonstrates enthusiasm about recent achievements or future prospects.")
+    concern: int = Field(...,
+                         description="Concern: Indicates worry about potential issues or risks.")
+    uncertainty: int = Field(...,
+                             description="Uncertainty: Reflects lack of clarity about future outcomes.")
+    disappointment: int = Field(...,
+                                description="Disappointment: Shows dissatisfaction with current or past performance.")
+    pessimism: int = Field(...,
+                           description="Pessimism: Demonstrates a negative outlook and expectations.")
+    cautious_optimism: int = Field(...,
+                                   description="Cautious Optimism: Combination of hopefulness and caution.")
+    neutrality: int = Field(...,
+                            description="Neutrality: Balanced view without strong positive or negative bias.")
+    mixed_emotions: int = Field(...,
+                                description="Mixed Emotions: Conflicting feelings about different aspects of performance.")
+    trust: int = Field(...,
+                       description="Trust: Confidence in the management team and their decisions.")
+    anticipation: int = Field(...,
+                              description="Anticipation: Looking forward to upcoming events or developments.")
+    regret: int = Field(...,
+                        description="Regret: Expressing remorse over past decisions or performance.")
+    relief: int = Field(...,
+                        description="Relief: Feeling of alleviation after overcoming challenges.")
 
