@@ -2,8 +2,7 @@ import gzip
 import io
 
 import pandas as pd
-
-from pkg.storage import storage
+from pocketsizefund.storage import storage
 
 
 class MockS3Client:
