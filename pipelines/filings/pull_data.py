@@ -10,8 +10,8 @@ from openai import OpenAI
 from prefect import flow, task
 from prefect_ray import RayTaskRunner
 
-from exec.pipeline.financials.config import Config, StatementConfig
-from exec.pipeline.financials.structs import EarningsStatement, FinancialStatement
+from pipelines.filings.config import Config, StatementConfig
+from pipelines.filings.structs import EarningsStatement, FinancialStatement
 
 
 @task

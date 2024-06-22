@@ -3,12 +3,15 @@
 > Open source quantitative trading 🍊  
 
 [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund)  
+[![Python CI](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml)
 
 ## About
 
 **Pocket Size Fund** is an open source quantitative trading firm being built on nights and weekends.  
 
-**pocketsizefund** holds the main resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
+This repository holds the main resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
+
+The project is actively a work-in-progress.  
 
 ## Project
 
@@ -44,14 +47,6 @@ An unordered and non-exhaustive list of principles we work towards:
 > No code is good code  
 > Never write documentation  
 > Git is truth  
-
-## Development
-
-### Status
-
-> Work in progress 🚧
-
-This is in ongoing development so expect significant changes going forward.  
 
 ### Participation
 

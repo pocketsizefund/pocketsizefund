@@ -7,7 +7,7 @@ minikube = "latest"
 envsubst = "latest"
 yq = "latest"
 jq = "latest"
-ruff = "latest"
+ruff = "0.4.10" # lastest is breaking
 direnv = "latest"
 helm = "latest"
 
@@ -19,49 +19,49 @@ PLATFORM = "linux/amd64"
 description = "setup dependencies for the repo"
 run = "poetry install --with dev,test"
 
-
-[tasks."check:dead-code"]
+[tasks."python:dead-code"]
 description = "check for dead python code"
 tools = ["poetry"]
 depends = ["repo:setup"]
 run = "poetry run vulture --min-confidence 80 ."
 
-[tasks."pkg:setup"]
+[tasks."libraries:python:setup"]
 description = "setup virtualenv for pocketsizefund python package"
+tools = ["poetry"]
 run = """
-cd $root/pkg
+cd $root/libraries/python/pocketsizefund
 poetry install 
 """
 
-[tasks."pkg:build"]
+[tasks."libraries:python:build"]
 description = "build the pocketsizefund python package"
-depends = ["pkg:setup"]
+depends = ["libraries:python:setup"]
 run = """
-cd $root/pkg
+cd $root/libraries/python/pocketsizefund
 poetry build
 """
 
-[tasks."pkg:publish"]
+[tasks."libraries:python:publish"]
 description = "publish the pocketsizefund python package to PyPI registry"
-depends = ["pkg:build"]
+depends = ["libraries:python:build"]
 run = """
-cd $root/pkg
+cd $root/libraries/python/pocketsizefund
 poetry config pypi-token.pypi $PYPI_TOKEN
 poetry publish
 """
 
-[tasks."pkg:test"]
+[tasks."libraries:python:test"]
 description = "unit tests for the pocketsizefund python package"
-depends = ["pkg:setup"]
+depends = ["libraries:python:setup"]
 run = """
-cd $root/pkg
+cd $root/libraries/python/tests
 poetry run coverage run --parallel-mode --module pytest
 poetry run coverage combine
-poetry run coverage report
-poetry run coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
+poetry run coverage report --omit='test_*.py,*/__init__.py'
+poetry run coverage xml --omit='test_*.py,*/__init__.py'
 rm -rf .coverage/
+mv coverage.xml $root/
 """
-
 
 [tasks."k8s:config:sync"]
 description = "sync cluster config with local kube config"
@@ -115,33 +115,33 @@ description = "setup prometheus helm chart"
 run = """
 kubectl create namespace prometheus
 helm install prometheus prometheus-community/kube-prometheus-stack -n prometheus
-""""
+"""
 
 [tasks."k8s:helm:update"]
+description = "update helm charts"
 run = """
 helm repo update
 """
 
-[tasks."lint:python"]
+[tasks."python:lint"]
 description = "run python linter across the monorepo"
 tools = ["ruff"]
 run = """
 ruff check --output-format=github .
 """
 
-[tasks."lint:pkg"]
+[tasks."libraries:python:lint"]
 description = "run python linter on the pocketsizefund package"
 tools = ["ruff"]
 run = """
-cd $root/pkg
+cd $root/libraries/python/pocketsizefund
 ruff check --output-format=github .
 """
 
-
-[tasks."price-model:build"]
+[tasks."platform:price-model:build"]
 description = "build docker image for price model"
 run = """
-cd $root/exec/infrastructure/pricemodel
+cd $root/platform/pricemodel
 
 IMAGE=pocketsizefund/price-model
 VERSION=$(poetry version -s)
@@ -149,18 +149,18 @@ VERSION=$(poetry version -s)
 docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
 """
 
-[tasks."price-model:run"]
+[tasks."platform:price-model:run"]
 description = "run price model in docker compose"
 run = """
-cd $root/exec/infrastructure/pricemodel
+cd $root/platform/pricemodel
 docker compose up --build
 """
 
-[tasks."price-model:push"]
+[tasks."platform:price-model:push"]
 description = "push price model image to docker hub"
 depends = ["price-model:build"]
 run = """
-cd $root/exec/infrastructure/pricemodel
+cd $root/platform/pricemodel
 
 IMAGE=pocketsizefund/price-model
 VERSION=$(poetry version -s)
@@ -169,10 +169,10 @@ docker push $IMAGE:latest
 docker push $IMAGE:$VERSION
 """
 
-[tasks."position-manager:build"]
+[tasks."platform:position-manager:build"]
 description = "build docker image for the position manager"
 run = """
-cd $root/exec/infrastructure/positionmanager
+cd $root/platform/positionmanager
 
 IMAGE=pocketsizefund/position-manager
 VERSION=$(poetry version -s)
@@ -180,18 +180,18 @@ VERSION=$(poetry version -s)
 docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
 """
 
-[tasks."position-manager:run"]
+[tasks."platform:position-manager:run"]
 description = "run position manager in docker compose"
 run = """
-cd $root/exec/infrastructure/positionmanager
+cd $root/platform/positionmanager
 docker compose up --build
 """
 
-[tasks."position-manager:push"]
+[tasks."platform:position-manager:push"]
 description = "push position manager image to docker hub"
 depends = ["position-manager:build"]
 run = """
-cd $root/exec/infrastructure/positionmanager
+cd $root/platform/positionmanager
 
 IMAGE=pocketsizefund/position-manager
 VERSION=$(poetry version -s)
@@ -200,10 +200,10 @@ docker push $IMAGE:latest
 docker push $IMAGE:$VERSION
 """
 
-[tasks."discord:build"]
+[tasks."platform:discord:build"]
 description = "build docker image for discord bot"
 run = """
-cd $root/exec/infrastructure/discord
+cd $root/platform/discord
 
 IMAGE=pocketsizefund/discord
 VERSION=$(poetry version -s)
@@ -211,18 +211,18 @@ VERSION=$(poetry version -s)
 docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
 """
 
-[tasks."discord:run"]
+[tasks."platform:discord:run"]
 description = "run price model in docker compose"
 run = """
-cd $root/exec/infrastructure/pricemodel
+cd $root/platform/discord
 docker compose up --build
 """
 
-[tasks."discord:push"]
+[tasks."platform:discord:push"]
 description = "push price model image to docker hub"
 depends = ["price-model:build"]
 run = """
-cd $root/exec/infrastructure/pricemodel
+cd $root/platform/discord
 
 IMAGE=pocketsizefund/price-model
 VERSION=$(poetry version -s)
@@ -231,41 +231,34 @@ docker push $IMAGE:latest
 docker push $IMAGE:$VERSION
 """
 
-
-
-
-[tasks."lint:rust"]
+[tasks."platform:discord:lint"]
 description = "lint rust cargos"
 run = """
-cd $root/exec/infrastructure/discord
+cd $root/platform/discord
 cargo clippy --all --
 """
 
-
-[tasks."fmt:rust"]
+[tasks."platform:discord:format"]
 description = "format rust cargos"
 run = """
-cd $root/exec/infrastructure/discord
+cd $root/platform/discord
 cargo fmt --all
 """
 
-[tasks."test:rust"]
+[tasks."platform:discord:test"]
 description = "format rust cargos"
 run = """
-cd $root/exec/infrastructure/discord
+cd $root/platform/discord
 cargo test
 """
 
-[tasks."audit:rust"]
+[tasks."platform:discord:audit"]
 description = "audit rust cargos"
 run = """
-cd $root/exec/infrastructure/discord
+cd $root/platform/discord
 cargo deny check
 """
 
-[tasks.all]
+[tasks."test:all"]
 description = "run all tasks"
 depends = ["check:*", "lint:*", "audit:*", "test:*"]
-
-
-

@@ -416,6 +416,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<<< HEAD:exec/infrastructure/discord/Cargo.lock
 name = "dirs-sys"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -470,6 +471,8 @@ dependencies = [
 ]
 
 [[package]]
+========
+>>>>>>>> 704d956 (Initial restructure proposal for full repository):platform/filingsfeed/Cargo.lock
 name = "either"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -541,6 +544,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fc0510504f03c51ada170672ac806f1f105a88aa97a5281117e1ddc3368e51a"
 
 [[package]]
+<<<<<<<< HEAD:exec/infrastructure/discord/Cargo.lock
 name = "findshlibs"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -550,6 +554,20 @@ dependencies = [
  "lazy_static",
  "libc",
  "winapi",
+========
+name = "filings"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shuttle-actix-web",
+ "shuttle-runtime",
+ "shuttle-shared-db",
+ "sqlx",
+ "tokio",
+>>>>>>>> 704d956 (Initial restructure proposal for full repository):platform/filingsfeed/Cargo.lock
 ]
 
 [[package]]

@@ -4,13 +4,15 @@ import datetime
 import json
 import os
 
+import flask
 import sentry_sdk
 from loguru import logger
 from pocketsizefund import config, data, model, trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
 sentry_loguru = LoguruIntegration(
-    level=LoggingLevels.INFO.value, event_level=LoggingLevels.ERROR.value,
+    level=LoggingLevels.INFO.value,
+    event_level=LoggingLevels.ERROR.value,
 )
 
 sentry_sdk.init(
