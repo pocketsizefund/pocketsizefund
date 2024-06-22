@@ -42,12 +42,12 @@ def train_model(
     data: pd.DataFrame,
 ) -> model.PriceModel:
     """Train the price prediction model."""
-    sam_config = config.SAMConfig(
-        file_path="samconfig.toml",
+    config_file = config.Config(
+        environment=config.ENVIRONMENT_DEVELOPMENT,
     )
 
     price_model = model.PriceModel(
-        weights_and_biases_api_key=sam_config.get_parameter("WeightsAndBiasesAPIKey"),
+        weights_and_biases_api_key=config_file.get_parameter("weights_and_biases_api_key"),
     )
 
     price_model.train_model(
@@ -92,12 +92,12 @@ def pipeline(
 
 
 if __name__ == "__main__":
-    sam_config = config.SAMConfig(
-        file_path="samconfig.toml",
+    config_file = config.Config(
+        environment=config.ENVIRONMENT_DEVELOPMENT,
     )
 
-    s3_data_bucket_name = sam_config.get_parameter("S3DataBucketName")
-    s3_artifacts_bucket_name = sam_config.get_parameter("S3ArtifactsBucketName")
+    s3_data_bucket_name = config_file.get_parameter("s3_data_bucket_name")
+    s3_artifacts_bucket_name = config_file.get_parameter("s3_artifacts_bucket_name")
 
     pipeline(
         s3_data_bucket_name=s3_data_bucket_name,

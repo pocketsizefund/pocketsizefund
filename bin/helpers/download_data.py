@@ -1,16 +1,15 @@
 """Download all raw data from S3."""
 
-from pkg.config import config
-from pkg.storage import storage
+from pocketsizefund.config import config
+from pocketsizefund.storage import storage
 
-samconfig_file = config.SAMConfig(
-    file_path="samconfig.toml",
+config_file = config.Config(
     environment=config.ENVIRONMENT_DEVELOPMENT,
 )
 
 storage_client = storage.Client(
-    s3_data_bucket_name=samconfig_file.get_parameter("S3DataBucketName"),
-    s3_artifacts_bucket_name=samconfig_file.get_parameter("S3ArtifactsBucketName"),
+    s3_data_bucket_name=config_file.get_parameter("s3_data_bucket_name"),
+    s3_artifacts_bucket_name=config_file.get_parameter("s3_artifacts_bucket_name"),
 )
 
 file_names = storage_client.list_file_names(

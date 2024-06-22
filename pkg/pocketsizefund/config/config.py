@@ -3,32 +3,27 @@
 import argparse
 import datetime
 
-import toml
-
 ENVIRONMENT_DEVELOPMENT = "development"
 TIMEZONE = datetime.timezone.utc  # noqa: UP017
 
 
-class SAMConfig:
-    """SAMConfig class."""
+class Config:
+    """Config class."""
 
-    def __init__(self, file_path: str, environment: str = ENVIRONMENT_DEVELOPMENT) -> None:
-        """SAM Config class.
+    def __init__(self, environment: str = ENVIRONMENT_DEVELOPMENT) -> None:
+        """Config class.
 
         Args:
-            file_path (str): Path to SAM config file.
             environment (str, optional): Environment to use. Defaults to ENVIRONMENT_DEVELOPMENT.
         """
-        self.samconfig_file = toml.load(file_path)
-
-        self.parameters: dict[str, str] = {}
-        parameters = self.samconfig_file[environment]["deploy"]["parameters"]
-        for parameter in parameters["parameter_overrides"]:
-            parameter_split = parameter.split("=")
-            self.parameters[parameter_split[0]] = parameter_split[1]
+        self.parameters = {}
+        with open(f"etc/.env.{environment.lower()}") as config_file:  # noqa: PTH123
+            for line in config_file:
+                key, value = line.strip().split("=", 1)
+                self.parameters[key.strip()] = value.strip()
 
     def get_parameter(self, parameter_name: str) -> str:
-        """Get a parameter from the SAM config file.
+        """Get a parameter from the config file.
 
         Args:
             parameter_name (str): Parameter name.
@@ -37,8 +32,7 @@ class SAMConfig:
 
 
 if __name__ == "__main__":
-    samconfig_file = SAMConfig(
-        "samconfig.toml",
+    config_file = Config(
         ENVIRONMENT_DEVELOPMENT,
     )
 
@@ -47,4 +41,4 @@ if __name__ == "__main__":
 
     arguments = parser.parse_args()
 
-    print(samconfig_file.get_parameter(arguments.parameter))  # noqa: T201
+    print(config_file.get_parameter(arguments.parameter))  # noqa: T201
