@@ -4565,7 +4565,10 @@ files = [
 ]
 
 [package.dependencies]
+blinker = {version = ">=1.1", optional = true, markers = "extra == \"flask\""}
 certifi = "*"
+flask = {version = ">=0.11", optional = true, markers = "extra == \"flask\""}
+markupsafe = {version = "*", optional = true, markers = "extra == \"flask\""}
 urllib3 = ">=1.26.11"
 
 [package.extras]
@@ -5920,4 +5923,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.11"
-content-hash = "afb1ecae9b519230c0e6ba7dc5921dea0ee90095bd7de2aa131c44c8f576994e"
+content-hash = "cddcdb181d60328f2af15516b34592705bee7aa08f7f06947ff6245e0fddec4b"

@@ -15,6 +15,7 @@ beautifulsoup4 = "^4.12.3"
 flask = "^3.0.3"
 pocketsizefund = "^0.1.1"
 gunicorn = "^22.0.0"
+sentry-sdk = {extras = ["flask"], version = "^2.6.0"}
 
 
 [build-system]

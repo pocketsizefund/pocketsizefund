@@ -3,3 +3,10 @@ services:
     build:
       context: .
     platform: linux/amd64
+    environment:
+      - SENTRY_DSN
+      - DARQUBE_API_KEY
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
+      - ALPHA_VANTAGE_API_KEY
+      - IS_PAPER
