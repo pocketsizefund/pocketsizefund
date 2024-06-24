@@ -5,6 +5,7 @@ import json
 import os
 
 import sentry_sdk
+from loguru import logger
 from pocketsizefund import config, data, model, trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
@@ -43,11 +44,11 @@ try:
         file_path=os.getenv("MODEL_FILE_NAME"),
     )
 except FileNotFoundError:
-    logger.error("model not found, make sure MODEL_FILE_NAME is set")
+    logger.exception("model not found, make sure MODEL_FILE_NAME is set")
     price_model = None
 
 except IsADirectoryError:
-    logger.error("model is a directory, make sure MODEL_FILE_NAME is set")
+    logger.exception("model is a directory, make sure MODEL_FILE_NAME is set")
     price_model = None
 
 

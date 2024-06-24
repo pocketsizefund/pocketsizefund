@@ -1,6 +1,6 @@
 [graph]
 targets = []
-all-features = true
+all-features = false
 no-default-features = false
 
 [output]
@@ -12,22 +12,30 @@ ignore = []
 [licenses]
 allow = [
     "MIT",
+    "Unicode-DFS-2016",
     "Apache-2.0",
-    "ISC",
     "BSD-3-Clause",
-    "Unicode-DFS-2016"
+    "OpenSSL",
+    "ISC",
 ]
 confidence-threshold = 0.8
 exceptions = []
 
+[[licenses.clarify]]
+name = "ring"
+version = "0.17.8"
+expression = "OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 }
+]
+
 [licenses.private]
 ignore = false
-registries = []
 
 [bans]
 multiple-versions = "warn"
 wildcards = "allow"
-highlight = "simplest-path"
+highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
 allow = []
@@ -40,8 +48,3 @@ unknown-registry = "warn"
 unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
-
-[sources.allow-org]
-github = [""]
-gitlab = [""]
-bitbucket = [""]

@@ -14,9 +14,7 @@ tft_model.ckpt
 *-all.csv
 *.ckpt*
 
-edgar-feed/target
-edgar-feed/.shuttle-storage
-edgar-feed/Secrets*.toml
+exec/infrastructure/discord/target
 
 infrastructure/venv
 

@@ -1,0 +1,9 @@
+services:
+  discord:
+    build:
+      context: .
+      target: final
+    ports:
+      - 8080:8080
+    environment:
+      - DISCORD_TOKEN
