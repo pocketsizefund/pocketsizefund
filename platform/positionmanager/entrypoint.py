@@ -21,7 +21,7 @@ sentry_sdk.init(
 from pocketsizefund.config import config
 from pocketsizefund.trade import trade
 
-from bin.helpers.api_check import api_key_required
+from pkg.pocketsizefund.config.api_check import api_key_required
 
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
