@@ -9,6 +9,7 @@ yq = "latest"
 jq = "latest"
 ruff = "latest"
 direnv = "latest"
+helm = "latest"
 
 [env]
 PLATFORM = "linux/amd64"
@@ -78,6 +79,47 @@ run = """
 kubectl delete secrets --all
 kubectl create secret generic platform --from-env-file=$root/etc/.env.development
 kubectl describe secrets platform
+"""
+
+[tasks."k8s:helm:install"]
+description = "install helm charts to k8s cluster"
+run = """
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+"""
+
+[tasks."k8s:helm:grafana:setup"]
+description = "setup grafana helm chart"
+depends = ["k8s:helm:install"]
+run = """
+kubectl create namespace monitoring
+helm install grafana grafana/grafana --namespace monitoring
+"""
+
+[tasks."k8s:grafana:get-password"]
+description = "get grafana admin password"
+run = """
+kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+"""
+
+[tasks."k8s:grafana:launch"]
+description = "launch grafana dashboard"
+depends = ["k8s:grafana:get-password"]
+run = """
+export POD_NAME=$(kubectl get pods --namespace monitoring -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=grafana" -o jsonpath="{.items[0].metadata.name}")
+     kubectl --namespace monitoring port-forward $POD_NAME 3000
+"""
+
+[tasks."k8s:helm:prometheus:setup"]
+description = "setup prometheus helm chart"
+run = """
+kubectl create namespace prometheus
+helm install prometheus prometheus-community/kube-prometheus-stack -n prometheus
+""""
+
+[tasks."k8s:helm:update"]
+run = """
+helm repo update
 """
 
 [tasks."lint:python"]
@@ -224,3 +266,6 @@ cargo deny check
 [tasks.all]
 description = "run all tasks"
 depends = ["check:*", "lint:*", "audit:*", "test:*"]
+
+
+
