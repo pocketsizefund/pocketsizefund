@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pocketsizefund"
-version = "0.1.1"
+version = "0.1.4"
 description = "Open source quantitative trading"
 authors = [
   "forstmeier <john.forstmeier@gmail.com>",
@@ -37,6 +37,7 @@ coverage = "^7.5.1"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.4.4"
 vulture = "^2.11"
+pytest = "^8.2.2"
 
 [build-system]
 requires = ["poetry-core"]

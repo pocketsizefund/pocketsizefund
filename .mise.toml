@@ -1,0 +1,184 @@
+[tools]
+python = "3.10"
+kubectl = "latest"
+uv = "latest"
+poetry = "latest"
+minikube = "latest"
+envsubst = "latest"
+yq = "latest"
+jq = "latest"
+ruff = "latest"
+direnv = "latest"
+
+[env]
+PLATFORM = "linux/amd64"
+# _.file = "etc/.env.development"
+
+[tasks."repo:setup"]
+description = "setup dependencies for the repo"
+run = "poetry install --with dev,test"
+
+
+[tasks."check:dead-code"]
+description = "check for dead python code"
+tools = ["poetry"]
+depends = ["repo:setup"]
+run = "poetry run vulture --min-confidence 80 ."
+
+[tasks."pkg:setup"]
+description = "setup virtualenv for pocketsizefund python package"
+run = """
+cd $root/pkg
+poetry install 
+"""
+
+[tasks."pkg:build"]
+description = "build the pocketsizefund python package"
+depends = ["pkg:setup"]
+run = """
+cd $root/pkg
+poetry build
+"""
+
+[tasks."pkg:publish"]
+description = "publish the pocketsizefund python package to PyPI registry"
+depends = ["pkg:build"]
+run = """
+cd $root/pkg
+poetry config pypi-token.pypi $PYPI_TOKEN
+poetry publish
+"""
+
+[tasks."pkg:test"]
+description = "unit tests for the pocketsizefund python package"
+depends = ["pkg:setup"]
+run = """
+cd $root/pkg
+poetry run coverage run --parallel-mode --module pytest
+poetry run coverage combine
+poetry run coverage report
+poetry run coverage xml --omit='pkg/*/test_*.py' --include='pkg/*'
+rm -rf .coverage/
+"""
+
+
+[tasks."k8s:config:sync"]
+description = "sync cluster config with local kube config"
+tools = ["jq", "yq"]
+run = """
+cd $root/infrastructure
+pulumi stack select pocketsizefund/dev
+pulumi stack output kubeconfig | jq . | yq eval -P - > $HOME/.kube/config
+"""
+
+[tasks."lint:python"]
+description = "run python linter across the monorepo"
+tools = ["ruff"]
+run = """
+ruff check --output-format=github .
+"""
+
+[tasks."lint:pkg"]
+description = "run python linter on the pocketsizefund package"
+tools = ["ruff"]
+run = """
+cd $root/pkg
+ruff check --output-format=github .
+"""
+
+
+[tasks."price-model:build"]
+description = "build docker image for price model"
+run = """
+cd $root/exec/infrastructure/pricemodel
+
+IMAGE=pocketsizefund/price-model
+VERSION=$(poetry version -s)
+
+docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
+"""
+
+[tasks."price-model:run"]
+description = "run price model in docker compose"
+run = """
+cd $root/exec/infrastructure/pricemodel
+docker compose up --build
+"""
+
+[tasks."price-model:push"]
+description = "push price model image to docker hub"
+depends = ["price-model:build"]
+run = """
+cd $root/exec/infrastructure/pricemodel
+
+IMAGE=pocketsizefund/price-model
+VERSION=$(poetry version -s)
+
+docker push $IMAGE:latest
+docker push $IMAGE:$VERSION
+"""
+
+[tasks."position-manager:build"]
+description = "build docker image for the position manager"
+run = """
+cd $root/exec/infrastructure/positionmanager
+
+IMAGE=pocketsizefund/position-manager
+VERSION=$(poetry version -s)
+
+docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
+"""
+
+[tasks."position-manager:run"]
+description = "run position manager in docker compose"
+run = """
+cd $root/exec/infrastructure/positionmanager
+docker compose up --build
+"""
+
+[tasks."position-manager:push"]
+description = "push position manager image to docker hub"
+depends = ["position-manager:build"]
+run = """
+cd $root/exec/infrastructure/positionmanager
+
+IMAGE=pocketsizefund/position-manager
+VERSION=$(poetry version -s)
+
+docker push $IMAGE:latest
+docker push $IMAGE:$VERSION
+"""
+
+
+[tasks."lint:rust"]
+description = "lint rust cargos"
+run = """
+cd $root/edgar-feed
+cargo clippy --all --
+"""
+
+
+[tasks."fmt:rust"]
+description = "format rust cargos"
+run = """
+cd $root/edgar-feed
+cargo fmt --all --
+"""
+
+[tasks."test:rust"]
+description = "format rust cargos"
+run = """
+cd $root/edgar-feed
+cargo test
+"""
+
+[tasks."audit:rust"]
+description = "audit rust cargos"
+run = """
+cd $root/edgar-feed
+cargo deny check
+"""
+
+[tasks.all]
+description = "run all tasks"
+depends = ["check:*", "lint:*", "audit:*", "test:*"]

@@ -1,0 +1,5 @@
+services:
+  positionmanager:
+    build:
+      context: .
+    platform: linux/amd64

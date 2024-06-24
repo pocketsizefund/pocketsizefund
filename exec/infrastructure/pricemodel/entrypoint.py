@@ -1,43 +1,30 @@
-"""Inference endpoint for price prediction model."""  # noqa: INP001
+"""Inference endpoint for price prediction model."""
 
 import datetime
 import json
 import os
 
 import flask
-from loguru import logger
-from pocketsizefund import config
-from pocketsizefund.data import data
-from pocketsizefund.model import model
-from pocketsizefund.trade import trade
+from pocketsizefund import config, data, model, trade
 
 app = flask.Flask(__name__)
 
-try:
-    trade_client = trade.Client(
-        darqube_api_key=os.getenv("DARQUBE_API_KEY"),
-        alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-        alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-        alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-        is_paper=True,
-    )
+trade_client = trade.Client(
+    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
+    is_paper=True,
+)
 
-except Exception as e:  # noqa: BLE001
-    logger.error(e)
+data_client = data.Client(
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+    edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
+    debug=False,
+)
 
-
-try:
-    data_client = data.Client(
-        alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-        alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-        edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
-        debug=False,
-    )
-
-except Exception as e:  # noqa: BLE001
-    logger.error(e)
-
-price_model = model.Model()
+price_model = model.PriceModel()
 
 try:
     price_model.load_model(
