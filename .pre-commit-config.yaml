@@ -20,7 +20,6 @@ repos:
       description: Run cargo fmt on files included in the commit. rustfmt should be installed before-hand.
       entry: |
           mise run fmt:rust
-      pass_filenames: true
       types: [file, rust]
       language: system
     - id: rust-linting

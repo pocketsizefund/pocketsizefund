@@ -71,6 +71,15 @@ pulumi stack select pocketsizefund/dev
 pulumi stack output kubeconfig | jq . | yq eval -P - > $HOME/.kube/config
 """
 
+[tasks."k8s:secrets:sync"]
+description = "sync cluster secrets with local kube config"
+tools = ["jq", "yq"]
+run = """
+kubectl delete secrets --all
+kubectl create secret generic platform --from-env-file=$root/etc/.env.development
+kubectl describe secrets platform
+"""
+
 [tasks."lint:python"]
 description = "run python linter across the monorepo"
 tools = ["ruff"]
@@ -149,11 +158,44 @@ docker push $IMAGE:latest
 docker push $IMAGE:$VERSION
 """
 
+[tasks."discord:build"]
+description = "build docker image for discord bot"
+run = """
+cd $root/exec/infrastructure/discord
+
+IMAGE=pocketsizefund/discord
+VERSION=$(poetry version -s)
+
+docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
+"""
+
+[tasks."discord:run"]
+description = "run price model in docker compose"
+run = """
+cd $root/exec/infrastructure/pricemodel
+docker compose up --build
+"""
+
+[tasks."discord:push"]
+description = "push price model image to docker hub"
+depends = ["price-model:build"]
+run = """
+cd $root/exec/infrastructure/pricemodel
+
+IMAGE=pocketsizefund/price-model
+VERSION=$(poetry version -s)
+
+docker push $IMAGE:latest
+docker push $IMAGE:$VERSION
+"""
+
+
+
 
 [tasks."lint:rust"]
 description = "lint rust cargos"
 run = """
-cd $root/edgar-feed
+cd $root/exec/infrastructure/discord
 cargo clippy --all --
 """
 
@@ -161,21 +203,21 @@ cargo clippy --all --
 [tasks."fmt:rust"]
 description = "format rust cargos"
 run = """
-cd $root/edgar-feed
-cargo fmt --all --
+cd $root/exec/infrastructure/discord
+cargo fmt --all
 """
 
 [tasks."test:rust"]
 description = "format rust cargos"
 run = """
-cd $root/edgar-feed
+cd $root/exec/infrastructure/discord
 cargo test
 """
 
 [tasks."audit:rust"]
 description = "audit rust cargos"
 run = """
-cd $root/edgar-feed
+cd $root/exec/infrastructure/discord
 cargo deny check
 """
 
