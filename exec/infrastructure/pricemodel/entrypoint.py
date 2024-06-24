@@ -10,7 +10,7 @@ from pocketsizefund import config
 from pocketsizefund.data import data
 from pocketsizefund.model import model
 from pocketsizefund.trade import trade
-from bin.helpers.api_check import api_key_required
+from pkg.pocketsizefund.config.api_check import api_key_required
 
 app = flask.Flask(__name__)
 
