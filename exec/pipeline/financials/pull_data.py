@@ -93,17 +93,17 @@ def parse_earnings_statement(data: str) -> EarningsStatement:
 def pull_financial_statements(config: Config) -> None:
     """Pull financial statements from a website."""
     if config.financial_statement.filetype == "pdf":
-        read_remote_pdf(config.financial_statement.url)
+        financial_statements = read_remote_pdf(config.financial_statement.url)
     elif config.financial_statement.filetype == "html":
-        read_html(config.financial_statement.url)
+        financial_statements = read_html(config.financial_statement.url)
 
     if config.earnings_statement.filetype == "pdf":
-        read_remote_pdf(config.earnings_statement.url)
+        quarterly_earnings_statement = read_remote_pdf(config.earnings_statement.url)
     elif config.earnings_statement.filetype == "html":
-        read_html(config.earnings_statement.url)
+        quarterly_earnings_statement = read_html(config.earnings_statement.url)
 
-    # parse_financial_statements(financial_statements)  # noqa: ERA001
-    # parse_earnings_statement(quarterly_earnings_statement)  # noqa: ERA001
+    parse_financial_statements(financial_statements)
+    parse_earnings_statement(quarterly_earnings_statement)
 
 
 @flow(task_runner=RayTaskRunner())

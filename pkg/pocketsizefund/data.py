@@ -11,7 +11,7 @@ from alpaca.data import historical, timeframe
 from alpaca.data import requests as alpaca_data_requests
 from loguru import logger
 
-from pocketsizefund.config import config
+from pocketsizefund import config
 
 ALPACA_TICKER_CHUNK_SIZE = 50
 ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS = 200

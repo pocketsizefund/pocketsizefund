@@ -4,10 +4,21 @@ import datetime
 import os
 
 import requests
+import sentry_sdk
 from loguru import logger
-from pocketsizefund.config import config
-from pocketsizefund.trade import trade
 from pkg.pocketsizefund.config.api_check import api_key_required
+from pocketsizefund import config, trade
+from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+
+sentry_loguru = LoguruIntegration(
+    level=LoggingLevels.INFO.value, event_level=LoggingLevels.ERROR.value,
+)
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    integrations=[sentry_loguru],
+    traces_sample_rate=1.0,
+)
 
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10

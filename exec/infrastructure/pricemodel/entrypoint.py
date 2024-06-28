@@ -1,53 +1,55 @@
-"""Inference endpoint for price prediction model."""  # noqa: INP001
+"""Inference endpoint for price prediction model."""
 
 import datetime
 import json
 import os
 
-import flask
+import sentry_sdk
 from loguru import logger
-from pocketsizefund import config
-from pocketsizefund.data import data
-from pocketsizefund.model import model
-from pocketsizefund.trade import trade
 from pkg.pocketsizefund.config.api_check import api_key_required
+from pocketsizefund import config, data, model, trade
+from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+
+sentry_loguru = LoguruIntegration(
+    level=LoggingLevels.INFO.value, event_level=LoggingLevels.ERROR.value,
+)
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    integrations=[sentry_loguru],
+    traces_sample_rate=1.0,
+)
+
 
 app = flask.Flask(__name__)
 
-try:
-    trade_client = trade.Client(
-        darqube_api_key=os.getenv("DARQUBE_API_KEY"),
-        alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-        alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-        alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-        is_paper=True,
-    )
+trade_client = trade.Client(
+    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
+    is_paper=True,
+)
 
-except Exception as e:  # noqa: BLE001
-    logger.error(e)
+data_client = data.Client(
+    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
+    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
+    edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
+    debug=False,
+)
 
-
-try:
-    data_client = data.Client(
-        alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-        alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-        edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
-        debug=False,
-    )
-
-except Exception as e:  # noqa: BLE001
-    logger.error(e)
-
-price_model = model.Model()
+price_model = model.PriceModel()
 
 try:
     price_model.load_model(
         file_path=os.getenv("MODEL_FILE_NAME"),
     )
 except FileNotFoundError:
+    logger.exception("model not found, make sure MODEL_FILE_NAME is set")
     price_model = None
 
 except IsADirectoryError:
+    logger.exception("model is a directory, make sure MODEL_FILE_NAME is set")
     price_model = None
 
 

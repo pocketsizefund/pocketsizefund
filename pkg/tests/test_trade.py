@@ -2,8 +2,7 @@ import datetime
 from typing import Optional
 
 import pytest
-from pocketsizefund.config import config
-from pocketsizefund.trade import trade
+from pocketsizefund import config, trade
 
 client = trade.Client(
     darqube_api_key="darqube_api_key",
