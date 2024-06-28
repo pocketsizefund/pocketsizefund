@@ -20,3 +20,5 @@ infrastructure/venv
 env*
 .pytest_cache/
 .ruff_cache/
+
+platform/newsfeed/target
