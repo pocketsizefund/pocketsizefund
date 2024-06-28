@@ -6,6 +6,7 @@ import os
 import requests
 import sentry_sdk
 from loguru import logger
+from pkg.pocketsizefund.config.api_check import api_key_required
 from pocketsizefund import config, trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
@@ -22,7 +23,7 @@ sentry_sdk.init(
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
-
+@api_key_required
 def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
     trade_client = trade.Client(

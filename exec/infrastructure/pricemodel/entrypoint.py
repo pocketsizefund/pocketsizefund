@@ -6,6 +6,7 @@ import os
 
 import sentry_sdk
 from loguru import logger
+from pkg.pocketsizefund.config.api_check import api_key_required
 from pocketsizefund import config, data, model, trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
@@ -53,12 +54,14 @@ except IsADirectoryError:
 
 
 @app.route("/health", methods=["GET"])
+@api_key_required
 def health() -> flask.Response:
     """Health endpoint for the inference endpoint."""
     return flask.Response(status=200)
 
 
 @app.route("/predictions", methods=["GET"])
+@api_key_required
 def invocations() -> flask.Response:
     """Invocations handles prediction requests to the inference endpoint."""
     if price_model is None:
