@@ -1,12 +1,10 @@
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::ClientConfig;
 use std::env;
-use tracing_subscriber;
 use tracing_subscriber::filter::EnvFilter;
 use uuid::Uuid;
 
 mod listener;
-
 
 struct UpstashConfig {
     bootstrap_server: String,

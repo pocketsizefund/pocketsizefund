@@ -3,9 +3,7 @@ use rdkafka::Message;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-struct KafkaMessage {
-    content: String,
-}
+struct KafkaMessage {}
 
 #[tracing::instrument(skip_all)]
 pub async fn consume_message(con: StreamConsumer) {

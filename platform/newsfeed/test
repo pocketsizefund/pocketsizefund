@@ -1,0 +1,13 @@
+thread 'tests::test_chat_response_deserialization' panicked at src/lib.rs:125:9:
+assertion `left == right` failed
+  left: ClaudeResponse { 
+  id: "msg_01BxFThtEVBZqZWRh5YQ5AM1", 
+  type_: "message", 
+  role: "assistant", 
+  model: "claude-3-5-sonnet-20240620", content: [ClaudeResponseContent { type_: "tool_use", id: "toolu_01QkmBQYKUd6tKi8EyQ63MUn", name: "earnings_report_sentiment", input: Object {"confidence": Number(7)} }], stop_reason: "tool_use", stop_sequence: None, usage: ClaudeResponseUsage { input_tokens: 23641, output_tokens: 33 } }
+ right: ClaudeResponse { 
+ id: "msg_01BxFThtEVBZqZWRh5YQ5AM1", 
+ type_: "message", 
+ role: "assistant", 
+ model: "claude-3-5-sonnet-20240620",
+ content: [ClaudeResponseContent { type_: "tool_use", id: "toolu_01QkmBQYKUd6tKi8EyQ63MUn", name: "earnings_report_sentiment", input: Object {} }], stop_reason: "tool_use", stop_sequence: None, usage: ClaudeResponseUsage { input_tokens: 23641, output_tokens: 33 } }
