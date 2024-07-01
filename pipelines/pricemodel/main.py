@@ -3,11 +3,10 @@
 import datetime
 
 import pandas as pd
+from pocketsizefund.config import config
+from pocketsizefund.model import model
+from pocketsizefund.storage import storage
 from prefect import flow, task
-
-from pkg.config import config
-from pkg.model import model
-from pkg.storage import storage
 
 
 @task

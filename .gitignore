@@ -2,7 +2,6 @@ __pycache__/
 *.py[cod]
 .vscode/
 etc/
-model.tar.gz
 .DS_Store
 node_modules
 .coverage*
@@ -13,13 +12,11 @@ tft_model.ckpt
 .python-version
 *-all.csv
 *.ckpt*
-
-exec/infrastructure/discord/target
-
+platform/filingsfeed/target
+platform/filingsfeed/.shuttle-storage
+platform/filingsfeed/Secrets*.toml
 infrastructure/venv
-
-pkg/dist
-
 .envrc
-
 env*
+.pytest_cache/
+.ruff_cache/

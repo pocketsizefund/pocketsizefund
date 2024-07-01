@@ -2,7 +2,8 @@ import datetime
 from typing import Optional
 
 import pytest
-from pocketsizefund import config, trade
+from pocketsizefund.config import config
+from pocketsizefund.trade import trade
 
 client = trade.Client(
     darqube_api_key="darqube_api_key",
@@ -223,6 +224,7 @@ def mock_get_portoflio_daily_returns_error(
     week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
+    _ = week_count, end_at
     msg = "get portfolio returns error"
     raise ValueError(msg)
 
@@ -231,6 +233,7 @@ def mock_get_portfolio_returns_success(
     week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
+    _ = week_count, end_at
     return [
         -0.0082,
         -0.0002,
@@ -244,6 +247,7 @@ def mock_get_benchmark_daily_returns_error(
     week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
+    _ = week_count, end_at
     msg = "get benchmark returns error"
     raise ValueError(msg)
 
@@ -252,6 +256,7 @@ def mock_get_benchmark_daily_returns_success(
     week_count: int,
     end_at: datetime.datetime,
 ) -> list[dict[str, any]]:
+    _ = week_count, end_at
     return [
         0.01,
         0.0099,
