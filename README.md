@@ -17,12 +17,12 @@ The project is actively a work-in-progress.
 
 ### Motto
 
-> Make money and learn things 💡  
+> Make money and learn things 💡
 
-Accountability for these goals is enforced by:  
+Accountability for these goals is enforced by:
 
-1. **Publishing performance** on a regular, automated basis  
-2. **Writing whitepapers** for every significant initiative  
+1. **Publishing performance** on a regular, automated basis
+2. **Writing whitepapers** for every significant initiative
 
 ### Process
 
@@ -35,30 +35,45 @@ create -> launch
 learn  <-  measure
 ```
 
-We want to rapidly iterate our research-first mindset by constantly launching with an MVP implementations for every initiative.  
+We want to rapidly iterate our research-first mindset by constantly launching with an MVP implementations for every initiative.
+
+
+### Setup
+
+Pop this in your terminal. This is your jumping off point. This is the only thing you need to do to get started.
+
+That is also not entirely true. This whole thing will always be a work-in-progress. When you run the command below, if there's something that breaks, or something you don't understand, or something is missing... awesome. Add to the project.
+
+We're never done.
+
+```sh
+curl https://mise.run | sh
+mise install -y
+mise tasks ls
+```
 
 ### Principles
 
 An unordered and non-exhaustive list of principles we work towards:
 
-> Test in production  
-> Always roll forward  
-> Systems over process  
-> No code is good code  
-> Never write documentation  
-> Git is truth  
+> Test in production
+> Always roll forward
+> Systems over process
+> No code is good code
+> Never write documentation
+> Git is truth
 
 ### Participation
 
-Here are the best ways to get involved.  
+Here are the best ways to get involved.
 
-- **Contribute**: checkout the [process](#process) and [links](#links)  
-- **Co-invest**: reach out via [direct message](https://twitter.com/forstmeier)  
+- **Contribute**: checkout the [process](#process) and [links](#links)
+- **Co-invest**: reach out via [direct message](https://twitter.com/forstmeier)
 
 ### Links
 
-Here are some places to get started:  
+Here are some places to get started:
 
-1. [Our loose collection](https://docs.google.com/document/d/12-yjgh6_fGU_OzStdCHtNmNlM1aLM42aK40lQCRwa3k/edit) of resources and things we're currently working on  
-2. [Open a discussion](https://discord.com/channels/1230911601704435752/1230911601704435755) to ask questions or share ideas  
-3. [Send a direct message](https://twitter.com/forstmeier) on everything else  
+1. [Our loose collection](https://docs.google.com/document/d/12-yjgh6_fGU_OzStdCHtNmNlM1aLM42aK40lQCRwa3k/edit) of resources and things we're currently working on
+2. [Open a discussion](https://discord.com/channels/1230911601704435752/1230911601704435755) to ask questions or share ideas
+3. [Send a direct message](https://twitter.com/forstmeier) on everything else
