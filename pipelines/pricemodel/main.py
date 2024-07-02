@@ -1,6 +1,7 @@
 """Pipeline to train and save a price prediction model."""
 
 import datetime
+from pathlib import Path
 
 import pandas as pd
 from pocketsizefund.config import config
@@ -41,12 +42,16 @@ def train_model(
     data: pd.DataFrame,
 ) -> model.PriceModel:
     """Train the price prediction model."""
-    sam_config = config.SAMConfig(
-        file_path="samconfig.toml",
-    )
+    weights_and_biases_api_key = None
+    with Path("etc/.env.development").open() as config_file:
+        for line in config_file:
+            key, value = line.strip().split("=", 1)
+            if key.strip() == "weights_and_biases_api_key":
+                weights_and_biases_api_key = value.strip()
+                break
 
     price_model = model.PriceModel(
-        weights_and_biases_api_key=sam_config.get_parameter("WeightsAndBiasesAPIKey"),
+        weights_and_biases_api_key=weights_and_biases_api_key,
     )
 
     price_model.train_model(
