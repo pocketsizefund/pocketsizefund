@@ -4,7 +4,7 @@ repos:
     - id: lint
       name: Lint
       entry: |
-        mise run libraries:python:lint
+        mise run python:lint
       pass_filenames: false
       types: [file, python]
       language: system
@@ -19,7 +19,7 @@ repos:
       name: Rust formatting
       description: Run cargo fmt on files included in the commit. rustfmt should be installed before-hand.
       entry: |
-          mise run platform:discord:lint
+          mise run rust:Format
       types: [file, rust]
       language: system
     - id: rust-linting
