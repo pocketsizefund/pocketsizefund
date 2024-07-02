@@ -2,19 +2,20 @@ name: Rust CI
 
 on:
   pull_request:
-    types: [opened, synchronize, closed, reopened]
+    branches:
+      - master
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  linting:
+  run_lint:
     name: Run Rust linting with clippy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: setup mise
+      - name: Setup Mise
         uses: jdx/mise-action@v2
         with:
           experimental: true
@@ -27,29 +28,28 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: -- -D warnings
       - name: Run linting
-        run: mise run lint:rust
+        run: mise run rust:lint
 
-  security-audit:
+  run_security_audit:
     name: Run Rust Cargo dependency audit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v1
-      - name: Change directory
       - name: Install Rust toolchain
         uses: actions-rs/audit-check@v1
-      - name: install cargo deny
+      - name: Install Deny
         run: cargo install cargo-deny
-      - name: Run cargo deny
-        run: mise run audit:rust
+      - name: Run Deny
+        run: mise run rust:audit
 
-  formatting:
+  run_formatting:
     name: Run Rust code formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: setup mise
+      - name: Setup Mise
         uses: jdx/mise-action@v2
         with:
           experimental: true
@@ -60,15 +60,15 @@ jobs:
           override: true
           components: rustfmt
       - name: Formatting with rustfmt
-        run: mise run fmt:rust
+        run: mise run rust:format
 
-  test:
+  run_unit_tests:
     name: Run Rust unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: setup mise
+      - name: Setup Mise
         uses: jdx/mise-action@v2
         with:
           experimental: true
@@ -79,4 +79,4 @@ jobs:
           toolchain: stable
           override: true
       - name: Run unit tests
-        run: mise run test:rust
+        run: mise run rust:test
