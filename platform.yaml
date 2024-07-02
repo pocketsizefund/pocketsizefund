@@ -55,19 +55,6 @@ spec:
               name: platform
               key: model_file_name
 ---
-# apiVersion: v1
-# kind: Service
-# metadata:
-#   name: price-model
-# spec:
-#   selector:
-#     app: price-model
-#   ports:
-#   - protocol: TCP
-#     port: 8080
-#     targetPort: 8080
-#   type: ClusterIP
----
 apiVersion: batch/v1
 kind: CronJob
 metadata:
