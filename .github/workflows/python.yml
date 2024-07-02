@@ -38,7 +38,7 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-dev
       - name: Run unit tests
-        run: mise run libraries:python:test
+        run: mise run python:test
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
@@ -59,7 +59,7 @@ jobs:
         with:
           experimental: true
       - name: Run lint
-        run: mise run libraries:python:lint
+        run: mise run python:lint
 
   run_dead_code:
     name: Run Python dead code check
