@@ -1,3 +1,4 @@
+
 import pulumi
 import pulumi_awsx as awsx
 import pulumi_eks as eks
@@ -10,7 +11,13 @@ desired_cluster_size = config.get_int("desiredClusterSize", 3)
 eks_node_instance_type = config.get("eksNodeInstanceType", "t3.medium")
 vpc_network_cidr = config.get("vpcNetworkCidr", "10.0.0.0/16")
 
-eks_vpc = awsx.ec2.Vpc("eks-vpc", enable_dns_hostnames=True, cidr_block=vpc_network_cidr)
+eks_vpc = awsx.ec2.Vpc("eks-vpc",
+    enable_dns_hostnames=True,
+    cidr_block=vpc_network_cidr,
+    nat_gateways=awsx.ec2.NatGatewayConfigurationArgs(
+        strategy=awsx.ec2.NatGatewayStrategy.ONE_PER_AZ,
+    ),
+)
 
 eks_cluster = eks.Cluster(
     "eks-cluster",
@@ -26,17 +33,21 @@ eks_cluster = eks.Cluster(
     endpoint_public_access=True,
 )
 
+kubeconfig = eks_cluster.kubeconfig
+k8s_provider = k8s.Provider("k8s-provider", kubeconfig=kubeconfig)
 
-def create_secret(name, data, namespace="default"):
-    return k8s.core.v1.Secret(
-        name,
-        metadata=k8s.meta.v1.ObjectMetaArgs(
-            name=name,
-            namespace=namespace,
-        ),
-        data=data,
-        type="Opaque",
-    )
+
+secret = k8s.core.v1.Secret("platform-secret",
+    metadata=k8s.meta.v1.ObjectMetaArgs(
+        name="platform",
+        namespace="default",
+    ),
+    string_data={
+        "username": "admin",
+        "password": "supersecret",
+    },
+    opts=pulumi.ResourceOptions(provider=k8s_provider),
+)
 
 
 pulumi.export("kubeconfig", eks_cluster.kubeconfig)
