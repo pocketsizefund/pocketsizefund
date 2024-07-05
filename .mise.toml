@@ -12,6 +12,7 @@ helm = "latest"
 
 [env]
 PLATFORM = "linux/amd64"
+PULUMI_STACK = "pocketsizefund/development"
 # _.file = "etc/.env.development"
 
 [tasks."repo:setup"]
@@ -102,7 +103,7 @@ description = "sync cluster config with local kube config"
 tools = ["jq", "yq"]
 run = """
 cd $root/infrastructure
-pulumi stack select pocketsizefund/dev
+pulumi stack select $PULUMI_STACK
 pulumi stack output kubeconfig | jq . | yq eval -P - > $HOME/.kube/config
 """
 
@@ -287,14 +288,14 @@ depends = ["check:*", "lint:*", "audit:*", "test:*"]
 description = "launch infrastructure"
 run = """
 cd $root/infrastructure
-pulumi up --stack pocketsizefund/development
+pulumi up --stack $PULUMI_STACK
 """
 
 [tasks."infrastructure:core:down"]
 description = "launch infrastructure"
 run = """
 cd $root/infrastructure
-pulumi down --stack pocketsizefund/development
+pulumi down --stack $PULUMI_STACK
 """
 
 
@@ -302,6 +303,6 @@ pulumi down --stack pocketsizefund/development
 description = "launch infrastructure"
 depends = [
   "infrastructure:core:launch",
+  "k8s:config:sync",
   "k8s:secrets:sync",
-  "k8s:config:sync"
 ]

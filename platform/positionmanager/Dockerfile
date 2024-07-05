@@ -16,6 +16,6 @@ COPY pyproject.toml poetry.lock ./
 RUN pip install --no-cache-dir "poetry==1.7.1" && \
   poetry install --no-dev --no-interaction --no-cache
 
-COPY entrypoint.py .
+COPY entrypoint.py event_bus.py ./
 
 CMD [ "python", "entrypoint.py" ]
