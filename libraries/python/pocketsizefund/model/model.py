@@ -2,13 +2,14 @@
 
 import lightning.pytorch as pl
 import pandas as pd
-import wandb
 from lightning.pytorch.callbacks import Callback, EarlyStopping, LearningRateMonitor
 from lightning.pytorch.loggers import TensorBoardLogger
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
 from pytorch_forecasting.data import GroupNormalizer, MultiNormalizer
 from pytorch_forecasting.metrics import RMSE
 from torch.utils.data import DataLoader
+
+import wandb
 
 
 class WeightsAndBiasesLogger(Callback):

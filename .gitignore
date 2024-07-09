@@ -12,9 +12,7 @@ tft_model.ckpt
 .python-version
 *-all.csv
 *.ckpt*
-platform/filingsfeed/target
-platform/filingsfeed/.shuttle-storage
-platform/filingsfeed/Secrets*.toml
+platform/discord/target
 infrastructure/venv
 .envrc
 env*
