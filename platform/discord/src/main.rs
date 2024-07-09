@@ -5,7 +5,8 @@ use tracing_subscriber;
 use tracing_subscriber::filter::EnvFilter;
 use uuid::Uuid;
 
-use discord::listener;
+mod listener;
+
 
 struct UpstashConfig {
     bootstrap_server: String,

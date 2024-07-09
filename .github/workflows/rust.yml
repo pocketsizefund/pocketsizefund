@@ -36,8 +36,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v1
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          experimental: true
       - name: Install Rust toolchain
-        uses: actions-rs/audit-check@v1
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
       - name: Install Deny
         run: cargo install cargo-deny
       - name: Run Deny
