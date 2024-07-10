@@ -2,6 +2,7 @@
 
 > Open source quantitative trading 🍊  
 
+[![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)](https://discord.gg/uPEBbYYDB6)
 [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund)  
 [![Python CI](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml)
 

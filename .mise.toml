@@ -249,3 +249,59 @@ VERSION=$(poetry version -s)
 docker push $IMAGE:latest
 docker push $IMAGE:$VERSION
 """
+
+[tasks."platform:discord:lint"]
+description = "lint rust cargos"
+run = """
+cd $root/platform/discord
+cargo clippy --all --
+"""
+
+[tasks."platform:discord:format"]
+description = "format rust cargos"
+run = """
+cd $root/platform/discord
+cargo fmt --all
+"""
+
+[tasks."platform:discord:test"]
+description = "format rust cargos"
+run = """
+cd $root/platform/discord
+cargo test
+"""
+
+[tasks."platform:discord:audit"]
+description = "audit rust cargos"
+run = """
+cd $root/platform/discord
+cargo deny check
+"""
+
+[tasks."test:all"]
+description = "run all tasks"
+depends = ["check:*", "lint:*", "audit:*", "test:*"]
+
+
+[tasks."infrastructure:core:launch"]
+description = "launch infrastructure"
+run = """
+cd $root/infrastructure
+pulumi up --stack pocketsizefund/development
+"""
+
+[tasks."infrastructure:core:down"]
+description = "launch infrastructure"
+run = """
+cd $root/infrastructure
+pulumi down --stack pocketsizefund/development
+"""
+
+
+[tasks."infrastructure:up"]
+description = "launch infrastructure"
+depends = [
+  "infrastructure:core:launch",
+  "k8s:secrets:sync",
+  "k8s:config:sync"
+]
