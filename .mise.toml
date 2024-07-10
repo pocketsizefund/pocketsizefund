@@ -9,6 +9,7 @@ jq = "latest"
 ruff = "0.4.10" # lastest is breaking
 direnv = "latest"
 helm = "latest"
+go = "latest"
 
 [env]
 PLATFORM = "linux/amd64"
@@ -312,18 +313,50 @@ description = "run all tasks"
 depends = ["check:*", "lint:*", "audit:*", "test:*"]
 
 
+
+[tasks."infrastructure:core:build"]
+description = "build docker image for infrastructure"
+run = """
+cd $root/infrastructure
+IMAGE=pocketsizefund/infrastructure
+VERSION=$(poetry version -s)
+docker build --build-arg PULUMI_ACCESS_TOKEN=$PULUMI_ACCESS_TOKEN -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
+"""
+
+
+[tasks."infrastructure:core:push"]
+description = "push infrastructure image to docker hub"
+depends = ["infrastructure:core:build"]
+run = """
+cd $root/infrastructure
+
+IMAGE=pocketsizefund/infrastructure
+
+docker push $IMAGE:latest
+"""
+
+
 [tasks."infrastructure:core:launch"]
 description = "launch infrastructure"
 run = """
 cd $root/infrastructure
-pulumi up --stack $PULUMI_STACK --yes
+
+docker run --rm -it \
+  --platform $PLATFORM \
+  --env PULUMI_ACCESS_TOKEN \
+  pocketsizefund/infrastructure pulumi up \
+  --stack $PULUMI_STACK --yes
 """
 
 [tasks."infrastructure:core:down"]
 description = "launch infrastructure"
 run = """
 cd $root/infrastructure
-pulumi down --stack $PULUMI_STACK
+docker run --rm -it \
+  --platform $PLATFORM \
+  --env PULUMI_ACCESS_TOKEN \
+  pocketsizefund/infrastructure pulumi down \
+  --stack $PULUMI_STACK --yes
 """
 
 
