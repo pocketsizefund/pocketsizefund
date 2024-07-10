@@ -2,8 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/pulumi/pulumi-eks/sdk/v2/go/eks"
+
 	"github.com/pulumi/pulumi-awsx/sdk/go/awsx/ec2"
+	"github.com/pulumi/pulumi-eks/sdk/v2/go/eks"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
@@ -12,7 +13,7 @@ import (
 )
 
 func main() {
-	namespaces := []string{"development", "paper", "live"}
+	namespaces := []string{"development", "paper", "live", "ml"}
 
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		cfg := config.New(ctx, "")

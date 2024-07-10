@@ -2,6 +2,7 @@
 
 import datetime
 import os
+from collections.abc import Any, Callable
 from functools import wraps
 
 from flask import abort
@@ -20,11 +21,11 @@ REQUIRED_API_KEYS = {
 }
 
 
-def api_key_required(f) -> callable:  # noqa: ANN001
-    """Check for required API keys."""
+def api_key_required(f: Callable) -> Callable:
+    """Decorate flask endpoints with required API keys check."""
 
     @wraps(f)
-    def decorated_function(*args, **kwargs):  # noqa: ANN202, ANN002, ANN003
+    def decorated_function(*args: Any, **kwargs: Any) -> Callable:
         for key in REQUIRED_API_KEYS:
             if not os.getenv(key):
                 logger.error(f"Missing API key: {key}")

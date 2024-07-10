@@ -9,7 +9,10 @@ import sentry_sdk
 from event_bus import Topic, create_consumer, create_producer
 from loguru import logger
 from pocketsizefund import config, trade
+from pocketsizefund.trade import trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+
+from pkg.pocketsizefund.config.config.api_check import api_key_required
 
 sentry_loguru = LoguruIntegration(
     level=LoggingLevels.INFO.value,
@@ -78,7 +81,8 @@ def get_predictions() -> dict[str, any]:
         )
 
         highest_moves_by_ticker = {
-            k: sorted_moves_by_ticker[k] for k in list(sorted_moves_by_ticker)[:POSITIONS_COUNT]
+            k: sorted_moves_by_ticker[k]
+            for k in list(sorted_moves_by_ticker)[:POSITIONS_COUNT]
         }
 
         highest_moves_tickers = highest_moves_by_ticker.keys()
@@ -102,7 +106,9 @@ async def listener(consumer, producer, output_topic) -> None:  # noqa: ANN001
                 await producer.send_and_wait(output_topic.name, b"test")
                 logger.info("Processed message and sent result")
         except Exception as e:  # noqa: BLE001
-            await producer.send_and_wait(output_topic.name.replace("success", "error"), b"BROKEN!")
+            await producer.send_and_wait(
+                output_topic.name.replace("success", "error"), b"BROKEN!"
+            )
             logger.error(f"Error in listener: {e!s}")
 
 
@@ -110,7 +116,9 @@ async def main() -> None:  # noqa: D103
     loop = asyncio.get_event_loop()
 
     topic = Topic(domain="trade", event="psf.cron.submitted", group_id="psf.cron")
-    output_topic = Topic(domain="trade", event="psf.positionmanager.success", group_id="psf.cron")
+    output_topic = Topic(
+        domain="trade", event="psf.positionmanager.success", group_id="psf.cron"
+    )
 
     logger.info(f"Starting listener for {topic.name}")
     logger.info(f"Starting producer for {output_topic.name}")
