@@ -1,10 +1,12 @@
 """Set positions based on portfolio position and model predictions."""
 
+import asyncio
 import datetime
 import os
 
 import requests
 import sentry_sdk
+from event_bus import Topic, create_consumer, create_producer
 from loguru import logger
 from pocketsizefund import config, trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
@@ -92,9 +94,59 @@ def get_predictions() -> dict[str, any]:
     return None
 
 
-if __name__ == "__main__":
-    try:
-        get_predictions()
-    except ValueError as e:
-        logger.debug(f"error getting predictions: {e}")
+async def listener(consumer, producer, output_topic) -> None:
+    """Listens to the kafka topic and processes the messages"""
+    while True:
+        try:
+            async for message in consumer:
+                logger.info(f"Message received: {message}")
+                get_predictions()
+                await producer.send_and_wait(output_topic.name, b"test")
+                logger.info("Processed message and sent result")
+        except Exception as e:
+            await producer.send_and_wait(output_topic.name.replace("success", "error"), b"BROKEN!")
+            logger.error(f"Error in listener: {e!s}")
 
+
+async def main():
+    loop = asyncio.get_event_loop()
+
+    topic = Topic(domain="trade",
+                  event="psf.cron.submitted",
+                  group_id="psf.cron")
+    output_topic = Topic(domain="trade",
+                         event="psf.positionmanager.success",
+                         group_id="psf.cron")
+
+    logger.info(f"Starting listener for {topic.name}")
+    logger.info(f"Starting producer for {output_topic.name}")
+
+    consumer = None
+    producer = None
+
+    try:
+        consumer = create_consumer(event_loop=loop, topic=topic)
+        producer = create_producer(event_loop=loop)
+
+        await consumer.start()
+        await producer.start()
+
+        listener_task = asyncio.create_task(listener(consumer, producer, output_topic))
+
+        stop_event = asyncio.Event()
+
+        await stop_event.wait()
+
+    except Exception as e:
+        logger.error(f"Error in main: {e!s}")
+    finally:
+        logger.info("Shutting down...")
+        if consumer:
+            await consumer.stop()
+        if producer:
+            await producer.stop()
+
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
