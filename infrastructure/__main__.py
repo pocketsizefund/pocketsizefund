@@ -4,6 +4,8 @@ import pulumi_awsx as awsx
 import pulumi_eks as eks
 import pulumi_kubernetes as k8s
 
+NAMESPACES = ["development", "paper", "live"]
+
 config = pulumi.Config()
 min_cluster_size = config.get_int("minClusterSize", 3)
 max_cluster_size = config.get_int("maxClusterSize", 6)
@@ -37,17 +39,27 @@ kubeconfig = eks_cluster.kubeconfig
 k8s_provider = k8s.Provider("k8s-provider", kubeconfig=kubeconfig)
 
 
-secret = k8s.core.v1.Secret("platform-secret",
-    metadata=k8s.meta.v1.ObjectMetaArgs(
-        name="platform",
-        namespace="default",
-    ),
-    string_data={
-        "username": "admin",
-        "password": "supersecret",
-    },
-    opts=pulumi.ResourceOptions(provider=k8s_provider),
-)
+
+
+for namespace in NAMESPACES:
+    k8s.core.v1.Namespace(
+        namespace,
+        metadata={"name": namespace},
+        opts=pulumi.ResourceOptions(provider=k8s_provider),
+    )
+
+
+    k8s.core.v1.Secret(f"platform-secret-{namespace}",
+        metadata=k8s.meta.v1.ObjectMetaArgs(
+            name="platform",
+            namespace=namespace,
+        ),
+        string_data={
+            "username": "admin",
+            "password": "supersecret",
+        },
+        opts=pulumi.ResourceOptions(provider=k8s_provider),
+    )
 
 
 pulumi.export("kubeconfig", eks_cluster.kubeconfig)

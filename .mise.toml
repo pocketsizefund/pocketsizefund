@@ -107,14 +107,42 @@ pulumi stack select $PULUMI_STACK
 pulumi stack output kubeconfig | jq . | yq eval -P - > $HOME/.kube/config
 """
 
-[tasks."k8s:secrets:sync"]
-description = "sync cluster secrets with local kube config"
+[tasks."k8s:secrets:sync:development"]
+description = "sync cluster secrets with local kube config in deveopment namespace"
 tools = ["jq", "yq"]
 run = """
-kubectl delete secrets --all
-kubectl create secret generic platform --from-env-file=$root/etc/.env.development
-kubectl describe secrets platform
+cd $root
+kubectl delete secrets --all --namespace development
+kubectl create secret generic platform --from-env-file=$root/etc/.env.development --namespace development
+kubectl describe secrets platform --namespace development
 """
+
+[tasks."k8s:secrets:sync:paper"]
+description = "sync cluster secrets with local kube config in paper namespace"
+tools = ["jq", "yq"]
+run = """
+cd $root
+kubectl delete secrets --all --namespace paper
+kubectl create secret generic platform --from-env-file=$root/etc/.env.paper --namespace paper
+kubectl describe secrets platform --namespace paper
+"""
+
+
+[tasks."k8s:secrets:sync:live"]
+description = "sync cluster secrets with local kube config in live namespace"
+tools = ["jq", "yq"]
+run = """
+cd $root
+kubectl delete secrets --all --namespace live
+kubectl create secret generic platform --from-env-file=$root/etc/.env.live --namespace live
+kubectl describe secrets platform --namespace live
+"""
+
+
+[tasks."k8s:secrets:sync"]
+description = "sync cluster secrets with local kube config in deveopment namespace"
+depends = ["k8s:secrets:sync:development", "k8s:secrets:sync:paper", "k8s:secrets:sync:live"]
+
 
 [tasks."k8s:helm:install"]
 description = "install helm charts to k8s cluster"
@@ -288,7 +316,7 @@ depends = ["check:*", "lint:*", "audit:*", "test:*"]
 description = "launch infrastructure"
 run = """
 cd $root/infrastructure
-pulumi up --stack $PULUMI_STACK
+pulumi up --stack $PULUMI_STACK --yes
 """
 
 [tasks."infrastructure:core:down"]
