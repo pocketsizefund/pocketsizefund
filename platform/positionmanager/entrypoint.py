@@ -12,7 +12,8 @@ from pocketsizefund import config, trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
 sentry_loguru = LoguruIntegration(
-    level=LoggingLevels.INFO.value, event_level=LoggingLevels.ERROR.value,
+    level=LoggingLevels.INFO.value,
+    event_level=LoggingLevels.ERROR.value,
 )
 
 sentry_sdk.init(
@@ -20,15 +21,12 @@ sentry_sdk.init(
     integrations=[sentry_loguru],
     traces_sample_rate=1.0,
 )
-from pocketsizefund.config import config
-from pocketsizefund.trade import trade
-
-from pkg.pocketsizefund.config.api_check import api_key_required
 
 STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
-@api_key_required
+
+@config.api_key_required
 def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
     trade_client = trade.Client(
@@ -94,8 +92,8 @@ def get_predictions() -> dict[str, any]:
     return None
 
 
-async def listener(consumer, producer, output_topic) -> None:
-    """Listens to the kafka topic and processes the messages"""
+async def listener(consumer, producer, output_topic) -> None:  # noqa: ANN001
+    """Listen to the kafka topic and processes the messages."""
     while True:
         try:
             async for message in consumer:
@@ -103,20 +101,16 @@ async def listener(consumer, producer, output_topic) -> None:
                 get_predictions()
                 await producer.send_and_wait(output_topic.name, b"test")
                 logger.info("Processed message and sent result")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             await producer.send_and_wait(output_topic.name.replace("success", "error"), b"BROKEN!")
             logger.error(f"Error in listener: {e!s}")
 
 
-async def main():
+async def main() -> None:  # noqa: D103
     loop = asyncio.get_event_loop()
 
-    topic = Topic(domain="trade",
-                  event="psf.cron.submitted",
-                  group_id="psf.cron")
-    output_topic = Topic(domain="trade",
-                         event="psf.positionmanager.success",
-                         group_id="psf.cron")
+    topic = Topic(domain="trade", event="psf.cron.submitted", group_id="psf.cron")
+    output_topic = Topic(domain="trade", event="psf.positionmanager.success", group_id="psf.cron")
 
     logger.info(f"Starting listener for {topic.name}")
     logger.info(f"Starting producer for {output_topic.name}")
@@ -131,13 +125,11 @@ async def main():
         await consumer.start()
         await producer.start()
 
-        listener_task = asyncio.create_task(listener(consumer, producer, output_topic))
-
         stop_event = asyncio.Event()
 
         await stop_event.wait()
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error in main: {e!s}")
     finally:
         logger.info("Shutting down...")
@@ -145,7 +137,6 @@ async def main():
             await consumer.stop()
         if producer:
             await producer.stop()
-
 
 
 if __name__ == "__main__":

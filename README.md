@@ -2,9 +2,7 @@
 
 > Open source quantitative trading 🍊  
 
-[![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)](https://discord.gg/uPEBbYYDB6)
-[![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund)  
-[![Python CI](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml)
+[![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)](https://discord.gg/uPEBbYYDB6) [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund) [![Python CI](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml)
 
 ## About
 
@@ -38,14 +36,11 @@ learn  <-  measure
 
 We want to rapidly iterate our research-first mindset by constantly launching with an MVP implementations for every initiative.
 
-
 ### Setup
 
-Pop this in your terminal. This is your jumping off point. This is the only thing you need to do to get started.
+Run the commands below in your terminal to get started. We're always a work in progress so if something breaks or is confusing open a pull request to raise it with the team and get your hands dirty.
 
-That is also not entirely true. This whole thing will always be a work-in-progress. When you run the command below, if there's something that breaks, or something you don't understand, or something is missing... awesome. Add to the project.
-
-We're never done.
+We're never done and that's a good thing.
 
 ```sh
 curl https://mise.run | sh
@@ -63,18 +58,12 @@ An unordered and non-exhaustive list of principles we work towards:
 > No code is good code
 > Never write documentation
 > Git is truth
-
-### Participation
-
-Here are the best ways to get involved.
-
-- **Contribute**: checkout the [process](#process) and [links](#links)
-- **Co-invest**: reach out via [direct message](https://twitter.com/forstmeier)
+> We only measure ROI
 
 ### Links
 
 Here are some places to get started:
 
-1. [Our loose collection](https://docs.google.com/document/d/12-yjgh6_fGU_OzStdCHtNmNlM1aLM42aK40lQCRwa3k/edit) of resources and things we're currently working on
+1. [Our current list of tasks](https://github.com/orgs/pocketsizefund/projects/11) that we're currently working on
 2. [Open a discussion](https://discord.com/channels/1230911601704435752/1230911601704435755) to ask questions or share ideas
 3. [Send a direct message](https://twitter.com/forstmeier) on everything else
