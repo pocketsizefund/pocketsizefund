@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+# mise description="setup grafana helm chart"
+# mise depends=["infrastructure:helm:install"]
+# mise tools=["kubectl", "helm"]
+
+kubectl create namespace monitoring
+helm install grafana grafana/grafana --namespace monitoring

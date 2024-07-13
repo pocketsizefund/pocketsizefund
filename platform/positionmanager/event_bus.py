@@ -33,7 +33,7 @@ class Topic(BaseModel):
         return f"{self.domain}.{self.event}"
 
 
-def create_producer(event_loop: asyncio.AbstractEventLoop) -> AIOKafkaProducer:
+async def create_producer(event_loop: asyncio.AbstractEventLoop) -> AIOKafkaProducer:
     """Create an asynchronous Kafka producer."""
     return AIOKafkaProducer(
         loop=event_loop,
@@ -46,7 +46,7 @@ def create_producer(event_loop: asyncio.AbstractEventLoop) -> AIOKafkaProducer:
     )
 
 
-def create_consumer(event_loop: asyncio.AbstractEventLoop, topic: Topic) -> AIOKafkaConsumer:
+async def create_consumer(event_loop: asyncio.AbstractEventLoop, topic: Topic) -> AIOKafkaConsumer:
     """Create an asynchronous Kafka consumer."""
     return AIOKafkaConsumer(
         topic.name,

@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+# mise description="audit discord crate"
+# mise tools=["cargo"]
+
+cd $root/platform/discord
+cargo deny check
+

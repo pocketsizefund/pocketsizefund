@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+# mise description="push position manager image to docker hub"
+# mise depends=["platform:positionmanager:build"]
+
+cd $root/platform/positionmanager
+
+IMAGE=pocketsizefund/position-manager
+VERSION=$(poetry version -s)
+
+docker push $IMAGE:latest
+docker push $IMAGE:$VERSION

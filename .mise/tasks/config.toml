@@ -1,0 +1,11 @@
+[tools]
+python = "3.10"
+yq = "latest"
+jq = "latest"
+ruff = "0.4.10" # lastest is breaking
+go = "latest"
+
+[env]
+PLATFORM = "linux/amd64"
+PULUMI_STACK = "pocketsizefund/development"
+

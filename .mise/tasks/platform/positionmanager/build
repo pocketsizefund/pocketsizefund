@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+# mise description="build docker image for the position manager"
+# mise tools=["poetry"]
+
+cd $root/platform/positionmanager
+
+IMAGE=pocketsizefund/position-manager
+VERSION=$(poetry version -s)
+
+docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .

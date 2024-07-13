@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+# mise description="sync cluster config with local kube config"
+# mise tools=["jq", "yq"]
+# mise tools=["pulumi"]
+
+cd $root/infrastructure
+pulumi stack select $PULUMI_STACK
+pulumi stack output kubeconfig | jq . | yq eval -P - > $HOME/.kube/config

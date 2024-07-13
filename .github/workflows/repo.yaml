@@ -1,0 +1,35 @@
+name: repo checks
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  run_unit_tests:
+    name: Ensure mise tasks conform to spec
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Setup Mise
+        env:
+          RUST_BACKTRACE: full
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          install_args: "-y"
+          experimental: true
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: run checks
+        run: mise run repo:lint

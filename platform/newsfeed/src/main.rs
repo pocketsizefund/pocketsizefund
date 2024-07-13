@@ -194,9 +194,13 @@ pub async fn consume_message(consumer: StreamConsumer, producer: FutureProducer)
                             "confidence": {
                                 "type": "integer",
                                 "description": "How confident is the earnings report?"
-                            }
+                            },
+                            "future_oriented_optimism": {
+                                "type": "string",
+                                "description": "How optimistic is the earnings report? Must be one of 'optimistic', 'pessimistic', or 'neutral'."
+                            },
                         },
-                        "required": [ "confidence" ]
+                        "required": [ "confidence", "feature_oriented_optimism" ]
                     }
                 });
 

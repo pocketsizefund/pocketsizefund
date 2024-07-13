@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# mise description="setup virtualenv for pocketsizefund python package"
+# mise tools=["poetry"]
+
+cd $root/libraries/python/pocketsizefund
+poetry install 

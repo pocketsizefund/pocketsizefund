@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+# mise description="install helm charts to k8s cluster"
+# mise tools=["helm"]
+
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+

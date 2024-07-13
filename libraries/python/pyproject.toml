@@ -7,10 +7,8 @@ authors = [
   "chrisaddy <chris.william.addy@gmail.com>",
 ]
 license = "MIT"
-readme = "README.md"
 homepage = "https://www.pocketsize.fund/"
 repository = "https://github.com/pocketsizefund/pocketsizefund"
-package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
@@ -158,7 +156,6 @@ ignore = [
   "D203",
   "D213",
   "S113", # requests timeout
-  "UP035"
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -166,4 +163,3 @@ ignore = [
 "**/*__init__.py" = ["D"]
 "pipelines/filings/*" = ["E501"]
 "infrastructure/__main__.py" = ["INP001", "D100", "ANN201", "D103", "ANN001"]
-"libraries/python/pocketsizefund/config/config.py" = ["ANN401"]

@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+# mise description="setup dependencies for the repo"
+
+poetry install --with dev,test

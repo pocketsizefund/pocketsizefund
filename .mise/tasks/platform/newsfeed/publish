@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+# mise description = "publish newsfeed crate"
+# mise depends=["platform:newsfeed:build"]
+# mise tools=["cargo"]
+
+cd $root/platform/newsfeed
+
+IMAGE=pocketsizefund/newsfeed
+VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "newsfeed") | .version')
+
+docker push $IMAGE:latest
+docker push $IMAGE:$VERSION
