@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+# mise description="build the pocketsizefund rust package"
+# mise tools=["cargo"]
+
+cd $root/libraries/rust
+cargo build
+

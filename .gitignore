@@ -23,3 +23,6 @@ platform/newsfeed/target
 libraries/rust/target
 
 **/*.ipynb_checkpoints
+
+libraries/python/pocketsizefund/build
+libraries/rust/target

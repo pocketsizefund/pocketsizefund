@@ -1,0 +1,22 @@
+[package]
+name = "pocketsizefund"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[features]
+schema = ["dep:serde", "dep:serde_json"]
+polygon = ["dep:reqwest"]
+event = ["dep:rdkafka"]
+llm = ["dep:reqwest"]
+
+[dependencies]
+rdkafka = { version = "0.36.2", features = [
+  "libz-static",
+  "sasl",
+  "ssl",
+  "ssl-vendored",
+], optional = true }
+reqwest = { version = "0.12.5", optional = true }
+serde = { version = "1.0.204", features = ["derive"], optional = true }
+serde_json = { version = "1.0.120", optional = true }
