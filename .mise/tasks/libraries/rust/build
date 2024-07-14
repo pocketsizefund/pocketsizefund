@@ -4,5 +4,4 @@
 # mise tools=["cargo"]
 
 cd $root/libraries/rust
-cargo build
-
+cargo build --all-features

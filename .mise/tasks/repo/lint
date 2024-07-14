@@ -14,7 +14,17 @@ for directory in Path("platform/").iterdir():
         print(f"missing mise tasks in {task_dir.resolve()}")
         exit(1)
 
-    for task in ["format", "test", "lint", "audit", "build", "run", "push", "deploy", "down"]:
+    for task in [
+        "format",
+        "test",
+        "lint",
+        "audit",
+        "build",
+        "run",
+        "push",
+        "deploy",
+        "down",
+    ]:
         task_path = task_dir / task
 
         if not task_path.is_file():

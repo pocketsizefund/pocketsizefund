@@ -1,5 +1,6 @@
 use super::asset_class::AssetClass;
 use super::locale::Locale;
+use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -12,17 +13,16 @@ pub struct Exchange {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{from_value, json, Value};
+    use serde_json::{from_value, json};
 
-    #[test]
+    #[tok::test]
     fn test_us_local() {
-        let input = json!({
+        let input: Exchange = from_value(json!({
                 "acronym": "AMEX",
                 "asset_class": "stocks",
                 "locale": "us"
-        });
-
-        let input: Exchange = from_value(input).unwrap();
+        }))
+        .unwrap();
 
         assert_eq!(
             input,
