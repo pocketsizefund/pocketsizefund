@@ -1,0 +1,5 @@
+[workspace]
+
+members = [
+    "libraries/rust/event",
+]
