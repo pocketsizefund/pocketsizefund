@@ -11,7 +11,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
 pocketsizefund = "^0.1.1"
-sentry-sdk = "^2.6.0"
+sentry-sdk = "^2.8.0"
 loguru = "^0.7.2"
 aiokafka = "^0.11.0"
 
