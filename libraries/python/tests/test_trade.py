@@ -2,6 +2,7 @@ import datetime
 from typing import Optional
 
 import pytest
+
 from pocketsizefund.config import config
 from pocketsizefund.trade import trade
 

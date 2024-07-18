@@ -3,6 +3,7 @@
 import os
 
 from flask import Flask
+
 from pocketsizefund.config.config import api_key_required
 
 

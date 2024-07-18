@@ -11,3 +11,6 @@ pub mod polygon;
 #[cfg(feature = "schema")]
 // this is a module
 pub mod schema;
+
+#[cfg(feature = "event")]
+pub mod event;
