@@ -1,5 +1,5 @@
 [tools]
-python = "3.10"
+python = "latest"
 kubectl = "latest"
 uv = "latest"
 poetry = "latest"
