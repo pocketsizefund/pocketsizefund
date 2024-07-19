@@ -1,4 +1,5 @@
 """Creates the basic data models for the financial pipeline."""
+
 from typing import Literal
 
 from pydantic import AnyUrl, BaseModel
@@ -16,6 +17,3 @@ class Config(BaseModel):
 
     financial_statement: StatementConfig
     earnings_statement: StatementConfig
-
-
-
