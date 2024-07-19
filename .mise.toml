@@ -48,27 +48,74 @@ mv coverage.xml $root/
 
 [tasks."rust:lint"]
 description = "lint rust cargos"
+depends = ["platform:newsfeed:lint", "platform:discord:lint"]
+
+
+[tasks."rust:format"]
+description = "format rust cargos"
+depends = ["platform:newsfeed:format"]
+
+
+[tasks."rust:test"]
+description = "format rust cargos"
+depends = ["platform:newsfeed:test"]
+
+[tasks."rust:audit"]
+description = "audit rust cargos"
+depends = ["platform:newsfeed:audit"]
+
+
+[tasks."platform:newsfeed:lint"]
+description = "lint newsfeed crate"
+run = """
+cd $root/platform/newsfeed
+cargo clippy --all --
+"""
+
+[tasks."platform:newsfeed:format"]
+description = "format newsfeed crate"
+run = """
+cd $root/platform/newsfeed
+cargo fmt --all
+"""
+
+[tasks."platform:newsfeed:test"]
+description = "test newsfeed crate"
+run = """
+cd $root/platform/newsfeed
+cargo test
+"""
+
+[tasks."platform:newsfeed:audit"]
+description = "audit newsfeed crate"
+run = """
+cd $root/platform/newsfeed
+cargo deny check
+"""
+
+[tasks."platform:discord:lint"]
+description = "lint discord crate"
 run = """
 cd $root/platform/discord
 cargo clippy --all --
 """
 
-[tasks."rust:format"]
-description = "format rust cargos"
+[tasks."platform:discord:format"]
+description = "format discord crate"
 run = """
 cd $root/platform/discord
 cargo fmt --all
 """
 
-[tasks."rust:test"]
-description = "format rust cargos"
+[tasks."platform:discord:test"]
+description = "test discord crate"
 run = """
 cd $root/platform/discord
 cargo test
 """
 
-[tasks."rust:audit"]
-description = "audit rust cargos"
+[tasks."platform:discord:audit"]
+description = "audit discord crate"
 run = """
 cd $root/platform/discord
 cargo deny check
@@ -278,34 +325,6 @@ VERSION=$(poetry version -s)
 
 docker push $IMAGE:latest
 docker push $IMAGE:$VERSION
-"""
-
-[tasks."platform:discord:lint"]
-description = "lint rust cargos"
-run = """
-cd $root/platform/discord
-cargo clippy --all --
-"""
-
-[tasks."platform:discord:format"]
-description = "format rust cargos"
-run = """
-cd $root/platform/discord
-cargo fmt --all
-"""
-
-[tasks."platform:discord:test"]
-description = "format rust cargos"
-run = """
-cd $root/platform/discord
-cargo test
-"""
-
-[tasks."platform:discord:audit"]
-description = "audit rust cargos"
-run = """
-cd $root/platform/discord
-cargo deny check
 """
 
 [tasks."test:all"]

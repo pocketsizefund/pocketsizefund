@@ -19,14 +19,14 @@ repos:
       name: Rust formatting
       description: Run cargo fmt on files included in the commit. rustfmt should be installed before-hand.
       entry: |
-          mise run rust:Format
+          mise run rust:format
       types: [file, rust]
       language: system
     - id: rust-linting
       name: Rust linting with clippy
       description: Run cargo clippy on files included in the commit. clippy should be installed before-hand.
       entry: |
-          mise run lint:rust
+          mise run rust:lint
       pass_filenames: false
       types: [file, rust]
       language: system

@@ -1,0 +1,8 @@
+services:
+  newsfeed:
+    build:
+      context: .
+      target: final
+    platform: linux/amd64
+    ports:
+      - 8080:8080
