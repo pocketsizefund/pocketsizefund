@@ -1,4 +1,5 @@
 """General event bus for all services."""
+
 import asyncio
 import os
 from typing import Literal
@@ -31,6 +32,7 @@ class Topic(BaseModel):
         """Get the name of the topic, ensuring it conforms to the psf naming convention."""
         return f"{self.domain}.{self.event}"
 
+
 def create_producer(event_loop: asyncio.AbstractEventLoop) -> AIOKafkaProducer:
     """Create an asynchronous Kafka producer."""
     return AIOKafkaProducer(
@@ -43,8 +45,8 @@ def create_producer(event_loop: asyncio.AbstractEventLoop) -> AIOKafkaProducer:
         ssl_context=create_ssl_context(),
     )
 
-def create_consumer(event_loop: asyncio.AbstractEventLoop,
-                    topic: Topic) -> AIOKafkaConsumer:
+
+def create_consumer(event_loop: asyncio.AbstractEventLoop, topic: Topic) -> AIOKafkaConsumer:
     """Create an asynchronous Kafka consumer."""
     return AIOKafkaConsumer(
         topic.name,
@@ -58,6 +60,3 @@ def create_consumer(event_loop: asyncio.AbstractEventLoop,
         auto_offset_reset="earliest",
         ssl_context=create_ssl_context(),
     )
-
-
-

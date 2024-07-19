@@ -1,4 +1,5 @@
 """Test api key required decorator."""
+
 import os
 
 from flask import Flask
@@ -59,7 +60,6 @@ def test_api_key_required_missing_key() -> None:
     def dummy_function() -> str:
         return "Success"
 
-
     response = client.get("/")
 
     assert response.status_code == 401
@@ -77,7 +77,6 @@ def test_environment_empty() -> None:
     @api_key_required
     def dummy_function() -> str:
         return "Success"
-
 
     response = client.get("/")
 
@@ -109,7 +108,6 @@ def test_api_key_required_extra_key() -> None:
     @api_key_required
     def dummy_function() -> str:
         return "Success"
-
 
     response = client.get("/")
 
