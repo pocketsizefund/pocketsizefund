@@ -20,10 +20,9 @@ env*
 .pytest_cache/
 .ruff_cache/
 
-platform/newsfeed/target
-libraries/rust/target
 
 **/*.ipynb_checkpoints
 
 libraries/python/pocketsizefund/build
-libraries/rust/target
+
+**/target*/
