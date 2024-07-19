@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# mise description="format discord crate"
+# mise tools=["cargo"]
+
+cd $root/platform/discord
+cargo fmt --all

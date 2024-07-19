@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+# mise description="destroy infrastructure"
+
+cd $root/infrastructure
+docker run --rm -it \
+  --platform $PLATFORM \
+  --env PULUMI_ACCESS_TOKEN \
+  pocketsizefund/infrastructure pulumi down \
+  --stack $PULUMI_STACK --yes

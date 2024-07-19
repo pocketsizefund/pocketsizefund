@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# mise description="format rust cargos"
+# mise depends=["platform:newsfeed:test", "platform:discord:test"]

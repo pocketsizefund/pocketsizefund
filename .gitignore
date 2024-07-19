@@ -20,5 +20,6 @@ env*
 .ruff_cache/
 
 platform/newsfeed/target
+libraries/rust/target
 
 **/*.ipynb_checkpoints

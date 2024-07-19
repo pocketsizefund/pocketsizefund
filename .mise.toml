@@ -1,5 +1,5 @@
 [tools]
-python = "3.10"
+python = "3.10" #["3.10", "latest"]
 kubectl = "latest"
 uv = "latest"
 poetry = "latest"
@@ -10,6 +10,7 @@ ruff = "0.4.10" # lastest is breaking
 direnv = "latest"
 helm = "latest"
 go = "latest"
+pulumi = "latest"
 
 [env]
 PLATFORM = "linux/amd64"
@@ -91,6 +92,12 @@ description = "audit newsfeed crate"
 run = """
 cd $root/platform/newsfeed
 cargo deny check
+"""
+
+[tasks."platform:newsfeed:publish"]
+description = "publish newsfeed crate"
+run = """
+cd $root/platform/newsfeed
 """
 
 [tasks."platform:discord:lint"]

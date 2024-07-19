@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+# mise description="check for dead python code"
+
+# mise sources=["Cargo.toml", "src/**/*.rs"]
+# mise env={RUST_BACKTRACE = "1"}
+# mise depends=["python:lint"]
+# mise tools = ["poetry"]
+
+poetry run vulture --min-confidence 80 .

@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+
+# mise description "ensure repo is in a good state"
+
+from pathlib import Path
+
+platform_directories = set()
+
+for directory in Path("platform/").iterdir():
+    print(f"checking {directory}")
+    task_dir = Path(".mise/tasks/platform") / directory.name
+
+    if not task_dir.is_dir():
+        print(f"missing mise tasks in {task_dir.resolve()}")
+        exit(1)
+
+    for task in ["format", "test", "lint", "audit", "build", "run", "push", "deploy", "down"]:
+        task_path = task_dir / task
+
+        if not task_path.is_file():
+            print(f"missing task: {task_path.resolve()}")
+            exit(1)

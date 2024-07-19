@@ -114,11 +114,8 @@ async def main() -> None:  # noqa: D103
     loop = asyncio.get_event_loop()
 
     topic = Topic(domain="trade", event="psf.cron.submitted", group_id="psf.cron")
-    output_topic = Topic(
-        domain="trade",
-        event="psf.positionmanager.success",
-        group_id="psf.cron",
-    )
+
+    output_topic = Topic(domain="trade", event="psf.positionmanager.success", group_id="psf.cron")
 
     logger.info(f"Starting listener for {topic.name}")
     logger.info(f"Starting producer for {output_topic.name}")

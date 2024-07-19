@@ -12,7 +12,6 @@ RUN apk add --no-cache \
     git \
     build-base \
     perl \
-    openssl-dev \
     pkgconfig
 
 ENV OPENSSL_DIR=/usr/include/openssl

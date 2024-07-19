@@ -8,7 +8,7 @@ license = "MIT"
 apache-avro = { version = "0.16.0", features = ["derive"] }
 avro-rs = "0.13.0"
 pretty_env_logger = "0.5.0"
-rdkafka = { version = "0.36.2", features = ["sasl", "ssl", "ssl-vendored"] }
+rdkafka = { version = "0.36.2", features = ["libz-static", "sasl", "ssl", "ssl-vendored"] }
 regex = "1.10.5"
 reqwest = "0.12.5"
 scraper = "0.19.0"
