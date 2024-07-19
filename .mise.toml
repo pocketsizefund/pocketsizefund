@@ -57,7 +57,7 @@ depends = ["platform:newsfeed:format"]
 
 
 [tasks."rust:test"]
-description = "format rust cargos"
+description = "test rust cargos"
 depends = ["platform:newsfeed:test"]
 
 [tasks."rust:audit"]
