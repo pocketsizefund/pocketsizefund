@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+# mise description="push price model image to docker hub"
+# mise depends=["platform:pricemodel:build"]
+
+cd $root/platform/pricemodel
+
+IMAGE=pocketsizefund/price-model
+VERSION=$(poetry version -s)
+
+docker push $IMAGE:latest
+docker push $IMAGE:$VERSION

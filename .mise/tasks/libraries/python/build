@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+# mise description="build the pocketsizefund python package"
+# mise depends=["libraries:python:setup"]
+# mise tools=["poetry"]
+
+cd $root/libraries/python/pocketsizefund
+poetry build
+
+

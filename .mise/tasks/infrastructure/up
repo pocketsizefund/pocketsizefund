@@ -1,0 +1,8 @@
+
+#!/usr/bin/env sh
+
+# mise description="launch infrastructure"
+
+mise run infrastructure:core:launch
+mise run infrastructure:k8s:config:sync
+mise run infrastructure:k8s:secrets:sync
