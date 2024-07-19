@@ -1,14 +1,14 @@
 """Set positions based on portfolio position and model predictions."""
 
 import asyncio
-import datetime
 import os
+import random
 
 import requests
 import sentry_sdk
 from event_bus import Topic, create_consumer, create_producer
 from loguru import logger
-from pocketsizefund.config.config import TIMEZONE, api_key_required
+from pocketsizefund.config.config import api_key_required
 from pocketsizefund.trade import trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
@@ -38,57 +38,20 @@ def get_predictions() -> dict[str, any]:
         is_paper=os.getenv("IS_PAPER") == "true",
     )
 
-    now = datetime.datetime.now(tz=TIMEZONE)
-
-    is_clear = trade_client.check_set_position_availability(
-        action=trade.CLEAR_ACTION,
-        current_datetime=now,
+    response = requests.get(
+        url="http://price-model:8080/predictions",
+        timeout=30,
     )
 
-    is_create = trade_client.check_set_position_availability(
-        action=trade.CREATE_ACTION,
-        current_datetime=now,
-    )
+    if response.status_code != STATUS_CODE_OK:
+        msg = f"error getting predictions: {response.text}"
+        raise Exception(msg)  # noqa: TRY002
 
-    if is_clear:
-        trade_client.clear_positions()
+    predictions_by_ticker = response.json()
 
-    if is_create:
-        response = requests.get(
-            url="http://price-model:8080/predictions",
-            timeout=30,
-        )
+    random_ticker = random.choice(list(predictions_by_ticker.keys()))  # noqa: S311
 
-        if response.status_code != STATUS_CODE_OK:
-            msg = f"error getting predictions: {response.text}"
-            raise Exception(msg)  # noqa: TRY002
-
-        predictions_by_ticker = response.json()
-
-        moves_by_ticker = {
-            ticker: predictions_by_ticker[ticker][0] - predictions_by_ticker[ticker][4]
-            for ticker in predictions_by_ticker
-        }
-
-        sorted_moves_by_ticker = dict(
-            sorted(
-                moves_by_ticker.items(),
-                key=lambda item: item[1],
-                reverse=True,
-            ),
-        )
-
-        highest_moves_by_ticker = {
-            k: sorted_moves_by_ticker[k] for k in list(sorted_moves_by_ticker)[:POSITIONS_COUNT]
-        }
-
-        highest_moves_tickers = highest_moves_by_ticker.keys()
-
-        if len(highest_moves_tickers) == 0:
-            msg = "no tickers to trade"
-            raise Exception(msg)  # noqa: TRY002
-
-        trade_client.set_positions(tickers=highest_moves_tickers)
+    trade_client.baseline_buy(ticker=random_ticker)
 
     return None
 

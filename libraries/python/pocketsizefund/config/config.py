@@ -2,9 +2,8 @@
 
 import datetime
 import os
-from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, Callable
 
 from flask import abort
 from loguru import logger

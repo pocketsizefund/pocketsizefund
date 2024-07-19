@@ -2,10 +2,8 @@
 
 import datetime
 
-import numpy as np
 import requests
-from alpaca.data import historical, timeframe
-from alpaca.data import requests as alpaca_data_requests
+from alpaca.data import historical
 from alpaca.trading import client as trading_client
 from alpaca.trading import enums
 from alpaca.trading import requests as alpaca_trading_requests
@@ -153,43 +151,30 @@ class Client:
         """
         return self._get_available_tickers()
 
-    def set_positions(
+    def baseline_buy(
         self,
-        tickers: list[str],
+        ticker: str,
     ) -> None:
-        """Set positions for the given list of tickers.
+        """Buy a $1 position in the provided ticker.
 
-        Args:
-            tickers (list[str]): A list of tickers for the positions to be set.
-
-        Returns:
-            None: This function does not return anything.
-
-        Raises:
-            ValueError: If any of the tickers in the list are invalid.
+        This is just being added in the interest of getting things up and
+        running but will be deprecated after swapping over to the Rust implementation.
         """
         available_tickers = self._get_available_tickers()
 
-        account = self.alpaca_trading_client.get_account()
+        if ticker not in available_tickers:
+            msg = f'invalid ticker "{ticker}"'
+            raise ValueError(msg)
 
-        available_cash = float(account.cash)
+        request = alpaca_trading_requests.MarketOrderRequest(
+            symbol=ticker,
+            notional=round(1, 2),
+            type=enums.OrderType.MARKET,
+            side=enums.OrderSide.BUY,
+            time_in_force=enums.TimeInForce.DAY,
+        )
 
-        notional = available_cash / len(tickers) * 0.95  # 5% buffer workaround
-
-        for ticker in tickers:
-            if ticker not in available_tickers:
-                msg = f'invalid ticker "{ticker}"'
-                raise ValueError(msg)
-
-            request = alpaca_trading_requests.MarketOrderRequest(
-                symbol=ticker,
-                notional=round(notional, 2),
-                type=enums.OrderType.MARKET,
-                side=enums.OrderSide.BUY,
-                time_in_force=enums.TimeInForce.DAY,
-            )
-
-            self.alpaca_trading_client.submit_order(request)
+        self.alpaca_trading_client.submit_order(request)
 
     def _get_available_tickers(self) -> list[str]:
         """Retrieve a list of available tickers from Darqube API and Alpaca Trading API.
@@ -230,222 +215,3 @@ class Client:
                 tickers.append(asset.symbol)  # noqa: PERF401
 
         return tickers
-
-    def clear_positions(self) -> None:
-        """Clear all positions held by the client.
-
-        This method calls the `close_all_positions` method of the `alpaca_trading_client` object,
-        passing `True` as the `cancel_orders` parameter. This will close all open positions and
-        cancel any associated orders.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        self.alpaca_trading_client.close_all_positions(
-            cancel_orders=True,
-        )
-
-    def get_performance_metrics(
-        self,
-        week_count: int,
-        end_at: datetime.datetime,
-    ) -> dict[str, any]:
-        """Retrieve performance metrics for the portfolio.
-
-        Args:
-            week_count (int): The number of weeks to consider for the metrics calculation.
-            end_at (datetime.datetime): The end date for the metrics calculation.
-
-        Returns:
-            dict[str, any]: A dictionary containing the performance metrics. The keys are:
-                - "current_portfolio_value" (float): The current value of the portfolio.
-                - "cumulative_portfolio_returns" (float): The cumulative returns of the portfolio.
-                - "cumulative_benchmark_returns" (float): The cumulative returns of the benchmark.
-                - "risk_free_rate" (float): The risk-free rate used in the calculations.
-
-        """
-        metrics = {}
-
-        account = self.alpaca_trading_client.get_account()
-
-        metrics["current_portfolio_value"] = float(account.equity)
-
-        portfolio_returns = self._get_portoflio_daily_returns(
-            week_count=week_count,
-            end_at=end_at,
-        )
-
-        benchmark_returns = self._get_benchmark_daily_returns(
-            week_count=week_count,
-            end_at=end_at,
-        )
-
-        adjusted_length = min(len(portfolio_returns), len(benchmark_returns))
-
-        portfolio_returns = portfolio_returns[len(portfolio_returns) - adjusted_length :]
-
-        benchmark_returns = benchmark_returns[len(benchmark_returns) - adjusted_length :]
-
-        metrics["cumulative_portfolio_returns"] = self._cumulative_returns(
-            returns=portfolio_returns,
-        )
-
-        metrics["cumulative_benchmark_returns"] = self._cumulative_returns(
-            returns=benchmark_returns,
-        )
-
-        metrics["risk_free_rate"] = self._get_risk_free_rate()
-
-        return metrics
-
-    def _get_portoflio_daily_returns(
-        self,
-        week_count: int,
-        end_at: datetime.datetime,
-        threshold: int = 5,
-    ) -> list[dict[str, any]]:
-        """Retrieve the daily returns of the portfolio for a specified period.
-
-        Args:
-            week_count (int): The number of weeks to consider for the returns calculation.
-            end_at (datetime.datetime): The end date for the returns calculation.
-            threshold (int): Minimum returns.
-
-        Returns:
-            list[dict[str, any]]: A list of daily returns for the portfolio.
-                Each element of the list is a dictionary containing the timestamp
-                and the profit/loss percentage for that day.
-
-        Raises:
-            ValueError: If the number of portfolio returns is less than 5.
-        """
-        subdomain = "paper-api"
-        if not self.is_paper:
-            subdomain = "api"
-
-        portfolio_response = self.http_client.get(
-            url=f"https://{subdomain}.alpaca.markets/v2/account/portfolio/history",
-            headers=self.http_headers,
-            params={
-                "period": f"{week_count}W",
-                "timeframe": "1D",
-                "intraday_reporting": "market_hours",
-                "pnl_reset": "per_day",
-                "end": end_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            },
-        )
-
-        portfolio_data = portfolio_response.json()
-
-        portfolio_returns = []
-
-        for index in range(len(portfolio_data["timestamp"])):
-            portfolio_returns.append(  # noqa: PERF401
-                round(float(portfolio_data["profit_loss_pct"][index]), 4),
-            )
-
-        if len(portfolio_returns) < threshold:
-            msg = f"insufficient portfolio data: {len(portfolio_returns)}"
-            raise ValueError(msg)
-
-        return portfolio_returns
-
-    def _get_benchmark_daily_returns(
-        self,
-        week_count: int,
-        end_at: datetime.datetime,
-        threshold: int = 5,
-    ) -> list[dict[str, any]]:
-        """Retrieve the daily returns of a benchmark stock over a specified period.
-
-        Args:
-            week_count (int): The number of weeks to retrieve the benchmark data for.
-            end_at (datetime.datetime): The end date of the period.
-            threshold (int): Minimum number of returns in order to benchmark
-
-        Returns:
-            list[dict[str, any]]: A list of dictionaries containing the daily returns
-                of the benchmark stock.
-
-        Raises:
-            ValueError: If there is insufficient benchmark data.
-        """
-        benchmark_ticker = "SPY"
-
-        # adjusting due to Alpaca API limitations
-        end_at = end_at - datetime.timedelta(hours=1)
-
-        # calendar days approximating trading days
-        start_at = end_at - datetime.timedelta(days=week_count * 8)
-
-        request = alpaca_data_requests.StockBarsRequest(
-            symbol_or_symbols=benchmark_ticker,
-            start=start_at,
-            end=end_at,
-            timeframe=timeframe.TimeFrame.Day,
-            adjustment="all",
-        )
-
-        benchmark_response = self.alpaca_historical_client.get_stock_bars(request)
-
-        benchmark_data = benchmark_response[benchmark_ticker]
-
-        benchmark_returns = []
-
-        for index in range(len(benchmark_data) - 1):
-            current_close = float(benchmark_data[index]["c"])
-
-            next_close = float(benchmark_data[index + 1]["c"])
-
-            percent_change = (next_close / current_close) - 1
-
-            benchmark_returns.append(round(percent_change, 4))
-
-        if len(benchmark_returns) < threshold:
-            msg = f"insufficient benchmark data: {len(benchmark_returns)}"
-            raise ValueError(msg)
-
-        return benchmark_returns
-
-    def _cumulative_returns(
-        self,
-        returns: list[float],
-    ) -> float:
-        """Calculate the cumulative returns of a list of returns.
-
-        Args:
-            returns (list[float]): A list of returns.
-
-        Returns:
-            float: The cumulative returns rounded to 4 decimal places.
-
-        """
-        cumulative_returns = np.prod(1 + np.array(returns)) - 1
-
-        return round(cumulative_returns, 4)
-
-    def _get_risk_free_rate(
-        self,
-    ) -> float:
-        treasury_yields_response = self.http_client.get(
-            url="https://www.alphavantage.co/query",
-            params={
-                "function": "TREASURY_YIELD",
-                "interval": "monthly",
-                "maturity": "10year",
-                "apikey": self.alpha_vantage_api_key,
-            },
-        )
-
-        treasury_yields_data = treasury_yields_response.json()
-
-        treasury_yields_data_sorted = sorted(
-            treasury_yields_data["data"],
-            key=lambda x: x["date"],
-            reverse=True,
-        )
-
-        return float(treasury_yields_data_sorted[0]["value"]) * 0.01
