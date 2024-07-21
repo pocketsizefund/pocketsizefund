@@ -2,7 +2,7 @@
 
 > Open source quantitative trading 🍊  
 
-[![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)](https://discord.gg/uPEBbYYDB6) [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund) [![Python CI](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml)
+[![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)](https://discord.gg/uPEBbYYDB6) [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund) [![Python checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml) [![Rust checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yml)  
 
 ## About
 
@@ -52,13 +52,13 @@ mise tasks ls
 
 An unordered and non-exhaustive list of principles we work towards:
 
-> Test in production
-> Always roll forward
-> Systems over process
-> No code is good code
-> Never write documentation
-> Git is truth
-> We only measure ROI
+> Test in production  
+> Always roll forward  
+> Systems over process  
+> No code is good code  
+> Never write documentation  
+> Git is truth  
+> We only measure ROI  
 
 ### Links
 
