@@ -7,4 +7,5 @@
 # mise depends=["python:lint"]
 # mise tools = ["poetry"]
 
+cd $root
 poetry run vulture --min-confidence 80 .

@@ -31,7 +31,7 @@ func main() {
 		}
 		eksNodeInstanceType, err := cfg.Try("eksNodeInstanceType")
 		if err != nil {
-			eksNodeInstanceType = "t3.medium"
+			eksNodeInstanceType = "t3.small"
 		}
 		vpcNetworkCidr, err := cfg.Try("vpcNetworkCidr")
 		if err != nil {

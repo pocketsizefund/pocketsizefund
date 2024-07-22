@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pocketsizefund"
-version = "0.1.1"
+version = "0.2.0"
 description = "Open source quantitative trading"
 authors = [
   "forstmeier <john.forstmeier@gmail.com>",
@@ -29,6 +29,22 @@ flask = "^3.0.3"
 lxml = "^5.2.2"
 llama-index = "^0.10.40"
 coverage = "^7.5.3"
+
+[tool.poetry.extras]
+ml = [
+    "pandas",
+    "prefect",
+    "pytorch-forecasting",
+    "wandb",
+    "lightning",
+    "torch",
+    "llama-index"
+]
+
+trade = [
+    "alpaca-py",
+    "requests"
+]
 
 [tool.poetry.group.test.dependencies]
 pytest-xdist = "^3.6.1"

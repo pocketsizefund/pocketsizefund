@@ -54,7 +54,6 @@ except IsADirectoryError:
 
 
 @app.route("/health", methods=["GET"])
-@config.api_key_required
 def health() -> flask.Response:
     """Health endpoint for the inference endpoint."""
     return flask.Response(status=200)

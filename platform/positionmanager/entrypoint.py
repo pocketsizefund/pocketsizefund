@@ -8,7 +8,6 @@ import requests
 import sentry_sdk
 from event_bus import Topic, create_consumer, create_producer
 from loguru import logger
-from pocketsizefund.config.config import api_key_required
 from pocketsizefund.trade import trade
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
@@ -27,7 +26,6 @@ STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
 
-@api_key_required
 def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
     trade_client = trade.Client(
@@ -35,11 +33,11 @@ def get_predictions() -> dict[str, any]:
         alpaca_api_key=os.getenv("ALPACA_API_KEY"),
         alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
         alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-        is_paper=os.getenv("IS_PAPER") == "true",
+        is_paper=os.getenv("IS_PAPER"),
     )
 
     response = requests.get(
-        url="http://price-model:8080/predictions",
+        url="http://price-model:8080/health",
         timeout=30,
     )
 
@@ -78,7 +76,11 @@ async def main() -> None:  # noqa: D103
 
     topic = Topic(domain="trade", event="psf.cron.submitted", group_id="psf.cron")
 
-    output_topic = Topic(domain="trade", event="psf.positionmanager.success", group_id="psf.cron")
+    output_topic = Topic(
+        domain="trade",
+        event="psf.positionmanager.success",
+        group_id="psf.cron",
+    )
 
     logger.info(f"Starting listener for {topic.name}")
     logger.info(f"Starting producer for {output_topic.name}")
@@ -87,18 +89,16 @@ async def main() -> None:  # noqa: D103
     producer = None
 
     try:
-        consumer = create_consumer(event_loop=loop, topic=topic)
-        producer = create_producer(event_loop=loop)
+        consumer = await create_consumer(event_loop=loop, topic=topic)
+        producer = await create_producer(event_loop=loop)
 
         await consumer.start()
         await producer.start()
 
-        stop_event = asyncio.Event()
-
-        await stop_event.wait()
+        await listener(consumer, producer, output_topic)
 
     except Exception as e:  # noqa: BLE001
-        logger.error(f"Error in main: {e!s}")
+        logger.error(f"Error in main: {e}")
     finally:
         logger.info("Shutting down...")
         if consumer:

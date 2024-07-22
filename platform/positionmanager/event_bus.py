@@ -9,11 +9,21 @@ from aiokafka.helpers import create_ssl_context
 from loguru import logger
 from pydantic import BaseModel
 
-KAFKA_BOOTSTRAP_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVER")
-KAFKA_SASL_MECHANISM = os.getenv("KAFKA_SASL_MECHANISM")
-KAFKA_SECURITY_PROTOCOL = os.getenv("KAFKA_SECURITY_PROTOCOL")
-KAFKA_USERNAME = os.getenv("KAFKA_USERNAME")
-KAFKA_PASSWORD = os.getenv("KAFKA_PASSWORD")
+
+def required_env(key: str) -> str:
+    """Get the value of an environment variable or raise an exception."""
+    value = os.getenv(key)
+    if not value:
+        msg = f"Missing environment variable: {key}"
+        raise ValueError(msg)
+    return value
+
+
+KAFKA_BOOTSTRAP_SERVER = required_env("KAFKA_BOOTSTRAP_SERVER")
+KAFKA_SASL_MECHANISM = required_env("KAFKA_SASL_MECHANISM")
+KAFKA_SECURITY_PROTOCOL = required_env("KAFKA_SECURITY_PROTOCOL")
+KAFKA_USERNAME = required_env("KAFKA_USERNAME")
+KAFKA_PASSWORD = required_env("KAFKA_PASSWORD")
 
 logger.info(f"KAFKA_BOOTSTRAP_SERVER: {KAFKA_BOOTSTRAP_SERVER}")
 logger.info(f"KAFKA_SASL_MECHANISM: {KAFKA_SASL_MECHANISM}")
@@ -46,7 +56,10 @@ async def create_producer(event_loop: asyncio.AbstractEventLoop) -> AIOKafkaProd
     )
 
 
-async def create_consumer(event_loop: asyncio.AbstractEventLoop, topic: Topic) -> AIOKafkaConsumer:
+async def create_consumer(
+    event_loop: asyncio.AbstractEventLoop,
+    topic: Topic,
+) -> AIOKafkaConsumer:
     """Create an asynchronous Kafka consumer."""
     return AIOKafkaConsumer(
         topic.name,
