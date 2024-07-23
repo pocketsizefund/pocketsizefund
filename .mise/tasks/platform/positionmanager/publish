@@ -3,7 +3,7 @@
 # mise description="push position manager image to docker hub"
 # mise depends=["platform:positionmanager:build"]
 
-cd platform/positionmanager
+cd $root/platform/positionmanager
 
 IMAGE=pocketsizefund/position-manager
 VERSION=$(poetry version -s)

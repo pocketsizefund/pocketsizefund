@@ -2,4 +2,5 @@
 
 # mise description="setup dependencies for the repo"
 
+cd $root
 poetry install --with dev,test

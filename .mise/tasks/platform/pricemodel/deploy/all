@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# mise description="deploy position manager to paper environment"
+# mise depends=["platform:pricemodel:deploy:development", "platform:pricemodel:deploy:paper", "platform:pricemodel:deploy:live"]
