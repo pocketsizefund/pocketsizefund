@@ -1,4 +1,4 @@
-name: Python CI
+name: Python checks
 
 on:
   pull_request:
@@ -77,26 +77,3 @@ jobs:
           experimental: true
       - name: Run dead code
         run: mise run python:dead-code
-
-  # publish_package:
-  #   name: Publish Python package to PyPI
-  #   runs-on: ubuntu-latest
-  #   needs:
-  #   - run_unit_tests
-  #   - run_lint
-  #   - run_dead_code
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.10'
-  #     - name: Setup mise
-  #       uses: jdx/mise-action@v2
-  #       with:
-  #         experimental: true
-  #     - name: Install poetry
-  #       uses: snok/install-poetry@v1
-  #     - name: Run dead code
-  #       run: mise run libraries:python:publish

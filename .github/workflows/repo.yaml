@@ -1,4 +1,4 @@
-name: repo checks
+name: Mise checks
 
 on:
   pull_request:
