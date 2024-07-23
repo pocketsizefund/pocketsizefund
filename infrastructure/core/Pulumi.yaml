@@ -1,0 +1,7 @@
+name: pocketsizefund-infrastructure
+runtime: go
+description: A Go program to deploy a Kubernetes cluster on AWS
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: kubernetes-aws-go
