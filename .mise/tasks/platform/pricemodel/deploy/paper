@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# mise description="deploy position manager to paper environment"
+# mise tools=["poetry"]
+
+cd $root/platform/pricemodel
+kubectl apply -f manifest.yaml --namespace paper
