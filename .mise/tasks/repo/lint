@@ -7,6 +7,8 @@ from pathlib import Path
 platform_directories = set()
 
 for directory in Path("platform/").iterdir():
+    if directory == Path("platform/frontend"):
+        continue
     print(f"checking {directory}")
     task_dir = Path(".mise/tasks/platform") / directory.name
 
