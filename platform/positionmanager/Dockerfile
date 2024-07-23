@@ -18,4 +18,4 @@ RUN pip install --no-cache-dir "poetry==1.7.1" && \
 
 COPY entrypoint.py event_bus.py ./
 
-CMD [ "python", "entrypoint.py" ]
+ENTRYPOINT [ "python", "entrypoint.py" ]
