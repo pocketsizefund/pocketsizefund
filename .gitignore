@@ -13,7 +13,8 @@ tft_model.ckpt
 *-all.csv
 *.ckpt*
 platform/discord/target
-infrastructure/venv
+infrastructure/core/infrastructure
+infrastructure/kubeflow/kubeflow
 .envrc
 env*
 .pytest_cache/
