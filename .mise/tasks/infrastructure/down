@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
 
+#!/usr/bin/env sh
+
 # mise description="destroy infrastructure"
 # mise depends=["infrastructure:core:destroy", "infrastructure:kubeflow:destroy"]

@@ -1,3 +1,4 @@
+
 #!/usr/bin/env sh
 
 # mise description="push infrastructure image to docker hub"
