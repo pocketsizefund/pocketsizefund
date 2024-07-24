@@ -1,8 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="update helm charts"
-# mise tools=["helm"]
-
-helm repo update
-
-

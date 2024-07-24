@@ -1,5 +1,8 @@
 ARG PYTHON_VERSION=3.10.14
-FROM python:${PYTHON_VERSION} as base
+FROM python:${PYTHON_VERSION} AS base
+
+ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
+RUN /install.sh && rm /install.sh
 
 ARG MODEL_FILE_NAME
 
@@ -24,18 +27,17 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
+COPY requirements.txt .
 
-COPY pyproject.toml poetry.lock .
-
-RUN pip install --no-cache-dir "poetry==1.7.1" && \
-  poetry config virtualenvs.create false && \
-  poetry install --no-dev --no-interaction --no-cache --no-root
-
+RUN /root/.cargo/bin/uv pip install --system --no-cache -r requirements.txt
+RUN mkdir /app/lightning_logs && chmod 777 /app/lightning_logs
 
 USER appuser
 
-COPY entrypoint.py .
+COPY entrypoint.py . price-model.ckpt ./
+
+ENV MPLCONFIGDIR=/tmp
 
 EXPOSE 8080
 
-ENTRYPOINT ["python", "entrypoint.py"]
+ENTRYPOINT ["uvicorn", "entrypoint:app", "--host", "0.0.0.0", "--port", "8080"]

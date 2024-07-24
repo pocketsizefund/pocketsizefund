@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+# mise description="destroy core infrastructure"
+# mise tools=["docker"]
+
+cd $root/infrastructure/kubeflow
+
+docker run --rm -it \
+	--platform $PLATFORM \
+	--env PULUMI_ACCESS_TOKEN \
+	pocketsizefund/kubeflow pulumi destroy \
+	--stack $CORE_PULUMI_STACK --yes

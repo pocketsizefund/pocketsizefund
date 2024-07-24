@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "positionmanager"
-version = "0.1.6"
+version = "0.1.13"
 description = ""
 authors = [
   "forstmeier <john.forstmeier@gmail.com>",
