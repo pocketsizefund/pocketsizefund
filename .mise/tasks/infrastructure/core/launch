@@ -3,10 +3,6 @@
 # mise description="launch infrastructure"
 # mise tools=["docker"]
 
-cd $root/infrastructure
+cd $root/infrastructure/core
 
-docker run --rm -it \
-  --platform $PLATFORM \
-  --env PULUMI_ACCESS_TOKEN \
-  pocketsizefund/infrastructure pulumi up \
-  --stack $PULUMI_STACK --yes
+pulumi up --stack $CORE_PULUMI_STACK --yes

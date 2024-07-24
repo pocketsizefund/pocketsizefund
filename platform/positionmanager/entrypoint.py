@@ -26,6 +26,21 @@ STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
 
+ENVIRONMENT = os.getenv("ENVIRONMENT")
+PRICE_MODEL_URL = f"http://price-model.{ENVIRONMENT}.svc.cluster.local:8080"
+
+logger.info(f"launching listener for {ENVIRONMENT}")
+logger.info(f"price model url: {PRICE_MODEL_URL}")
+
+
+response = requests.get(
+    url=PRICE_MODEL_URL + "/health",
+    timeout=30,
+)
+
+logger.info(f"price-model response: status={response.status_code}: {response.text}")
+
+
 def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
     trade_client = trade.Client(
@@ -37,7 +52,7 @@ def get_predictions() -> dict[str, any]:
     )
 
     response = requests.get(
-        url="http://price-model:8080/health",
+        url=PRICE_MODEL_URL + "/predictions",
         timeout=30,
     )
 
@@ -47,7 +62,11 @@ def get_predictions() -> dict[str, any]:
 
     predictions_by_ticker = response.json()
 
-    random_ticker = random.choice(list(predictions_by_ticker.keys()))  # noqa: S311
+    logger.info(f"predictions_by_ticker: {predictions_by_ticker}")
+
+    random_ticker = random.choice(list(predictions_by_ticker.get("tickers").keys()))  # noqa: S311
+
+    logger.info(f"random_ticker: {random_ticker}")
 
     trade_client.baseline_buy(ticker=random_ticker)
 

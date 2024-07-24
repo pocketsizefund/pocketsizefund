@@ -11,7 +11,7 @@ lightning_logs/
 tft_model.ckpt
 .python-version
 *-all.csv
-*.ckpt*
+# *.ckpt*
 platform/discord/target
 infrastructure/core/infrastructure
 infrastructure/kubeflow/kubeflow
@@ -24,5 +24,6 @@ env*
 **/*.ipynb_checkpoints
 
 libraries/python/pocketsizefund/build
+libraries/python/dist
 
 **/target*/

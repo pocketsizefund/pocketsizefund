@@ -14,10 +14,13 @@ spec:
     spec:
       containers:
         - name: position-manager
-          image: pocketsizefund/position-manager:0.1.6 # live
-          image: pocketsizefund/position-manager:latest # development, paper
-          imagePullPolicy: IfNotPresent
+          image: pocketsizefund/position-manager:0.1.13
           env:
+            - name: ENVIRONMENT
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: environment
             - name: SENTRY_DSN
               valueFrom:
                 secretKeyRef:

@@ -2,7 +2,7 @@ import gzip
 import io
 
 import pandas as pd
-from pocketsizefund.storage import storage
+from pocketsizefund import storage
 
 
 class MockS3Client:
@@ -143,8 +143,12 @@ def test_load_dataframes_success() -> None:
     )
 
     assert len(dataframes_by_file_name) == 2
-    assert dataframes_by_file_name["first"].equals(client.s3_client.data["prefix/first"])
-    assert dataframes_by_file_name["second"].equals(client.s3_client.data["prefix/second"])
+    assert dataframes_by_file_name["first"].equals(
+        client.s3_client.data["prefix/first"]
+    )
+    assert dataframes_by_file_name["second"].equals(
+        client.s3_client.data["prefix/second"]
+    )
 
 
 def test_store_texts_success() -> None:
