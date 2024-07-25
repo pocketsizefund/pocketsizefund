@@ -2,8 +2,4 @@
 resolver = "2"
 
 members = [ 
-    "libraries/rust",
-    "platform/newsfeed",
-    "platform/discord",
-    "platform/datacollector",
 ]
