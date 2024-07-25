@@ -1,6 +1,5 @@
 use super::asset_class::AssetClass;
 use super::locale::Locale;
-use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
