@@ -4,5 +4,5 @@ pub mod exchange;
 pub mod locale;
 pub mod market;
 pub mod prelude;
-pub mod symbol;
+pub mod bar;
 pub mod ticker;

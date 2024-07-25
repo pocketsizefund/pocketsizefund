@@ -1,10 +1,11 @@
-use crate::schema::prelude::{Price, Volume};
-use crate::schema::symbol::Ticker;
+use crate::prelude::{Price, Volume};
 use chrono::prelude::NaiveDate;
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::env;
 use tracing::debug;
+use crate::ticker::Ticker;
+use reqwest;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Symbol(String);
@@ -35,7 +36,7 @@ pub struct Bar {
     pub volume: Volume,
 }
 
-impl OHLCV {
+impl Bar {
     fn new(symbol: &str) -> Ticker {
         todo!();
         // Ticker {
@@ -81,7 +82,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_open_high_low_close_volume_daily_data() -> Result<()> {
-        let expected = json!({
+        let _expected = json!({
             "afterHours": 322.1,
             "close": 325.12,
             "from": "2023-01-09",
@@ -94,7 +95,7 @@ mod tests {
             "volume": 26122646
         });
 
-        let date = NaiveDate::parse_from_str("2024-01-01", "%Y-%m-%d")?;
+        let _date = NaiveDate::parse_from_str("2024-01-01", "%Y-%m-%d")?;
 
         Ok(())
     }

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -37,6 +38,6 @@ mod tests {
         "serverTime": "2020-11-10T17:37:37-05:00"
         });
 
-        let input: Market = from_value(input).unwrap();
+        let _input: Market = from_value(input).unwrap();
     }
 }

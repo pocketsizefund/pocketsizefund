@@ -1,5 +1,8 @@
 [workspace]
+resolver = "2"
 
-members = [
-    "libraries/rust/src/event",
+members = [ 
+    "libraries/rust/data",
+    "libraries/rust/event",
+    "libraries/rust/schema",
 ]

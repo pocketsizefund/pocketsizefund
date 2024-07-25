@@ -1,6 +1,5 @@
 use super::asset_class::AssetClass;
 use super::locale::Locale;
-use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -15,8 +14,8 @@ mod tests {
     use super::*;
     use serde_json::{from_value, json};
 
-    #[tok::test]
-    fn test_us_local() {
+    #[tokio::test]
+    async fn test_us_local() {
         let input: Exchange = from_value(json!({
                 "acronym": "AMEX",
                 "asset_class": "stocks",
