@@ -51,6 +51,7 @@ min_confidence = 80
 paths = ["."]
 sort_by_size = true
 verbose = false
+exclude = ["platform/discord/", "platform/newsfeed", "libraries/rust"]
 
 [tool.ruff]
 exclude = [
