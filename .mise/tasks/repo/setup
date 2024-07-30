@@ -2,4 +2,14 @@
 
 # mise description="setup dependencies for the repo"
 
-poetry install --with dev,test
+cd $root
+
+DKF_CLI_VERSION="0.1.2"
+DKF_CLI_ARCH=$(uname -m | sed -e 's/x86_64/amd64/')
+DFK_CLI_DEST=$root/infrastructure/kubeflow/deploykf
+
+echo using version ${DKF_CLI_VERSION} for arch ${DKF_CLI_ARCH}
+
+sudo curl -fL "https://github.com/deploykf/cli/releases/download/v${DKF_CLI_VERSION}/deploykf-darwin-${DKF_CLI_ARCH}" -o "${DFK_CLI_DEST}"
+sudo chmod +x "${DFK_CLI_DEST}"
+$root/infrastructure/kubeflow/deploykf version

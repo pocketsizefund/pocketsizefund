@@ -30,14 +30,6 @@ def train_model(
     return price_model
 
 
-@task
-def save_model(
-    price_model: model.PriceModel,
-) -> None:
-    """Save the price prediction model to local file."""
-    pass
-
-
 @flow
 def pipeline() -> None:
     """Pipeline to train and save a price prediction model."""
@@ -45,10 +37,6 @@ def pipeline() -> None:
 
     price_model = train_model(
         data=data,
-    )
-
-    save_model(
-        price_model=price_model,
     )
 
 

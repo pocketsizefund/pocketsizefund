@@ -10,4 +10,4 @@ VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name 
 
 echo building $IMAGE:$VERSION on $PLATFORM
 
-docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
+docker buildx -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .

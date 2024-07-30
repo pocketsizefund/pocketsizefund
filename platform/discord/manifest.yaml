@@ -1,8 +1,7 @@
----
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: discord-webhook-service
+  name: discord-service
 spec:
   template:
     spec:
@@ -20,12 +19,11 @@ spec:
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: discord-webhook-trigger
+  name: discord-trigger
 spec:
   broker: live
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: discord-webhook-service
-  minReplicas: 0
+      name: discord-service
