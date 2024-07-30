@@ -3,6 +3,6 @@
 # mise description="sync cluster config with local kube config"
 # mise tools=["jq", "yq"]
 
-cd $root/infrastructure
-pulumi stack select $PULUMI_STACK
+cd $root/infrastructure/core
+pulumi stack select $CORE_PULUMI_STACK
 pulumi stack output kubeconfig | jq . | yq eval -P - >$HOME/.kube/config

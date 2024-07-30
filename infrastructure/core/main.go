@@ -30,9 +30,9 @@ func generatePassword(length int) string {
 	return string(password)
 }
 
-func main() {
-	namespaces := []string{"development", "paper", "live", "kubeflow", "monitoring"}
+var namespaces = []string{"development", "paper", "live", "kubeflow", "monitoring"}
 
+func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		cfg := config.New(ctx, "")
 		minClusterSize, err := cfg.TryInt("minClusterSize")
@@ -54,6 +54,12 @@ func main() {
 		vpcNetworkCidr, err := cfg.Try("vpcNetworkCidr")
 		if err != nil {
 			vpcNetworkCidr = "10.0.0.0/16"
+		}
+
+		grafanaConfig := config.New(ctx, "grafana")
+		grafanaVersion, err := grafanaConfig.Try("version")
+		if err != nil {
+			grafanaVersion = "8.3.6"
 		}
 
 		eksVPC, err := ec2.NewVpc(ctx, "eks-vpc", &ec2.VpcArgs{
@@ -132,7 +138,7 @@ func main() {
 		_, err = helmv3.NewRelease(ctx, "grafana", &helmv3.ReleaseArgs{
 			Chart: pulumi.String("grafana"),
 			// TODO versions should go in yaml
-			Version:   pulumi.String("8.3.6"),
+			Version:   pulumi.String(grafanaVersion), // pulumi.String("8.3.6"),
 			Namespace: pulumi.String("monitoring"),
 			RepositoryOpts: helmv3.RepositoryOptsArgs{
 				Repo: pulumi.String("https://grafana.github.io/helm-charts"),

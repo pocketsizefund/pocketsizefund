@@ -3,8 +3,7 @@
 import os
 
 from flask import Flask
-
-from pocketsizefund.config.config import api_key_required
+from pocketsizefund.config import api_key_required
 
 
 def test_api_key_required_all_keys_present() -> None:

@@ -6,6 +6,6 @@
 cd $root/platform/pricemodel
 
 IMAGE=pocketsizefund/price-model
-VERSION=$(poetry version -s)
+VERSION=$(cat .version)
 
 docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
