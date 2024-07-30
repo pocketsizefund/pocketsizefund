@@ -1,18 +1,18 @@
+use aws_credential_types::Credentials;
+use aws_sdk_s3::client::Client as S3Client;
+use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::Config;
+use aws_types::region::Region;
 use chrono::{DateTime, Utc};
-use reqwest::Url;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use reqwest::Client as HTTPClient;
-use aws_sdk_s3::client::Client as S3Client;
-use aws_credential_types::Credentials;
-use aws_types::region::Region;
-use aws_sdk_s3::Config;
-use serde::{Serialize, Deserialize};
+use reqwest::Url;
+use serde::{Deserialize, Serialize};
 use serde_json;
-use aws_sdk_s3::primitives::ByteStream;
-use flate2::write::GzEncoder;
-use flate2::read::GzDecoder;
-use flate2::Compression;
-use std::io::{Write, Read};
+use std::io::{Read, Write};
 
 #[derive(Deserialize)]
 struct BarsResponse {
@@ -62,12 +62,12 @@ impl Client {
         s3_data_bucket_name: String,
     ) -> Self {
         let creds = Credentials::from_keys(aws_access_key_id, aws_secret_access_key, None);
-        
+
         let conf = Config::builder()
             .credentials_provider(creds)
             .region(Region::new("us-east-1"))
             .build();
-        
+
         let s3_client = S3Client::from_conf(conf);
 
         Client {
@@ -90,35 +90,48 @@ impl Client {
 
         let mut headers = HeaderMap::new();
         headers.insert(ACCEPT, HeaderValue::from_str("application/json")?);
-        headers.insert("APCA-API-KEY-ID", HeaderValue::from_str(&self.alpaca_api_key_id)?);
-        headers.insert("APCA-API-SECRET-KEY", HeaderValue::from_str(&self.alpaca_api_secret_key)?);
+        headers.insert(
+            "APCA-API-KEY-ID",
+            HeaderValue::from_str(&self.alpaca_api_key_id)?,
+        );
+        headers.insert(
+            "APCA-API-SECRET-KEY",
+            HeaderValue::from_str(&self.alpaca_api_secret_key)?,
+        );
 
         for ticker in tickers {
             loop {
                 let mut page_token: Option<String> = None;
 
-                let alpaca_url = self.build_equities_bars_url(&ticker, start, end, page_token.as_deref())?;
+                let alpaca_url =
+                    self.build_equities_bars_url(&ticker, start, end, page_token.as_deref())?;
 
-                let response = self.http_client.get(alpaca_url)
+                let response = self
+                    .http_client
+                    .get(alpaca_url)
                     .headers(headers.clone())
                     .send()
                     .await?;
-        
+
                 if !response.status().is_success() {
-                    return Err(format!("api request failed with status: {}", response.status()).into());
+                    return Err(
+                        format!("api request failed with status: {}", response.status()).into(),
+                    );
                 }
 
                 let bar_response: BarsResponse = response.json().await?;
-        
-                let bars_with_ticker = bar_response.bars.into_iter()
+
+                let bars_with_ticker = bar_response
+                    .bars
+                    .into_iter()
                     .map(|mut bar| {
                         bar.ticker = Some(ticker.clone());
                         bar
                     })
                     .collect::<Vec<Bar>>();
-        
+
                 equities_bars.extend(bars_with_ticker);
-        
+
                 match bar_response.next_token {
                     Some(token) => page_token = Some(token),
                     None => break,
@@ -141,13 +154,13 @@ impl Client {
         let start_str = start.format("%Y-%m-%dT%H:%M:%SZ").to_string();
         let end_str = end.format("%Y-%m-%dT%H:%M:%SZ").to_string();
 
-        let mut alpaca_url = Url::parse(&self.alpaca_base_url)?
-            .join(&path)?;
+        let mut alpaca_url = Url::parse(&self.alpaca_base_url)?.join(&path)?;
 
         {
             let mut query_pairs = alpaca_url.query_pairs_mut();
-            
-            query_pairs.append_pair("timeframe", "1D")
+
+            query_pairs
+                .append_pair("timeframe", "1D")
                 .append_pair("start", &start_str)
                 .append_pair("end", &end_str)
                 .append_pair("limit", "10000")
@@ -156,14 +169,17 @@ impl Client {
                 .append_pair("sort", "asc");
 
             if let Some(token) = page_token {
-                query_pairs.append_pair("page_token", &token);
+                query_pairs.append_pair("page_token", token);
             }
         }
 
         Ok(alpaca_url)
     }
 
-    pub async fn write_equities_bars_to_storage(&self, equities_bars: Vec<Bar> ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn write_equities_bars_to_storage(
+        &self,
+        equities_bars: Vec<Bar>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let equities_bars_json = serde_json::to_vec(&equities_bars).unwrap();
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -176,7 +192,8 @@ impl Client {
 
         let key = format!("{}/all.gz", EQUITY_BARS_PATH);
 
-        let output = self.s3_client
+        let output = self
+            .s3_client
             .put_object()
             .bucket(&self.s3_data_bucket_name)
             .key(key)
@@ -184,23 +201,26 @@ impl Client {
             .send();
 
         let result = output.await;
-    
+
         match result {
             Ok(_) => Ok(()),
             Err(e) => Err(Box::new(e) as Box<dyn std::error::Error>),
         }
     }
 
-    pub async fn read_equities_bars_from_storage(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
+    pub async fn read_equities_bars_from_storage(
+        &self,
+    ) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
         let key = format!("{}/all.gz", EQUITY_BARS_PATH);
 
-        let output = self.s3_client
+        let output = self
+            .s3_client
             .get_object()
             .bucket(&self.s3_data_bucket_name)
             .key(key)
             .send()
             .await?;
-        
+
         let compressed_data = output.body.collect().await?;
 
         let compressed_bytes = compressed_data.into_bytes();
