@@ -1,0 +1,31 @@
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: discord-webhook-service
+spec:
+  template:
+    spec:
+      containers:
+        - image: pocketsizefund/discord:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: discord_webhook_url
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: discord-webhook-trigger
+spec:
+  broker: live
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: discord-webhook-service
+  minReplicas: 0
