@@ -26,6 +26,7 @@ STATUS_CODE_OK = 200
 POSITIONS_COUNT = 10
 
 
+@app.route("/predictions", methods=["GET"])
 def get_predictions() -> dict[str, any]:
     """Set positions based on portfolio position and model predictions."""
     trade_client = trade.Client(
@@ -37,7 +38,7 @@ def get_predictions() -> dict[str, any]:
     )
 
     response = requests.get(
-        url="http://price-model:8080/health",
+        url="http://price-model:8080/predictions",
         timeout=30,
     )
 
@@ -51,61 +52,67 @@ def get_predictions() -> dict[str, any]:
 
     trade_client.baseline_buy(ticker=random_ticker)
 
-    return None
+    return output_topic()
+
+    return 200, ""
 
 
-async def listener(consumer, producer, output_topic) -> None:  # noqa: ANN001
-    """Listen to the kafka topic and processes the messages."""
-    while True:
-        try:
-            async for message in consumer:
-                logger.info(f"Message received: {message}")
-                get_predictions()
-                await producer.send_and_wait(output_topic.name, b"test")
-                logger.info("Processed message and sent result")
-        except Exception as e:  # noqa: BLE001
-            await producer.send_and_wait(
-                output_topic.name.replace("success", "error"),
-                b"BROKEN!",
-            )
-            logger.error(f"Error in listener: {e!s}")
+# async def listener(consumer, producer, output_topic) -> None:  # noqa: ANN001
+#     """Listen to the kafka topic and processes the messages."""
+#     while True:
+#         try:
+#             async for message in consumer:
+#                 logger.info(f"Message received: {message}")
+#                 get_predictions()
+#                 await producer.send_and_wait(output_topic.name, b"test")
+#                 logger.info("Processed message and sent result")
+#         except Exception as e:  # noqa: BLE001
+#             await producer.send_and_wait(
+#                 output_topic.name.replace("success", "error"),
+#                 b"BROKEN!",
+#             )
+#             logger.error(f"Error in listener: {e!s}")
+#
+#
+# async def main() -> None:  # noqa: D103
+#     loop = asyncio.get_event_loop()
+#
+#     topic = Topic(domain="trade", event="psf.cron.submitted", group_id="psf.cron")
+#
 
 
-async def main() -> None:  # noqa: D103
-    loop = asyncio.get_event_loop()
-
-    topic = Topic(domain="trade", event="psf.cron.submitted", group_id="psf.cron")
-
-    output_topic = Topic(
+def output_topic():
+    return Topic(
         domain="trade",
         event="psf.positionmanager.success",
         group_id="psf.cron",
     )
 
-    logger.info(f"Starting listener for {topic.name}")
-    logger.info(f"Starting producer for {output_topic.name}")
 
-    consumer = None
-    producer = None
-
-    try:
-        consumer = await create_consumer(event_loop=loop, topic=topic)
-        producer = await create_producer(event_loop=loop)
-
-        await consumer.start()
-        await producer.start()
-
-        await listener(consumer, producer, output_topic)
-
-    except Exception as e:  # noqa: BLE001
-        logger.error(f"Error in main: {e}")
-    finally:
-        logger.info("Shutting down...")
-        if consumer:
-            await consumer.stop()
-        if producer:
-            await producer.stop()
-
+#     logger.info(f"Starting listener for {topic.name}")
+#     logger.info(f"Starting producer for {output_topic.name}")
+#
+#     consumer = None
+#     producer = None
+#
+#     try:
+#         consumer = await create_consumer(event_loop=loop, topic=topic)
+#         producer = await create_producer(event_loop=loop)
+#
+#         await consumer.start()
+#         await producer.start()
+#
+#         await listener(consumer, producer, output_topic)
+#
+#     except Exception as e:  # noqa: BLE001
+#         logger.error(f"Error in main: {e}")
+#     finally:
+#         logger.info("Shutting down...")
+#         if consumer:
+#             await consumer.stop()
+#         if producer:
+#             await producer.stop()
+#
 
 if __name__ == "__main__":
     asyncio.run(main())
