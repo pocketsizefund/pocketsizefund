@@ -23,7 +23,11 @@ func main() {
 		dbPassword := cfg.RequireSecret("dbPassword")
 
 		argocdConfig := config.New(ctx, "argocd")
+		argocdVersion := argocdConfig.Require("version")
 		argocdAdminPassword := argocdConfig.RequireSecret("adminPassword")
+
+		// awsConfig := config.New(ctx, "aws")
+		// awsRegion := awsConfig.Require("region")
 
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -68,7 +72,6 @@ func main() {
 		if err != nil {
 			return err
 		}
-
 		maxRetries := 3
 		for i := 0; i < maxRetries; i++ {
 			_, err = helm.NewRelease(ctx, "istiod", &helm.ReleaseArgs{
@@ -78,7 +81,7 @@ func main() {
 				RepositoryOpts: helm.RepositoryOptsArgs{
 					Repo: pulumi.String("https://istio-release.storage.googleapis.com/charts"),
 				},
-				Timeout:     pulumi.Int(900), // 15 minutes timeout
+				Timeout:     pulumi.Int(900),
 				WaitForJobs: pulumi.Bool(true),
 				Values: pulumi.Map{
 					"global": pulumi.Map{
@@ -133,7 +136,7 @@ func main() {
 
 		_, err = helm.NewRelease(ctx, "argocd", &helm.ReleaseArgs{
 			Chart:     pulumi.String("argo-cd"),
-			Version:   pulumi.String("7.3.10"),
+			Version:   pulumi.String(argocdVersion),
 			Namespace: pulumi.String("argocd"),
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://argoproj.github.io/argo-helm"),
@@ -178,32 +181,32 @@ func main() {
 			return err
 		}
 
-		_, err = helm.NewRelease(ctx, "kubeflow", &helm.ReleaseArgs{
-			Chart:     pulumi.String("kubeflow"),
-			Version:   pulumi.String("1.8.0"),
-			Namespace: pulumi.String("kubeflow"),
-			RepositoryOpts: helm.RepositoryOptsArgs{
-				Repo: pulumi.String("https://github.com/kubeflow/kubeflow/releases/tag/v1.9.0"),
-			},
-			Values: pulumi.Map{
-				"profile-controller": pulumi.Map{
-					"enabled": pulumi.Bool(true),
-					"mysql": pulumi.Map{
-						"host":     db.Endpoint,
-						"port":     db.Port,
-						"username": dbUsername,
-						"password": dbPassword,
-					},
-					"objectStore": pulumi.Map{
-						"bucket": bucket.ID(),
-						"region": pulumi.String(awsRegion),
-					},
-				},
-			},
-		}, pulumi.Provider(k8sProvider))
-		if err != nil {
-			return err
-		}
+		// _, err = helm.NewRelease(ctx, "kubeflow", &helm.ReleaseArgs{
+		// 	Chart:     pulumi.String("kubeflow"),
+		// 	Version:   pulumi.String("1.8.0"),
+		// 	Namespace: pulumi.String("kubeflow"),
+		// 	RepositoryOpts: helm.RepositoryOptsArgs{
+		// 		Repo: pulumi.String("https://github.com/kubeflow/kubeflow/releases/tag/v1.8.0"),
+		// 	},
+		// 	Values: pulumi.Map{
+		// 		"profile-controller": pulumi.Map{
+		// 			"enabled": pulumi.Bool(true),
+		// 			"mysql": pulumi.Map{
+		// 				"host":     db.Endpoint,
+		// 				"port":     db.Port,
+		// 				"username": dbUsername,
+		// 				"password": dbPassword,
+		// 			},
+		// 			"objectStore": pulumi.Map{
+		// 				"bucket": bucket.ID(),
+		// 				"region": pulumi.String(awsRegion),
+		// 			},
+		// 		},
+		// 	},
+		// }, pulumi.Provider(k8sProvider))
+		// if err != nil {
+		// 	return err
+		// }
 
 		ctx.Export("rdsEndpoint", db.Endpoint)
 		ctx.Export("s3BucketName", bucket.ID())

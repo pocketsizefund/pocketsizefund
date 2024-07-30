@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/apiextensions"
+	rbacv1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/rbac/v1"
 
 	"github.com/pulumi/pulumi-awsx/sdk/go/awsx/ec2"
 	"github.com/pulumi/pulumi-eks/sdk/v2/go/eks"
@@ -151,11 +152,10 @@ func main() {
 				},
 				"adminPassword": pulumi.String(grafanaPassword),
 			},
-		}, pulumi.Provider(k8sProvider))
+		}, pulumi.Provider(k8sProvider), pulumi.DeleteBeforeReplace(true))
 		if err != nil {
 			return err
 		}
-
 		_, err = helmv3.NewRelease(ctx, "prometheus", &helmv3.ReleaseArgs{
 			Chart:     pulumi.String("kube-prometheus-stack"),
 			Version:   pulumi.String("61.3.2"),

@@ -3,6 +3,7 @@ use actix_web::{post, web};
 use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct WebhookPayload {

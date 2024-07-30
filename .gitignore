@@ -29,3 +29,5 @@ libraries/python/pocketsizefund/build
 libraries/python/dist
 
 **/target*/
+
+infrastructure/kubeflow/deploykf

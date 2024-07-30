@@ -64,13 +64,15 @@ def get_predictions() -> dict[str, any]:
 
     logger.info(f"predictions_by_ticker: {predictions_by_ticker}")
 
-    random_ticker = random.choice(list(predictions_by_ticker.get("tickers").keys()))  # noqa: S311
+    random_ticker = random.choice(
+        list(predictions_by_ticker.get("tickers").keys())
+    )  # noqa: S311
 
     logger.info(f"random_ticker: {random_ticker}")
 
     trade_client.baseline_buy(ticker=random_ticker)
 
-    return None
+    return output_topic()
 
 
 async def listener(consumer, producer, output_topic) -> None:  # noqa: ANN001

@@ -1,11 +1,11 @@
 use crate::prelude::{Price, Volume};
+use crate::ticker::Ticker;
 use chrono::prelude::NaiveDate;
 use color_eyre::Result;
+use reqwest;
 use serde::{Deserialize, Serialize};
 use std::env;
 use tracing::debug;
-use crate::ticker::Ticker;
-use reqwest;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Symbol(String);

@@ -47,10 +47,6 @@ def pipeline() -> None:
         data=data,
     )
 
-    save_model(
-        price_model=price_model,
-    )
-
 
 if __name__ == "__main__":
     pipeline()
