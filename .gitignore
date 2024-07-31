@@ -11,7 +11,6 @@ lightning_logs/
 tft_model.ckpt
 .python-version
 *-all.csv
-# *.ckpt*
 platform/discord/target
 infrastructure/core/infrastructure
 infrastructure/kubeflow/kubeflow

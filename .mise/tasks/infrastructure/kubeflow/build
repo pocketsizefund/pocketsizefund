@@ -6,4 +6,8 @@
 cd $root/infrastructure/kubeflow
 IMAGE=pocketsizefund/kubeflow
 
-docker build --build-arg PULUMI_ACCESS_TOKEN=$PULUMI_ACCESS_TOKEN -t $IMAGE:latest --platform $PLATFORM .
+docker build \
+	--build-arg PULUMI_ACCESS_TOKEN=$PULUMI_ACCESS_TOKEN \
+	-t $IMAGE:latest \
+	--platform $PLATFORM \
+	.
