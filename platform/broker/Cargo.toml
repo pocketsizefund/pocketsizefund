@@ -1,0 +1,8 @@
+[package]
+name = "broker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+apca = "0.29.0"
+tokio = { version = "1.39.1", features = ["macros", "rt-multi-thread", "tokio-macros", "tracing"] }
