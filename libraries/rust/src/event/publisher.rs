@@ -14,16 +14,16 @@ impl Publisher {
             .create()
             .expect("failed creating producer");
 
-        Self {
-            producer,
-        }
+        Self { producer }
     }
 
     pub async fn send_event(&self, topic: String, payload: String) {
-        self.producer.send(
-            FutureRecord::<(), _>::to(&topic)
-                .payload(&payload), Timeout::Never)
-                .await
-                .expect("failed sending message");
+        self.producer
+            .send(
+                FutureRecord::<(), _>::to(&topic).payload(&payload),
+                Timeout::Never,
+            )
+            .await
+            .expect("failed sending message");
     }
 }

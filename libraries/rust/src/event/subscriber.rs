@@ -1,11 +1,10 @@
 use rdkafka::config::ClientConfig;
-use rdkafka::consumer::{Consumer, BaseConsumer};
+use rdkafka::consumer::{BaseConsumer, Consumer};
 use rdkafka::Message;
-use std::time::Duration;
-use uuid::Uuid;
 use std::error::Error;
 use std::fmt;
-
+use std::time::Duration;
+use uuid::Uuid;
 
 pub struct Subscriber {
     consumer: BaseConsumer,
@@ -25,32 +24,30 @@ impl Subscriber {
             .expect("failed creating subscriber");
 
         for topic_name in topic_names {
-            consumer.subscribe(&[topic_name])
+            consumer
+                .subscribe(&[topic_name])
                 .expect("error subscribing to topic");
         }
 
-        Ok(Subscriber {
-            consumer,
-        })
+        Ok(Subscriber { consumer })
     }
 
     pub async fn receive_events(&self) -> Result<String, Box<dyn std::error::Error>> {
         let message = self.consumer.poll(Duration::from_secs(1));
-        
+
         match message {
-            None => {
-                Ok(String::from(""))
-            },
+            None => Ok(String::from("")),
             Some(Ok(message)) => {
                 if let Some(payload) = message.payload() {
                     Ok(String::from_utf8(payload.to_vec())?)
                 } else {
-                    Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid payload")))
+                    Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "invalid payload",
+                    )))
                 }
-            },
-            Some(Err(e)) => {
-                Err(Box::new(e))
             }
+            Some(Err(e)) => Err(Box::new(e)),
         }
     }
 }

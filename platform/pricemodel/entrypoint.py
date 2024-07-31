@@ -1,15 +1,14 @@
 """Inference endpoint for price prediction model."""
 
 import datetime
-import json
 import os
 
-from fastapi import FastAPI, Response, status
-from pydantic import BaseModel
 import sentry_sdk
+from fastapi import FastAPI, Response, status
 from loguru import logger
 from pocketsizefund import config, data, model
 from pocketsizefund.trade import Client
+from pydantic import BaseModel
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
 sentry_loguru = LoguruIntegration(
@@ -57,12 +56,15 @@ except IsADirectoryError:
 
 app = FastAPI()
 
+
 @app.get("/health", status_code=status.HTTP_200_OK)
 def health() -> None:
-    return None
+    """Health check endpoint that the cluster pings to ensure the service is up."""
+    return
 
 
 Ticker = dict[str, list[float]]
+
 
 class Predictions(BaseModel):
     tickers: Ticker
@@ -81,10 +83,8 @@ def invocations() -> Predictions | None:
 
     available_tickers = trade_client.get_available_tickers()
 
-
     end_at = datetime.datetime.now(tz=config.TIMEZONE)
     start_at = end_at - datetime.timedelta(days=20)
-
 
     equity_bars_raw_data = data_client.get_range_equities_bars(
         tickers=available_tickers,
@@ -93,7 +93,6 @@ def invocations() -> Predictions | None:
     )
 
     equity_bars_raw_data_grouped_by_ticker = equity_bars_raw_data.groupby("ticker")
-
 
     predictions = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:

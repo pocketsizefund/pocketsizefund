@@ -4,15 +4,11 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 
+
 [dependencies]
-apache-avro = { version = "0.16.0", features = ["derive"] }
-avro-rs = "0.13.0"
-pretty_env_logger = "0.5.0"
-rdkafka = { version = "0.36.2", features = ["libz-static", "sasl", "ssl", "ssl-vendored"] }
 regex = "1.10.5"
 reqwest = "0.12.5"
 scraper = "0.19.0"
-sentry = "0.34.0"
 serde = "1.0.203"
 serde_json = "1.0.118"
 tokio = { version = "1.38.0", features = ["full", "rt-multi-thread"] }
@@ -20,7 +16,3 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = { version = "2.5.2", features = ["serde"] }
 uuid = { version = "1.9.1", features = ["v4"] }
-
-[dev-dependencies]
-testcontainers = "0.18.0"
-testcontainers-modules = { version = "0.6.1", features = ["kafka"] }

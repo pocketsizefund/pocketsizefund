@@ -1,7 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="deploy price model to development environment"
-# mise tools=["kubectl"]
-
-cd $root/platform/pricemodel
-kubectl apply -f manifest.yaml --namespace development

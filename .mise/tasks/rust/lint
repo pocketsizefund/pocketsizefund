@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
 
 # mise description="lint rust crates"
-# mise depends=["platform:newsfeed:lint", "platform:discord:lint", "libraries:rust:lint"]
+# mise tools=["cargo"]
+
+cargo clippy --all --

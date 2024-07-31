@@ -94,9 +94,7 @@ class Client:
             if self.debug:
                 logger.debug(f"getting {tickers_chunk} bars")
 
-            for j in range(
-                0, difference_in_days, self.alpaca_datetime_chunk_size_in_days
-            ):
+            for j in range(0, difference_in_days, self.alpaca_datetime_chunk_size_in_days):
                 start_at_chunk = start_at + datetime.timedelta(days=j)
                 end_at_chunk = start_at_chunk + datetime.timedelta(
                     days=self.alpaca_datetime_chunk_size_in_days,
@@ -149,9 +147,7 @@ class Client:
         if self.debug:
             runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
 
-            runtime_in_minutes = (
-                runtime_stop - self.runtime_start
-            ).total_seconds() / 60
+            runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
             logger.debug("ending get range equities data")
             logger.debug(f"runtime {runtime_in_minutes:.2f} minutes")
@@ -258,9 +254,7 @@ class Client:
         if self.debug:
             runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
 
-            runtime_in_minutes = (
-                runtime_stop - self.runtime_start
-            ).total_seconds() / 60
+            runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
             logger.debug("ending get range corporate filings data")
             logger.debug(f"runtime {runtime_in_minutes:.2f} minutes")

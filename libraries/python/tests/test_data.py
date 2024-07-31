@@ -3,8 +3,7 @@ from typing import Optional
 
 import pytest
 from alpaca.data import requests as alpaca_data_requests
-from pocketsizefund import config
-from pocketsizefund import data
+from pocketsizefund import config, data
 
 ALPACA_API_KEY = "alpaca_api_key"
 ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S105

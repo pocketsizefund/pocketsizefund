@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+# mise description="test pricemodel service"
+# mise tools=["cargo"]
+
+cd $root/platform/pricemodel
+exit 1
+
+

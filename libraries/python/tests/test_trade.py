@@ -2,8 +2,7 @@ import datetime
 from typing import Optional
 
 import pytest
-from pocketsizefund import config
-from pocketsizefund import trade
+from pocketsizefund import config, trade
 
 client = trade.Client(
     darqube_api_key="darqube_api_key",
@@ -150,10 +149,7 @@ class MockAlpacaTradingClient:
         self,
         request: any,
     ) -> any:
-        if (
-            self.exceptions is not None
-            and self.exceptions["get_all_assets"] is not None
-        ):
+        if self.exceptions is not None and self.exceptions["get_all_assets"] is not None:
             raise self.exceptions["get_all_assets"]
 
         return self.responses["get_all_assets"]
@@ -184,10 +180,7 @@ class MockAlpacaTradingClient:
     ) -> any:
         _ = cancel_orders
 
-        if (
-            self.exceptions is not None
-            and self.exceptions["close_all_positions"] is not None
-        ):
+        if self.exceptions is not None and self.exceptions["close_all_positions"] is not None:
             raise self.exceptions["close_all_positions"]
 
         return None
@@ -220,10 +213,7 @@ class MockAlpacaHistoricalClient:
         self,
         request: any,
     ) -> any:
-        if (
-            self.exceptions is not None
-            and self.exceptions["get_stock_bars"] is not None
-        ):
+        if self.exceptions is not None and self.exceptions["get_stock_bars"] is not None:
             raise self.exceptions["get_stock_bars"]
 
         return self.responses["get_stock_bars"]
@@ -344,9 +334,7 @@ def test_check_position_set_availability_success() -> None:
     tests = [
         {
             "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 23, 9, 15, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 23, 9, 15, tzinfo=config.TIMEZONE),
             "is_market_open": False,
             "calendar_days": monday_calendar_days,
             "all_positions": [],
@@ -354,19 +342,13 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 26, 9, 45, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 26, 9, 45, tzinfo=config.TIMEZONE),
             "is_market_open": True,
             "calendar_days": [
                 MockAlpacaCalendar(
                     date_value=datetime.date(1977, 5, 26),
-                    open_value=datetime.datetime(
-                        1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE
-                    ),
-                    close_value=datetime.datetime(
-                        1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE
-                    ),
+                    open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
+                    close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
                 ),
             ]
             + friday_calendar_days[1:],
@@ -375,9 +357,7 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
             "is_market_open": True,
             "calendar_days": friday_calendar_days,
             "all_positions": [],
@@ -385,9 +365,7 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
             "is_market_open": True,
             "calendar_days": monday_calendar_days,
             "all_positions": [{}],
@@ -395,9 +373,7 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
             "is_market_open": True,
             "calendar_days": monday_calendar_days,
             "all_positions": [],
@@ -405,9 +381,7 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 23, 16, 15, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 23, 16, 15, tzinfo=config.TIMEZONE),
             "is_market_open": False,
             "calendar_days": monday_calendar_days,
             "all_positions": [],
@@ -415,19 +389,13 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 26, 15, 30, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 26, 15, 30, tzinfo=config.TIMEZONE),
             "is_market_open": True,
             "calendar_days": [
                 MockAlpacaCalendar(
                     date_value=datetime.date(1977, 5, 26),
-                    open_value=datetime.datetime(
-                        1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE
-                    ),
-                    close_value=datetime.datetime(
-                        1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE
-                    ),
+                    open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
+                    close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
                 ),
             ]
             + friday_calendar_days[1:],
@@ -436,9 +404,7 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
             "is_market_open": True,
             "calendar_days": monday_calendar_days,
             "all_positions": [{}],
@@ -446,9 +412,7 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
             "is_market_open": True,
             "calendar_days": monday_calendar_days,
             "all_positions": [],
@@ -456,9 +420,7 @@ def test_check_position_set_availability_success() -> None:
         },
         {
             "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(
-                1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE
-            ),
+            "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
             "is_market_open": True,
             "calendar_days": monday_calendar_days,
             "all_positions": [{}],

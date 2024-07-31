@@ -10,13 +10,29 @@ feature-depth = 1
 ignore = []
 
 [licenses]
-allow = ["MIT", "Apache-2.0"]
+allow = [
+    "MIT",
+    "Unicode-DFS-2016",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "OpenSSL",
+    "Zlib",
+    "ISC",
+]
 confidence-threshold = 0.8
 exceptions = []
 
+[[licenses.clarify]]
+name = "ring"
+version = "0.17.8"
+expression = "OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 }
+]
+
 [licenses.private]
 ignore = false
-registries = []
 
 [bans]
 multiple-versions = "warn"
@@ -24,11 +40,8 @@ wildcards = "allow"
 highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
-allow = [
-  #{ crate = "ansi_term@0.11.0", reason = "you can specify a reason it is allowed" },
-]
+allow = []
 deny = []
-
 skip = []
 skip-tree = []
 
@@ -37,8 +50,3 @@ unknown-registry = "warn"
 unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
-
-[sources.allow-org]
-github = [""]
-gitlab = [""]
-bitbucket = [""]

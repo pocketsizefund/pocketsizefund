@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+
+# mise description="check rust crates for unnecessary dependencies"
+# mise tools=["cargo"]
+
+cargo machete --with-metadata

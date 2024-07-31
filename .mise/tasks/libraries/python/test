@@ -4,12 +4,11 @@
 # mise depends=["libraries:python:setup"]
 # mise tools=["python@3.10", "poetry"]
 
-cd $root/libraries/python/tests
+cd $root/libraries/python
+poeetry install --with dev,test --all-extras
 poetry run coverage run --parallel-mode --module pytest
 poetry run coverage combine
-poetry run coverage report --omit='test_*.py,*/__init__.py'
-poetry run coverage xml --omit='test_*.py,*/__init__.py'
-rm -rf .coverage/
-mv coverage.xml $root/
-
-
+poetry run coverage report --omit='tests/*'
+poetry run coverage xml --omit='tests/*'
+rm -rf .coverage
+mv coverage.xml $root

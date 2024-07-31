@@ -3,11 +3,12 @@ name = "pocketsizefund"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "Open source quantitative trading"
 
 [features]
 schema = ["dep:serde", "dep:serde_json"]
 polygon = ["dep:reqwest"]
-event = ["dep:rdkafka", "dep:uuid"]
+event = [ "dep:uuid"]
 llm = ["dep:reqwest"]
 data = [
   "dep:serde",
