@@ -14,6 +14,9 @@ tft_model.ckpt
 platform/discord/target
 infrastructure/core/infrastructure
 infrastructure/kubeflow/kubeflow
+libraries/rust/*/target/
+target/
+infrastructure/venv
 .envrc
 env*
 .pytest_cache/
