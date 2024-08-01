@@ -4,6 +4,7 @@ yq = "latest"
 jq = "latest"
 ruff = "0.4.10" # lastest is breaking
 go = "latest"
+rust = "latest"
 
 [env]
 PLATFORM = "linux/amd64"
