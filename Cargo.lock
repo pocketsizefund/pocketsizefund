@@ -1165,15 +1165,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "datacollector"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "chrono",
- "pocketsizefund 0.1.0 (git+https://github.com/pocketsizefund/pocketsizefund.git?branch=master)",
-]
-
-[[package]]
 name = "delegate-attr"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2571,32 +2562,6 @@ dependencies = [
  "mockito",
  "rdkafka",
  "regex",
- "reqwest 0.12.7",
- "rust_decimal",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "pocketsizefund"
-version = "0.1.0"
-source = "git+https://github.com/pocketsizefund/pocketsizefund.git?branch=master#663b58bc5267682957669ea9d966ac7d48c661e2"
-dependencies = [
- "anyhow",
- "async-trait",
- "aws-config",
- "aws-credential-types",
- "aws-sdk-s3",
- "aws-types",
- "chrono",
- "color-eyre",
- "flate2",
- "fmt",
  "reqwest 0.12.7",
  "rust_decimal",
  "serde",
