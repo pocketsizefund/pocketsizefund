@@ -1,7 +1,8 @@
-use crate::schema::prelude::{Price, Volume};
-use crate::schema::symbol::Ticker;
+use crate::data::market::ticker::Ticker;
+use crate::prelude::*;
 use chrono::prelude::NaiveDate;
 use color_eyre::Result;
+use reqwest;
 use serde::{Deserialize, Serialize};
 use std::env;
 use tracing::debug;
@@ -60,42 +61,5 @@ impl Bar {
             .await?;
 
         Ok(body)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::{from_value, json, Value};
-
-    #[test]
-    fn test_ticker() -> Result<()> {
-        let input: Value = json!({
-            "symbol": "AAPL"
-        });
-
-        let input: Ticker = from_value(input).unwrap();
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_open_high_low_close_volume_daily_data() -> Result<()> {
-        let expected = json!({
-            "afterHours": 322.1,
-            "close": 325.12,
-            "from": "2023-01-09",
-            "high": 326.2,
-            "low": 322.3,
-            "open": 324.66,
-            "preMarket": 324.5,
-            "status": "OK",
-            "symbol": "AAPL",
-            "volume": 26122646
-        });
-
-        let date = NaiveDate::parse_from_str("2024-01-01", "%Y-%m-%d")?;
-
-        Ok(())
     }
 }

@@ -1,6 +1,5 @@
-use super::asset_class::AssetClass;
-use super::locale::Locale;
-use anyhow::{Error, Result};
+use crate::data::asset_class::AssetClass;
+use crate::data::market::locale::Locale;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
