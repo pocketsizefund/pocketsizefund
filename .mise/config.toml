@@ -1,9 +1,22 @@
 [tools]
-python = "3.10"
+python = "latest"
 yq = "latest"
 jq = "latest"
 ruff = "0.4.10" # lastest is breaking
 go = "latest"
+rust = "stable"
+kubectl = "latest"
+helm = "latest"
+awscli = "latest"
+kn = "latest"
+pre-commit = "latest"
+glow = "latest"
+k9s = "latest"
+direnv = "latest"
+lazygit = "latest"
+pulumi = "latest"
+sqlite = "latest"
+"npm:graphite" = "latest"
 
 [env]
 PLATFORM = "linux/amd64"

@@ -2,7 +2,7 @@
 
 # mise description="publish the pocketsizefund rust package to crates.io"
 # mise depends=["libraries:rust:build", "libraries:rust:test"]
-# mise tools=["cargo"]
+# mise tools=["rust"]
 
 cd $root/libraries/rust
 cargo publish

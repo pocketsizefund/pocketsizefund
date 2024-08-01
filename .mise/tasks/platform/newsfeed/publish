@@ -2,7 +2,7 @@
 
 # mise description = "publish newsfeed crate"
 # mise depends=["platform:newsfeed:build"]
-# mise tools=["cargo"]
+# mise tools=["rust"]
 
 cd $root/platform/newsfeed
 
