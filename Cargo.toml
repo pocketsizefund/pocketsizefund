@@ -2,13 +2,9 @@
 resolver = "2"
 
 members = [ 
-<<<<<<< HEAD
     "libraries/rust",
     "platform/newsfeed",
     "platform/discord",
-=======
-    "libraries/rust/data",
-    "libraries/rust/event",
-    "libraries/rust/schema",
->>>>>>> c07e963 (Build initial Rust data package)
+    "platform/newsfeed",
+    "platform/discord",
 ]
