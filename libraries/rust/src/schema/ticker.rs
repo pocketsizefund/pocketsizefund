@@ -35,7 +35,7 @@ pub struct Bar {
     pub volume: Volume,
 }
 
-impl OHLCV {
+impl Bar {
     fn new(symbol: &str) -> Ticker {
         todo!();
         // Ticker {
