@@ -80,7 +80,7 @@ impl Client {
         }
     }
 
-    pub async fn fetch_equities_bars_by_date_range(
+    pub async fn fetch_equities_bars(
         &self,
         tickers: Vec<String>,
         start: DateTime<Utc>,
@@ -163,7 +163,7 @@ impl Client {
         Ok(alpaca_url)
     }
 
-    pub async fn write_equities_bars_to_storage(&self, equities_bars: Vec<Bar> ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn write_equities_bars(&self, equities_bars: Vec<Bar> ) -> Result<(), Box<dyn std::error::Error>> {
         let equities_bars_json = serde_json::to_vec(&equities_bars).unwrap();
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -191,7 +191,7 @@ impl Client {
         }
     }
 
-    pub async fn read_equities_bars_from_storage(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
+    pub async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
         let key = format!("{}/all.gz", EQUITY_BARS_PATH);
 
         let output = self.s3_client
@@ -263,7 +263,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_equities_bars_by_date_range() {
+    async fn test_fetch_equities_bars() {
         let mut mock_server = tokio::task::spawn_blocking(|| {
             mockito::Server::new()
         }).await.unwrap();
@@ -323,7 +323,7 @@ mod tests {
                 .create();
         }
 
-        let result = client.fetch_equities_bars_by_date_range(tickers, start, end).await.unwrap();
+        let result = client.fetch_equities_bars(tickers, start, end).await.unwrap();
 
         assert_eq!(result.len(), 2);
         for bar in result {
