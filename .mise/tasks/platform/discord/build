@@ -1,11 +1,13 @@
 #!/usr/bin/env sh
 
 # mise description="build docker image for discord bot"
-# mise tools=["rust"]
+# mise tools=["cargo"]
 
 cd $root/platform/discord
 
 IMAGE=pocketsizefund/discord
 VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "discord") | .version')
+
+echo building $IMAGE:$VERSION on $PLATFORM
 
 docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
