@@ -1,0 +1,100 @@
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: chronos
+spec:
+  template:
+    spec:
+      containers:
+        - image: pocketsizefund/chronos:0.1.0
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: chronos-trigger
+spec:
+  broker: live
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: chronos
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: morning-trigger
+spec:
+  schedule: "30 9 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: trigger
+              image: curlimages/curl
+              args:
+                - /bin/sh
+                - -c
+                - >
+                  curl -X POST http://chronos.live.svc.cluster.local/market-status
+                  -H "Content-Type: application/cloudevents+json"
+                  -H "ce-specversion: 1.0"
+                  -d '{"message":"Good morning","specversion":"1.0","id":"1","type":"dev.knative.example","source":"platform:chronos"}'
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: night-trigger
+spec:
+  schedule: "30 4 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: trigger
+              image: curlimages/curl
+              args:
+                - /bin/sh
+                - -c
+                - >
+                  curl -X POST http://chronos.live.svc.cluster.local/market-status
+                  -H "Content-Type: application/cloudevents+json"
+                  -H "ce-specversion: 1.0"
+                  -d '{"message":"Good night","specversion":"1.0","id":"1","type":"dev.knative.example","source":"platform:chronos"}'
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hourly-trigger
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: trigger
+              image: curlimages/curl
+              args:
+                - /bin/sh
+                - -c
+                - >
+                  curl -X POST http://chronos.live.svc.cluster.local/market-status
+                  -H "Content-Type: application/cloudevents+json"
+                  -H "ce-specversion: 1.0"
+                  -d '{"message":"Hourly check","specversion":"1.0","id":"1","type":"dev.knative.example","source":"platform:chronos"}'
+          restartPolicy: OnFailure

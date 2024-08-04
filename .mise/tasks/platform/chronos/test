@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# mise description="test chronos crate"
+# mise tools=["rust"]
+
+cd $root/platform/chronos
+cargo test

@@ -4,14 +4,24 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 
-[package.metadata.cargo-machete]
-ignored = ["sasl2_sys"]
+[lib]
+name = "discord"
+path = "src/lib.rs"
+
+[[bin]]
+name = "discord"
+path = "src/main.rs"
 
 
 [dependencies]
+actix-web = "4.9.0"
+cloudevents-sdk = { version = "0.7.0", features = ["actix"] }
+env_logger = "0.11.5"
+reqwest = { version = "0.12.7", features = ["http2", "json"] }
 serde = "1.0.203"
 serde_json = "1.0.117"
 tokio = { version = "1.38.0", features = ["rt-multi-thread"] }
 tracing = { version = "0.1.40", features = ["async-await"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+url = "2.5.2"
 uuid = { version = "1.8.0", features = ["v4"] }

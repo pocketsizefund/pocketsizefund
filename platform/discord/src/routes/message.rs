@@ -3,7 +3,6 @@ use actix_web::{post, web};
 use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct WebhookPayload {
@@ -32,7 +31,7 @@ struct WebhookResponse {
 }
 
 #[post("/")]
-async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Event {
+pub async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Event {
     tracing::info!("Received message: {:?}", event);
     let content = match event.data() {
         Some(data) => data.to_string(),
@@ -50,7 +49,9 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
         .send()
         .await;
 
-    let output = match response {
+    
+
+    match response {
         Ok(response) => match response.status().as_u16() {
             204 => {
                 tracing::info!("Message successfully sent");
@@ -74,9 +75,7 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
                 status: WebhookStatus::Failed,
             })
         }
-    };
-
-    output
+    }
 }
 
 // TODO: put this in schema library

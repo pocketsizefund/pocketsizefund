@@ -4,10 +4,27 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 
+[lib]
+name = "newsfeed"
+path = "src/lib.rs"
+
+[[bin]]
+name = "newsfeed"
+path = "src/main.rs"
+
 
 [dependencies]
+actix-web = "4.9.0"
+cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-web", "reqwest"] }
+env_logger = "0.11.5"
+instruct-macros = "0.1.8"
+instruct-macros-types = "0.1.8"
+instructor-ai = "0.1.8"
+llm-chain = "0.13.0"
+llm-chain-openai = "0.13.0"
+openai-api-rs = "5.0.5"
 regex = "1.10.5"
-reqwest = "0.12.5"
+reqwest = { version = "0.12.5", features = ["http2", "json"] }
 scraper = "0.19.0"
 serde = "1.0.203"
 serde_json = "1.0.118"
@@ -16,3 +33,6 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = { version = "2.5.2", features = ["serde"] }
 uuid = { version = "1.9.1", features = ["v4"] }
+
+[dev-dependencies]
+reqwest = "0.12.5"

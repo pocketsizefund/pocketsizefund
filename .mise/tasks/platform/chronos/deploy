@@ -3,5 +3,5 @@
 # mise description="deploy position manager to development environment"
 # mise tools=["poetry"]
 
-cd $root/platform/discord
-kubectl apply -f manifest.yaml --namespace development
+cd $root/platform/chronos
+kubectl apply -f manifest.yaml --namespace paper

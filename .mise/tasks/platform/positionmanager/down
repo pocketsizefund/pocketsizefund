@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 
-# mise description="remove position manager from cluster"
-# mise tools=["kubectl"]
+# mise description="deploy position manager to development environment"
+# mise tools=["poetry"]
 
 cd $root/platform/positionmanager
-kubectl down -f manifest.yaml --namespace development
-kubectl down -f manifest.yaml --namespace paper 
-kubectl down -f manifest.yaml --namespace live
+kubectl delete -f manifest.yaml --namespace development
+kubectl delete -f manifest.yaml --namespace paper
+kubectl delete -f manifest.yaml --namespace live

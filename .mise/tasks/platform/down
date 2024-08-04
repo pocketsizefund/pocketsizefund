@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# mise description="destroy platform services"
+# mise depends=["platform:discord:down", "platform:chronos:down", "platform:pricemodel:down", "platform:positionmanager:down"]

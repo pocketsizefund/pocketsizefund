@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# mise description="audit chronos crate"
+# mise tools=["rust"]
+
+cd $root/platform/chronos
+cargo deny check

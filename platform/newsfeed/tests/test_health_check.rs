@@ -1,6 +1,6 @@
 #[tokio::test]
 async fn health_check_works() {
-    let port = 8081;
+    let port = 8083;
     spawn_app(port);
 
     let client = reqwest::Client::new();
@@ -17,6 +17,6 @@ async fn health_check_works() {
 
 fn spawn_app(port: u16) {
     let listener = std::net::TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
-    let server = discord::run(listener).unwrap();
+    let server = newsfeed::run(listener).unwrap();
     tokio::spawn(server);
 }

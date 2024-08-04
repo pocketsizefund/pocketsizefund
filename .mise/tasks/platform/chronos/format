@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# mise description="format chronos crate"
+# mise tools=["rust"]
+
+cd $root/platform/chronos
+cargo fmt --all

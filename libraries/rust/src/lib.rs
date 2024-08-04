@@ -1,7 +1,5 @@
 //! Welcome to pocketsizefund!
 
-pub mod logger;
-
 // this is a module
 #[cfg(feature = "polygon")]
 // polygon
