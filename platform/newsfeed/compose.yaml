@@ -3,6 +3,8 @@ services:
     build:
       context: .
       target: final
+      tags:
+        - "newsfeed:latest"
     platform: linux/amd64
     ports:
       - 8080:8080

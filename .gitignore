@@ -31,3 +31,5 @@ libraries/python/dist
 **/target*/
 
 infrastructure/kubeflow/deploykf
+
+pipelines/**/*.csv

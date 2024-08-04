@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# mise description="deploy platform services"
+# mise depends=["platform:discord:deploy", "platform:chronos:deploy", "platform:pricemodel:deploy", "platform:positionmanager:deploy"]

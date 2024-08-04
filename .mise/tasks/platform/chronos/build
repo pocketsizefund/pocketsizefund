@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+# mise description="build docker image for chronos bot"
+# mise tools=["rust"]
+
+cd $root/platform/chronos
+
+IMAGE=pocketsizefund/chronos
+VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "chronos") | .version')
+
+echo building $IMAGE:$VERSION on $PLATFORM
+
+docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
