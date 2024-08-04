@@ -4,8 +4,9 @@ services:
       context: .
       target: final
       tags:
-        - "discord:latest"
+        - "chronos:latest"
     ports:
       - 8080:8080
     environment:
-      - DISCORD_TOKEN
+      - APCA_API_KEY_ID
+      - APCA_API_SECRET_KEY

@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 
-# mise description="deploy price model to development environment"
+# mise description="deploy chronos to development environment"
 # mise tools=["poetry"]
 
-cd $root/platform/pricemodel
+cd $root/platform/chronos
 kubectl delete -f manifest.yaml --namespace development
 kubectl delete -f manifest.yaml --namespace paper
 kubectl delete -f manifest.yaml --namespace live
