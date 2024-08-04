@@ -1,35 +1,36 @@
 ARG RUST_VERSION=1.79.0
 ARG APP_NAME=discord
 
-FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
+FROM rust:${RUST_VERSION}-alpine AS build
 ARG APP_NAME
 WORKDIR /app
 
-FROM chef AS planner
-COPY . .
+RUN apk add --no-cache clang lld musl-dev git
 
-RUN cargo chef prepare  --recipe-path recipe.json
+RUN --mount=type=bind,source=src,target=src \
+    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
+    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
+    --mount=type=cache,target=/app/target/ \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/ \
+cargo build --locked --release && \
+cp ./target/release/$APP_NAME /bin/server
 
-FROM chef AS builder
-COPY --from=planner /app/recipe.json recipe.json
+FROM alpine:3.18 AS final
 
-RUN cargo chef cook --release --recipe-path recipe.json
-COPY . .
-ENV SQLX_OFFLINE true
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    appuser
+USER appuser
 
-ENV APP_NAME ${APP_NAME}
+COPY --from=build /bin/server /bin/
 
-RUN cargo build --release --bin server
+EXPOSE 8080
 
-FROM debian:bookworm-slim AS final
-WORKDIR /app
-RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
-    # Clean up
-    && apt-get autoremove -y \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /app/target/release/server server
-
-ENTRYPOINT ["./server"]
+CMD ["/bin/server"]

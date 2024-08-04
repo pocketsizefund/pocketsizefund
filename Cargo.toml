@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
 
-members = [ 
+members = [
     "libraries/rust",
     "platform/newsfeed",
     "platform/discord",
-    "platform/newsfeed",
-    "platform/discord",
+    "platform/datacollector",
+    "platform/chronos",
 ]

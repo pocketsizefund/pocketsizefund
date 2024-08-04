@@ -1,0 +1,25 @@
+[package]
+name = "chronos"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+chrono = "0.4.38"
+env_logger = "0.11.5"
+log = "0.4.22"
+serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.122"
+tracing = { version = "0.1.40", features = ["async-await"] }
+tracing-subscriber = { version = "0.3.18", features = ["chrono", "env-filter"] }
+pocketsizefund = { path = "../../libraries/rust", features = ["events", "web"] }
+apca = "0.29.0"
+cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-web", "http-binding", "http-body", "reqwest"] }
+actix-web = "4.9.0"
+tokio = { version = "1.39.3", features = ["full"] }
+
+[dev-dependencies]
+cargo-machete = "0.6.2"
+cargo-tarpaulin = "0.31.0"
+lazy_static = "1.5.0"
+reqwest = "0.12.7"

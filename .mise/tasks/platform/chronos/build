@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 # mise description="build docker image for chronos"
-# mise tools=["cargo"]
+# mise tools=["rust"]
 
 cd $root/platform/chronos
 
@@ -9,5 +9,4 @@ IMAGE=pocketsizefund/chronos
 VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 
 echo building $IMAGE:$VERSION on $PLATFORM
-
 docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .

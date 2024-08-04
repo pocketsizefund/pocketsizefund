@@ -1,6 +1,9 @@
 services:
   pricemodel:
-    image: pocketsizefund/price-model:latest
+    build:
+      context: .
+      tags:
+        - "pricemodel:latest"
     platform: linux/amd64
     ports:
       - 8080:8080
