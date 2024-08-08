@@ -2817,7 +2817,6 @@ name = "pocketsizefund"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "aws-config",
  "aws-credential-types",
  "aws-sdk-s3",
@@ -2832,6 +2831,8 @@ dependencies = [
  "regex",
  "reqwest 0.12.5",
  "rust_decimal",
+ "rustify",
+ "rustify_derive",
  "serde",
  "serde_json",
  "tokio",
@@ -3352,6 +3353,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
  "semver",
+]
+
+[[package]]
+name = "rustify"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d375f36613139ffb8d55ead633a4904c74ffa1279cbdd2b96a037184cb56d932"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "http 1.1.0",
+ "reqwest 0.12.5",
+ "rustify_derive",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "thiserror",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "rustify_derive"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7345f32672da54338227b727bd578c897859ddfaad8952e0b0d787fb4e58f07d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "regex",
+ "serde_urlencoded",
+ "syn 1.0.109",
+ "synstructure",
 ]
 
 [[package]]
