@@ -14,3 +14,6 @@ pub mod schema;
 
 #[cfg(feature = "event")]
 pub mod event;
+
+#[cfg(feature = "data")]
+pub mod data;

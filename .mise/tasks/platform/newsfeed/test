@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 # mise description= "test newsfeed crate"
-# mise tools=["cargo"]
+# mise tools=["rust"]
 
 cd $root/platform/newsfeed
 cargo test

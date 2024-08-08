@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 # mise description="lint discord crate"
-# mise tools=["cargo"]
+# mise tools=["rust"]
 
 cd $root/platform/discord
 cargo clippy --all --

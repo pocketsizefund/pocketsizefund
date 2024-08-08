@@ -5,7 +5,7 @@
 # mise sources=["Cargo.toml", "src/**/*.rs"]
 # mise env={RUST_BACKTRACE = "1"}
 # mise depends=["python:lint"]
-# mise tools = ["poetry"]
+# mise tools = ["pipx:vulture"]
 
 cd $root
-poetry run vulture --min-confidence 80 .
+vulture --min-confidence 80 .
