@@ -33,3 +33,11 @@ libraries/python/dist
 infrastructure/kubeflow/deploykf
 
 pipelines/**/*.csv
+
+infrastructure/.terraform.lock.hcl
+infrastructure/.terraform/
+infrastructure/nats-resources.yaml
+infrastructure/output
+infrastructure/secrets.tfvars
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.backup

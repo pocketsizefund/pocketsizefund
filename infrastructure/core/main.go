@@ -33,7 +33,7 @@ func generatePassword(length int) string {
 	return string(password)
 }
 
-var namespaces = []string{"development", "paper", "live", "kubeflow", "monitoring"}
+var namespaces = []string{"live", "kubeflow", "monitoring"}
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
@@ -44,15 +44,15 @@ func main() {
 		}
 		maxClusterSize, err := cfg.TryInt("maxClusterSize")
 		if err != nil {
-			maxClusterSize = 6
+			maxClusterSize = 8
 		}
 		desiredClusterSize, err := cfg.TryInt("desiredClusterSize")
 		if err != nil {
-			desiredClusterSize = 3
+			desiredClusterSize = 4
 		}
 		eksNodeInstanceType, err := cfg.Try("eksNodeInstanceType")
 		if err != nil {
-			eksNodeInstanceType = "t3.small"
+			eksNodeInstanceType = "t3.medium"
 		}
 		vpcNetworkCidr, err := cfg.Try("vpcNetworkCidr")
 		if err != nil {
