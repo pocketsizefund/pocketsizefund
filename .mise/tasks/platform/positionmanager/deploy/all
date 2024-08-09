@@ -1,4 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="deploy position manager to all environments"
-# mise depends=["platform:positionmanager:deploy:development", "platform:positionmanager:deploy:paper", "platform:positionmanager:deploy:live"]

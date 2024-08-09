@@ -1,7 +1,3 @@
-use rdkafka::consumer::{Consumer, StreamConsumer};
-use rdkafka::producer::{FutureProducer, FutureRecord};
-use rdkafka::util::Timeout;
-use rdkafka::ClientConfig;
 use rdkafka::Message;
 use regex::Regex;
 use scraper::{Html, Selector};

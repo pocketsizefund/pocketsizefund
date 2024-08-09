@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
 
 # mise description="format rust cargos"
-# mise depends=["platform:newsfeed:format", "platform:discord:format"]
+# mise tools=["cargo"]
+
+cargo fmt --all

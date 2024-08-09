@@ -6,4 +6,3 @@ pub struct Price(Decimal);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Volume(u64);
-

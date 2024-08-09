@@ -6,33 +6,6 @@ on:
       - master
 
 jobs:
-  run_unit_tests:
-    name: Run Python unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-      - name: Install poetry
-        uses: Gr1N/setup-poetry@v8
-      - name: Setup Mise
-        env:
-          RUST_BACKTRACE: full
-        uses: jdx/mise-action@v2
-        with:
-          install: true
-          install_args: "-y"
-          experimental: true
-      - name: Run unit tests
-        run: mise run python:test
-      - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@v2
-        with:
-          path-to-lcov: coverage.xml
-
   run_lint:
     name: Run Python lint
     runs-on: ubuntu-latest

@@ -1,0 +1,80 @@
+name: Test Coverage
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  python_coverage:
+    name: Python Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install poetry
+        uses: Gr1N/setup-poetry@v8
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          install_args: "-y"
+          experimental: true
+      - name: Run unit tests with coverage
+        run: |
+          mise run python:test
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: coverage.xml
+          flag-name: python
+          parallel: true
+
+  rust_coverage:
+    name: Rust Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          experimental: true
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install Tarpaulin
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: latest
+          use-tool-cache: true
+      - name: Generate coverage
+        run: |
+          mise run rust:test
+          cargo tarpaulin --out Lcov --output-dir ./coverage
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ./coverage/lcov.info
+          flag-name: rust
+          parallel: true
+
+  finish:
+    needs: [python_coverage, rust_coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel-finished: true

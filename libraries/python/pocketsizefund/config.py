@@ -25,7 +25,7 @@ def api_key_required(f: Callable) -> Callable:
     """Decorate flask endpoints with required API keys check."""
 
     @wraps(f)
-    def decorated_function(*args: Any, **kwargs: Any) -> Callable:
+    def decorated_function(*args: Any, **kwargs: Any) -> Callable:  # noqa: ANN401
         for key in REQUIRED_API_KEYS:
             if not os.getenv(key):
                 logger.error(f"Missing API key: {key}")

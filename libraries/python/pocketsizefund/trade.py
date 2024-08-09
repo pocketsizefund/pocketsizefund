@@ -194,9 +194,7 @@ class Client:
 
         darqube_response_json = darqube_response.json()
 
-        constituents = [
-            darqube_response_json[key]["Code"] for key in darqube_response_json
-        ]
+        constituents = [darqube_response_json[key]["Code"] for key in darqube_response_json]
 
         request = alpaca_trading_requests.GetAssetsRequest(
             status=enums.AssetStatus.ACTIVE,

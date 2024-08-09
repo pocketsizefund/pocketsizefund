@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
 
 # mise description="audit rust cargos"
-# mise depends=["platform:newsfeed:audit", "platform:discord:audit"]
+# mise tools=["cargo"]
+
+cargo deny check
