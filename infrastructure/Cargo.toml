@@ -1,0 +1,13 @@
+[package]
+name = "infrastructure"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "infrastructure"
+path = "src/main.rs"
+
+[dependencies]
+hcl-rs = { version = "0.18.0", features = ["perf"] }
+nexus7 = { path = "../../nexus7", version = "0.1.2", features = ["aws"] }
+termion = "4.0.2"

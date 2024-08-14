@@ -4,4 +4,4 @@
 # mise tools=["poetry"]
 
 cd $root/platform/chronos
-kubectl apply -f manifest.yaml --namespace paper
+kubectl apply -f manifest.yaml --namespace live

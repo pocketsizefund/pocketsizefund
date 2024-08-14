@@ -6,8 +6,7 @@ members = [
     "platform/newsfeed",
     "platform/discord",
     "platform/newsfeed",
-    "platform/discord",
-    # "platform/chronos",
-]
-
-exclude = ["platform/chronos", "libraries/rust/data"]
+    "platform/discord", "pocket",
+    "platform/chronos",
+    "pocket"
+, "infrastructure"]

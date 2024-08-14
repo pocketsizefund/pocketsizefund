@@ -1,0 +1,28 @@
+config:
+  alpaca:api-key-id:
+    secure: AAABAF+nkBkj6sY/V+t2LlluXnglos4axxEtLv99sQjrCCWjbGuFwnbn2G63NIG15QBSyg==
+  alpaca:api-secret-key:
+    secure: AAABAD3i8k1P8zQYKBJiHuI5Nme2ONfFrucWU5IXSsRoTGaKOUJ7ALBmL2Q/Cqj0DhVfC3I3wEjLJrYkrvaRFUH58a9WgQoy
+  alphavantage:api-key:
+    secure: AAABAIf8AwirdSq5XPNBJFWogaTv1c5b8CveFdV/7IR/WkDQJ0ty0p9DaWTlZlfU
+  aws:region: us-east-1
+  claude:api-key:
+    secure: AAABACRNj4r91pJh3HeM96MUJcEEgJGvvdtIEfo9iWgwLXIix/jt+3kFNUVx65wMjqzMHgdjzFdSiONfDjheZbebdf7LO+hwq6bbmS0Vzu2b7SDJ7Gq2I6vBecnNvjjEx41HbWPrPRZz4YAHLqZjaA/dEYWHI8z3SJEzDEEbCr8NwL+z3mFCz+Wl7Is=
+  darqube:api-key:
+    secure: AAABAAtSRTSo3tpFT8vneMqtfBWU8CUMzg1lZx88pgmlkGO4GlIg/KyP+KfcYGrc7LgPQHoYRyt828xTW8bv8g==
+  discord:token:
+    secure: AAABAFfV+Z2mb9nP0rd2wtMtQ55ZMhT4gjjoMWkkqIK7k5W4ImG8OMkClJhQQ6dI6Bh2efvz6oVdtHMja/89QhkBAmK+NJljr/J6f5BQkCIQon/wNcHZkWOxh6YFpt0F59730r6LuBg=
+  discord:webhook-url:
+    secure: AAABANcuOvhANvcIteZiPTtRXOqtUsxmrz6gfcq82PtBoyFAxUXDWliXthoXW3VTCcDG6euv8dXf2+iDcAK2skuvvyfMf2CnCSee7s2QxzYzz0c629iodzdp1l32XoygjTTbvWX4Jn4LDGIKXZ+dXQMtVc7CoKVZkPpe95eBDjXM8zluBIR4v+x0zTsqqT65YzsN2sYK7cAx
+  edgar:user-agent:
+    secure: AAABAE1vj1Hg+gKYoiZ1hkBdBlg118nOp2mRKsUcWyV7HT/s9gMsXWU+U2/NdUA08ot6cbB5Vfcn
+  grafana:version: 8.3.6
+  infrastructure:desiredClusterSize: "3"
+  infrastructure:eksNodeInstanceType: t3.medium
+  infrastructure:maxClusterSize: "6"
+  infrastructure:minClusterSize: "3"
+  infrastructure:vpcNetworkCidr: 10.0.0.0/16
+  sentry:dsn:
+    secure: AAABAOT0F0D7fqk2H//O3BGzlF4uCAqIQA1TSAdVr2NLrVEuCVZpHXLXBhN85jpPEccwiMAxSgqcYfLHEJlolWbMusAf0YIjFZ8wYRUK5jWTNUp2jsKMZGX98LjUOowyUozMeXud9Zcdb/z6a9LRAVEVx2iNcwMcD4e/v3qbhg==
+  wandb:api-key:
+    secure: AAABABWUipBd7UK0FXGqqddGRc4xD13wJeHJZaoqJdzGkWqEv918K8zfwK2wbtvkASDixhV5Kp3YK1zqbhod4yMJLj/yUP/m

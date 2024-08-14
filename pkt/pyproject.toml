@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "pkt"
+version = "0.1.0"
+description = ""
+authors = ["chrisaddy <chris.william.addy@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+ell = {path = "../../../ell"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+pkt = "pkt.cli:main"

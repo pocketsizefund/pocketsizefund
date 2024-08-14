@@ -17,6 +17,17 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
+          env:
+            - name: APCA_API_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: APCA_API_KEY_ID
+            - name: apca_api_secret_key
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: apca_api_secret_key
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
@@ -79,9 +90,9 @@ spec:
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: hourly-trigger
+  name: five-minute-trigger
 spec:
-  schedule: "0 * * * *"
+  schedule: "*/5 * * * *"
   jobTemplate:
     spec:
       template:
