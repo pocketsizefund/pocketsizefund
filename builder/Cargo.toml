@@ -1,0 +1,18 @@
+[package]
+name = "builder"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "builder"
+path = "src/lib.rs"
+
+[[bin]]
+name = "builder"
+path = "src/main.rs"
+
+[dependencies]
+chrono = "0.4.38"
+humansize = "2.1.3"
+opencl3 = "0.9.5"
+sysinfo = { version = "0.31.2", features = ["component", "disk", "multithread", "system", "user"] }
