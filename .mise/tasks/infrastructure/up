@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 
 # mise description="launch infrastructure"
-# mise depends=["infrastructure:core:launch"]
+# mise tools=["terraform"]
 
-mise run infrastructure:k8s:config:sync
-mise run infrastructure:k8s:secrets:sync
-mise run platform:positionmanager:deploy:all
-mise run platform:pricemodel:deploy:all
-mise run infrastructure:kubeflow:launch
+cd $root/infrastructure
+
+terraform fmt \
+	&& terraform init \
+	&& terraform apply -var-file=secrets.tfvars --auto-approve
