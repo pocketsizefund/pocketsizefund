@@ -21,7 +21,7 @@ infrastructure/venv
 env*
 .pytest_cache/
 .ruff_cache/
-
+platform/*/Cargo.lock
 
 **/*.ipynb_checkpoints
 

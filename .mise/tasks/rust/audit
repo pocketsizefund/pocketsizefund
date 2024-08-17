@@ -3,4 +3,6 @@
 # mise description="audit rust cargos"
 # mise tools=["cargo"]
 
+cargo install --locked cargo-deny
+cargo deny init
 cargo deny check
