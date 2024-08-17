@@ -4,4 +4,5 @@
 # mise tools = ["ruff", "python", "poetry"]
 
 cd $root
+
 ruff check --output-format=github --config pyproject.toml .

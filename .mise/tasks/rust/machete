@@ -3,4 +3,5 @@
 # mise description="check rust crates for unnecessary dependencies"
 # mise tools=["cargo"]
 
+cargo install cargo-machete
 cargo machete --with-metadata

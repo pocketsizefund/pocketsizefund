@@ -1,18 +1,18 @@
+use aws_credential_types::Credentials;
+use aws_sdk_s3::client::Client as S3Client;
+use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::Config;
+use aws_types::region::Region;
 use chrono::{DateTime, Utc};
-use reqwest::Url;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use reqwest::Client as HTTPClient;
-use aws_sdk_s3::client::Client as S3Client;
-use aws_credential_types::Credentials;
-use aws_types::region::Region;
-use aws_sdk_s3::Config;
-use serde::{Serialize, Deserialize};
+use reqwest::Url;
+use serde::{Deserialize, Serialize};
 use serde_json;
-use aws_sdk_s3::primitives::ByteStream;
-use flate2::write::GzEncoder;
-use flate2::read::GzDecoder;
-use flate2::Compression;
-use std::io::{Write, Read};
+use std::io::{Read, Write};
 
 #[derive(Deserialize)]
 struct BarsResponse {
@@ -62,12 +62,12 @@ impl Client {
         s3_data_bucket_name: String,
     ) -> Self {
         let creds = Credentials::from_keys(aws_access_key_id, aws_secret_access_key, None);
-        
+
         let conf = Config::builder()
             .credentials_provider(creds)
             .region(Region::new("us-east-1"))
             .build();
-        
+
         let s3_client = S3Client::from_conf(conf);
 
         Client {
@@ -90,35 +90,48 @@ impl Client {
 
         let mut headers = HeaderMap::new();
         headers.insert(ACCEPT, HeaderValue::from_str("application/json")?);
-        headers.insert("APCA-API-KEY-ID", HeaderValue::from_str(&self.alpaca_api_key_id)?);
-        headers.insert("APCA-API-SECRET-KEY", HeaderValue::from_str(&self.alpaca_api_secret_key)?);
+        headers.insert(
+            "APCA-API-KEY-ID",
+            HeaderValue::from_str(&self.alpaca_api_key_id)?,
+        );
+        headers.insert(
+            "APCA-API-SECRET-KEY",
+            HeaderValue::from_str(&self.alpaca_api_secret_key)?,
+        );
 
         for ticker in tickers {
             loop {
                 let mut page_token: Option<String> = None;
 
-                let alpaca_url = self.build_equities_bars_url(&ticker, start, end, page_token.as_deref())?;
+                let alpaca_url =
+                    self.build_equities_bars_url(&ticker, start, end, page_token.as_deref())?;
 
-                let response = self.http_client.get(alpaca_url)
+                let response = self
+                    .http_client
+                    .get(alpaca_url)
                     .headers(headers.clone())
                     .send()
                     .await?;
-        
+
                 if !response.status().is_success() {
-                    return Err(format!("api request failed with status: {}", response.status()).into());
+                    return Err(
+                        format!("api request failed with status: {}", response.status()).into(),
+                    );
                 }
 
                 let bar_response: BarsResponse = response.json().await?;
-        
-                let bars_with_ticker = bar_response.bars.into_iter()
+
+                let bars_with_ticker = bar_response
+                    .bars
+                    .into_iter()
                     .map(|mut bar| {
                         bar.ticker = Some(ticker.clone());
                         bar
                     })
                     .collect::<Vec<Bar>>();
-        
+
                 equities_bars.extend(bars_with_ticker);
-        
+
                 match bar_response.next_token {
                     Some(token) => page_token = Some(token),
                     None => break,
@@ -141,13 +154,13 @@ impl Client {
         let start_str = start.format("%Y-%m-%dT%H:%M:%SZ").to_string();
         let end_str = end.format("%Y-%m-%dT%H:%M:%SZ").to_string();
 
-        let mut alpaca_url = Url::parse(&self.alpaca_base_url)?
-            .join(&path)?;
+        let mut alpaca_url = Url::parse(&self.alpaca_base_url)?.join(&path)?;
 
         {
             let mut query_pairs = alpaca_url.query_pairs_mut();
-            
-            query_pairs.append_pair("timeframe", "1D")
+
+            query_pairs
+                .append_pair("timeframe", "1D")
                 .append_pair("start", &start_str)
                 .append_pair("end", &end_str)
                 .append_pair("limit", "10000")
@@ -163,7 +176,10 @@ impl Client {
         Ok(alpaca_url)
     }
 
-    pub async fn write_equities_bars(&self, equities_bars: Vec<Bar> ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn write_equities_bars(
+        &self,
+        equities_bars: Vec<Bar>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let equities_bars_json = serde_json::to_vec(&equities_bars).unwrap();
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -176,7 +192,8 @@ impl Client {
 
         let key = format!("{}/all.gz", EQUITY_BARS_PATH);
 
-        let output = self.s3_client
+        let output = self
+            .s3_client
             .put_object()
             .bucket(&self.s3_data_bucket_name)
             .key(key)
@@ -184,7 +201,7 @@ impl Client {
             .send();
 
         let result = output.await;
-    
+
         match result {
             Ok(_) => Ok(()),
             Err(e) => Err(Box::new(e) as Box<dyn std::error::Error>),
@@ -194,13 +211,14 @@ impl Client {
     pub async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
         let key = format!("{}/all.gz", EQUITY_BARS_PATH);
 
-        let output = self.s3_client
+        let output = self
+            .s3_client
             .get_object()
             .bucket(&self.s3_data_bucket_name)
             .key(key)
             .send()
             .await?;
-        
+
         let compressed_data = output.body.collect().await?;
 
         let compressed_bytes = compressed_data.into_bytes();
@@ -221,8 +239,8 @@ impl Client {
 mod tests {
     use super::*;
     use chrono::TimeZone;
-    use serde_json::json;
     use regex;
+    use serde_json::json;
 
     #[test]
     fn test_build_equities_bars_url() {
@@ -231,42 +249,52 @@ mod tests {
             alpaca_api_key_id: "your_api_key".to_string(),
             alpaca_api_secret_key: "your_secret_key".to_string(),
             http_client: reqwest::Client::new(),
-            s3_client: S3Client::from_conf(Config::builder().region(Region::new("us-east-1")).build()),
+            s3_client: S3Client::from_conf(
+                Config::builder().region(Region::new("us-east-1")).build(),
+            ),
             s3_data_bucket_name: "your_bucket_name".to_string(),
         };
 
         let ticker = "AAPL".to_string();
-        let start: DateTime<Utc> = Utc
-            .with_ymd_and_hms(1977, 5, 25, 0, 0, 0)
-            .unwrap();
-        let end: DateTime<Utc> = Utc
-            .with_ymd_and_hms(1977, 5, 26, 0, 0, 0)
-            .unwrap();
-        
+        let start: DateTime<Utc> = Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap();
+        let end: DateTime<Utc> = Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap();
+
         let page_token = Some("next_page_token");
 
-        let result = client.build_equities_bars_url(&ticker, start, end, page_token).unwrap();
+        let result = client
+            .build_equities_bars_url(&ticker, start, end, page_token)
+            .unwrap();
 
         assert_eq!(result.scheme(), "https");
         assert_eq!(result.host_str(), Some("paper-api.alpaca.markets"));
         assert_eq!(result.path(), "/v2/stocks/AAPL/bars");
-        
-        let query_pairs: std::collections::HashMap<_, _> = result.query_pairs().into_owned().collect();
+
+        let query_pairs: std::collections::HashMap<_, _> =
+            result.query_pairs().into_owned().collect();
         assert_eq!(query_pairs.get("timeframe"), Some(&"1D".to_string()));
-        assert_eq!(query_pairs.get("start"), Some(&"1977-05-25T00:00:00Z".to_string()));
-        assert_eq!(query_pairs.get("end"), Some(&"1977-05-26T00:00:00Z".to_string()));
+        assert_eq!(
+            query_pairs.get("start"),
+            Some(&"1977-05-25T00:00:00Z".to_string())
+        );
+        assert_eq!(
+            query_pairs.get("end"),
+            Some(&"1977-05-26T00:00:00Z".to_string())
+        );
         assert_eq!(query_pairs.get("limit"), Some(&"10000".to_string()));
         assert_eq!(query_pairs.get("adjustment"), Some(&"all".to_string()));
         assert_eq!(query_pairs.get("feed"), Some(&"sip".to_string()));
         assert_eq!(query_pairs.get("sort"), Some(&"asc".to_string()));
-        assert_eq!(query_pairs.get("page_token"), Some(&"next_page_token".to_string()));
+        assert_eq!(
+            query_pairs.get("page_token"),
+            Some(&"next_page_token".to_string())
+        );
     }
 
     #[tokio::test]
     async fn test_fetch_equities_bars() {
-        let mut mock_server = tokio::task::spawn_blocking(|| {
-            mockito::Server::new()
-        }).await.unwrap();
+        let mut mock_server = tokio::task::spawn_blocking(|| mockito::Server::new())
+            .await
+            .unwrap();
 
         let base_url = mock_server.url().to_string();
 
@@ -275,17 +303,15 @@ mod tests {
             alpaca_api_key_id: "your_api_key".to_string(),
             alpaca_api_secret_key: "your_secret_key".to_string(),
             http_client: reqwest::Client::new(),
-            s3_client: S3Client::from_conf(Config::builder().region(Region::new("us-east-1")).build()),
+            s3_client: S3Client::from_conf(
+                Config::builder().region(Region::new("us-east-1")).build(),
+            ),
             s3_data_bucket_name: "your_bucket_name".to_string(),
         };
 
         let tickers = vec!["AAPL".to_string(), "GOOGL".to_string()];
-        let start: DateTime<Utc> = Utc
-            .with_ymd_and_hms(1977, 5, 25, 0, 0, 0)
-            .unwrap();
-        let end: DateTime<Utc> = Utc
-            .with_ymd_and_hms(1977, 5, 26, 0, 0, 0)
-            .unwrap();
+        let start: DateTime<Utc> = Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap();
+        let end: DateTime<Utc> = Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap();
 
         let mock_response = json!({
             "bars": [
@@ -305,7 +331,11 @@ mod tests {
 
         for ticker in &tickers {
             let path = format!("/v2/stocks/{}/bars", ticker);
-            mock_server.mock("GET", mockito::Matcher::Regex(format!(r"^{}.*", regex::escape(&path))))
+            mock_server
+                .mock(
+                    "GET",
+                    mockito::Matcher::Regex(format!(r"^{}.*", regex::escape(&path))),
+                )
                 .match_query(mockito::Matcher::AllOf(vec![
                     mockito::Matcher::UrlEncoded("timeframe".into(), "1D".into()),
                     mockito::Matcher::UrlEncoded("start".into(), "1977-05-25T00:00:00Z".into()),
@@ -323,7 +353,10 @@ mod tests {
                 .create();
         }
 
-        let result = client.fetch_equities_bars(tickers, start, end).await.unwrap();
+        let result = client
+            .fetch_equities_bars(tickers, start, end)
+            .await
+            .unwrap();
 
         assert_eq!(result.len(), 2);
         for bar in result {

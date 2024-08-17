@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+# mise description="push data collector image to docker hub"
+# mise depends=["platform:datacollector:build"]
+
+cd platform/datacollector
+
+IMAGE=pocketsizefund/data-collector
+
+VERSION=$(cargo pkgid | awk -F# '{print $NF}')
+
+docker push $IMAGE:latest
+
+docker push $IMAGE:$VERSION

@@ -100,8 +100,7 @@ class Client:
                     days=self.alpaca_datetime_chunk_size_in_days,
                 )
 
-                if end_at_chunk > end_at:
-                    end_at_chunk = end_at
+                end_at_chunk = min(end_at_chunk, end_at)
 
                 request = alpaca_data_requests.StockBarsRequest(
                     symbol_or_symbols=tickers_chunk,

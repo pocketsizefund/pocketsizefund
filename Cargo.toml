@@ -5,4 +5,5 @@ members = [
     "libraries/rust",
     "platform/newsfeed",
     "platform/discord",
+    "platform/datacollector",
 ]
