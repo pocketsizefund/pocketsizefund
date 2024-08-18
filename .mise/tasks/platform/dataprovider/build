@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+
+# mise description="build docker image for the data provider"
+# mise tools=["poetry"]
+
+cd $root/platform/dataprovider
+
+cp $root/Cargo.lock .
+
+IMAGE=pocketsizefund/data-provider
+
+VERSION=$(poetry version -s)
+
+docker build \
+    --tag $IMAGE:latest \
+    --tag $IMAGE:$VERSION \
+    --platform $PLATFORM \
+    .

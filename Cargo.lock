@@ -1079,6 +1079,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dataprovider"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "chrono",
+ "pocketsizefund 0.1.0 (git+https://github.com/pocketsizefund/pocketsizefund.git?branch=master)",
+]
+
+[[package]]
 name = "der"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
