@@ -1,0 +1,10 @@
+[package]
+name = "dataprovider"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4"
+chrono = { version = "0.4.38", features = ["serde"] }
+# pocketsizefund = { version = "0.1.0", features = ["data"] }
+pocketsizefund = { git = "https://github.com/pocketsizefund/pocketsizefund.git", branch = "master", features = ["data"] }
