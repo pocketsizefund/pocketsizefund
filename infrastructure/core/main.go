@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/apiextensions"
+
 	"github.com/pulumi/pulumi-awsx/sdk/go/awsx/ec2"
 	"github.com/pulumi/pulumi-eks/sdk/v2/go/eks"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
@@ -177,6 +179,30 @@ func main() {
 				"config": pulumi.Map{
 					"lokiAddress": pulumi.String("http://loki:3100/loki/api/v1/push"),
 				},
+			},
+		}, pulumi.Provider(k8sProvider))
+		if err != nil {
+			return err
+		}
+
+		_, err = apiextensions.NewCustomResource(ctx, "knative-eventing", &apiextensions.CustomResourceArgs{
+			ApiVersion: pulumi.String("operator.knative.dev/v1alpha1"),
+			Kind:       pulumi.String("KnativeEventing"),
+			Metadata: &metav1.ObjectMetaArgs{
+				Name:      pulumi.String("knative-eventing"),
+				Namespace: pulumi.String("knative-eventing"),
+			},
+		}, pulumi.Provider(k8sProvider))
+		if err != nil {
+			return err
+		}
+
+		_, err = apiextensions.NewCustomResource(ctx, "default-broker", &apiextensions.CustomResourceArgs{
+			ApiVersion: pulumi.String("eventing.knative.dev/v1"),
+			Kind:       pulumi.String("Broker"),
+			Metadata: &metav1.ObjectMetaArgs{
+				Name:      pulumi.String("default"),
+				Namespace: pulumi.String("default"),
 			},
 		}, pulumi.Provider(k8sProvider))
 		if err != nil {
