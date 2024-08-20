@@ -1,0 +1,27 @@
+[package]
+name = "positionmanager"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "positionmanager"
+path = "src/lib.rs"
+
+[[bin]]
+name = "positionmanager"
+path = "src/main.rs"
+
+[dependencies]
+actix-web = "4.9.0"
+apca = "0.29.0"
+cloudevents-sdk = { version = "0.7.0", features = ["actix"] }
+env_logger = "0.11.5"
+serde = { version = "1.0.208", features = ["derive"] }
+serde_json = "1.0.125"
+tokio = { version = "1.39.3", features = ["full"] }
+tracing = { version = "0.1.40", features = ["async-await"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+uuid = { version = "1.10.0", features = ["v4"] }
+
+[dev-dependencies]
+reqwest = "0.12.7"
