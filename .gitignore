@@ -29,3 +29,13 @@ libraries/python/pocketsizefund/build
 libraries/python/dist
 
 **/target*/
+
+infrastructure/secrets.tfvars
+infrastructure/.terraform
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.backup
+infrastructure/.terraform.lock.hcl
+infrastructure/.terraform.tfstate.lock.info
+infrastructure/platform/secrets.tfvars
+infrastrucure/nats/**
+infrastructure/nats-resources.yaml

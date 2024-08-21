@@ -1,8 +1,0 @@
-config:
-  aws:region: us-east-1
-  grafana:version: 8.3.6
-  infrastructure:desiredClusterSize: "3"
-  infrastructure:eksNodeInstanceType: t3.medium
-  infrastructure:maxClusterSize: "6"
-  infrastructure:minClusterSize: "3"
-  infrastructure:vpcNetworkCidr: 10.0.0.0/16

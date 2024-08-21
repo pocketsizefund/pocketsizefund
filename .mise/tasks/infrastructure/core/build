@@ -1,9 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="build docker image for infrastructure"
-# mise tools=["docker"]
-
-cd $root/infrastructure/core
-IMAGE=pocketsizefund/infrastructure
-
-docker build --build-arg PULUMI_ACCESS_TOKEN=$PULUMI_ACCESS_TOKEN -t $IMAGE:latest -t --platform $PLATFORM .
