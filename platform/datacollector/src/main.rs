@@ -21,7 +21,7 @@ async fn data_handler() -> impl Responder {
         std::env::var("S3_DATA_BUCKET_NAME").unwrap(),
     );
 
-    let mut old_bars = data_client.load_equities_bars().await.unwrap();
+    let old_bars = data_client.load_equities_bars().await.unwrap();
 
     let most_recent_datetime = old_bars.iter().max_by_key(|bar| bar.timestamp).unwrap();
 
@@ -38,9 +38,7 @@ async fn data_handler() -> impl Responder {
         .await
         .unwrap();
 
-    old_bars.extend(new_bars);
-
-    data_client.write_equities_bars(old_bars).await.unwrap();
+    data_client.write_equities_bars(new_bars).await.unwrap();
 
     HttpResponse::Ok().body("OK")
 }

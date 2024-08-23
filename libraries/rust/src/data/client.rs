@@ -13,6 +13,8 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::io::{Read, Write};
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 
 #[derive(Deserialize)]
 struct BarsResponse {
@@ -21,7 +23,8 @@ struct BarsResponse {
     next_token: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+// #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Bar {
     pub ticker: Option<String>,
     #[serde(rename = "t")]
@@ -40,6 +43,21 @@ pub struct Bar {
     pub number_of_trades: u32,
     #[serde(rename = "vw")]
     pub volume_weighted_average_price: f32,
+}
+
+impl PartialEq for Bar {
+    fn eq(&self, other: &Self) -> bool {
+        self.ticker == other.ticker && self.timestamp == other.timestamp
+    }
+}
+
+impl Eq for Bar {}
+
+impl Hash for Bar {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.ticker.hash(state);
+        self.timestamp.hash(state);
+    }
 }
 
 pub struct Client {
@@ -180,7 +198,15 @@ impl Client {
         &self,
         equities_bars: Vec<Bar>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let equities_bars_json = serde_json::to_vec(&equities_bars).unwrap();
+        let mut combined_equities_bars: HashSet<Bar> = HashSet::new();
+        
+        let original_equities_bars = self.load_all_equities_bars().await?;
+    
+        combined_equities_bars.extend(original_equities_bars.into_iter());
+        
+        combined_equities_bars.extend(equities_bars.into_iter());
+        
+        let equities_bars_json = serde_json::to_vec(&combined_equities_bars).unwrap();
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
 
@@ -209,6 +235,12 @@ impl Client {
     }
 
     pub async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
+        self.load_all_equities_bars().await
+    }
+
+    async fn load_all_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
+        let mut equities_bars: Vec<Bar> = Vec::new();
+
         let key = format!("{}/all.gz", EQUITY_BARS_PATH);
 
         let output = self
@@ -229,7 +261,7 @@ impl Client {
 
         decoder.read_to_end(&mut decompressed_data)?;
 
-        let equities_bars: Vec<Bar> = serde_json::from_slice(&decompressed_data)?;
+        equities_bars = serde_json::from_slice(&decompressed_data)?;
 
         Ok(equities_bars)
     }
