@@ -1,3 +1,4 @@
+/// Pocket Size Logger
 pub fn init_tracing() {
     let subscriber = tracing_subscriber::fmt()
         .with_file(true)

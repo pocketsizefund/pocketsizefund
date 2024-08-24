@@ -1,19 +1,17 @@
+#![warn(missing_docs)]
 //! Welcome to pocketsizefund!
 
+/// Pocket Size Logger
 pub mod logger;
 
-// this is a module
+/// Polygon SDK
 #[cfg(feature = "polygon")]
-// polygon
 pub mod polygon;
 
-// this is a module
-#[cfg(feature = "schema")]
-// this is a module
-pub mod schema;
+/// Event SDK
+#[cfg(feature = "events")]
+pub mod events;
 
-#[cfg(feature = "event")]
-pub mod event;
-
+/// Data SDK
 #[cfg(feature = "data")]
 pub mod data;
