@@ -2,26 +2,17 @@
 
 > Open source quantitative trading 🍊  
 
-[![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)]([https://discord.gg/uPEBbYYDB6](https://discord.gg/ZsNXCFm7ad)) [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund) [![Python checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml) [![Rust checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yml)  
+[![Python checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml) [![Rust checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yml) [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund) [![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)]([https://discord.gg/uPEBbYYDB6](https://discord.gg/ZsNXCFm7ad))  
 
 ## About
 
-**Pocket Size Fund** is an open source quantitative trading firm being built on nights and weekends.  
+**Pocket Size Fund** is an open source quantitative hedge fund.  
 
 This repository holds the main resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
 
 The project is actively a work-in-progress.  
 
 ## Project
-
-### Motto
-
-> Make money and learn things 💡
-
-Accountability for these goals is enforced by:
-
-1. **Publishing performance** on a regular, automated basis
-2. **Writing whitepapers** for every significant initiative
 
 ### Process
 
@@ -58,7 +49,6 @@ An unordered and non-exhaustive list of principles we work towards:
 > No code is good code  
 > Never write documentation  
 > Git is truth  
-> We only measure ROI  
 
 ### Links
 

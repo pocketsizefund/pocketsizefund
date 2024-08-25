@@ -4,6 +4,6 @@
 # mise tools=["kubectl"]
 
 cd $root/platform/datacollector
-kubectl down -f manifest.yaml --namespace development
-kubectl down -f manifest.yaml --namespace paper 
-kubectl down -f manifest.yaml --namespace live
+kubectl destroy -f manifest.yaml --namespace development
+kubectl destroy -f manifest.yaml --namespace paper 
+kubectl destroy -f manifest.yaml --namespace live
