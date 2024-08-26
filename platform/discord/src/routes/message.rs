@@ -49,7 +49,7 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
         .send()
         .await;
 
-    let output = match response {
+    match response {
         Ok(response) => match response.status().as_u16() {
             204 => {
                 tracing::info!("Message successfully sent");
@@ -73,9 +73,7 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
                 status: WebhookStatus::Failed,
             })
         }
-    };
-
-    output
+    }
 }
 
 // TODO: put this in schema library

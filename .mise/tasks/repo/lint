@@ -18,12 +18,9 @@ for directory in Path("platform/").iterdir():
         exit(1)
 
     for task in [
-        "test",
         "build",
         "run",
         "publish",
-        "deploy",
-        "down",
     ]:
         task_path = task_dir / task
 

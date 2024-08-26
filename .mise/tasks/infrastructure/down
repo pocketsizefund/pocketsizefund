@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# mise description="launch infrastructure"
+# mise description="tear down infrastructure"
 # mise tools=["terraform"]
 
 cd $root/infrastructure

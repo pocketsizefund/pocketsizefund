@@ -1,9 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="remove discord from cluster"
-# mise tools=["kubectl"]
-
-cd $root/platform/discord
-kubectl delete -f manifest.yaml --namespace development
-kubectl delete -f manifest.yaml --namespace paper 
-kubectl delete -f manifest.yaml --namespace live

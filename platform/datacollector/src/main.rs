@@ -1,6 +1,5 @@
-use actix_web::{get, Responder, HttpResponse, HttpServer, App};
+use actix_web::{get, App, HttpResponse, HttpServer, Responder};
 use pocketsizefund::data::Client as DataClient;
-use chrono;
 use std::env;
 
 mod tickers;
@@ -30,11 +29,14 @@ async fn data_handler() -> impl Responder {
 
     let dow_jones_tickers = get_dow_jones_tickers();
 
-    let new_bars = data_client.fetch_equities_bars(
-        dow_jones_tickers,
-        most_recent_datetime.timestamp,
-        current_datetime,
-    ).await.unwrap();
+    let new_bars = data_client
+        .fetch_equities_bars(
+            dow_jones_tickers,
+            most_recent_datetime.timestamp,
+            current_datetime,
+        )
+        .await
+        .unwrap();
 
     old_bars.extend(new_bars);
 
@@ -49,14 +51,10 @@ async fn main() -> std::io::Result<()> {
 
     let server_port = server_port_environment_variable.parse::<u16>().unwrap();
 
-    HttpServer::new(|| {
-        App::new()
-            .service(health_handler)
-            .service(data_handler)
-    })
-    .bind(("127.0.0.1", server_port))?
-    .run()
-    .await
+    HttpServer::new(|| App::new().service(health_handler).service(data_handler))
+        .bind(("127.0.0.1", server_port))?
+        .run()
+        .await
 }
 
 #[cfg(test)]
@@ -67,9 +65,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_health_handler() {
-        let app = test::init_service(App::new()
-            .service(health_handler))
-            .await;
+        let app = test::init_service(App::new().service(health_handler)).await;
 
         let req = test::TestRequest::default()
             .uri("/health")

@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# mise description="run chronos bot in docker compose"
+# mise tools=["docker"]
+
+cd $root/platform/chronos
+docker compose up --build

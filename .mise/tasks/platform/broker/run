@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# mise description="run broker in docker compose"
+# mise tools=["docker"]
+
+cd $root/platform/broker
+docker compose up --build

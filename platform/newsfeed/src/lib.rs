@@ -100,7 +100,7 @@ mod tests {
     fn test_chat_response_deserialization() {
         let chat_response = r#"{"id":"msg_01BxFThtEVBZqZWRh5YQ5AM1","type":"message","role":"assistant","model":"claude-3-5-sonnet-20240620","content":[{"type":"tool_use","id":"toolu_01QkmBQYKUd6tKi8EyQ63MUn","name":"earnings_report_sentiment","input":{"confidence":7}}],"stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":23641,"output_tokens":33}}"#;
 
-        let sentiment_data: ClaudeResponse = match serde_json::from_str(&chat_response) {
+        let sentiment_data: ClaudeResponse = match serde_json::from_str(chat_response) {
             Ok(data) => data,
             Err(e) => {
                 panic!("Failed to parse sentiment data: {:?}", e);
