@@ -1,4 +1,8 @@
 #!/usr/bin/env sh
 
-# mise description="destroy infrastructure"
-# mise depends=["infrastructure:core:destroy", "infrastructure:kubeflow:destroy"]
+# mise description="launch infrastructure"
+# mise tools=["terraform"]
+
+cd $root/infrastructure
+
+terraform fmt && terraform destroy -var-file=secrets.tfvars --auto-approve
