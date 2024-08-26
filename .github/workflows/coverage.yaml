@@ -1,4 +1,4 @@
-name: Test Coverage
+name: Test coverage
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   python_coverage:
-    name: Python Coverage
+    name: Python coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -36,7 +36,7 @@ jobs:
           parallel: true
 
   rust_coverage:
-    name: Rust Coverage
+    name: Rust coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -70,6 +70,7 @@ jobs:
           parallel: true
 
   finish:
+    name: Finish combined test coverage
     needs: [python_coverage, rust_coverage]
     runs-on: ubuntu-latest
     steps:

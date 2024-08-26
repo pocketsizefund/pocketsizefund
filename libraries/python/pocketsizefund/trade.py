@@ -13,7 +13,7 @@ CLEAR_ACTION = "clear"
 
 
 class Client:
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         darqube_api_key: str,
         alpaca_api_key: str,
@@ -128,16 +128,10 @@ class Client:
         )
 
         if action == CREATE_ACTION:
-            if has_positions or is_last_day and is_last_period:
-                return False
-
-            return True
+            return has_positions or is_last_day and is_last_period
 
         if action == CLEAR_ACTION:
-            if has_positions and is_last_day and is_last_period:
-                return True
-
-            return False
+            return has_positions and is_last_day and is_last_period
 
         msg = f"unknown {action=}"
         raise NotImplementedError(msg)

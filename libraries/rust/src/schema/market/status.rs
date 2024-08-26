@@ -11,6 +11,7 @@ enum MarketStatus {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct Market {
+    #[serde(rename = "afterHours")]
     after_hours: bool,
 }
 

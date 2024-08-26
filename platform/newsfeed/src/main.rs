@@ -4,13 +4,17 @@ use scraper::{Html, Selector};
 use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
-
+use rdkafka::consumer::StreamConsumer;
+use rdkafka::producer::{FutureProducer, FutureRecord};
+use rdkafka::config::ClientConfig;
 use newsfeed::{ClaudeMessage, ClaudeModel, ClaudeResponse, Prompt, Role, SentimentResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::env;
 use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
+use rdkafka::consumer::Consumer;
+use rdkafka::util::Timeout;
 
 #[derive(Debug)]
 struct UpstashConfig {
