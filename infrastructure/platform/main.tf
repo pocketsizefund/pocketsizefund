@@ -31,3 +31,11 @@ resource "null_resource" "position_manager_service" {
 }
 
 
+resource "null_resource" "chronos_service" {
+  depends_on = [kubernetes_namespace.live]
+
+  provisioner "local-exec" {
+    command = "kubectl apply -f platform/chronos.yaml --namespace live"
+  }
+}
+
