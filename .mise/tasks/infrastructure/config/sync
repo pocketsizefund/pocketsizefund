@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+
+# mise description="launch infrastructure"
+# mise tools=["terraform", "awscli"]
+
+aws eks update-kubeconfig --name pocketsizefund --region us-east-1
