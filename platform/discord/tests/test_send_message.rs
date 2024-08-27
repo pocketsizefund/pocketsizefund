@@ -1,5 +1,4 @@
-use cloudevents::{Event, EventBuilder, EventBuilderV10};
-use discord::routes::message::event_handler;
+use cloudevents::EventBuilder;
 use reqwest::header;
 use serde_json::json;
 

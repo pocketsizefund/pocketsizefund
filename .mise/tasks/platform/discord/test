@@ -1,7 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="test discord crate"
-# mise tools=["rust"]
-
-cd $root/platform/discord
-cargo test

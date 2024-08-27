@@ -33,7 +33,7 @@ resource "aws_lb" "grafana" {
   enable_deletion_protection = true
 
   lifecycle {
-    prevent_destroy       = true
+    prevent_destroy       = false
     ignore_changes        = [name_prefix, internal, load_balancer_type, security_groups, subnets]
     create_before_destroy = true
   }
