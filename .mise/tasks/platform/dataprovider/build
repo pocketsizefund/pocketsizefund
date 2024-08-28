@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 
-# mise description="build docker image for the data collector"
+# mise description="build docker image for the data provider"
 # mise tools=["rust"]
 
-cd $root/platform/datacollector
+cd $root/platform/dataprovider
 
 cp $root/Cargo.lock .
 
-IMAGE=pocketsizefund/data-collector
+IMAGE=pocketsizefund/data-provider
 
 VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 

@@ -1,10 +1,10 @@
-use actix_web::{get, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, Responder, HttpRequest, HttpResponse, HttpServer, App};
+use actix_web::web::Query;
 use pocketsizefund::data::Client as DataClient;
+use pocketsizefund::data::client::Bar;
+use chrono::DateTime;
+use std::collections::HashMap;
 use std::env;
-
-mod tickers;
-
-use tickers::get_dow_jones_tickers;
 
 #[get("/health")]
 async fn health_handler() -> impl Responder {
@@ -12,7 +12,17 @@ async fn health_handler() -> impl Responder {
 }
 
 #[get("/data")]
-async fn data_handler() -> impl Responder {
+async fn data_handler(request: HttpRequest) -> impl Responder {
+    let request_url = request.full_url();
+
+    let query_string = request_url.query().unwrap();
+
+    let query_parameters = Query::<HashMap<String, String>>::from_query(query_string).unwrap();
+
+    let start_at = DateTime::parse_from_rfc3339(query_parameters.get("start_at").unwrap()).unwrap();
+    
+    let end_at = DateTime::parse_from_rfc3339(query_parameters.get("end_at").unwrap()).unwrap();
+
     let data_client = DataClient::new(
         std::env::var("ALPACA_API_KEY_ID").unwrap(),
         std::env::var("ALPACA_API_SECRET_KEY").unwrap(),
@@ -23,24 +33,12 @@ async fn data_handler() -> impl Responder {
 
     let old_bars = data_client.load_equities_bars().await.unwrap();
 
-    let most_recent_datetime = old_bars.iter().max_by_key(|bar| bar.timestamp).unwrap();
+    let filtered_bars: Vec<Bar> = old_bars
+        .into_iter()
+        .filter(|bar| bar.timestamp >= start_at && bar.timestamp <= end_at)
+        .collect();
 
-    let current_datetime = chrono::Utc::now();
-
-    let dow_jones_tickers = get_dow_jones_tickers();
-
-    let new_bars = data_client
-        .fetch_equities_bars(
-            dow_jones_tickers,
-            most_recent_datetime.timestamp,
-            current_datetime,
-        )
-        .await
-        .unwrap();
-
-    data_client.write_equities_bars(new_bars).await.unwrap();
-
-    HttpResponse::Ok().body("OK")
+    HttpResponse::Ok().json(filtered_bars)
 }
 
 #[actix_web::main]
@@ -49,10 +47,14 @@ async fn main() -> std::io::Result<()> {
 
     let server_port = server_port_environment_variable.parse::<u16>().unwrap();
 
-    HttpServer::new(|| App::new().service(health_handler).service(data_handler))
-        .bind(("127.0.0.1", server_port))?
-        .run()
-        .await
+    HttpServer::new(|| {
+        App::new()
+            .service(health_handler)
+            .service(data_handler)
+    })
+    .bind(("127.0.0.1", server_port))?
+    .run()
+    .await
 }
 
 #[cfg(test)]
@@ -63,7 +65,9 @@ mod tests {
 
     #[actix_web::test]
     async fn test_health_handler() {
-        let app = test::init_service(App::new().service(health_handler)).await;
+        let app = test::init_service(App::new()
+            .service(health_handler))
+            .await;
 
         let req = test::TestRequest::default()
             .uri("/health")
