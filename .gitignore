@@ -40,3 +40,5 @@ infrastructure/platform/secrets.tfvars
 infrastrucure/nats/**
 infrastructure/nats-resources.yaml
 infrastructure/output
+
+infrastructure/*.log
