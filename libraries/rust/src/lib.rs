@@ -1,19 +1,9 @@
 //! Welcome to pocketsizefund!
 
-pub mod logger;
-
-// this is a module
-#[cfg(feature = "polygon")]
-// polygon
-pub mod polygon;
-
-// this is a module
-#[cfg(feature = "schema")]
-// this is a module
-pub mod schema;
-
-#[cfg(feature = "event")]
-pub mod event;
+#[cfg(feature = "events")]
+/// Pocket Size Fund events module
+pub mod events;
 
 #[cfg(feature = "data")]
+/// Pocket Size Fund data module
 pub mod data;

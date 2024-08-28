@@ -1,7 +1,0 @@
-[package]
-name = "ml"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-ort = "1.16.3"

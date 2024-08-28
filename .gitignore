@@ -39,3 +39,4 @@ infrastructure/.terraform.tfstate.lock.info
 infrastructure/platform/secrets.tfvars
 infrastrucure/nats/**
 infrastructure/nats-resources.yaml
+infrastructure/output

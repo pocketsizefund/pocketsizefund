@@ -2,6 +2,8 @@ services:
   positionmanager:
     build:
       context: .
+      tags:
+        - "positionmanager:latest"
     platform: linux/amd64
     environment:
       - SENTRY_DSN

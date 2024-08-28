@@ -13,7 +13,6 @@ num_features = 10  # adjust based on your model
 
 x = torch.randn(batch_size, sequence_length, num_features)
 
-# Export the model
 torch.onnx.export(
     model,
     x,

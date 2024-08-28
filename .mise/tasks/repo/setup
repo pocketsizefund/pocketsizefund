@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 
 # mise description="setup dependencies for the repo"
+# mise tools=["python@3.10", "poetry"]
 
-poetry install --with dev,test
+cd $root
+poetry install --with dev,test --all-extras
