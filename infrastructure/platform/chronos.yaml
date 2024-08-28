@@ -40,6 +40,7 @@ spec:
     spec:
       template:
         spec:
+          restartPolicy: Never
           containers:
             - name: trigger
               image: curlimages/curl
@@ -62,6 +63,7 @@ spec:
     spec:
       template:
         spec:
+          restartPolicy: Never
           containers:
             - name: trigger
               image: curlimages/curl
