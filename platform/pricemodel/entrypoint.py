@@ -3,25 +3,11 @@
 import datetime
 import os
 
-import sentry_sdk
 from fastapi import FastAPI, Response, status
 from loguru import logger
 from pocketsizefund import config, data, model
 from pocketsizefund.trade import Client
 from pydantic import BaseModel
-from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
-
-sentry_loguru = LoguruIntegration(
-    level=LoggingLevels.INFO.value,
-    event_level=LoggingLevels.ERROR.value,
-)
-
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    integrations=[sentry_loguru],
-    traces_sample_rate=1.0,
-)
-
 
 trade_client = Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),
@@ -71,8 +57,7 @@ class Predictions(BaseModel):
 
 
 @app.get("/predictions")
-@config.api_key_required
-def invocations() -> Predictions | None:
+def invocations() -> Predictions:
     """Invocations handles prediction requests to the inference endpoint."""
     if price_model is None:
         return Response(
@@ -94,9 +79,9 @@ def invocations() -> Predictions | None:
 
     equity_bars_raw_data_grouped_by_ticker = equity_bars_raw_data.groupby("ticker")
 
-    predictions = {}
+    predictions: dict[str, list[float]] = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
-        ticker_predictions = price_model.get_predictions(
+        ticker_predictions: list[float] = price_model.get_predictions(
             data=ticker_bars_raw_data,
         )
 

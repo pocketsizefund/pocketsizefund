@@ -1,9 +1,8 @@
-import datetime
-from typing import Optional
-
+from __future__ import annotations # noqa: I001
 import pytest
-
+import datetime
 from pocketsizefund import config, trade
+
 
 client = trade.Client(
     darqube_api_key="darqube_api_key",
@@ -45,7 +44,7 @@ class MockHTTPClient:
         self,
         url: str,
         params: any,
-        headers: Optional[any] = None,  # noqa: UP007
+        headers: any | None = None,  # noqa: UP007
     ) -> any:
         _ = url, params, headers
 

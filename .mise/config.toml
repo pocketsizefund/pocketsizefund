@@ -1,5 +1,7 @@
 [tools]
 rust = "stable"
+uv = "latest"
+ruff = "latest"
 helm = "latest"
 docker-slim = "latest"
 github-cli = "latest"

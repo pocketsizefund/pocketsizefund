@@ -1,15 +1,11 @@
-import glob
-from anthropic import Anthropic
-from instructor import from_anthropic, Partial
-from pydantic import BaseModel
-from typing import List, Dict
-from pathlib import Path
-import pathspec
-import ell
-from rich.console import Console
-from pydantic import BaseModel
 import datetime
+from pathlib import Path
 
+import pathspec
+from anthropic import Anthropic
+from instructor import from_anthropic
+from pydantic import BaseModel
+from rich.console import Console
 
 client = from_anthropic(Anthropic())
 
@@ -22,62 +18,61 @@ class FilePicker:
     name = "file_picker"
     description = "pick relevant files from a directory"
 
-    def __init__(self, directory, blacklist: list[str]):
+    def __init__(self, directory: str, blacklist: list[str]) -> None:
         self.directory = directory
         self.blacklist = blacklist
 
     @property
-    def files(self):
+    def files(self) -> list[str]:
         directory = str(Path(self.directory).resolve() / "**")
 
         spec = pathspec.PathSpec.from_lines("gitwildmatch", self.blacklist)
-        files = []
-        for file in glob.glob(directory, recursive=True):
-            if Path(file).is_file() and not spec.match_file(file):
-                files.append(file)
-        return files
+        def filter_(file: str) -> bool:
+            return Path(file).is_file() and not spec.match_file(file)
+        return [file for file in Path.glob(directory, recursive=True) if filter_(file)]
 
-    def chat(self, query: str):
+    def chat(self, query: str) -> str:
         return client.chat.completions.create(
             model="claude-3-5-sonnet-20240620",
             max_tokens=1024 * 8,
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are an expert in terraform, and you are given a directory of files and a user query. Decide which files are best suited to answering the question.<Files>{self.files}</Files>",
+                    "content": f"You are an expert in terraform, and you are given a directory of files and a user query. Decide which files are best suited to answering the question.<Files>{self.files}</Files>", # noqa: E501
                 },
                 {"role": "user", "content": query},
             ],
             response_model=FileResponse,
         ).files
 
-    def load_files(self, query):
+    def load_files(self, query: str) -> list[dict[str, str]]:
         files = self.chat(query)
         contents = []
         for file in files:
-            with open(file, "r") as f:
+            with Path.open(Path(file)) as f:
                 content = f.read()
             contents += [{"file_name": file, "contents": content}]
 
         return contents
 
-    def load_all_files(self):
+    def load_all_files(self) -> list[dict[str, str]]:
         contents = []
         for file in self.files:
-            with open(file, "r") as f:
+            with Path.open(Path(file)) as f:
                 content = f.read()
             contents += [{"file_name": file, "contents": content}]
         return contents
 
 
-def chat_over_files(files, query):
+def chat_over_files(query: str) -> str:
+    """Chat over files."""
     return client.chat.completions.create(
         model="claude-3-5-sonnet-20240620",
         max_tokens=1024 * 8,
         messages=[
             {
                 "role": "system",
-                "content": f"You are an expert in terraform, and you are given files and a user query. Answer the user's question with full code examples, showing diffs between the current code and the solution.",
+                "content": "You are an expert in terraform, and you are given files and a user query. Answer the user's question with full code examples, showing diffs between the current code and the solution.", # noqa: E501
             },
             {"role": "user", "content": query},
         ],
@@ -91,7 +86,10 @@ if __name__ == "__main__":
     console = Console()
     console.clear()
 
-    file_picker = FilePicker(directory=".", blacklist=[".terraform/", "*.tfstate*", "chat.py"])
+    file_picker = FilePicker(directory=".",
+                             blacklist=[".terraform/",
+                                        "*.tfstate*",
+                                        "chat.py"])
 
     file_context = []
     memory_buffer = []
@@ -108,7 +106,7 @@ if __name__ == "__main__":
 
         if user_input.lower() == "save":
             file_suffix = datetime.datetime.now(datetime.UTC).timestamp() * 100
-            with open(f"chat-{file_suffix}.log", "w+") as f:
+            with Path.open(Path(f"chat-{file_suffix}.log"), "w+") as f:
                 for memory in memory_buffer:
                     f.write(f"{memory[0]}\n{memory[1]}\n\n")
 

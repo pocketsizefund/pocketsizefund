@@ -1,10 +1,12 @@
+from __future__ import annotations # noqa: I001
+from typing import TYPE_CHECKING
 import datetime
-from typing import Optional
 
 import pytest
-from alpaca.data import requests as alpaca_data_requests
-
 from pocketsizefund import config, data
+
+if TYPE_CHECKING:
+    from alpaca.data import requests as alpaca_data_requests
 
 ALPACA_API_KEY = "alpaca_api_key"
 ALPACA_API_SECRET = "alpaca_api_secret"  # noqa: S105
@@ -60,8 +62,8 @@ class MockAlpacaHistoricalClient:
 class MockHTTPGetResponse:
     def __init__(
         self,
-        text: Optional[str] = None,  # noqa: UP007
-        data: Optional[dict[str, any]] = None,  # noqa: UP007
+        text: str | None = None,  # noqa: UP007
+        data: dict[str, any] | None = None,  # noqa: UP007
     ) -> None:
         self.text = text
         self.data = data

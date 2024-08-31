@@ -14,6 +14,7 @@ cargo-watch.pkg-path = "cargo-watch"
 mise.pkg-path = "mise"
 shfmt.pkg-path = "shfmt"
 shellcheck.pkg-path = "shellcheck"
+pyright.pkg-path = "pyright"
 
 [vars]
 

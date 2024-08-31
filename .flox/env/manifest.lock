@@ -33,6 +33,9 @@
       "pre-commit": {
         "pkg-path": "pre-commit"
       },
+      "pyright": {
+        "pkg-path": "pyright"
+      },
       "rustup": {
         "pkg-path": "rustup"
       },
@@ -1288,6 +1291,126 @@
       "outputs": {
         "dist": "/nix/store/k6zisb57g4n20bckd79vxfylfamvjsfj-pre-commit-3.7.1-dist",
         "out": "/nix/store/cmsyx6qvg4pr8h7w30wfsgpvddmxb7g6-pre-commit-3.7.1"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pyright",
+      "broken": false,
+      "derivation": "/nix/store/7yz7lg5lap95lpnwii7fk1ca3jxps4sk-pyright-1.1.377.drv",
+      "description": "Type checker for the Python language",
+      "install_id": "pyright",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "pyright-1.1.377",
+      "pname": "pyright",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.1.377",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/a316csgk87ak3aalcis7bizkph4wml4k-pyright-1.1.377"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pyright",
+      "broken": false,
+      "derivation": "/nix/store/w15idzidld97gcjlf14cm5y7vqypq14m-pyright-1.1.377.drv",
+      "description": "Type checker for the Python language",
+      "install_id": "pyright",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "pyright-1.1.377",
+      "pname": "pyright",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.1.377",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/i9bf1zza7xb44dc24cdhcjpd8c7hlhxk-pyright-1.1.377"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pyright",
+      "broken": false,
+      "derivation": "/nix/store/0pwapbaiy7rk42jg3447f43l9v5fkf1z-pyright-1.1.377.drv",
+      "description": "Type checker for the Python language",
+      "install_id": "pyright",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "pyright-1.1.377",
+      "pname": "pyright",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.1.377",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/wx1jvrqx0w4d5m3nwmkmpdvskx518fjm-pyright-1.1.377"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pyright",
+      "broken": false,
+      "derivation": "/nix/store/hp2gmzaw4y1ys31dx69sfnzwnpibdiz3-pyright-1.1.377.drv",
+      "description": "Type checker for the Python language",
+      "install_id": "pyright",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "pyright-1.1.377",
+      "pname": "pyright",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.1.377",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ka0j3h8hvxgk8lkqvr4ijcbkmbkjy5xj-pyright-1.1.377"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
