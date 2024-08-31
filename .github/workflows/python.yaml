@@ -7,7 +7,7 @@ on:
 
 jobs:
   setup:
-    uses: ./.github/workflows/setup.yml
+    uses: ./.github/workflows/setup.yaml
 
   run_lint:
     name: Run Python lint
