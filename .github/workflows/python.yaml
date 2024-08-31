@@ -18,7 +18,7 @@ jobs:
       uses: flox/activate-action@main
       with:
         command: |
-          flox edit --add-package uv
+          flox install uv
           uv tool install ruff
           uv run ruff check --output-format=github --config pyproject.toml .
 
