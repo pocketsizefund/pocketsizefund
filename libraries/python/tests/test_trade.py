@@ -2,6 +2,7 @@ import datetime
 from typing import Optional
 
 import pytest
+
 from pocketsizefund import config, trade
 
 client = trade.Client(
