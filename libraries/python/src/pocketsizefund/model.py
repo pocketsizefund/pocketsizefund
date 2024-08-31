@@ -92,7 +92,7 @@ class PriceModel:
             accelerator="gpu",
             enable_model_summary=True,
             gradient_clip_val=0.1,
-            limit_train_batches=50,  # comment in for training, running valiation every 30 batches
+            limit_train_batches=50,
             callbacks=[
                 learning_rate_logger,
                 early_stop_callback,

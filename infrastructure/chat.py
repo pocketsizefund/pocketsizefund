@@ -107,7 +107,10 @@ if __name__ == "__main__":
     console = Console()
     console.clear()
 
-    file_picker = FilePicker(directory=".", blacklist=[".terraform/", "*.tfstate*", "chat.py"])
+    file_picker = FilePicker(directory=".",
+                             blacklist=[".terraform/",
+                                        "*.tfstate*",
+                                        "chat.py"])
 
     file_context = []
     memory_buffer = []
