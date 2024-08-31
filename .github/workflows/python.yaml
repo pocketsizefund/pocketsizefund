@@ -17,7 +17,7 @@ jobs:
     - name: Lint Python
       uses: flox/activate-action@main
       with:
-        command: mise run python:lint
+        command: uv run ruff check --output-format=github --config pyproject.toml .
 
   run_dead_code:
     name: Run Python dead code check
