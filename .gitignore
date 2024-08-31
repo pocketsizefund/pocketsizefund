@@ -18,7 +18,6 @@ libraries/rust/*/target/
 target/
 infrastructure/venv
 .envrc
-env*
 .pytest_cache/
 .ruff_cache/
 platform/*/Cargo.lock

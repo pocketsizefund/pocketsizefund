@@ -1,14 +1,6 @@
 [tools]
-python = "latest"
 rust = "stable"
 helm = "latest"
-actionlint = "latest"
 docker-slim = "latest"
 github-cli = "latest"
 istioctl = "latest"
-poetry = "latest"
-shellcheck = "latest"
-shfmt = "latest"
-
-[env]
-PLATFORM = "linux/amd64"
