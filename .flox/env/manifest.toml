@@ -14,17 +14,8 @@ cargo-watch.pkg-path = "cargo-watch"
 mise.pkg-path = "mise"
 shfmt.pkg-path = "shfmt"
 shellcheck.pkg-path = "shellcheck"
-pyright.pkg-path = "pyright"
-eksctl.pkg-path = "eksctl"
-kubernetes-helm.pkg-path = "kubernetes-helm"
-openssl.pkg-path = "openssl"
-cargo-deny.pkg-path = "cargo-deny"
-cargo-machete.pkg-path = "cargo-machete"
-httpie.pkg-path = "httpie"
-lazygit.pkg-path = "lazygit"
 
 [vars]
-PLATFORM = "linux/amd64"
 
 [hook]
 on-activate = """
@@ -34,16 +25,12 @@ on-activate = """
   rustup default stable
   mise settings set experimental true
 """
-
 [profile]
- common = '''
- '''
+common = '''
+'''
 
-[services.grafana]
-command = "kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80"
-
-[services.pricemodel]
-command = "kubectl port-forward service/pricemodel 8080:8080"
+[services.cargo]
+command = "cargo watch -x test"
 
 [options]
 systems = ["aarch64-darwin", "aarch64-linux", "x86_64-darwin", "x86_64-linux"]
