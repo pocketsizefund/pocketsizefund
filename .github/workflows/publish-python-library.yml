@@ -18,10 +18,12 @@ jobs:
     steps:
       - name: Checkout code
       - uses: actions/checkout@v4
-      - name: Setup Python
       - name: Set up uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Upload to PyPI
+        with:
+          TWINE_USERNAME: {{secrets.PYPI_USERNAME}}
+          TWINE_PASSWORD: {{secrets.PYPI_PASSWORD}}
         run: |
           cd libraries/python/pocketsizefund
           uvx --from build pyproject-build --installer uv
