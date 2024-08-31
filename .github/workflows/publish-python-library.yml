@@ -25,6 +25,6 @@ jobs:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
         run: |
-          cd libraries/python/pocketsizefund
+          cd libraries/python
           uvx --from build pyproject-build --installer uv
           uvx twine upload dist/*
