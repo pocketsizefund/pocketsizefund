@@ -15,7 +15,7 @@ jobs:
     - name: Install flox
       uses: flox/install-flox-action@v1.1.0
     - name: Lint Python
-      uses: flox/activate-action@1
+      uses: flox/activate-action@main
       with:
         command: mise run python:lint
 
