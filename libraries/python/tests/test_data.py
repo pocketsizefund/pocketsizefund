@@ -1,8 +1,10 @@
-from __future__ import annotations # noqa: I001
+from __future__ import annotations  # noqa: I001
 from typing import TYPE_CHECKING
 import datetime
 
 import pytest
+from alpaca.data import requests as alpaca_data_requests
+
 from pocketsizefund import config, data
 
 if TYPE_CHECKING:

@@ -1,39 +1,24 @@
 [project]
 name = "pocketsizefund"
-version = "20240831.0"
+version = "0.1.1"
 description = "Open source quantitative trading"
 authors = [
-  {name="forstmeier", email="john.forstmeier@gmail.com"},
+  {name = "forstmeier", email="john.forstmeier@gmail.com"},
   {name="chrisaddy", email="chris.william.addy@gmail.com"},
 ]
 readme = "README.md"
 homepage = "https://www.pocketsize.fund/"
 repository = "https://github.com/pocketsizefund/pocketsizefund"
-requires-python = ">=3.9, <3.11"
-dependencies = [
-    "loguru>=0.7.2",
-    "requests>=2.32.3",
-    "wandb>=0.17.8",
-    "boto3>=1.35.10",
-    "pandas>=2.2.2",
-    "alpaca-py>=0.30.1",
-    "bs4>=0.0.2",
-]
-license = {text = "MIT"}
+requires-python = ">=3.9,<3.13"
+package-mode = false
+dependencies = []
+
+[tool.uv.workspace]
+members = ["libraries/python"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.uv]
-dev-dependencies = [
-    "coverage>=7.6.1",
-    "pytest>=8.3.2",
-]
-
-[tool.uv.sources]
-pocketsizefund = { workspace = true }
-
 
 [uv.tool.vulture]
 make_whitelist = true
@@ -45,10 +30,11 @@ exclude = [
   "platform/discord/",
   "platform/newsfeed",
   "platform/datacollector",
+  "platform/dataprovider",
   "libraries/rust",
 ]
 
-[tool.ruff]
+[uv.tool.ruff]
 exclude = [
   ".bzr",
   ".git",
