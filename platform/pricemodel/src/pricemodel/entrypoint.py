@@ -3,31 +3,12 @@
 import datetime
 import os
 
-import pandas as pd
-import requests
-import sentry_sdk
 from fastapi import FastAPI, Response, status
 from loguru import logger
 from pocketsizefund import config, model
 from pocketsizefund.trade import Client
 from pydantic import BaseModel
-from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
-
-ENVIRONMENT = os.getenv("ENVIRONMENT")
-DATA_PROVIDER_URL = f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080"
-
-
-sentry_loguru = LoguruIntegration(
-    level=LoggingLevels.INFO.value,
-    event_level=LoggingLevels.ERROR.value,
-)
-
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    integrations=[sentry_loguru],
-    traces_sample_rate=1.0,
-)
-
+import requests
 
 trade_client = Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),
@@ -95,21 +76,6 @@ def invocations() -> Predictions:
     )
 
     response = requests.post(DATA_PROVIDER_URL)
-
-    if response.status_code != status.HTTP_200_OK:
-        return Response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content="error getting data",
-            media_type="text/plain",
-        )
-
-    json_data = response.json()
-
-    equity_bars_raw_data = pd.DataFrame(json_data)
-
-    filtered_equity_bars_raw_data = equity_bars_raw_data["ticker"].isin(available_tickers)
-
-    equity_bars_raw_data_grouped_by_ticker = filtered_equity_bars_raw_data.groupby("ticker")
 
     predictions: dict[str, list[float]] = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
