@@ -6,9 +6,6 @@ on:
       - master
 
 jobs:
-  setup:
-    uses: ./.github/workflows/setup.yaml
-
   run_lint:
     name: Run Python lint
     runs-on: ubuntu-latest
@@ -18,7 +15,9 @@ jobs:
     - name: Install flox
       uses: flox/install-flox-action@v1.1.0
     - name: Build
-      run: mise run python:lint
+      run: |
+        flox activate
+        mise run python:lint
 
   run_dead_code:
     name: Run Python dead code check
