@@ -10,17 +10,22 @@ jobs:
     name: Run Python lint
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Install flox
-      uses: flox/install-flox-action@v1.1.0
-    - name: Lint Python
-      uses: flox/activate-action@main
-      with:
-        command: |
-          flox install uv
-          uv tool install ruff
-          uv run ruff check --output-format=github --config pyproject.toml .
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install Poetry
+        uses: Gr1N/setup-poetry@v8
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        env:
+          MISE_VERBOSE: 1
+        with:
+          experimental: true
+      - name: Run lint
+        run: mise run python:lint
 
   run_dead_code:
     name: Run Python dead code check
@@ -32,9 +37,11 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      - name: Set up uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - name: Run vulture
-        run: |
-          vulture --min-confidence 80 \
-          --exclude "*/target/*" .
+      - name: Install Poetry
+        uses: Gr1N/setup-poetry@v8
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          experimental: true
+      - name: Run dead code
+        run: mise run python:dead-code
