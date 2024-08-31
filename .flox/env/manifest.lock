@@ -45,9 +45,11 @@
     },
     "vars": {},
     "hook": {
-      "on-activate": "  uv tool install vulture\n  uv tool install ruff\n  rustup default stable\n  mise settings set experimental true\n"
+      "on-activate": "  uv tool install vulture\n  uv tool install ruff\n  uv sync\n  rustup default stable\n  mise settings set experimental true\n"
     },
-    "profile": {},
+    "profile": {
+      "common": " "
+    },
     "options": {
       "systems": [
         "aarch64-darwin",
@@ -62,7 +64,7 @@
     },
     "services": {
       "cargo": {
-        "command": "cargo watch -x run",
+        "command": "cargo watch -x test",
         "vars": null,
         "is-daemon": null,
         "shutdown": null

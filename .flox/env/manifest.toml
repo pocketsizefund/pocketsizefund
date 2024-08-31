@@ -26,8 +26,8 @@ on-activate = """
   mise settings set experimental true
 """
 [profile]
-common = '''
-'''
+ common = '''
+ '''
 
 [services.cargo]
 command = "cargo watch -x test"

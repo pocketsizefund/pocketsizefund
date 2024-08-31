@@ -11,11 +11,14 @@ jobs:
 
   run_lint:
     name: Run Python lint
-    needs: setup
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Install flox
+      uses: flox/install-flox-action@v1.1.0
     - name: Build
-      run: flox run tests
+      run: mise run python:lint
 
   run_dead_code:
     name: Run Python dead code check
