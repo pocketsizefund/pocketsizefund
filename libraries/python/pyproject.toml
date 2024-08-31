@@ -1,6 +1,6 @@
 [project]
 name = "pocketsizefund"
-version = "0.5.0"
+version = "20240831.0"
 description = "Open source quantitative trading"
 authors = [
   {name="forstmeier", email="john.forstmeier@gmail.com"},
