@@ -1,10 +1,6 @@
 name: Publish PSF Python Library to PyPI
 
 on:
-  pull_request:
-    branches:
-      - master
-      - pypi-test
   push:
     branches:
       - master
