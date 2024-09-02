@@ -62,6 +62,7 @@ cloudevents-sdk = { version = "0.7.0", features = [
 ], optional = true }
 actix-web = { version = "4.3.1", features = [], optional = true }
 apca = "0.29.0"
+rusty-money = { version = "0.4.1", features = ["crypto"] }
 
 
 [dev-dependencies]
@@ -70,3 +71,4 @@ tokio = { version = "1.38.1", features = ["test-util"] }
 mockito = "1.4.0"
 regex = "1.9.3"
 futures = "0.3.30"
+test-log = "0.2.16"

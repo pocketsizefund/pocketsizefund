@@ -17,6 +17,7 @@ shellcheck.pkg-path = "shellcheck"
 pyright.pkg-path = "pyright"
 
 [vars]
+PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python"
 
 [hook]
 on-activate = """

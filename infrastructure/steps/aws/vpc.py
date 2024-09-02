@@ -1,10 +1,10 @@
+import time
 from invoke import task
 from rich.progress import Progress
 from rich.console import Console
 
 from steps import CLUSTER_NAME, VPC_CIDR
 from steps import ec2_client
-
 console = Console()
 
 @task
@@ -23,6 +23,36 @@ def create(c):
     ec2_client.modify_vpc_attribute(VpcId=vpc_id, EnableDnsHostnames={'Value': True})
     ec2_client.modify_vpc_attribute(VpcId=vpc_id, EnableDnsSupport={'Value': True})
     console.print(f"[green]New VPC created: [/green][bold]{vpc_id}[/bold]")
+    return vpc_id
+
+@task
+def show(c):
+    console.print("[blue]VPC resources...[/blue]")
+    vpcs = ec2_client.describe_vpcs(Filters=[{'Name': 'tag:Name', 'Values': [f"{CLUSTER_NAME}-vpc"]}])['Vpcs']
+    if not vpcs:
+        console.print("[yellow]VPC not found[/yellow]")
+        return
+
+    vpc_id = vpcs[0]['VpcId']
+
+    for vpc in vpcs:
+        console.print(f"[blue]id=[/blue][bold]{vpc['VpcId']}[/bold]")
+        console.print(f"[blue]cidr=[/blue][bold]{vpc['CidrBlock']}[/bold]")
+        console.print(f"[blue]state=[/blue][bold]{vpc['State']}[/bold]")
+        cidr_block_associations = vpc['CidrBlockAssociationSet']
+        for cidr_block_association in cidr_block_associations:
+            console.print(f"[blue]cidr_block_association_id=[/blue][bold]{cidr_block_association['AssociationId']}[/bold]")
+            console.print(f"[blue]cidr_block=[/blue][bold]{cidr_block_association['CidrBlock']}[/bold]")
+            console.print(f"[blue]cidr_block_state=[/blue][bold]{cidr_block_association['CidrBlockState']['State']}[/bold]")
+        tags = vpc['Tags']
+        for tag in tags:
+            console.print(f"[blue]tag_key=[/blue][bold]{tag['Key']}[/bold]")
+
+    addresses = ec2_client.describe_addresses(Filters=[{'Name': 'domain', 'Values': ['vpc']}])
+
+    for address in addresses['Addresses']:
+        if address['Domain'] == 'vpc':
+            console.print(f"[blue]{address['PublicIp']}[/blue]")
     return vpc_id
 
 @task
@@ -83,8 +113,19 @@ def delete(c):
     security_groups = ec2_client.describe_security_groups(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['SecurityGroups']
     for sg in security_groups:
         if sg['GroupName'] != 'default':
-            console.print(f"[green]Deleting Security Group [/green][bold]{sg['GroupId']}[/bold]")
-            ec2_client.delete_security_group(GroupId=sg['GroupId'])
+            console.print(f"[green]Attempting to delete Security Group [/green][bold]{sg['GroupId']}[/bold]")
+            max_retries = 5
+            for attempt in range(max_retries):
+                try:
+                    ec2_client.delete_security_group(GroupId=sg['GroupId'])
+                    console.print(f"[green]Successfully deleted Security Group [/green][bold]{sg['GroupId']}[/bold]")
+                    break
+                except ec2_client.exceptions.DependencyViolation:
+                    if attempt < max_retries - 1:
+                        console.print(f"[yellow]Dependency violation for Security Group [/yellow][bold]{sg['GroupId']}[/bold][yellow]. Retrying in 10 seconds...[/yellow]")
+                        time.sleep(10)
+                    else:
+                        console.print(f"[red]Failed to delete Security Group [/red][bold]{sg['GroupId']}[/bold][red] after {max_retries} attempts.[/red]")
 
     ec2_client.delete_vpc(VpcId=vpc_id)
     console.print(f"[green]Deleting VPC [/green][bold]{vpc_id}[/bold]")

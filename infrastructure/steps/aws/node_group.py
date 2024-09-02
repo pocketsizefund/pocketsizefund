@@ -39,6 +39,8 @@ def create(c, subnet_ids):
     )
 
     try:
+        console.print(f"Creating node group with role ARN: {node_role['Role']['Arn']}")
+        console.print(f"Subnet IDs: {subnet_ids}")
         node_group = eks_client.create_nodegroup(
             clusterName=CLUSTER_NAME,
             nodegroupName=f"{CLUSTER_NAME}-node-group",
@@ -58,6 +60,8 @@ def create(c, subnet_ids):
         console.print("[green]Node Group is now active[/green]")
     except eks_client.exceptions.ClientError as e:
         console.print(f"[red]Error creating Node Group: {str(e)}[/red]")
+        console.print(f"Error code: {e.response['Error']['Code']}")
+        console.print(f"Error message: {e.response['Error']['Message']}")
         raise
 
 

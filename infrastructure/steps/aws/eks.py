@@ -23,6 +23,7 @@ def create(c, subnet_ids):
             }
         ]
     }
+
     cluster_role = iam_client.create_role(
         RoleName=f"{CLUSTER_NAME}-cluster-role",
         AssumeRolePolicyDocument=json.dumps(trust_relationship)
