@@ -1,16 +1,12 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: serving.knative.dev/v1
+kind: Service
 metadata:
   name: price-model
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: price-model
   template:
     metadata:
-      labels:
-        app: price-model
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
         - name: price-model
@@ -30,11 +26,6 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 30
           env:
-            - name: SENTRY_DSN
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: sentry_dsn
             - name: DARQUBE_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -73,20 +64,11 @@ spec:
               cpu: 500m
               memory: 2048Mi
 ---
-apiVersion: v1
-kind: Service
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
 metadata:
-  name: price-model
+  name: price-model-trigger
 spec:
-<<<<<<<< HEAD:infrastructure/platform/price-model.yaml
-  type: LoadBalancer
-  selector:
-    app: price-model
-  ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
-========
   broker: default
   filter:
     attributes:

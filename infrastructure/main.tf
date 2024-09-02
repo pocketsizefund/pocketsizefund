@@ -2,6 +2,16 @@ provider "aws" {
   region = var.aws_region
 }
 
+provider "kubernetes" {
+  host                   = var.cluster_endpoint
+  cluster_ca_certificate = base64decode(var.cluster_ca_certificate)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", var.cluster_name]
+  }
+}
+
 terraform {
   cloud {
 
@@ -41,19 +51,4 @@ module "k8s" {
   grafana_cert_arn          = module.aws.grafana_cert_arn
   route53_zone_id           = data.aws_route53_zone.main.id
   domain_name               = var.domain_name
-}
-
-module "platform" {
-  source                 = "./platform"
-  cluster_endpoint       = module.aws.cluster_endpoint
-  cluster_ca_certificate = module.aws.cluster_ca_certificate
-  cluster_name           = module.aws.cluster_name
-  environment            = var.environment
-  sentry_dsn             = var.sentry_dsn
-  darqube_api_key        = var.darqube_api_key
-  alpaca_api_key         = var.alpaca_api_key
-  alpaca_api_secret      = var.alpaca_api_secret
-  alpha_vantage_api_key  = var.alpha_vantage_api_key
-  edgar_user_agent       = var.edgar_user_agent
-  model_file_name        = var.model_file_name
 }
