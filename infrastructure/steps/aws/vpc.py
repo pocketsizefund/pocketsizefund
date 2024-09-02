@@ -1,5 +1,4 @@
 from invoke import task
-from loguru import logger
 from rich.progress import Progress
 from rich.console import Console
 
@@ -31,7 +30,7 @@ def delete(c):
     console.print("[blue]Deleting VPC resources...[/blue]")
     vpcs = ec2_client.describe_vpcs(Filters=[{'Name': 'tag:Name', 'Values': [f"{CLUSTER_NAME}-vpc"]}])['Vpcs']
     if not vpcs:
-        logger.warning("VPC not found")
+        console.print("[yellow]VPC not found[/yellow]")
         return
 
     vpc_id = vpcs[0]['VpcId']
@@ -46,40 +45,37 @@ def delete(c):
         ec2_client.release_address(AllocationId=address['AllocationId'])
 
     instances = ec2_client.describe_instances(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
-    console.print(f"[green]Terminating [/green][bold]{len(instances['Reservations'])}[/bold][green] instances[/green]")
-    for reservation in instances['Reservations']:
-        for instance in reservation['Instances']:
-            console.print(f"[green]Terminating instance [bold]{instance['InstanceId']}[/bold]")
-            ec2_client.terminate_instances(InstanceIds=[instance['InstanceId']])
-
-    instances = ec2_client.describe_instances(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
-    if instances['Reservations']:
-        with Progress(transient=True):
-            waiter = ec2_client.get_waiter('instance_terminated')
-            waiter.wait(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}], WaiterConfig={'Delay': 15, 'MaxAttempts': 40})
+    instance_ids = [instance['InstanceId'] for reservation in instances['Reservations'] for instance in reservation['Instances']]
+    if instance_ids:
+        console.print(f"[green]Terminating [/green][bold]{len(instance_ids)}[/bold][green] instances[/green]")
+        ec2_client.terminate_instances(InstanceIds=instance_ids)
+        waiter = ec2_client.get_waiter('instance_terminated')
+        with Progress() as progress:
+            progress.add_task("[cyan]Waiting for instances to terminate...", total=None)
+            waiter.wait(InstanceIds=instance_ids)
     else:
         console.print("[green]No instances to terminate[/green]")
 
     nat_gateways = ec2_client.describe_nat_gateways(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
     for nat_gateway in nat_gateways['NatGateways']:
+        console.print(f"[green]Releasing [/green][bold]{nat_gateway['NatGatewayId']}[/bold]")
         ec2_client.delete_nat_gateway(NatGatewayId=nat_gateway['NatGatewayId'])
 
     waiter = ec2_client.get_waiter('nat_gateway_deleted')
-    for nat_gateway in nat_gateways['NatGateways']:
-        waiter.wait(NatGatewayIds=[nat_gateway['NatGatewayId']])
-
-    igws = ec2_client.describe_internet_gateways(Filters=[{'Name': 'attachment.vpc-id', 'Values': [vpc_id]}])['InternetGateways']
-    for igw in igws:
-        ec2_client.detach_internet_gateway(InternetGatewayId=igw['InternetGatewayId'], VpcId=vpc_id)
-        ec2_client.delete_internet_gateway(InternetGatewayId=igw['InternetGatewayId'])
+    with Progress() as progress:
+        progress.add_task("[cyan]Waiting for NAT Gateways to be deleted...", total=None)
+        for nat_gateway in nat_gateways['NatGateways']:
+            waiter.wait(NatGatewayIds=[nat_gateway['NatGatewayId']])
 
     subnets = ec2_client.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['Subnets']
     for subnet in subnets:
+        console.print(f"[green]Deleting Subnet [/green][bold]{subnet['SubnetId']}[/bold]")
         ec2_client.delete_subnet(SubnetId=subnet['SubnetId'])
 
     route_tables = ec2_client.describe_route_tables(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['RouteTables']
     for rt in route_tables:
         if not rt.get('Associations') or not any(assoc.get('Main', False) for assoc in rt['Associations']):
+            console.print(f"[green]Deleting Route Table [/green][bold]{rt['RouteTableId']}[/bold]")
             for assoc in rt.get('Associations', []):
                 ec2_client.disassociate_route_table(AssociationId=assoc['RouteTableAssociationId'])
             ec2_client.delete_route_table(RouteTableId=rt['RouteTableId'])
@@ -87,9 +83,11 @@ def delete(c):
     security_groups = ec2_client.describe_security_groups(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['SecurityGroups']
     for sg in security_groups:
         if sg['GroupName'] != 'default':
+            console.print(f"[green]Deleting Security Group [/green][bold]{sg['GroupId']}[/bold]")
             ec2_client.delete_security_group(GroupId=sg['GroupId'])
 
     ec2_client.delete_vpc(VpcId=vpc_id)
+    console.print(f"[green]Deleting VPC [/green][bold]{vpc_id}[/bold]")
     console.print("[blue]VPC and associated resources deleted[/blue]")
 
 

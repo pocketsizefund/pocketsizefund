@@ -1,5 +1,5 @@
 from invoke import task
-from steps.aws import vpc, subnet, route_table, eks, node_group, iam
+from steps.aws import vpc, subnet, route_table, eks, node_group, iam, ingress_rules
 from steps import SUBNET_CIDRS, AVAILABILITY_ZONES
 from rich.console import Console
 
@@ -22,6 +22,7 @@ def create(c):
         console.print(f"[red]Error creating node group: {str(e)}[/red]")
         console.print("[yellow]Setup incomplete. Please check the error and try again.[/yellow]")
         return
+    ingress_rules.create(c, vpc_id)
     console.print("[blue]Setup complete![/blue]")
 
 
