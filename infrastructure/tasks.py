@@ -9,6 +9,7 @@ aws_ns.add_collection(aws.eks, name="eks")
 aws_ns.add_collection(aws.node_group, name="node_group")
 aws_ns.add_collection(aws.subnet, name="subnet")
 aws_ns.add_collection(aws.route_table, name="route_table")
+aws_ns.add_collection(aws.ingress_rules)
 aws_ns.add_collection(aws, name="*")
 ns.add_collection(aws_ns)
 
