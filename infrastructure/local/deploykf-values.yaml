@@ -1,0 +1,194 @@
+argocd:
+  appNamePrefix: ""
+  namespace: argocd
+  project: default
+  source:
+    repo:
+      url: ""
+      revision: ""
+      path: ""
+  destination:
+    server: https://kubernetes.default.svc
+    name: ""
+deploykf_dependencies:
+  cert_manager:
+    enabled: true
+    namespace: cert-manager
+    extraManifests: []
+    clusterIssuer:
+      enabled: true
+      issuerName: deploykf-gateway-issuer
+  istio:
+    enabled: true
+    namespace: istio-system
+  kyverno:
+    enabled: true
+    namespace: kyverno
+deploykf_core:
+  deploykf_auth:
+    namespace: deploykf-auth
+    dex:
+      connectors: []
+      clients:
+        oauth2Proxy:
+          clientId: "oauth2-proxy"
+          clientSecret:
+            existingSecret: "generated--dex-oauth2-proxy-client"
+            existingSecretKey: "client_secret"
+            generateSecret: true
+        minioConsole:
+          clientId: "minio-console"
+          clientSecret:
+            existingSecret: "generated--dex-minio-console-client"
+            existingSecretKey: "client_secret"
+            generateSecret: true
+        argoServer:
+          clientId: "argo-server"
+          clientSecret:
+            existingSecret: "generated--dex-argo-server-client"
+            existingSecretKey: "client_secret"
+            generateSecret: true
+    oauth2Proxy:
+      cookie:
+        secret:
+          existingSecret: "generated--oauth2-proxy-cookie-secret"
+          existingSecretKey: "cookie_secret"
+          generateSecret: true
+  deploykf_dashboard:
+    namespace: deploykf-dashboard
+  deploykf_istio_gateway:
+    namespace: deploykf-istio-gateway
+    extraManifests: []
+    gateway:
+      hostname: deploykf.pocketsize.fund
+      ports:
+        http: 8080
+        https: 8443
+      selectorLabels:
+        app: deploykf-gateway
+        istio: deploykf-gateway
+    gatewayDeployment:
+      serviceAccount:
+        name: deploykf-gateway
+        annotations: {}
+    gatewayService:
+      name: deploykf-gateway
+      annotations: {}
+      type: LoadBalancer
+  deploykf_profiles_generator:
+    profileDefaults:
+      profileNamePrefix: ""
+      memberAccess:
+        role: view
+        notebooksAccess: false
+      plugins: []
+      resourceQuotaSpec: {}
+      tools:
+        kubeflowPipelines:
+          objectStoreAuth:
+            existingSecret: "kubeflow-pipelines--profile-object-store-auth--{profile_name}"
+            existingSecretNamespace: ""
+            existingSecretAccessKeyKey: "access_key"
+            existingSecretSecretKeyKey: "secret_key"
+
+    users:
+      - id: chris.addy
+        email: chris.william.addy@gmail.com
+    groups:
+      - id: admins
+        users:
+          - chris.addy
+
+    profiles:
+      - name: team-1
+        members:
+          - group: team-1
+            access:
+              role: edit
+              notebooksAccess: true
+deploykf_opt:
+  deploykf_minio:
+    enabled: true
+    namespace: deploykf-minio
+    rootUser:
+      existingSecret: "generated--deploykf-minio-root-user"
+      existingSecretUsernameKey: "username"
+      existingSecretPasswordKey: "password"
+      generateSecret: true
+      serviceAccounts: []
+    buckets: []
+    policies: []
+  deploykf_mysql:
+    enabled: true
+    namespace: deploykf-mysql
+    rootUser:
+      existingSecret: "generated--deploykf-mysql-root-user"
+      existingSecretPasswordKey: "password"
+      generateSecret: true
+    kubeflowUser:
+      existingSecret: "generated--deploykf-mysql-kubeflow-user"
+      existingSecretUsernameKey: "username"
+      existingSecretPasswordKey: "password"
+      generateSecret: true
+kubeflow_dependencies:
+  kubeflow_argo_workflows:
+    enabled: true
+    namespace: kubeflow-argo-workflows
+kubeflow_tools:
+  katib:
+    enabled: true
+    mysql:
+      useExternal: false
+      host: "mysql.pocketsize.fund"
+      port: 3306
+      auth:
+        username: kubeflow
+        password: password
+        existingSecret: ""
+        existingSecretUsernameKey: "username"
+        existingSecretPasswordKey: "password"
+    mysqlDatabase: katib
+  notebooks:
+    enabled: true
+    spawnerFormDefaults: {}
+  pipelines:
+    enabled: true
+    bucket:
+      name: kubeflow-pipelines
+      region: ""
+    objectStore:
+      useExternal: false
+      host: s3.amazonaws.com
+      port: ""
+      useSSL: true
+      auth:
+        fromEnv: false
+        accessKey: my-access-key
+        secretKey: my-secret-key
+        existingSecret: ""
+        existingSecretAccessKeyKey: "AWS_ACCESS_KEY_ID"
+        existingSecretSecretKeyKey: "AWS_SECRET_ACCESS_KEY"
+    mysql:
+      useExternal: false
+      host: "mysql.pocketsize.fund"
+      port: 3306
+      auth:
+        username: kubeflow
+        password: password
+        existingSecret: ""
+        existingSecretUsernameKey: "username"
+        existingSecretPasswordKey: "password"
+    mysqlDatabases:
+      cacheDatabase: kfp_cache
+      metadataDatabase: kfp_metadata
+      pipelinesDatabase: kfp_pipelines
+    profileResourceGeneration:
+      kfpApiTokenPodDefault: false
+  poddefaults_webhook:
+    enabled: true
+  tensorboards:
+    enabled: true
+  training_operator:
+    enabled: true
+  volumes:
+    enabled: true

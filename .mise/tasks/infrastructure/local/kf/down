@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# mise description="destroy local kubeflow infrastructure"
+# mise tools=["terraform", "kubectl"]
+
+set -e
+
+cd $root
+
+CLUSTER_NAME=pocketsizefund-kubeflow
+kind delete cluster --name ${CLUSTER_NAME}
+kind delete cluster --name kind-knative
