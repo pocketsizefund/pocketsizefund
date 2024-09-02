@@ -14,7 +14,7 @@ package-mode = false
 dependencies = []
 
 [tool.uv.workspace]
-members = ["libraries/python"]
+members = ["libraries/python", "infrastructure"]
 
 [build-system]
 requires = ["hatchling"]

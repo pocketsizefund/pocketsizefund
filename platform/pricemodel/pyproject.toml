@@ -1,0 +1,15 @@
+[project]
+name = "pricemodel"
+version = "0.2.1"
+description = "Price prediction model"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.112.2",
+    "uvicorn>=0.30.6",
+    "pydantic>=2.8.2",
+    "pocketsizefund[ml-cpu,trade]>=0.5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
