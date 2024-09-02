@@ -1,0 +1,22 @@
+[project]
+name = "infrastructure"
+version = "0.1.0"
+description = "pocketsize infrastructure"
+requires-python = ">=3.9, <3.11"
+dependencies = [
+    "kubernetes>=29.0.0",
+    "pyyaml>=6.0.2",
+    "fabric>=3.2.2",
+    "invoke>=2.2.0",
+    "boto3>=1.35.10",
+    "loguru>=0.7.2",
+    "rich>=13.8.0",
+    "pyhelm>=2.14.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+infrastructure = "infrastructure.main:app"

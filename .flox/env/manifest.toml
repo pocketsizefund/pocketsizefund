@@ -33,5 +33,8 @@ on-activate = """
 [services.cargo]
 command = "cargo watch -x test"
 
+[services.grafana]
+command = "kubectl port-forward -n monitoring service/prometheus-grafana 3000:80"
+
 [options]
 systems = ["aarch64-darwin", "aarch64-linux", "x86_64-darwin", "x86_64-linux"]
