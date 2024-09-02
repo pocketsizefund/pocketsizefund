@@ -1,3 +1,4 @@
+import sys
 from invoke import task
 from rich.console import Console
 
@@ -10,13 +11,22 @@ console = Console()
 def create(c, vpc_id):
     console.print("[blue]Checking for existing VPC...[/blue]")
 
-    security_group = ec2_client.create_security_group(
-        GroupName=f"{CLUSTER_NAME}-cluster-sg",
-        Description="Security group for EKS cluster",
-        VpcId=vpc_id
-    )
-    security_group_id = security_group['GroupId']
-    console.print(f"[green]Security group created: [/green][bold]{security_group_id}[/bold]")
+    security_group = ec2_client.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': [f"{CLUSTER_NAME}-cluster-sg"]}])['SecurityGroups']
+
+    if len(security_group) == 0:
+        console.print("[yellow]Security group not found[/yellow]")
+        security_group = ec2_client.create_security_group(
+            GroupName=f"{CLUSTER_NAME}-cluster-sg",
+            Description="Security group for EKS cluster",
+            VpcId=vpc_id
+        )
+        security_group_id = security_group['GroupId']
+        console.print(f"[green]Security group created: [/green][bold]{security_group_id}[/bold]")
+    else:
+        security_goup = security_group[0]
+        security_group_id = security_goup['GroupId']
+        console.print(f"[yellow]Security group already exists: [/yellow][bold]{security_group_id}[/bold]")
+        console.print(f"[green]Security group found: [/green][bold]{security_group_id}[/bold]")
 
     try:
         cluster_info = eks_client.describe_cluster(name=CLUSTER_NAME)

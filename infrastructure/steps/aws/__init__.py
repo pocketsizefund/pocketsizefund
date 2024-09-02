@@ -1,5 +1,5 @@
 from invoke import task
-from steps.aws import vpc, subnet, route_table, eks, node_group, iam, ingress_rules
+from steps.aws import vpc, subnet, route_table, eks, node_group, iam, ingress_rules, cloudwatch
 from steps import SUBNET_CIDRS, AVAILABILITY_ZONES
 from rich.console import Console
 
@@ -15,6 +15,10 @@ def create(c):
     route_table.create(c, vpc_id, subnet_ids)
     eks.create(c, subnet_ids)
     eks.wait_for_cluster(c)
+    cloudwatch.create(c)
+    vpc_id = vpc.show(c)
+    subnet_ids = subnet.show(c, vpc_id)
+    ingress_rules.create(c, vpc_id)
     try:
         node_group.create(c, subnet_ids)
         console.print("[blue]Node group created successfully![/blue]")
@@ -22,7 +26,6 @@ def create(c):
         console.print(f"[red]Error creating node group: {str(e)}[/red]")
         console.print("[yellow]Setup incomplete. Please check the error and try again.[/yellow]")
         return
-    ingress_rules.create(c, vpc_id)
     console.print("[blue]Setup complete![/blue]")
 
 

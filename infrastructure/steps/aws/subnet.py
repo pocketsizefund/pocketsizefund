@@ -1,5 +1,8 @@
 from invoke import task
 from steps import CLUSTER_NAME, ec2_client
+from rich.console import Console
+
+console = Console()
 
 @task
 def create(c, vpc_id, cidr, az, index):
@@ -20,4 +23,16 @@ def create(c, vpc_id, cidr, az, index):
         print(f"Error creating subnet: {e}")
         return None
 
+@task
+def show(c, vpc_id):
+    console.print("[blue]Checking for existing subnets...[/blue]")
+    subnets = ec2_client.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['Subnets']
+    if not subnets:
+        console.print("[yellow]No subnets found[/yellow]")
+        return
 
+
+    for subnet in subnets:
+        console.print(f"[green]Subnet [/green][bold]{subnet['SubnetId']}[/bold][green] created at [/green][bold]{subnet['AvailabilityZone']}[/bold]")
+
+    return [subnet['SubnetId'] for subnet in subnets]
