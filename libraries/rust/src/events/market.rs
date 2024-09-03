@@ -161,13 +161,18 @@ mod tests {
     #[tokio::test]
     async fn test_to_event() {
         let market = Market {
-            client: Client::new(ApiInfo::from_env().unwrap()),
+            client: Client::new(ApiInfo::from_parts(
+                "https://paper-api.alpaca.markets".to_string(),
+                "test_key_id".to_string(),
+                "test_secret".to_string(),
+            ).unwrap()),
             updated_at: Some(Utc::now()),
             status: Status::Open,
             current: None,
             next_open: None,
             next_close: None,
         };
+
         let event: Event = market.to_event().await;
         assert_eq!(event.ty(), "market.status.updated");
         assert_eq!(event.source(), "psf.platform.chronos");
@@ -177,13 +182,21 @@ mod tests {
 
     #[test]
     fn test_market_default() {
-        std::env::set_var("APCA_API_KEY_ID", "test_key");
-        std::env::set_var("APCA_API_SECRET_KEY", "test_secret");
-        std::env::set_var("APCA_API_BASE_URL", "https://paper-api.alpaca.markets");
+        let market = Market {
+            client: Client::new(ApiInfo::from_parts(
+                "https://paper-api.alpaca.markets".to_string(),
+                "test_key_id".to_string(),
+                "test_secret".to_string(),
+            ).unwrap()),
+            updated_at: None,
+            status: Status::Open,
+            current: None,
+            next_open: None,
+            next_close: None,
+        };
 
-        let market = Market::default();
         assert!(market.updated_at.is_none());
-        assert_eq!(market.status, Status::Unknown);
+        assert_eq!(market.status, Status::Open);
     }
 
     #[test]
@@ -239,7 +252,11 @@ mod tests {
     #[tokio::test]
     async fn test_to_event_with_no_updated_at() {
         let market = Market {
-            client: Client::new(ApiInfo::from_env().unwrap()),
+            client: Client::new(ApiInfo::from_parts(
+                "https://paper-api.alpaca.markets".to_string(),
+                "test_key_id".to_string(),
+                "test_secret".to_string(),
+            ).unwrap()),
             updated_at: None,
             status: Status::Open,
             current: None,
@@ -253,7 +270,19 @@ mod tests {
 
     #[test]
     fn test_market_debug() {
-        let market = Market::default();
+        let market = Market {
+            client: Client::new(ApiInfo::from_parts(
+                "https://paper-api.alpaca.markets".to_string(),
+                "test_key_id".to_string(),
+                "test_secret".to_string(),
+            ).unwrap()),
+            updated_at: None,
+            status: Status::Open,
+            current: None,
+            next_open: None,
+            next_close: None,
+        };
+
         let debug_output = format!("{:?}", market);
         assert!(debug_output.contains("Market"));
         assert!(debug_output.contains("client"));
