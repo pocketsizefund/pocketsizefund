@@ -1,9 +1,0 @@
-#!/bin/sh
-
-# mise description="add platform service=pricemodel to cluster"
-# mise tools=["terraform", "kubectl"]
-# mise depends=["infrastructure:local:knative", "infrastructure:local:secrets", "infrastructure:local:observability"]
-
-cd $root/infrastructure/platform
-
-kubectl apply -f pricemodel.yaml --namespace live
