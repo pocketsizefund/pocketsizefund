@@ -30,7 +30,6 @@ APCA_API_SECRET_KEY=$(jq -r .APCA_API_SECRET_KEY <<< $SECRETS)
 ALPHA_VANTAGE_API_KEY=$(jq -r .ALPHA_VANTAGE_API_KEY <<< $SECRETS)
 EDGAR_USER_AGENT=$(jq -r .EDGAR_USER_AGENT <<< $SECRETS)
 DARQUBE_API_KEY=$(jq -r .DARQUBE_API_KEY <<< $SECRETS)
-DISCORD_WEBHOOK_URL=$(jq -r .DISCORD_WEBHOOK_URL <<< $SECRETS)
 
 kubectl create secret generic platform \
     --from-literal="ALPACA_API_KEY=$ALPACA_API_SECRET" \
@@ -40,7 +39,6 @@ kubectl create secret generic platform \
     --from-literal="ALPHA_VANTAGE_API_KEY=$ALPHA_VANTAGE_API_KEY" \
     --from-literal="EDGAR_USER_AGENT=$EDGAR_USER_AGENT" \
     --from-literal="DARQUBE_API_KEY=$DARQUBE_API_KEY" \
-    --from-literal="DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL" \
     --from-literal="FUND_DATA_BUCKET=$FUND_DATA_BUCKET" \
     --from-literal="FUND_ARTIFACTS_BUCKET=$FUND_ARTIFACTS_BUCKET"
 
