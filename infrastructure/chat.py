@@ -26,23 +26,13 @@ class FilePicker:
 
     @property
     def files(self) -> list[str]:
+        """Return a list of files in the directory."""
         directory = str(Path(self.directory).resolve() / "**")
 
         spec = pathspec.PathSpec.from_lines("gitwildmatch", self.blacklist)
         def filter_(file: str) -> bool:
             return Path(file).is_file() and not spec.match_file(file)
         return [file for file in Path.glob(directory, recursive=True) if filter_(file)]
-
-    def chat(self, query: str) -> str:
-        """Return a list of files in the directory."""
-        directory = str(Path(self.directory).resolve() / "**")
-
-        spec = pathspec.PathSpec.from_lines("gitwildmatch", self.blacklist)
-        return [
-            file
-            for file in Path.glob(directory)
-            if Path(file).is_file() and not spec.match_file(file)
-        ]
 
     def chat(self, query: str) -> list[str]:
         """Chat with the model regarding infrastructure."""
