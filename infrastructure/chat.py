@@ -1,3 +1,4 @@
+"""Provides functionality for chat-related operations."""
 import datetime
 from pathlib import Path
 
@@ -19,6 +20,7 @@ class FilePicker:
     description = "pick relevant files from a directory"
 
     def __init__(self, directory: str, blacklist: list[str]) -> None:
+        """Initialize the FilePicker class."""
         self.directory = directory
         self.blacklist = blacklist
 
@@ -32,47 +34,72 @@ class FilePicker:
         return [file for file in Path.glob(directory, recursive=True) if filter_(file)]
 
     def chat(self, query: str) -> str:
+        """Return a list of files in the directory."""
+        directory = str(Path(self.directory).resolve() / "**")
+
+        spec = pathspec.PathSpec.from_lines("gitwildmatch", self.blacklist)
+        return [
+            file
+            for file in Path.glob(directory)
+            if Path(file).is_file() and not spec.match_file(file)
+        ]
+
+    def chat(self, query: str) -> list[str]:
+        """Chat with the model regarding infrastructure."""
         return client.chat.completions.create(
             model="claude-3-5-sonnet-20240620",
             max_tokens=1024 * 8,
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are an expert in terraform, and you are given a directory of files and a user query. Decide which files are best suited to answering the question.<Files>{self.files}</Files>", # noqa: E501
+                    "content": (
+                        "You are an expert in terraform, and you are given "
+                        "a directory of files and a user query. "
+                        "Decide which files are best suited to answering the question."
+                        f"<Files>{self.files}</Files>"
+                    ),
                 },
                 {"role": "user", "content": query},
             ],
             response_model=FileResponse,
         ).files
 
-    def load_files(self, query: str) -> list[dict[str, str]]:
+    def load_files(self, query: str) -> list[dict]:
+        """Load files based on the user query."""
         files = self.chat(query)
         contents = []
         for file in files:
-            with Path.open(Path(file)) as f:
+            with Path.open(file, "r") as f:
                 content = f.read()
             contents += [{"file_name": file, "contents": content}]
 
         return contents
 
-    def load_all_files(self) -> list[dict[str, str]]:
+    def load_all_files(self) -> list[dict]:
+        """Load all files in the directory."""
         contents = []
         for file in self.files:
-            with Path.open(Path(file)) as f:
+            with Path.open(file, "r") as f:
                 content = f.read()
             contents += [{"file_name": file, "contents": content}]
         return contents
 
+def chat_over_files(files: list[str], query: str) -> str:
+    """Chat with the model over a list of files."""
+    _ = files
 
-def chat_over_files(query: str) -> str:
-    """Chat over files."""
     return client.chat.completions.create(
         model="claude-3-5-sonnet-20240620",
         max_tokens=1024 * 8,
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert in terraform, and you are given files and a user query. Answer the user's question with full code examples, showing diffs between the current code and the solution.", # noqa: E501
+                "content": (
+                    "You are an expert in terraform, and "
+                    "you are given files and a user query. "
+                    "Answer the user's question with full code examples, "
+                    "showing diffs between the current code and the solution."
+                ),
             },
             {"role": "user", "content": query},
         ],
@@ -106,7 +133,7 @@ if __name__ == "__main__":
 
         if user_input.lower() == "save":
             file_suffix = datetime.datetime.now(datetime.UTC).timestamp() * 100
-            with Path.open(Path(f"chat-{file_suffix}.log"), "w+") as f:
+            with Path.open(f"chat-{file_suffix}.log", "w+") as f:
                 for memory in memory_buffer:
                     f.write(f"{memory[0]}\n{memory[1]}\n\n")
 
