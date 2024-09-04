@@ -51,11 +51,6 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: edgar_user_agent
-            - name: MODEL_FILE_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: model_file_name
           resources:
             requests:
               cpu: 100m

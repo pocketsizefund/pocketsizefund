@@ -1,11 +1,14 @@
 #!/usr/bin/env sh
 
 # mise description="build docker image for price model"
-# mise tools=["poetry"]
 
 cd $root/platform/pricemodel
 
 IMAGE=pocketsizefund/price-model
 VERSION=$(cat .version)
+echo "using version $VERSION"
 
-docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
+docker build -t $IMAGE:latest \
+	-t $IMAGE:$VERSION \
+	--platform linux/amd64 \
+	.
