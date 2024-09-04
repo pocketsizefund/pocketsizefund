@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
         - name: chronos
-          image: pocketsizefund/chronos:0.1.3
+          image: pocketsizefund/chronos:202409.3.0
           args:
             - --period=1
           env:
