@@ -14,10 +14,12 @@ PRICE_MODEL_URL = "http://price-model.default.svc.cluster.local:8080"
 
 app = FastAPI()
 
+
 @app.get("/health", status_code=status.HTTP_200_OK)
 def health() -> None:
     """Health check endpoint that the cluster pings to ensure the service is up."""
     return
+
 
 @app.post("/")
 def predictions() -> None:
