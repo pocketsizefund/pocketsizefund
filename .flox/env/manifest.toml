@@ -21,6 +21,7 @@ openssl.pkg-path = "openssl"
 cargo-deny.pkg-path = "cargo-deny"
 cargo-machete.pkg-path = "cargo-machete"
 httpie.pkg-path = "httpie"
+lazygit.pkg-path = "lazygit"
 
 [vars]
 PLATFORM = "linux/amd64"
