@@ -24,6 +24,7 @@ class FilePicker:
 
     @property
     def files(self) -> list[str]:
+        """Return a list of files in the directory."""
         directory = str(Path(self.directory).resolve() / "**")
 
         spec = pathspec.PathSpec.from_lines("gitwildmatch", self.blacklist)
