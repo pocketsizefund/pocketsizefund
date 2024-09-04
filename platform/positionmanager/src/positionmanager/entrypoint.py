@@ -10,7 +10,7 @@ from pocketsizefund import trade
 
 POSITIONS_COUNT = 10
 
-PRICE_MODEL_URL = f"http://price-model.default.svc.cluster.local:8080"
+PRICE_MODEL_URL = "http://price-model.default.svc.cluster.local:8080"
 
 app = FastAPI()
 
