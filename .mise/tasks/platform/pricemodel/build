@@ -5,7 +5,7 @@
 cd $root/platform/pricemodel
 
 IMAGE=pocketsizefund/price-model
-VERSION=$(cat .version)
+VERSION=$(awk -F '[="]' '/^[[:space:]]*version/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3}' pyproject.toml)
 echo "using version $VERSION"
 
 docker build -t $IMAGE:latest \

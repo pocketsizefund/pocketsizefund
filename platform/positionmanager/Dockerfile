@@ -1,21 +1,18 @@
-FROM python:3.10.14
+ARG PYTHON_VERSION=3.10.14
+FROM python:${PYTHON_VERSION} AS base
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-ENV POETRY_VERSION=1.7.1
-ENV POETRY_VIRTUALENVS_CREATE=false
-ENV DARQUBE_API_KEY=""
-ENV ALPACA_API_KEY=""
-ENV ALPACA_API_SECRET=""
-ENV ALPHA_VANTAGE_API_KEY=""
-ENV MODEL_ENDPOINT_NAME=""
-ENV IS_PAPER=""
+ENV PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
 
-LABEL app=hermes
+COPY pyproject.toml uv.lock /app
 
-COPY pyproject.toml poetry.lock ./
+COPY src /app/src
 
-RUN pip install --no-cache-dir "poetry==1.7.1" && \
-  poetry install --no-dev --no-interaction --no-cache
+RUN uv sync
 
-COPY entrypoint.py event_bus.py ./
+RUN cd /app/src
 
-ENTRYPOINT [ "python", "entrypoint.py" ]
+EXPOSE 8080
+
+ENTRYPOINT ["uv", "run", "uvicorn", "src.positionmanager.entrypoint:app", "--host", "0.0.0.0", "--port", "8080"]

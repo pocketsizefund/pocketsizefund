@@ -33,6 +33,6 @@ addons:
   - name: kube-proxy
 
 cloudWatch:
- clusterLogging:
-   enableTypes: ["*"]
-   logRetentionInDays: 30
+  clusterLogging:
+    enableTypes: ["*"]
+    logRetentionInDays: 30

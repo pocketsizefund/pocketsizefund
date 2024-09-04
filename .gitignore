@@ -29,9 +29,4 @@ libraries/python/dist
 
 **/target*/
 
-infrastructure/secrets
-infrastrucure/nats/**
-infrastructure/nats-resources.yaml
-infrastructure/output
-
-infrastructure/*.log
+temp/

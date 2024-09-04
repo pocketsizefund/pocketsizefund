@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: position-manager
-          image: pocketsizefund/position-manager:0.1.13
+          image: pocketsizefund/position-manager:20240903.0
           env:
             - name: ENVIRONMENT
               valueFrom:

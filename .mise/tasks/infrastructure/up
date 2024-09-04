@@ -4,6 +4,8 @@
 # mise tools=["terraform"]
 
 cd $root/infrastructure
+CLUSTER_NAME=$(grep 'name:' aws/cluster-config.yaml | awk '{print $2}')
+AWS_REGION=$(grep 'region:' aws/cluster-config.yaml | awk '{print $2}')
 
 BUCKET_SECRETS=$(aws secretsmanager get-secret-value --secret-id buckets | jq -r .SecretString | jq)
 FUND_DATA_BUCKET=$(jq -r .FUND_DATA_BUCKET <<< $BUCKET_SECRETS)

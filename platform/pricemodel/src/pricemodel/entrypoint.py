@@ -28,7 +28,7 @@ price_model = model.PriceModel()
 
 try:
     price_model.load_model(
-        file_path=os.getenv("MODEL_FILE_NAME"),
+        file_path="price-model.ckpt"
     )
     logger.info(f"loaded {price_model=}")
 except FileNotFoundError:
