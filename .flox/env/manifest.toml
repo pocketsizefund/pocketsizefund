@@ -17,6 +17,7 @@ shellcheck.pkg-path = "shellcheck"
 pyright.pkg-path = "pyright"
 eksctl.pkg-path = "eksctl"
 kubernetes-helm.pkg-path = "kubernetes-helm"
+openssl.pkg-path = "openssl"
 
 [vars]
 

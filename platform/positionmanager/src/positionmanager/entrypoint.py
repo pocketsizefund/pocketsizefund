@@ -10,8 +10,7 @@ from pocketsizefund import trade
 
 POSITIONS_COUNT = 10
 
-ENVIRONMENT = os.getenv("ENVIRONMENT")
-PRICE_MODEL_URL = f"http://price-model.{ENVIRONMENT}.svc.cluster.local:8080"
+PRICE_MODEL_URL = f"http://price-model.default.svc.cluster.local:8080"
 
 app = FastAPI()
 

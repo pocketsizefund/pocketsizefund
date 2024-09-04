@@ -30,27 +30,27 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: darqube_api_key
+                  key: DARQUBE_API_KEY
             - name: ALPACA_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: alpaca_api_key
+                  key: ALPACA_API_KEY
             - name: ALPACA_API_SECRET
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: alpaca_api_secret
+                  key: ALPACA_API_SECRET
             - name: ALPHA_VANTAGE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: alpha_vantage_api_key
+                  key: ALPHA_VANTAGE_API_KEY
             - name: EDGAR_USER_AGENT
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: edgar_user_agent
+                  key: EDGAR_USER_AGENT
           resources:
             requests:
               cpu: 100m
