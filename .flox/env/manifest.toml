@@ -18,6 +18,8 @@ pyright.pkg-path = "pyright"
 eksctl.pkg-path = "eksctl"
 kubernetes-helm.pkg-path = "kubernetes-helm"
 openssl.pkg-path = "openssl"
+cargo-deny.pkg-path = "cargo-deny"
+cargo-machete.pkg-path = "cargo-machete"
 
 [vars]
 

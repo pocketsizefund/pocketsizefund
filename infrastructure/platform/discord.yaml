@@ -14,7 +14,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: discord_webhook_url
+                  key: DISCORD_WEBHOOK_URL
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger

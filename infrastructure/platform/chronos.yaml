@@ -16,12 +16,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: apca_api_key_id
+                  key: APCA_API_KEY_ID
             - name: APCA_API_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: apca_api_secret_key
+                  key: APCA_API_SECRET_KEY
 ---
 apiVersion: sources.knative.dev/v1
 kind: PingSource

@@ -9,6 +9,12 @@
       "awscli": {
         "pkg-path": "awscli"
       },
+      "cargo-deny": {
+        "pkg-path": "cargo-deny"
+      },
+      "cargo-machete": {
+        "pkg-path": "cargo-machete"
+      },
       "cargo-watch": {
         "pkg-path": "cargo-watch"
       },
@@ -330,6 +336,246 @@
       "outputs": {
         "dist": "/nix/store/bk5nhb5sj1y6czp0730vrzmpqpy3wiin-awscli-1.33.13-dist",
         "out": "/nix/store/zk3vn721bfx5lpz1n2lvcfz3m98kxksd-awscli-1.33.13"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-deny",
+      "broken": false,
+      "derivation": "/nix/store/hajsf8fxw95j01p6sm8zwvd7mbbdzk0y-cargo-deny-0.16.1.drv",
+      "description": "Cargo plugin to generate list of all licenses for a crate",
+      "install_id": "cargo-deny",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "cargo-deny-0.16.1",
+      "pname": "cargo-deny",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.16.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/fc3yd0jkw358dcwrnmy7gp7jk4r90cf6-cargo-deny-0.16.1"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-deny",
+      "broken": false,
+      "derivation": "/nix/store/0hmgvs8sjfhw92xv9h0ysl8gaj0vkzya-cargo-deny-0.16.1.drv",
+      "description": "Cargo plugin to generate list of all licenses for a crate",
+      "install_id": "cargo-deny",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "cargo-deny-0.16.1",
+      "pname": "cargo-deny",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.16.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/vxr7q7ix8q5030hq1lxj4ahplbkdqaa2-cargo-deny-0.16.1"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-deny",
+      "broken": false,
+      "derivation": "/nix/store/4amck8szbsx237bjvdammw2xcs52pp1p-cargo-deny-0.16.1.drv",
+      "description": "Cargo plugin to generate list of all licenses for a crate",
+      "install_id": "cargo-deny",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "cargo-deny-0.16.1",
+      "pname": "cargo-deny",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.16.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/lgj1jrr0hw5my50gk82x21akjaipxi9r-cargo-deny-0.16.1"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-deny",
+      "broken": false,
+      "derivation": "/nix/store/jbch887jxpmqa5hxz5ycq9pgvc3mr9jy-cargo-deny-0.16.1.drv",
+      "description": "Cargo plugin to generate list of all licenses for a crate",
+      "install_id": "cargo-deny",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "cargo-deny-0.16.1",
+      "pname": "cargo-deny",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.16.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/hpv8vzvh2dcn1ycb22q01d8mnjczf3r8-cargo-deny-0.16.1"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-machete",
+      "broken": false,
+      "derivation": "/nix/store/rhi8iw868hpfbcx876liy6r9xcayjz7c-cargo-machete-0.6.2.drv",
+      "description": "Cargo tool that detects unused dependencies in Rust projects",
+      "install_id": "cargo-machete",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "cargo-machete-0.6.2",
+      "pname": "cargo-machete",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.6.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/g09x2mdzp7sk43fh3yb5rpcgxdcfrvnp-cargo-machete-0.6.2"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-machete",
+      "broken": false,
+      "derivation": "/nix/store/c760absvr6dfl9brg7zv04zpx8d48sxm-cargo-machete-0.6.2.drv",
+      "description": "Cargo tool that detects unused dependencies in Rust projects",
+      "install_id": "cargo-machete",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "cargo-machete-0.6.2",
+      "pname": "cargo-machete",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.6.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/s687kqnq3qy97fhjnswd16n101gr4lj5-cargo-machete-0.6.2"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-machete",
+      "broken": false,
+      "derivation": "/nix/store/ci5c7ajazr572xdykj8yvggw3n6yl269-cargo-machete-0.6.2.drv",
+      "description": "Cargo tool that detects unused dependencies in Rust projects",
+      "install_id": "cargo-machete",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "cargo-machete-0.6.2",
+      "pname": "cargo-machete",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.6.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/n4w4c95acx8xrq1vg5qja2mbncs6a22a-cargo-machete-0.6.2"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-machete",
+      "broken": false,
+      "derivation": "/nix/store/4ip4hlhzr9s6cban2f2h8l3qlg45r2v6-cargo-machete-0.6.2.drv",
+      "description": "Cargo tool that detects unused dependencies in Rust projects",
+      "install_id": "cargo-machete",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "cargo-machete-0.6.2",
+      "pname": "cargo-machete",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.6.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/g8qx5biv3yi7fcgsa797yi9yv0nbr9j8-cargo-machete-0.6.2"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
