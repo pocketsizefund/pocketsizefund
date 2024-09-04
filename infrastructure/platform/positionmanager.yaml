@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: position-manager
-          image: pocketsizefund/position-manager:20240903.1
+          image: pocketsizefund/position-manager:20240903.2
           env:
             - name: DARQUBE_API_KEY
               valueFrom:
