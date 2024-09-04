@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: price-model
+  name: price-model-service
 spec:
   replicas: 1
   selector:
@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: price-model
-          image: pocketsizefund/price-model:0.2.0
+          image: pocketsizefund/price-model:20240904.0
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -66,18 +66,14 @@ spec:
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: price-model-trigger
+  name: price-model-market-open-trigger
 spec:
   broker: default
   filter:
     attributes:
-      type: psf.market.status.check.success
+      type: market.status.check.open
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: price-model
-<<<<<<<< HEAD:infrastructure/platform/pricemodel.yaml
->>>>>>>> cd43ccf (cleaning up):platform/pricemodel/manifest.yaml
-========
->>>>>>>> 3fe86c0 (cleaning up):platform/pricemodel/manifest.yaml
+      name: price-model-service

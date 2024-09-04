@@ -13,5 +13,3 @@ services:
       - ALPACA_API_SECRET
       - ALPHA_VANTAGE_API_KEY
       - EDGAR_USER_AGENT
-      - MODEL_FILE_NAME
-      - SENTRY_DSN

@@ -32,6 +32,8 @@ on-activate = """
   uv sync
   rustup default stable
   mise settings set experimental true
+  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  helm repo update
 """
 [profile]
  common = '''

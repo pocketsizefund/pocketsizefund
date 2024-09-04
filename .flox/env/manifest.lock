@@ -69,7 +69,7 @@
     },
     "vars": {},
     "hook": {
-      "on-activate": "  uv tool install vulture\n  uv tool install ruff\n  uv sync\n  rustup default stable\n  mise settings set experimental true\n"
+      "on-activate": "  uv tool install vulture\n  uv tool install ruff\n  uv sync\n  rustup default stable\n  mise settings set experimental true\n  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts\n  helm repo update\n"
     },
     "profile": {
       "common": " "

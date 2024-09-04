@@ -4,9 +4,6 @@ metadata:
   name: discordbot-service
 spec:
   template:
-    metadata:
-      annotations:
-        autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
         - image: pocketsizefund/discordbot:202409.4.0
@@ -22,9 +19,9 @@ spec:
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
-  name: vibe-check
+  name: lunch-vibe-check
 spec:
-  schedule: "15 9 * * *"
+  schedule: "15 12 * * *"
   timezone: "America/New_York"
   data: 'gm quants, lets attack the day'
   sink:
@@ -36,7 +33,7 @@ spec:
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
-  name: vibe-check
+  name: morning-vibe-check
 spec:
   schedule: "15 9 * * *"
   timezone: "America/New_York"
@@ -50,7 +47,7 @@ spec:
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
-  name: vibe-check
+  name: afternoon-vibe-check
 spec:
   schedule: "30 16 * * *"
   timezone: "America/New_York"

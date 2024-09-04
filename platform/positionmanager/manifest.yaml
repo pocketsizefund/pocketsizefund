@@ -1,7 +1,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: position-manager
+  name: position-manager-service
 spec:
   template:
     spec:
@@ -40,25 +40,11 @@ kind: PingSource
 metadata:
   name: position-manager-trigger
 spec:
-  schedule: "30 9 * * *"
+  schedule: "42 12 * * *"
   timezone: "America/New_York"
   data: '{"message": "Run position manager"}'
   sink:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: position-manager
----
-apiVersion: sources.knative.dev/v1
-kind: PingSource
-metadata:
-  name: position-manager-trigger
-spec:
-  schedule: "30 0 * * *"
-  timezone: "America/New_York"
-  data: '{"message": "Run position manager"}'
-  sink:
-    ref:
-      apiVersion: serving.knative.dev/v1
-      kind: Service
-      name: position-manager
+      name: position-manager-service

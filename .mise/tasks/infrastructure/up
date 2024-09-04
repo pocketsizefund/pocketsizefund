@@ -32,12 +32,14 @@ ALPHA_VANTAGE_API_KEY=$(jq -r .ALPHA_VANTAGE_API_KEY <<< $SECRETS)
 EDGAR_USER_AGENT=$(jq -r .EDGAR_USER_AGENT <<< $SECRETS)
 DARQUBE_API_KEY=$(jq -r .DARQUBE_API_KEY <<< $SECRETS)
 DISCORD_WEBHOOK_URL=$(jq -r .DISCORD_WEBHOOK_URL <<< $SECRETS)
+APCA_API_BASE_URL=$(jq -r .APCA_API_BASE_URL <<< $SECRETS)
 
 kubectl create secret generic platform \
     --from-literal="ALPACA_API_KEY=$ALPACA_API_SECRET" \
     --from-literal="ALPACA_API_SECRET=$ALPACA_API_SECRET" \
     --from-literal="APCA_API_KEY_ID=$APCA_API_KEY_ID" \
     --from-literal="APCA_API_SECRET_KEY=$APCA_API_SECRET_KEY" \
+    --from-literal="APCA_API_BASE_URL=$APCA_API_BASE_URL" \
     --from-literal="ALPHA_VANTAGE_API_KEY=$ALPHA_VANTAGE_API_KEY" \
     --from-literal="EDGAR_USER_AGENT=$EDGAR_USER_AGENT" \
     --from-literal="DARQUBE_API_KEY=$DARQUBE_API_KEY" \
@@ -55,9 +57,7 @@ kubectl patch configmap/config-network \
   --type merge \
   --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
 kubectl apply -f knative/broker.yaml
-
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
+kubectl apply -f knative/event-display.yaml
 
 MONITORING_SECRETS=$(aws secretsmanager get-secret-value --secret-id monitoring | jq -r .SecretString | jq)
 GRAFANA_ADMIN_PASSWORD=$(jq -r .GRAFANA_ADMIN_PASSWORD <<< $MONITORING_SECRETS)

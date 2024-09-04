@@ -4,7 +4,6 @@ use chrono::{DateTime, Utc};
 use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::error;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -100,7 +99,7 @@ impl Market {
                 }
             }
             Err(err) => {
-                error!("Failed to check market status: {}", err);
+                tracing::error!("Failed to check market status: {}", err);
                 self.status = Status::Unknown;
             }
         };
@@ -112,19 +111,26 @@ impl Market {
             None => Utc::now().to_rfc3339(),
         };
 
+        let event_type = match self.status {
+            Status::Open => "market.status.check.open",
+            Status::Closed(_) => "market.status.check.closed",
+            Status::ExtendedHours => "market.status.check.extended_hours",
+            Status::Unknown => "market.status.check.unknown",
+        };
+
         EventBuilderV10::new()
             .id(Uuid::new_v4().to_string())
-            .ty("market.status.updated")
+            .ty(event_type)
             .source("psf.platform.chronos")
             .data(
                 "application/cloudevents+json",
                 json!({
-                "status": self.status.to_string(),
-                "next_open": Some(self.next_open),
-                "next_close": Some(self.next_close),
+                    "status": self.status.to_string(),
+                    "next_open": self.next_open,
+                    "next_close": self.next_close,
                 }),
             )
-            .extension("timestamp", updated_at.to_string())
+            .extension("timestamp", updated_at)
             .build()
             .unwrap_or_else(|e| {
                 tracing::error!("Failed to build event: {}", e);
@@ -136,6 +142,8 @@ impl Market {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_log::test;
+    use url::Url;
     use cloudevents::AttributesReader;
 
     #[test]
@@ -177,7 +185,7 @@ mod tests {
         };
 
         let event: Event = market.to_event().await;
-        assert_eq!(event.ty(), "market.status.updated");
+        assert_eq!(event.ty(), "market.status.check.open");
         assert_eq!(event.source(), "psf.platform.chronos");
         assert!(event.extension("timestamp").is_some());
         assert!(event.extension("timestamp").is_some());
