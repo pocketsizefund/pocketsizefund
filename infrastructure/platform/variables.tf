@@ -56,3 +56,7 @@ variable "model_file_name" {
   type        = string
 }
 
+variable "s3_data_bucket_name" {
+  description = "S3 Data Bucket Name"
+  type        = string
+}

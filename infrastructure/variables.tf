@@ -8,6 +8,10 @@ variable "availability_zones" {
   default = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
 
+variable "s3_data_bucket_name" {
+  type = string
+}
+
 variable "cluster_name" {
   type    = string
   default = "pocketsizefund"

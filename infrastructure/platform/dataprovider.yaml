@@ -1,0 +1,38 @@
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: dataprovider
+  labels:
+    layer: data
+spec:
+  template:
+    spec:
+      containers:
+        - name: data-provider
+          image: pocketsizefund/dataprovider:0.1.0
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          env:
+            - name: ALPACA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPACA_API_KEY
+            - name: ALPACA_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPACA_API_SECRET
+            - name: S3_DATA_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: S3_DATA_BUCKET_NAME

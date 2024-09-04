@@ -56,4 +56,5 @@ module "platform" {
   alpha_vantage_api_key  = var.alpha_vantage_api_key
   edgar_user_agent       = var.edgar_user_agent
   model_file_name        = var.model_file_name
+  s3_data_bucket_name    = var.s3_data_bucket_name
 }
