@@ -15,7 +15,6 @@ tokio = { version = "1.38.0", features = ["rt-multi-thread"] }
 tracing = { version = "0.1.40", features = ["async-await"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 uuid = { version = "1.8.0", features = ["v4"] }
-rdkafka = "0.36.2"
 env_logger = "0.11.5"
 actix-web = "4.9.0"
 cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-http", "actix-web", "http-binding", "http-body", "reqwest"] }
