@@ -1,4 +1,0 @@
-#!/bin/sh
-
-# mise description="add platform services to cluster"
-# mise depends=["infrastructure:local:platform:chronos", "infrastructure:local:platform:positionmanager", "infrastructure:local:pricemodel"]
