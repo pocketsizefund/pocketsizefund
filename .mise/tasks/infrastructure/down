@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+
+# mise description="destroy infrastructure"
+
+cd $root/infrastructure
+eksctl delete cluster -f eks/cluster-config.yaml
