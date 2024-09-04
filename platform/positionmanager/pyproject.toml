@@ -1,21 +1,10 @@
-[tool.poetry]
+[project]
 name = "positionmanager"
-version = "0.1.13"
-description = ""
-authors = [
-  "forstmeier <john.forstmeier@gmail.com>",
-  "chrisaddy <chris.william.addy@gmail.com>",
+version = "20240903.0"
+description = "Add your description here"
+requires-python = ">=3.9, <3.11"
+dependencies = [
+    "loguru",
+    "pocketsizefund[ml,trade]",
+    "uvicorn>=0.30.6",
 ]
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.10,<3.11"
-sentry-sdk = "^2.8.0"
-loguru = "^0.7.2"
-aiokafka = "^0.11.0"
-pocketsizefund = {extras = ["trade"], version = "^0.2.0"}
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

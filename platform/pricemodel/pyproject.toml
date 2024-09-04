@@ -1,0 +1,17 @@
+[project]
+name = "pricemodel"
+version = "20240903.0"
+description = "PSF Price Model"
+requires-python = ">=3.9, <3.11"
+dependencies = [
+    "fastapi>=0.112.2",
+    "uvicorn>=0.30.6",
+    "pydantic>=2.8.2",
+    "bs4>=0.0.2",
+    "pocketsizefund[ml,ml-cpu,trade]",
+    "numpy<2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

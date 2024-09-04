@@ -3,17 +3,23 @@
 # mise description="create infrastructure"
 
 cd $root/infrastructure
-CLUSTER_NAME=$(grep 'name:' eks/cluster-config.yaml | awk '{print $2}')
-AWS_REGION=$(grep 'region:' eks/cluster-config.yaml | awk '{print $2}')
+CLUSTER_NAME=$(grep 'name:' aws/cluster-config.yaml | awk '{print $2}')
+AWS_REGION=$(grep 'region:' aws/cluster-config.yaml | awk '{print $2}')
+
+BUCKET_SECRETS=$(aws secretsmanager get-secret-value --secret-id buckets | jq -r .SecretString | jq)
+FUND_DATA_BUCKET=$(jq -r .FUND_DATA_BUCKET <<< $BUCKET_SECRETS)
+FUND_ARTIFACTS_BUCKET=$(jq -r .FUND_ARTIFACTS_BUCKET <<< $BUCKET_SECRETS)
+
+aws s3 mb s3://$FUND_DATA_BUCKET --region $AWS_REGION
+aws s3 mb s3://$FUND_ARTIFACTS_BUCKET --region $AWS_REGION
 
  if eksctl get cluster --name=$CLUSTER_NAME 2>/dev/null; then
    echo "Cluster $CLUSTER_NAME already exists. Updating..."
-   eksctl update cluster -f eks/cluster-config.yaml
+   eksctl update cluster -f aws/cluster-config.yaml
 else
   echo "Creating new cluster $CLUSTER_NAME..."
-  eksctl create cluster -f eks/cluster-config.yaml
+  eksctl create cluster -f aws/cluster-config.yaml
 fi
-
 
 kubectl create namespace monitoring
 
@@ -29,8 +35,9 @@ kubectl create secret generic platform \
     --from-literal="APCA_API_KEY_ID=$APCA_API_KEY_ID" \
     --from-literal="APCA_API_SECRET_KEY=$APCA_API_SECRET_KEY" \
     --from-literal="ALPHA_VANTAGE_API_KEY=$ALPHA_VANTAGE_API_KEY" \
-    --from-literal="EDGAR_USER_AGENT=$EDGAR_USER_AGENT"
-
+    --from-literal="EDGAR_USER_AGENT=$EDGAR_USER_AGENT" \
+    --from-literal="FUND_DATA_BUCKET=$FUND_DATA_BUCKET" \
+    --from-literal="FUND_ARTIFACTS_BUCKET=$FUND_ARTIFACTS_BUCKET"
 
 kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.9.0/serving-crds.yaml
 kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.9.0/serving-core.yaml

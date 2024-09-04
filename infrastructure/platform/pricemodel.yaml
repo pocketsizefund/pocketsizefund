@@ -10,7 +10,7 @@ spec:
     spec:
       containers:
         - name: price-model
-          image: pocketsizefund/price-model:0.2.0
+          image: pocketsizefund/price-model:20240903.0
           ports:
             - containerPort: 8080
           readinessProbe:
