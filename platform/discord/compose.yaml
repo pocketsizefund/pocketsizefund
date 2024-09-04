@@ -2,7 +2,8 @@ services:
   discord:
     build:
       context: .
-      target: final
+      tags:
+        - "pocketsizefund/discord:latest"
     ports:
       - 8080:8080
     environment:

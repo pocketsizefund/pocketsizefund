@@ -5,8 +5,8 @@
 
 cd $root/platform/discord
 
-IMAGE=pocketsizefund/discord
-VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[0].version')
+IMAGE=pocketsizefund/discordbot
+VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 
 docker push $IMAGE:latest
 docker push $IMAGE:$VERSION

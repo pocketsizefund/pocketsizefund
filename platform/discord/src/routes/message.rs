@@ -43,9 +43,11 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
 
     let payload = WebhookPayload::new(&content);
 
-    let response = reqwest::Client::new()
+    let client = reqwest::Client::new();
+    let response = client
         .post(webhook.url.clone())
-        .json(&payload)
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(serde_json::to_string(&payload).unwrap())
         .send()
         .await;
 

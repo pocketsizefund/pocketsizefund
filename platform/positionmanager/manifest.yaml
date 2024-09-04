@@ -1,0 +1,64 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: position-manager
+spec:
+  template:
+    spec:
+      containers:
+        - name: position-manager
+          image: pocketsizefund/position-manager:20240903.2
+          env:
+            - name: DARQUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: DARQUBE_API_KEY
+            - name: ALPACA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPACA_API_KEY
+            - name: ALPACA_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPACA_API_SECRET
+            - name: ALPHA_VANTAGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPHA_VANTAGE_API_KEY
+            - name: EDGAR_USER_AGENT
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: EDGAR_USER_AGENT
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: position-manager-trigger
+spec:
+  schedule: "30 9 * * *"
+  timezone: "America/New_York"
+  data: '{"message": "Run position manager"}'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: position-manager
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: position-manager-trigger
+spec:
+  schedule: "30 0 * * *"
+  timezone: "America/New_York"
+  data: '{"message": "Run position manager"}'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: position-manager

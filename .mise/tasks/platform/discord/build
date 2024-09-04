@@ -5,9 +5,9 @@
 
 cd $root/platform/discord
 
-IMAGE=pocketsizefund/discord
+IMAGE=pocketsizefund/discordbot
 VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 
 echo building $IMAGE:$VERSION on $PLATFORM
 
-docker buildx -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
+docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform linux/amd64 .

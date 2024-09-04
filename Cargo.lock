@@ -1545,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "discord"
-version = "0.1.0"
+version = "202409.4.0"
 dependencies = [
  "actix-web",
  "cloudevents-sdk",
