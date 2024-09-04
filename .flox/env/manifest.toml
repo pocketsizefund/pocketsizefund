@@ -15,6 +15,8 @@ mise.pkg-path = "mise"
 shfmt.pkg-path = "shfmt"
 shellcheck.pkg-path = "shellcheck"
 pyright.pkg-path = "pyright"
+eksctl.pkg-path = "eksctl"
+kubernetes-helm.pkg-path = "kubernetes-helm"
 
 [vars]
 

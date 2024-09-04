@@ -1,0 +1,22 @@
+cloudFormation:
+  stacks:
+    - name: pocketsizefund-data
+      template:
+        Resources:
+          DataBucket:
+            Type: AWS::S3::Bucket
+            Properties:
+              BucketName: ${DATA_BUCKET_NAME}
+              VersioningConfiguration:
+                Status: Enabled
+          MySecondBucket:
+            Type: AWS::S3::Bucket
+            Properties:
+              BucketName: ${ARTIFACTS_BUCKET_NAME}
+              VersioningConfiguration:
+                Status: Enabled
+        Outputs:
+          DataBucketName:
+            Value: !Ref DataBucket
+          ArtifactsBucketName:
+            Value: !Ref ArtifactsBucket
