@@ -42,6 +42,9 @@
       "kubernetes-helm": {
         "pkg-path": "kubernetes-helm"
       },
+      "lazygit": {
+        "pkg-path": "lazygit"
+      },
       "mise": {
         "pkg-path": "mise"
       },
@@ -1675,6 +1678,126 @@
       ],
       "outputs": {
         "out": "/nix/store/j6zhxa1qkgav9vh420n521p99ccx93xp-kubernetes-helm-3.15.4"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "lazygit",
+      "broken": false,
+      "derivation": "/nix/store/wmf034py1ynhfxybv21l1vcm7rscij5a-lazygit-0.43.1.drv",
+      "description": "Simple terminal UI for git commands",
+      "install_id": "lazygit",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "lazygit-0.43.1",
+      "pname": "lazygit",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.43.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/0akk9xrkhbq6pf0qrys731r2rq9290b9-lazygit-0.43.1"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "lazygit",
+      "broken": false,
+      "derivation": "/nix/store/ad48qzsmh4xgm04gnphzrxx77ds359j5-lazygit-0.43.1.drv",
+      "description": "Simple terminal UI for git commands",
+      "install_id": "lazygit",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "lazygit-0.43.1",
+      "pname": "lazygit",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.43.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/19dkpwkm9qqbblccz68knq70aq2sp852-lazygit-0.43.1"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "lazygit",
+      "broken": false,
+      "derivation": "/nix/store/a5mcq0f4y2jpwsc96v25gq4j4ss0vj54-lazygit-0.43.1.drv",
+      "description": "Simple terminal UI for git commands",
+      "install_id": "lazygit",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "lazygit-0.43.1",
+      "pname": "lazygit",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.43.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/j6gybkrxlynd4s7carzpgkvj47y3s699-lazygit-0.43.1"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "lazygit",
+      "broken": false,
+      "derivation": "/nix/store/sl30599wrps1z8v1jx4i3ly3wc859l9h-lazygit-0.43.1.drv",
+      "description": "Simple terminal UI for git commands",
+      "install_id": "lazygit",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "lazygit-0.43.1",
+      "pname": "lazygit",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.43.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/7p66jyrc2a62fgz8279l142c3n0zhjnp-lazygit-0.43.1"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
