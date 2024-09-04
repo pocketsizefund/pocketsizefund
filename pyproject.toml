@@ -72,7 +72,7 @@ line-length = 100
 indent-width = 4
 target-version = "py312"
 
-[uv.tool.ruff.format]
+[tool.ruff.format]
 quote-style = "double"            # black-compatible
 indent-style = "space"            # black-compatible
 skip-magic-trailing-comma = false # black-compatible
@@ -80,7 +80,7 @@ line-ending = "auto"              # black-compatible
 
 docstring-code-line-length = "dynamic"
 
-[uv.tool.ruff.lint]
+[tool.ruff.lint]
 # for details see:
 # https://docs.astral.sh/ruff/rules/
 select = [
@@ -90,6 +90,7 @@ select = [
   "C90",   # mccabe complexity: checks the cyclomatic complexity of functions and methods
   "I",     # isort: checks for proper ordering and formatting of imports
   "N",     # pep8-naming: checks for conformance with Python naming conventions
+  "D",     # pydocstyle: checks docstring conventions and styles
   "UP",    # pyupgrade: detects deprecated syntax and suggests modern alternatives
   "YTT",   # flake8-2020: checks for constructs that are outdated or no longer recommended in Python 3.10+
   "ANN",   # flake8-annotations: checks for presence and correctness of type annotations
@@ -146,11 +147,12 @@ select = [
 ignore = [
   "ANN101", # don't need to type annotate `self`
   "PT006",  # Wrong type passed to first argument of `@pytest.mark.parametrize` --> unnecessary
+  "D406", # the D4** conflict with other linting rules, prefer Google Style Docstrings
+  "D406",
   "D407",
   "D409",
   "D413",
   "D101",
-  "D102",
   "D203",
   "D213",
   "S113", # requests timeout
@@ -159,14 +161,9 @@ ignore = [
   "ISC001",
 ]
 
-[uv.tool.ruff.lint.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "libraries/python/tests/*.py" = ["RUF100", "S101", "PLR2004", "D", "SLF001", "PT011", "ARG001", "ARG002"]
 "**/*__init__.py" = ["D"]
 "pipelines/filings/*" = ["E501"]
 "infrastructure/__main__.py" = ["INP001", "D100", "ANN201", "D103", "ANN001"]
-"libraries/python/src/pocketsizefund/config/config.py" = ["ANN401"]
-"libraries/python/src/pocketsizefund/storage.py" = ["E501"]
-"libraries/python/tests/test_trade.py" = ["E501"]
-"libraries/python/src/pocketsizefund/trade.py" = ["E501"]
-"libraries/python/src/pocketsizefund/data.py" = ["E501"]
-"libraries/python/tests/test_storage.py" = ["E501"]
+"libraries/python/pocketsizefund/config/config.py" = ["ANN401"]
