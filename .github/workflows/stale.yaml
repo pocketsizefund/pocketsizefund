@@ -1,0 +1,21 @@
+name: 'Close stale issues and pull requests'
+on:
+  schedule:
+    - cron: '30 1 * * *'
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          stale-issue-message: 'Marked stale due to inactivity. Remove stale label or comment or this will be closed.'
+          stale-pr-message: 'Marked stale due to inactivity. Remove stale label or comment or this will be closed.'
+          stale-issue-label: stale
+          stale-pr-label: stale
+          close-issue-message: 'Closed due to inactivity.'
+          close-pr-message: 'Closed due to inactivity.'
+          days-before-stale: 7
+          days-before-close: 7
+          exempt-assignees: forstmeier,chrisaddy
+          exempt-draft-pr: true
