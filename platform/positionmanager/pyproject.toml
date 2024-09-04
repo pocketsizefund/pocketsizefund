@@ -1,6 +1,6 @@
 [project]
 name = "positionmanager"
-version = "20240903.1"
+version = "20240903.2"
 description = "Add your description here"
 requires-python = ">=3.9, <3.11"
 dependencies = [
