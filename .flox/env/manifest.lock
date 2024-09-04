@@ -24,6 +24,9 @@
       "eksctl": {
         "pkg-path": "eksctl"
       },
+      "httpie": {
+        "pkg-path": "httpie"
+      },
       "k9s": {
         "pkg-path": "k9s"
       },
@@ -83,6 +86,12 @@
     "services": {
       "grafana": {
         "command": "kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80",
+        "vars": null,
+        "is-daemon": null,
+        "shutdown": null
+      },
+      "pricemodel": {
+        "command": "kubectl port-forward service/pricemodel 8080:8080",
         "vars": null,
         "is-daemon": null,
         "shutdown": null
@@ -930,6 +939,130 @@
       ],
       "outputs": {
         "out": "/nix/store/4jd1fmir79arqj2g0aspi7l4n8xzj5mf-eksctl-0.189.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "httpie",
+      "broken": false,
+      "derivation": "/nix/store/mirdnsz61xz4lfqkhm0s0iikd96jh4b6-python3.12-httpie-3.2.2.drv",
+      "description": "Command line HTTP client whose goal is to make CLI human-friendly",
+      "install_id": "httpie",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "httpie-3.2.2",
+      "pname": "httpie",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.2.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/771n5gnwca7il47p7aa6b54dnh44zwsd-python3.12-httpie-3.2.2-dist",
+        "out": "/nix/store/94f7cfb1spmsli3xmjx499rsb83als9w-python3.12-httpie-3.2.2"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "httpie",
+      "broken": false,
+      "derivation": "/nix/store/5v8ycibivkfgb15f0wdnpgs37r27327i-python3.12-httpie-3.2.2.drv",
+      "description": "Command line HTTP client whose goal is to make CLI human-friendly",
+      "install_id": "httpie",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "httpie-3.2.2",
+      "pname": "httpie",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.2.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/j0d1cg2ln2jaxq44a11cqys55h10vndx-python3.12-httpie-3.2.2-dist",
+        "out": "/nix/store/5ahhvga3nmyv5z2ifgmc3sgp9hjlg49f-python3.12-httpie-3.2.2"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "httpie",
+      "broken": false,
+      "derivation": "/nix/store/39pg3immcyc015jxdas9g9vdj6jsw3n3-python3.12-httpie-3.2.2.drv",
+      "description": "Command line HTTP client whose goal is to make CLI human-friendly",
+      "install_id": "httpie",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "httpie-3.2.2",
+      "pname": "httpie",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.2.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/y80zdhg59b5np75zaqwsj0j9dd3dbag3-python3.12-httpie-3.2.2-dist",
+        "out": "/nix/store/8f915yifilffhrcin4pns7299drgwwmr-python3.12-httpie-3.2.2"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "httpie",
+      "broken": false,
+      "derivation": "/nix/store/1gys86pgmbwy376p8w9mrcd6332bf6nr-python3.12-httpie-3.2.2.drv",
+      "description": "Command line HTTP client whose goal is to make CLI human-friendly",
+      "install_id": "httpie",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "name": "httpie-3.2.2",
+      "pname": "httpie",
+      "rev": "71e91c409d1e654808b2621f28a327acfdad8dc2",
+      "rev_count": 672439,
+      "rev_date": "2024-08-28T04:32:53Z",
+      "scrape_date": "2024-08-30T05:22:14Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.2.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/yl079rfl5rlhgb05p61i12bdlkvnppwy-python3.12-httpie-3.2.2-dist",
+        "out": "/nix/store/lqnggd2f2r8lrfl1p5z72579bqzldxgr-python3.12-httpie-3.2.2"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
