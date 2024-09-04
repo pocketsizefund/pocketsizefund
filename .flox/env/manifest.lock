@@ -81,14 +81,8 @@
       "semver": {}
     },
     "services": {
-      "cargo": {
-        "command": "cargo watch -x test",
-        "vars": null,
-        "is-daemon": null,
-        "shutdown": null
-      },
       "grafana": {
-        "command": "kubectl port-forward -n monitoring service/prometheus-grafana 3000:80",
+        "command": "kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80",
         "vars": null,
         "is-daemon": null,
         "shutdown": null
