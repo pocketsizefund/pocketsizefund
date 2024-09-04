@@ -30,41 +30,31 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 30
           env:
-            - name: SENTRY_DSN
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: sentry_dsn
             - name: DARQUBE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: darqube_api_key
+                  key: DARQUBE_API_KEY
             - name: ALPACA_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: alpaca_api_key
+                  key: ALPACA_API_KEY
             - name: ALPACA_API_SECRET
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: alpaca_api_secret
+                  key: ALPACA_API_SECRET
             - name: ALPHA_VANTAGE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: alpha_vantage_api_key
+                  key: ALPHA_VANTAGE_API_KEY
             - name: EDGAR_USER_AGENT
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: edgar_user_agent
-            - name: MODEL_FILE_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: model_file_name
+                  key: EDGAR_USER_AGENT
           resources:
             requests:
               cpu: 100m
@@ -73,20 +63,11 @@ spec:
               cpu: 500m
               memory: 2048Mi
 ---
-apiVersion: v1
-kind: Service
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
 metadata:
-  name: price-model
+  name: price-model-trigger
 spec:
-<<<<<<<< HEAD:infrastructure/platform/price-model.yaml
-  type: LoadBalancer
-  selector:
-    app: price-model
-  ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
-========
   broker: default
   filter:
     attributes:
@@ -96,4 +77,7 @@ spec:
       apiVersion: serving.knative.dev/v1
       kind: Service
       name: price-model
+<<<<<<<< HEAD:infrastructure/platform/pricemodel.yaml
 >>>>>>>> cd43ccf (cleaning up):platform/pricemodel/manifest.yaml
+========
+>>>>>>>> 3fe86c0 (cleaning up):platform/pricemodel/manifest.yaml
