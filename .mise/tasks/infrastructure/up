@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 
 # mise description="launch infrastructure"
-# mise tools=["terraform"]
 
 cd $root/infrastructure
 CLUSTER_NAME=$(grep 'name:' aws/cluster-config.yaml | awk '{print $2}')

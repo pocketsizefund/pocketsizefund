@@ -42,8 +42,5 @@ on-activate = """
 [services.grafana]
 command = "kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80"
 
-[services.pricemodel]
-command = "kubectl port-forward service/pricemodel 8080:8080"
-
 [options]
 systems = ["aarch64-darwin", "aarch64-linux", "x86_64-darwin", "x86_64-linux"]

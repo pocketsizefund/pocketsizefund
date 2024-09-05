@@ -10,4 +10,4 @@ VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 
 echo building $IMAGE:$VERSION on $PLATFORM
 
-docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform linux/amd64 .
+docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .

@@ -6,7 +6,7 @@ metadata:
   region: us-east-1
 
 managedNodeGroups:
-  - name: eks-mng
+  - name: eks-managed-node-group
     instanceType: t3.medium
     desiredCapacity: 2
     minSize: 1
@@ -17,12 +17,12 @@ iam:
   withOIDC: true
   serviceAccounts:
   - metadata:
-      name: ebs-csi-controller-sa
+      name: ebs-csi-controller-service-account
       namespace: kube-system
     wellKnownPolicies:
       ebsCSIController: true
   - metadata:
-      name: knative-s3-sa
+      name: knative-s3-service-account
       namespace: knative-serving
     attachPolicyARNs:
     - "arn:aws:iam::aws:policy/AmazonS3FullAccess"

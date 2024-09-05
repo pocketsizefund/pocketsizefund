@@ -29,6 +29,3 @@ pipx = "latest"
 
 [env]
 PLATFORM = "linux/amd64"
-CORE_PULUMI_STACK = "pocketsizefund/development"
-KUBEFLOW_PULUMI_STACK = "pocketsizefund/kubeflow"
-
