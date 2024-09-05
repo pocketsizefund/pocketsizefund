@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 import datetime
 
 import pytest
+from alpaca.data import requests as alpaca_data_requests
+
 from pocketsizefund import config, data
 
 if TYPE_CHECKING:

@@ -1,0 +1,12 @@
+services:
+  discord:
+    build:
+      context: .
+      target: final
+      tags:
+        - "chronos:latest"
+    ports:
+      - 8080:8080
+    environment:
+      - APCA_API_KEY_ID
+      - APCA_API_SECRET_KEY
