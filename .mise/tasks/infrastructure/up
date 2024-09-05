@@ -28,11 +28,11 @@ SECRETS=$(aws secretsmanager get-secret-value --secret-id platform | jq -r .Secr
 APCA_API_KEY_ID=$(jq -r .APCA_API_KEY_ID <<< $SECRETS)
 ALPACA_API_SECRET=$(jq -r .ALPACA_API_SECRET <<< $SECRETS)
 APCA_API_SECRET_KEY=$(jq -r .APCA_API_SECRET_KEY <<< $SECRETS)
+APCA_API_BASE_URL=$(jq -r .APCA_API_BASE_URL <<< $SECRETS)
 ALPHA_VANTAGE_API_KEY=$(jq -r .ALPHA_VANTAGE_API_KEY <<< $SECRETS)
 EDGAR_USER_AGENT=$(jq -r .EDGAR_USER_AGENT <<< $SECRETS)
 DARQUBE_API_KEY=$(jq -r .DARQUBE_API_KEY <<< $SECRETS)
 DISCORD_WEBHOOK_URL=$(jq -r .DISCORD_WEBHOOK_URL <<< $SECRETS)
-APCA_API_BASE_URL=$(jq -r .APCA_API_BASE_URL <<< $SECRETS)
 
 kubectl create secret generic platform \
     --from-literal="ALPACA_API_KEY=$ALPACA_API_SECRET" \
