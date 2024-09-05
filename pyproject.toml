@@ -29,11 +29,11 @@ build-backend = "hatchling.build"
 dev-dependencies = [
     "coverage>=7.6.1",
     "pytest>=8.3.2",
+    "vulture>=2.11",
 ]
 
 [tool.uv.sources]
 pocketsizefund = { workspace = true }
-
 
 [uv.tool.vulture]
 make_whitelist = true
@@ -162,6 +162,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"libraries/python/src/pocketsizefund/model.py" = ["I001"]
 "libraries/python/tests/*.py" = ["RUF100", "S101", "PLR2004", "D", "SLF001", "PT011", "ARG001", "ARG002"]
 "**/*__init__.py" = ["D"]
 "pipelines/filings/*" = ["E501"]

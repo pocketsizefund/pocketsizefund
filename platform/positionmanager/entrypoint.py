@@ -1,4 +1,4 @@
-"""Set positions based on portfolio position and model predictions."""
+"""Set positions based on portfolio position and model predictions."""  # noqa: INP001
 
 import os
 import random
@@ -15,6 +15,7 @@ PRICE_MODEL_URL = f"http://price-model.{ENVIRONMENT}.svc.cluster.local:8080"
 
 app = FastAPI()
 
+
 @app.on_event("startup")
 def startup() -> None:
     """Startup event handler."""
@@ -24,6 +25,7 @@ def startup() -> None:
         timeout=30,
     )
     logger.info(f"price-model response: status={response.status_code}: {response.text}")
+
 
 @app.post("/")
 def predictions() -> None:

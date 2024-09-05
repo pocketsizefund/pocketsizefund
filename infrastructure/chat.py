@@ -1,3 +1,5 @@
+"""Chat with the model over a list of files."""
+
 import datetime
 from pathlib import Path
 
@@ -19,6 +21,7 @@ class FilePicker:
     description = "pick relevant files from a directory"
 
     def __init__(self, directory: str, blacklist: list[str]) -> None:
+        """Initialize the file picker."""
         self.directory = directory
         self.blacklist = blacklist
 
@@ -35,6 +38,7 @@ class FilePicker:
         return [file for file in Path.glob(directory, recursive=True) if filter_(file)]
 
     def chat(self, query: str) -> str:
+        """Chat with the model over a list of files."""
         return client.chat.completions.create(
             model="claude-3-5-sonnet-20240620",
             max_tokens=1024 * 8,
@@ -49,6 +53,7 @@ class FilePicker:
         ).files
 
     def load_files(self, query: str) -> list[dict[str, str]]:
+        """Load files based on a query."""
         files = self.chat(query)
         contents = []
         for file in files:
@@ -59,17 +64,13 @@ class FilePicker:
         return contents
 
     def load_all_files(self) -> list[dict[str, str]]:
+        """Load all files."""
         contents = []
         for file in self.files:
             with Path.open(Path(file)) as f:
                 content = f.read()
             contents += [{"file_name": file, "contents": content}]
         return contents
-
-
-def chat_over_files(files: list[str], query: str) -> str:
-    """Chat with the model over a list of files."""
-    _ = files
 
 
 def chat_over_files(query: str) -> str:

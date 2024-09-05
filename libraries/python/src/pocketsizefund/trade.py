@@ -33,7 +33,8 @@ class Client:
             alpaca_api_key (str): The API key for Alpaca.
             alpaca_api_secret (str): The API secret key for Alpaca.
             alpha_vantage_api_key (str): The API key for Alpha Vantage.
-            is_paper (bool, optional): Indicates whether the client is in paper trading mode.
+            is_paper (bool, optional): Indicates whether the client is in paper
+                trading mode.
                 Defaults to True.
 
         Returns:
