@@ -1,5 +1,5 @@
 ARG RUST_VERSION=1.80.1
-ARG APP_NAME=discord
+ARG APP_NAME=discordbot
 
 FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
 ARG APP_NAME
@@ -19,7 +19,7 @@ COPY . .
 ENV SQLX_OFFLINE=true
 ENV APP_NAME=${APP_NAME}
 
-RUN cargo build --release --bin discord
+RUN cargo build --release --bin discordbot
 
 FROM debian:bookworm-slim AS final
 WORKDIR /app
@@ -29,6 +29,6 @@ RUN apt-get update -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/discord discord
+COPY --from=builder /app/target/release/discordbot discordbot
 
-ENTRYPOINT ["./discord"]
+ENTRYPOINT ["./discordbot"]

@@ -19,20 +19,6 @@ spec:
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
-  name: lunch-vibe-check
-spec:
-  schedule: "15 12 * * *"
-  timezone: "America/New_York"
-  data: 'gm quants, lets attack the day'
-  sink:
-    ref:
-      apiVersion: serving.knative.dev/v1
-      kind: Service
-      name: discordbot-service
----
-apiVersion: sources.knative.dev/v1
-kind: PingSource
-metadata:
   name: morning-vibe-check
 spec:
   schedule: "15 9 * * *"
