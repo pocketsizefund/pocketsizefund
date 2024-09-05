@@ -1,4 +1,4 @@
-name: Publish PSF Python Library to PyPI
+name: Publish Pocket Size Fund Python Library to PyPI
 
 on:
   push:

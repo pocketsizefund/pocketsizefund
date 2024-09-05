@@ -23,6 +23,7 @@ cargo-machete.pkg-path = "cargo-machete"
 httpie.pkg-path = "httpie"
 
 [vars]
+PLATFORM = "linux/amd64"
 
 [hook]
 on-activate = """
@@ -32,6 +33,7 @@ on-activate = """
   rustup default stable
   mise settings set experimental true
 """
+
 [profile]
  common = '''
  '''

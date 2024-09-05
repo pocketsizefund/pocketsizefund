@@ -10,5 +10,5 @@ echo "using version $VERSION"
 
 docker build -t $IMAGE:latest \
 	-t $IMAGE:$VERSION \
-	--platform linux/amd64 \
+	--platform $PLATFORM \
 	.
