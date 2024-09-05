@@ -35,7 +35,7 @@ dev-dependencies = [
 pocketsizefund = { workspace = true }
 
 
-[tool.vulture]
+[uv.tool.vulture]
 make_whitelist = true
 min_confidence = 80
 paths = ["."]
