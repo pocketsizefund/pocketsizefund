@@ -1,0 +1,7 @@
+2024-09-05T01:11:17.717378Z DEBUG flox_watchdog::sentry: No Sentry DSN set, skipping Sentry initialization
+2024-09-05T01:11:17.717409Z DEBUG flox_watchdog: starting
+2024-09-05T01:11:17.717422Z DEBUG flox_watchdog: registered termination interest
+2024-09-05T01:11:17.717437Z DEBUG flox_watchdog: checked socket path="/run/user/1000/flox.2d04c220.sock" exists=false
+2024-09-05T01:11:17.717498Z DEBUG flox_rust_sdk::models::env_registry: removing stale activation pid=168072
+2024-09-05T01:11:17.717503Z DEBUG flox_rust_sdk::models::env_registry: registering activation pid=42893 hash="2d04c220"
+2024-09-05T01:11:17.717690Z  INFO flox_watchdog: watchdog is on duty this_pid=42923 target_pid=42893
