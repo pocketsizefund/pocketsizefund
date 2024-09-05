@@ -6,7 +6,6 @@
 cd $root/platform/pricemodel
 
 IMAGE=pocketsizefund/price-model
-VERSION=$(cat .version)
 
 docker push $IMAGE:latest
 docker push $IMAGE:$VERSION

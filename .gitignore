@@ -18,7 +18,6 @@ libraries/rust/*/target/
 target/
 infrastructure/venv
 .envrc
-env*
 .pytest_cache/
 .ruff_cache/
 platform/*/Cargo.lock
@@ -30,15 +29,4 @@ libraries/python/dist
 
 **/target*/
 
-infrastructure/secrets.tfvars
-infrastructure/.terraform
-infrastructure/terraform.tfstate
-infrastructure/terraform.tfstate.backup
-infrastructure/.terraform.lock.hcl
-infrastructure/.terraform.tfstate.lock.info
-infrastructure/platform/secrets.tfvars
-infrastrucure/nats/**
-infrastructure/nats-resources.yaml
-infrastructure/output
-
-infrastructure/*.log
+temp/

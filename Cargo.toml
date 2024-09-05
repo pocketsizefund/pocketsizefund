@@ -3,9 +3,9 @@ resolver = "2"
 
 members = [
     "libraries/rust",
-    "platform/newsfeed",
+    "platform/broker",
+    "platform/chronos",
     "platform/discord",
     "platform/datacollector", 
     "platform/dataprovider",
-    "platform/chronos",
 ]

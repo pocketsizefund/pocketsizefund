@@ -1,21 +1,12 @@
-[tool.poetry]
+[project]
 name = "positionmanager"
-version = "0.1.13"
-description = ""
-authors = [
-  "forstmeier <john.forstmeier@gmail.com>",
-  "chrisaddy <chris.william.addy@gmail.com>",
+version = "20240903.2"
+description = "Service to handle trading based off of upstream model predictions"
+requires-python = ">=3.9, <3.11"
+dependencies = [
+    "fastapi>=0.112.2",
+    "loguru",
+    "pocketsizefund[trade]",
+    "pydantic>=2.8.2",
+    "uvicorn>=0.30.6",
 ]
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.10,<3.11"
-sentry-sdk = "^2.8.0"
-loguru = "^0.7.2"
-aiokafka = "^0.11.0"
-pocketsizefund = {extras = ["trade"], version = "^0.2.0"}
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

@@ -1,5 +1,4 @@
 """Provides functionality for chat-related operations."""
-
 import datetime
 from pathlib import Path
 
@@ -31,11 +30,9 @@ class FilePicker:
         directory = str(Path(self.directory).resolve() / "**")
 
         spec = pathspec.PathSpec.from_lines("gitwildmatch", self.blacklist)
-        return [
-            file
-            for file in Path.glob(directory)
-            if Path(file).is_file() and not spec.match_file(file)
-        ]
+        def filter_(file: str) -> bool:
+            return Path(file).is_file() and not spec.match_file(file)
+        return [file for file in Path.glob(directory, recursive=True) if filter_(file)]
 
     def chat(self, query: str) -> list[str]:
         """Chat with the model regarding infrastructure."""
@@ -77,7 +74,6 @@ class FilePicker:
             contents += [{"file_name": file, "contents": content}]
         return contents
 
-
 def chat_over_files(files: list[str], query: str) -> str:
     """Chat with the model over a list of files."""
     _ = files
@@ -107,7 +103,10 @@ if __name__ == "__main__":
     console = Console()
     console.clear()
 
-    file_picker = FilePicker(directory=".", blacklist=[".terraform/", "*.tfstate*", "chat.py"])
+    file_picker = FilePicker(directory=".",
+                             blacklist=[".terraform/",
+                                        "*.tfstate*",
+                                        "chat.py"])
 
     file_context = []
     memory_buffer = []

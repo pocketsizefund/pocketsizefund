@@ -1,77 +1,38 @@
----
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: chronos
+  name: chronos-service
+  namespace: default
 spec:
   template:
     spec:
       containers:
-        - image: pocketsizefund/chronos:0.1.0
-          ports:
-            - containerPort: 8080
-          resources:
-            requests:
-              cpu: 100m
-              memory: 64Mi
-            limits:
-              cpu: 100m
-              memory: 128Mi
+        - name: chronos
+          image: pocketsizefund/chronos:202409.3.0
+          args:
+            - --period=1
+          env:
+            - name: APCA_API_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: APCA_API_KEY_ID
+            - name: APCA_API_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: APCA_API_SECRET_KEY
 ---
-apiVersion: eventing.knative.dev/v1
-kind: Trigger
+apiVersion: sources.knative.dev/v1
+kind: PingSource
 metadata:
-  name: chronos-trigger
+  name: chronos-pingsource
+  namespace: default
 spec:
-  broker: live
-  subscriber:
+  schedule: "*/1 * * * *"
+  data: '{}'
+  sink:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: chronos
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: morning-trigger
-spec:
-  schedule: "30 14 * * *"
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: Never
-          containers:
-            - name: trigger
-              image: curlimages/curl
-              args:
-                - /bin/sh
-                - -c
-                - >
-                  curl -X POST http://chronos.live.svc.cluster.local/market-status
-                  -H "Content-Type: application/cloudevents+json"
-                  -H "ce-specversion: 1.0"
-                  -d "{\"message\":\"market check\",\"specversion\":\"1.0\",\"id\":\"$(uuidgen)\",\"type\":\"dev.knative.cronjob.morning\",\"source\":\"knative.eventing.cronjob\"}"
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: night-trigger
-spec:
-  schedule: "0 20 * * *"
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: Never
-          containers:
-            - name: trigger
-              image: curlimages/curl
-              args:
-                - /bin/sh
-                - -c
-                - >
-                  curl -X POST http://chronos.live.svc.cluster.local/market-status
-                  -H "Content-Type: application/cloudevents+json"
-                  -H "ce-specversion: 1.0"
-                  -d "{\"message\":\"market check\",\"specversion\":\"1.0\",\"id\":\"$(uuidgen)\",\"type\":\"dev.knative.cronjob.night\",\"source\":\"knative.eventing.cronjob\"}"
+      name: chronos-service

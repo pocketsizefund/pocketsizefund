@@ -1,8 +1,8 @@
-use actix_web::{get, Responder, HttpRequest, HttpResponse, HttpServer, App};
 use actix_web::web::Query;
-use pocketsizefund::data::Client as DataClient;
-use pocketsizefund::data::client::Bar;
+use actix_web::{get, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use chrono::DateTime;
+use pocketsizefund::data::client::Bar;
+use pocketsizefund::data::Client as DataClient;
 use std::collections::HashMap;
 use std::env;
 
@@ -20,7 +20,7 @@ async fn data_handler(request: HttpRequest) -> impl Responder {
     let query_parameters = Query::<HashMap<String, String>>::from_query(query_string).unwrap();
 
     let start_at = DateTime::parse_from_rfc3339(query_parameters.get("start_at").unwrap()).unwrap();
-    
+
     let end_at = DateTime::parse_from_rfc3339(query_parameters.get("end_at").unwrap()).unwrap();
 
     let data_client = DataClient::new(
@@ -47,14 +47,10 @@ async fn main() -> std::io::Result<()> {
 
     let server_port = server_port_environment_variable.parse::<u16>().unwrap();
 
-    HttpServer::new(|| {
-        App::new()
-            .service(health_handler)
-            .service(data_handler)
-    })
-    .bind(("127.0.0.1", server_port))?
-    .run()
-    .await
+    HttpServer::new(|| App::new().service(health_handler).service(data_handler))
+        .bind(("127.0.0.1", server_port))?
+        .run()
+        .await
 }
 
 #[cfg(test)]
@@ -65,9 +61,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_health_handler() {
-        let app = test::init_service(App::new()
-            .service(health_handler))
-            .await;
+        let app = test::init_service(App::new().service(health_handler)).await;
 
         let req = test::TestRequest::default()
             .uri("/health")
