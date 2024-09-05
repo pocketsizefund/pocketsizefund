@@ -1,0 +1,45 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: discordbot-service
+spec:
+  template:
+    spec:
+      containers:
+        - image: pocketsizefund/discordbot:202409.4.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: DISCORD_WEBHOOK_URL
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: morning-vibe-check
+spec:
+  schedule: "15 9 * * *"
+  timezone: "America/New_York"
+  data: 'no matter what is happening you are awesome'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: discordbot-service
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: afternoon-vibe-check
+spec:
+  schedule: "30 16 * * *"
+  timezone: "America/New_York"
+  data: 'you guys killed it today!'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: discordbot-service

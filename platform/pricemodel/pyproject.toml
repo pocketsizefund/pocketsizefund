@@ -1,6 +1,6 @@
 [project]
 name = "pricemodel"
-version = "20240903.0"
+version = "20240904.0"
 description = "PSF Price Model"
 requires-python = ">=3.9, <3.11"
 dependencies = [
@@ -10,6 +10,8 @@ dependencies = [
     "bs4>=0.0.2",
     "pocketsizefund[ml,ml-cpu,trade]",
     "numpy<2",
+    "cloudevents>=1.11.0",
+    "fastapi-cloudevents>=2.0.2",
 ]
 
 [build-system]

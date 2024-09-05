@@ -1,4 +1,5 @@
 """Provides functionality for chat-related operations."""
+
 import datetime
 from pathlib import Path
 
@@ -30,9 +31,11 @@ class FilePicker:
         directory = str(Path(self.directory).resolve() / "**")
 
         spec = pathspec.PathSpec.from_lines("gitwildmatch", self.blacklist)
-        def filter_(file: str) -> bool:
-            return Path(file).is_file() and not spec.match_file(file)
-        return [file for file in Path.glob(directory, recursive=True) if filter_(file)]
+        return [
+            file
+            for file in Path.glob(directory)
+            if Path(file).is_file() and not spec.match_file(file)
+        ]
 
     def chat(self, query: str) -> list[str]:
         """Chat with the model regarding infrastructure."""
@@ -73,6 +76,7 @@ class FilePicker:
                 content = f.read()
             contents += [{"file_name": file, "contents": content}]
         return contents
+
 
 def chat_over_files(files: list[str], query: str) -> str:
     """Chat with the model over a list of files."""

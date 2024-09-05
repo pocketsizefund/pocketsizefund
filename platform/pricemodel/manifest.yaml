@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: price-model-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: price-model
+  template:
+    metadata:
+      labels:
+        app: price-model
+    spec:
+      containers:
+        - name: price-model
+          image: pocketsizefund/price-model:20240904.0
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          env:
+            - name: DARQUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: DARQUBE_API_KEY
+            - name: ALPACA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPACA_API_KEY
+            - name: ALPACA_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPACA_API_SECRET
+            - name: ALPHA_VANTAGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPHA_VANTAGE_API_KEY
+            - name: EDGAR_USER_AGENT
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: EDGAR_USER_AGENT
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 2048Mi
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: price-model-market-open-trigger
+spec:
+  broker: default
+  filter:
+    attributes:
+      type: market.status.check.open
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: price-model-service

@@ -1,7 +1,7 @@
 [project]
 name = "positionmanager"
 version = "20240903.2"
-description = "Service to handle trading based off of upstream model predictions"
+description = "Add your description here"
 requires-python = ">=3.9, <3.11"
 dependencies = [
     "fastapi>=0.112.2",
