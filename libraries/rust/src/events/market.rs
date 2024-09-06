@@ -118,7 +118,11 @@ impl Market {
             Status::Unknown => "market.status.check.unknown",
         };
 
-        tracing::info!("emitting market status event: {:?}", self.status);
+        tracing::info!(
+            "emitting market status event: {:?} => {:?}",
+            self.status,
+            event_type
+        );
 
         EventBuilderV10::new()
             .id(Uuid::new_v4().to_string())
