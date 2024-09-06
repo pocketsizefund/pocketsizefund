@@ -118,6 +118,8 @@ impl Market {
             Status::Unknown => "market.status.check.unknown",
         };
 
+        tracing::info!("emitting market status event: {:?}", self.status);
+
         EventBuilderV10::new()
             .id(Uuid::new_v4().to_string())
             .ty(event_type)
@@ -142,9 +144,9 @@ impl Market {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloudevents::AttributesReader;
     use test_log::test;
     use url::Url;
-    use cloudevents::AttributesReader;
 
     #[test]
     fn test_closed_reason_to_string() {
