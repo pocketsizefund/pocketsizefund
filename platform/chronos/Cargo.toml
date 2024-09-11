@@ -1,6 +1,6 @@
 [package]
 name = "chronos"
-version = "0.1.0"
+version = "202409.3.0"
 edition = "2021"
 license = "MIT"
 
@@ -12,11 +12,11 @@ serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.122"
 tracing = { version = "0.1.40", features = ["async-await"] }
 tracing-subscriber = { version = "0.3.18", features = ["chrono", "env-filter"] }
-pocketsizefund = { path = "../../libraries/rust", features = ["events", "web"] }
 apca = "0.29.0"
 cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-web", "http-binding", "http-body", "reqwest"] }
 actix-web = "4.9.0"
 tokio = { version = "1.39.3", features = ["full"] }
+pocketsizefund = { version = "0.1.2", features = ["events", "web"] }
 
 [dev-dependencies]
 cargo-machete = "0.6.2"

@@ -115,9 +115,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_health_handler() {
-        let app = test::init_service(App::new()
-            .service(health_handler))
-            .await;
+        let app = test::init_service(App::new().service(health_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/health")

@@ -1,8 +1,6 @@
 #!/usr/bin/env sh
 
-# mise description="tear down infrastructure"
-# mise tools=["terraform"]
+# mise description="destroy infrastructure"
 
 cd $root/infrastructure
-
-terraform fmt && terraform destroy -var-file=secrets.tfvars --auto-approve
+eksctl delete cluster -f eks/cluster-config.yaml

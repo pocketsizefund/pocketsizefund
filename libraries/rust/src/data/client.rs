@@ -12,7 +12,6 @@ use reqwest::Client as HTTPClient;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::io::{Read, Write};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use mockall::automock;
@@ -250,9 +249,9 @@ impl Interface for Client {
         let original_equities_bars = self._load_equities_bars().await?;
     
         combined_equities_bars.extend(original_equities_bars.into_iter());
-        
+
         combined_equities_bars.extend(equities_bars.into_iter());
-        
+
         let equities_bars_json = serde_json::to_vec(&combined_equities_bars).unwrap();
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());

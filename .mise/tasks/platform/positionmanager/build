@@ -6,6 +6,6 @@
 cd $root/platform/positionmanager
 
 IMAGE=pocketsizefund/position-manager
-VERSION=$(poetry version -s)
+VERSION=$(awk -F '[="]' '/^[[:space:]]*version/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3}' pyproject.toml)
 
-docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform $PLATFORM .
+docker build -t $IMAGE:latest -t $IMAGE:$VERSION --platform linux/amd64 .

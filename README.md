@@ -14,19 +14,6 @@ The project is actively a work-in-progress.
 
 ## Project
 
-### Process
-
-Our process is:
-
-```
-create -> launch
-   ^         |
-   |         v
-learn  <-  measure
-```
-
-We want to rapidly iterate our research-first mindset by constantly launching with an MVP implementations for every initiative.
-
 ### Setup
 
 Run the commands below in your terminal to get started. We're always a work in progress so if something breaks or is confusing open a pull request to raise it with the team and get your hands dirty.

@@ -5965,3 +5965,4 @@ trade = ["alpaca-py", "requests"]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.11"
 content-hash = "4e2719da985471597c253bbb54b20c0f8392c7aba2d0a3d93c38ff84c7533a2d"
+

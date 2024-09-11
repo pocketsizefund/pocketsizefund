@@ -1,7 +1,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: discord-service
+  name: discordbot-service
 spec:
   template:
     spec:
@@ -14,16 +14,30 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: discord_webhook_url
+                  key: DISCORD_WEBHOOK_URL
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: discord-trigger
+  name: discordbot-trigger
 spec:
-  broker: live
+  broker: default
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: discord-service
+      name: discordbot-service
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: morning-ping
+spec:
+  schedule: "15 9 * * *"
+  data: '{"message": "Good morning!"}'
+  sink:
+    ref:
+      apiVersion: eventing.knative.dev/v1
+      kind: Broker
+      name: default
+
