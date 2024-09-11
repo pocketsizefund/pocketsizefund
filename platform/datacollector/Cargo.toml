@@ -1,19 +1,19 @@
 [package]
 name = "datacollector"
-version = "0.1.0"
+version = "202409.11.0"
 edition = "2021"
 license = "MIT"
 
 [dependencies]
 actix-web = "4.9.0"
 chrono = { version = "0.4.38", features = ["serde"] }
-pocketsizefund = { path = "../../libraries/rust", features = ["data"] }
 cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-http", "actix-web", "http-binding", "http-body", "reqwest"] }
 serde_json = { version = "1.0.120" }
 uuid = { version = "1.8.0", features = ["v4"] }
 tracing = { version = "0.1.40", features = ["async-await"] }
 mockall = "0.11"
 async-trait = "0.1.82"
+pocketsizefund = { version = "0.1.6", features = ["data"] }
 
 [dev-dependencies]
 cargo-machete = "0.6.2"
