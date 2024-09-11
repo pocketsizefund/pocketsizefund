@@ -4,5 +4,5 @@
 # mise tools = ["ruff", "python", "poetry"]
 
 cd $root
-
+uv tool install ruff
 ruff check --output-format=github --config pyproject.toml .

@@ -1,14 +1,11 @@
 #!/usr/bin/env sh
 
 # mise description="unit tests for the pocketsizefund python package"
-# mise depends=["libraries:python:setup"]
-# mise tools=["python@3.10", "poetry"]
 
 cd $root/libraries/python
-poeetry install --with dev,test --all-extras
-poetry run coverage run --parallel-mode --module pytest
-poetry run coverage combine
-poetry run coverage report --omit='tests/*'
-poetry run coverage xml --omit='tests/*'
+uv run coverage run --parallel-mode --module pytest
+uv run coverage combine
+uv run coverage report --omit='tests/*'
+uv run coverage xml --omit='tests/*'
 rm -rf .coverage
 mv coverage.xml $root

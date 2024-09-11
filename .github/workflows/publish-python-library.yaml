@@ -1,0 +1,26 @@
+name: Publish Pocket Size Fund Python Library to PyPI
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - libraries/python/**
+
+jobs:
+  publish:
+    name: Publish PSF Python Library to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Upload to PyPI
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: |
+          cd libraries/python
+          uvx --from build pyproject-build --installer uv
+          uvx twine upload dist/*
