@@ -1,0 +1,10 @@
+services:
+  discord:
+    build:
+      context: .
+      tags:
+        - "pocketsizefund/discord:latest"
+    ports:
+      - 8080:8080
+    environment:
+      - DISCORD_TOKEN

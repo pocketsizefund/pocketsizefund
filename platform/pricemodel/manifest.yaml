@@ -1,12 +1,8 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: serving.knative.dev/v1
+kind: Service
 metadata:
-  name: price-model-service
+  name: price-model
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: price-model
   template:
     metadata:
       labels:
@@ -14,7 +10,8 @@ spec:
     spec:
       containers:
         - name: price-model
-          image: pocketsizefund/price-model:20240904.0
+          image: pocketsizefund/price-model:20240913.0
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -55,6 +52,8 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: EDGAR_USER_AGENT
+            - name: FORCE_REVISION
+              value: "true"
           resources:
             requests:
               cpu: 100m
