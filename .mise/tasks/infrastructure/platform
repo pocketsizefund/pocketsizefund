@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+# mise description="create knative serving and eventing"
+
+cd $root/platform
+find . -name "manifest.yaml" -type f | while read -r file; do
+  kubectl apply -f "$file"
+done
+
+

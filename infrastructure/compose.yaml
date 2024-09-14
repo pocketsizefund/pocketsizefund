@@ -1,0 +1,6 @@
+services:
+  infrastructure:
+    build:
+      context: .
+      tags:
+        - "infrastructure:latest"

@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+# mise description="create knative serving and eventing"
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --set grafana.service.type=ClusterIP \
+  --set prometheus.service.type=ClusterIP \
+  --set alertmanager.service.type=ClusterIP \
+  --values infrastructure/knative/prometheus.yaml
