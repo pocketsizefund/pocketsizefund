@@ -1,4 +1,4 @@
-from __future__ import annotations # noqa: I001
+from __future__ import annotations  # noqa: I001
 import pytest
 import datetime
 from pocketsizefund import config, trade
@@ -275,150 +275,182 @@ def mock_get_risk_free_rate_success() -> float:
 
 
 monday_calendar_days = [
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 23),
-            open_value=datetime.datetime(1977, 5, 23, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 23, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 24),
-            open_value=datetime.datetime(1977, 5, 24, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 24, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 25),
-            open_value=datetime.datetime(1977, 5, 25, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 25, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 26),
-            open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 27),
-            open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-    ]
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 5, 23),
+        open_value=datetime.datetime(1977, 5, 23, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 5, 23, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 5, 24),
+        open_value=datetime.datetime(1977, 5, 24, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 5, 24, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 5, 25),
+        open_value=datetime.datetime(1977, 5, 25, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 5, 25, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 5, 26),
+        open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 5, 27),
+        open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+]
 
 friday_calendar_days = [
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 27),
-            open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 30),
-            open_value=datetime.datetime(1977, 5, 30, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 30, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 31),
-            open_value=datetime.datetime(1977, 5, 31, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 31, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 6, 1),
-            open_value=datetime.datetime(1977, 6, 1, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 6, 1, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 6, 2),
-            open_value=datetime.datetime(1977, 6, 2, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 6, 2, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-    ]
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 5, 27),
+        open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 5, 30),
+        open_value=datetime.datetime(1977, 5, 30, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 5, 30, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 5, 31),
+        open_value=datetime.datetime(1977, 5, 31, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 5, 31, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 6, 1),
+        open_value=datetime.datetime(1977, 6, 1, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 6, 1, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+    MockAlpacaCalendar(
+        date_value=datetime.date(1977, 6, 2),
+        open_value=datetime.datetime(1977, 6, 2, 9, 30, tzinfo=config.TIMEZONE),
+        close_value=datetime.datetime(1977, 6, 2, 16, 0, tzinfo=config.TIMEZONE),
+    ),
+]
 
-@pytest.mark.parametrize("action, expected",
+
+@pytest.mark.parametrize(
+    "action, expected",
     [
-        ({
-            "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 9, 15, tzinfo=config.TIMEZONE),
-            "is_market_open": False,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [],
-        },  False),
-        ({
-            "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 26, 9, 45, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": [
-                MockAlpacaCalendar(
-                    date_value=datetime.date(1977, 5, 26),
-                    open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
-                    close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
-                ),
-            ]
-            + friday_calendar_days[1:],
-            "all_positions": [],
-        }, True),
-        ({
-            "action": trade.CREATE_ACTION,
-
-            "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": friday_calendar_days,
-            "all_positions": [],
-        }, False),
-        ({
-            "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [{}],
-        }, False),
-        ({
-            "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [],
-        }, True),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 16, 15, tzinfo=config.TIMEZONE),
-            "is_market_open": False,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [],
-        }, False),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 26, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": [
-                MockAlpacaCalendar(
-                    date_value=datetime.date(1977, 5, 26),
-                    open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
-                    close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
-                ),
-            ]
-            + friday_calendar_days[1:],
-            "all_positions": [{}],
-        }, True),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [{}],
-        }, False),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [],
-        }, False),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [{}],
-        }, True),
-    ])
-def test_check_position_set_availability_success(action: dict, expected: bool) -> None: # noqa: FBT001
+        (
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 15, tzinfo=config.TIMEZONE),
+                "is_market_open": False,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [],
+            },
+            False,
+        ),
+        (
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 26, 9, 45, tzinfo=config.TIMEZONE),
+                "is_market_open": True,
+                "calendar_days": [
+                    MockAlpacaCalendar(
+                        date_value=datetime.date(1977, 5, 26),
+                        open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
+                        close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
+                    ),
+                ]
+                + friday_calendar_days[1:],
+                "all_positions": [],
+            },
+            True,
+        ),
+        (
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
+                "is_market_open": True,
+                "calendar_days": friday_calendar_days,
+                "all_positions": [],
+            },
+            False,
+        ),
+        (
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [{}],
+            },
+            False,
+        ),
+        (
+            {
+                "action": trade.CREATE_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [],
+            },
+            True,
+        ),
+        (
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 16, 15, tzinfo=config.TIMEZONE),
+                "is_market_open": False,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [],
+            },
+            False,
+        ),
+        (
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 26, 15, 30, tzinfo=config.TIMEZONE),
+                "is_market_open": True,
+                "calendar_days": [
+                    MockAlpacaCalendar(
+                        date_value=datetime.date(1977, 5, 26),
+                        open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
+                        close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
+                    ),
+                ]
+                + friday_calendar_days[1:],
+                "all_positions": [{}],
+            },
+            True,
+        ),
+        (
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [{}],
+            },
+            False,
+        ),
+        (
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [],
+            },
+            False,
+        ),
+        (
+            {
+                "action": trade.CLEAR_ACTION,
+                "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
+                "is_market_open": True,
+                "calendar_days": monday_calendar_days,
+                "all_positions": [{}],
+            },
+            True,
+        ),
+    ],
+)
+def test_check_position_set_availability_success(action: dict, expected: bool) -> None:  # noqa: FBT001
     client.alpaca_trading_client = MockAlpacaTradingClient(
         responses={
             "get_clock": MockAlpacaClock(

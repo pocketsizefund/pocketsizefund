@@ -30,9 +30,7 @@ data_client = data.Client(
 price_model = model.PriceModel()
 
 try:
-    price_model.load_model(
-        file_path="price-model.ckpt"
-    )
+    price_model.load_model(file_path="price-model.ckpt")
     logger.info(f"loaded {price_model=}")
 except FileNotFoundError:
     logger.exception("model not found, make sure MODEL_FILE_NAME is set")
@@ -44,6 +42,7 @@ except IsADirectoryError:
 app = FastAPI()
 app = install_fastapi_cloudevents(app)
 
+
 @app.get("/health", status_code=status.HTTP_200_OK)
 def health() -> CloudEvent:
     """Health check endpoint that the cluster pings to ensure the service is up."""
@@ -53,10 +52,13 @@ def health() -> CloudEvent:
         data=None,
     )
 
+
 Ticker = dict[str, list[float]]
+
 
 class Predictions(BaseModel):
     tickers: Ticker
+
 
 @app.post("/")
 async def invocations(event: CloudEvent) -> CloudEvent:
@@ -66,7 +68,7 @@ async def invocations(event: CloudEvent) -> CloudEvent:
         return CloudEvent(
             type="prediction.error",
             source="psf.platform.predictionmodel",
-            data={"error": "model not found, make sure MODEL_FILE_NAME is set"}
+            data={"error": "model not found, make sure MODEL_FILE_NAME is set"},
         )
 
     available_tickers = trade_client.get_available_tickers()
@@ -92,6 +94,6 @@ async def invocations(event: CloudEvent) -> CloudEvent:
 
     return CloudEvent(
         type="psf.platform.predictionmodel",
-        source= "prediction.success",
+        source="prediction.success",
         data={"tickers": predictions},
     )
