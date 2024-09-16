@@ -2,15 +2,13 @@ use actix_web::post;
 use anyhow::Result;
 use apca::api::v2::account;
 use apca::api::v2::order::{Amount, Create, CreateReqInit, Order, Side, Type};
-use num_decimal::Num;
-
 use apca::api::v2::orders::List;
 use apca::api::v2::orders::ListReq;
-
 use apca::ApiInfo;
 use apca::Client as ApcaClient;
 use cloudevents::AttributesReader;
 use cloudevents::Event;
+use num_decimal::Num;
 use pocketsizefund::events::Market;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -114,9 +112,9 @@ async fn post_to_discord(message: String) {
         .post(discord_endpoint)
         .header("Content-Type", "text/plain")
         .header("ce-specversion", "1.0")
-        .header("ce-id", "1")
-        .header("ce-source", "http://cloudevents.io")
-        .header("ce-type", "dev.knative.example")
+        .header("ce-id", uuid::Uuid::new_v4().to_string())
+        .header("ce-source", "psf.platform.trader")
+        .header("ce-type", "discord.message.request")
         .body(message)
         .send()
         .await
@@ -172,7 +170,7 @@ impl AccountStanding {
             && !self.transfers_blocked
             && !self.account_blocked
             && !self.day_trader
-            && self.daytrade_count < 2
+            && self.daytrade_count < 3
     }
 }
 

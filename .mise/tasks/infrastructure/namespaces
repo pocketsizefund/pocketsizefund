@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# mise description="create knative serving and eventing"
+# mise description="create namespaces"
 
 cd $root/infrastructure
 kubectl apply -f namespaces/*.yaml

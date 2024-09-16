@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# mise description="create s3 buckets"
+# mise description="create eks cluster"
 
 cd $root/infrastructure/aws
 CLUSTER_NAME=$(cat cluster-config.yaml | yq .metadata.name)
