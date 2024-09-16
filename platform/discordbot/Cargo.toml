@@ -1,11 +1,6 @@
 [package]
-<<<<<<< HEAD:platform/discord/Cargo.toml
-name = "discord"
-version = "202409.4.0"
-=======
 name = "discordbot"
 version = "202409.15.0"
->>>>>>> 09-04-cleaning_up:platform/discordbot/Cargo.toml
 edition = "2021"
 license = "MIT"
 

@@ -13,9 +13,6 @@ services:
       - ALPACA_API_SECRET
       - ALPHA_VANTAGE_API_KEY
       - EDGAR_USER_AGENT
-<<<<<<< HEAD
-=======
       - APCA_API_KEY_ID
       - APCA_API_BASE_URL
       - APCA_API_SECRET
->>>>>>> 09-04-cleaning_up

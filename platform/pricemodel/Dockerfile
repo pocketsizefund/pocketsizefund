@@ -4,11 +4,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 WORKDIR /app
 
-<<<<<<< HEAD
-COPY pyproject.toml uv.lock /app
-=======
 COPY pyproject.toml uv.lock /app/
->>>>>>> 09-04-cleaning_up
 
 ARG MODEL_FILE_NAME
 

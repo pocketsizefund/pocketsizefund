@@ -5,16 +5,10 @@ members = [
     "libraries/rust",
     "platform/broker",
     "platform/chronos",
-<<<<<<< HEAD
-    "platform/discord",
-    "platform/datacollector", 
-    "platform/dataprovider",
-=======
     "platform/discordbot",
     "platform/datacollector", 
     "platform/dataprovider",
     "infrastructure",
     "scrum",
     "platform/trader",
->>>>>>> 09-04-cleaning_up
 ]

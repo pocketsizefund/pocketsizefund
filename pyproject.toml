@@ -24,8 +24,6 @@ license = {text = "MIT"}
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-<<<<<<< HEAD
-=======
 
 [tool.uv]
 dev-dependencies = [
@@ -36,7 +34,6 @@ dev-dependencies = [
 [tool.uv.sources]
 pocketsizefund = { workspace = true }
 
->>>>>>> 09-04-cleaning_up
 
 [tool.uv]
 dev-dependencies = [
