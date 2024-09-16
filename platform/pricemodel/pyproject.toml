@@ -1,6 +1,10 @@
 [project]
 name = "pricemodel"
+<<<<<<< HEAD
 version = "20240904.0"
+=======
+version = "20240915.0"
+>>>>>>> 09-04-cleaning_up
 description = "PSF Price Model"
 requires-python = ">=3.9, <3.11"
 dependencies = [

@@ -3,4 +3,8 @@
 # mise description="destroy infrastructure"
 
 cd $root/infrastructure
+<<<<<<< HEAD
 eksctl delete cluster -f eks/cluster-config.yaml
+=======
+eksctl delete cluster -f aws/cluster-config.yaml
+>>>>>>> 09-04-cleaning_up

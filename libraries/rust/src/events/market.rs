@@ -118,12 +118,15 @@ impl Market {
             Status::Unknown => "market.status.check.unknown",
         };
 
+<<<<<<< HEAD
         tracing::info!(
             "emitting market status event: {:?} => {:?}",
             self.status,
             event_type
         );
 
+=======
+>>>>>>> 09-04-cleaning_up
         EventBuilderV10::new()
             .id(Uuid::new_v4().to_string())
             .ty(event_type)
@@ -148,6 +151,8 @@ impl Market {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_log::test;
+    use url::Url;
     use cloudevents::AttributesReader;
     use test_log::test;
     use url::Url;

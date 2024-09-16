@@ -1,7 +1,11 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
+<<<<<<< HEAD:platform/discord/manifest.yaml
   name: discordbot-service
+=======
+  name: discordbot
+>>>>>>> 09-04-cleaning_up:platform/discordbot/manifest.yaml
 spec:
   template:
     spec:
@@ -23,12 +27,20 @@ metadata:
 spec:
   schedule: "15 9 * * *"
   timezone: "America/New_York"
+<<<<<<< HEAD:platform/discord/manifest.yaml
   data: 'no matter what is happening you are awesome'
+=======
+  data: 'today is going to an awesome day'
+>>>>>>> 09-04-cleaning_up:platform/discordbot/manifest.yaml
   sink:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
+<<<<<<< HEAD:platform/discord/manifest.yaml
       name: discordbot-service
+=======
+      name: discordbot
+>>>>>>> 09-04-cleaning_up:platform/discordbot/manifest.yaml
 ---
 apiVersion: sources.knative.dev/v1
 kind: PingSource
@@ -42,4 +54,8 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
+<<<<<<< HEAD:platform/discord/manifest.yaml
       name: discordbot-service
+=======
+      name: discordbot
+>>>>>>> 09-04-cleaning_up:platform/discordbot/manifest.yaml

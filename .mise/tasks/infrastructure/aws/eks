@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+
+# mise description="create s3 buckets"
+
+cd $root/infrastructure/aws
+CLUSTER_NAME=$(cat cluster-config.yaml | yq .metadata.name)
+AWS_REGION=$(cat cluster-config.yaml | yq .metadata.region)
+
+echo "creating s3 buckets in $CLUSTER_NAME in $AWS_REGION"
+
+if eksctl get cluster --name=$CLUSTER_NAME --region=$AWS_REGION 2>/dev/null; then
+   echo "Cluster $CLUSTER_NAME already exists. Updating..."
+   eksctl upgrade cluster -f cluster-config.yaml
+else
+  echo "Creating new cluster $CLUSTER_NAME..."
+  eksctl create cluster -f cluster-config.yaml
+fi

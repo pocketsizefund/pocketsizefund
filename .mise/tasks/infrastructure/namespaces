@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+
+# mise description="create knative serving and eventing"
+
+cd $root/infrastructure
+kubectl apply -f namespaces/*.yaml

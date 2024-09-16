@@ -1,0 +1,5 @@
+---
+name: infrastructure
+format: rainbow
+modules:
+- puppetlabs-amazon_aws

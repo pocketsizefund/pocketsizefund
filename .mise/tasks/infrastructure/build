@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+# mise description="build docker image for infrastructure"
+# mise tools=["rust"]
+
+cd $root/infrastructure
+
+IMAGE=pocketsizefund/infrastructure
+
+docker build -t $IMAGE:latest --platform $PLATFORM .

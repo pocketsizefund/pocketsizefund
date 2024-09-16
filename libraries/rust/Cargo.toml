@@ -1,6 +1,10 @@
 [package]
 name = "pocketsizefund"
+<<<<<<< HEAD
 version = "0.1.5"
+=======
+version = "0.1.3"
+>>>>>>> 09-04-cleaning_up
 edition = "2021"
 license = "MIT"
 description = "Open source quantitative trading"

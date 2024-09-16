@@ -3,6 +3,7 @@
   "manifest": {
     "version": 1,
     "install": {
+<<<<<<< HEAD
       "actionlint": {
         "pkg-path": "actionlint"
       },
@@ -74,6 +75,21 @@
     "profile": {
       "common": " "
     },
+=======
+      "ansible": {
+        "pkg-path": "ansible"
+      },
+      "jmespath": {
+        "pkg-path": "python312Packages.jmespath"
+      },
+      "puppet-bolt": {
+        "pkg-path": "puppet-bolt"
+      }
+    },
+    "vars": {},
+    "hook": {},
+    "profile": {},
+>>>>>>> 09-04-cleaning_up
     "options": {
       "systems": [
         "aarch64-darwin",
@@ -86,6 +102,7 @@
       },
       "semver": {}
     },
+<<<<<<< HEAD
     "services": {
       "grafana": {
         "command": "kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80",
@@ -100,10 +117,14 @@
         "shutdown": null
       }
     },
+=======
+    "services": {},
+>>>>>>> 09-04-cleaning_up
     "build": {}
   },
   "packages": [
     {
+<<<<<<< HEAD
       "attr_path": "actionlint",
       "broken": false,
       "derivation": "/nix/store/aqmy92c85i2glzsrcd01bzf0p09wmq8p-actionlint-1.7.1.drv",
@@ -123,17 +144,43 @@
       ],
       "unfree": false,
       "version": "1.7.1",
+=======
+      "attr_path": "ansible",
+      "broken": false,
+      "derivation": "/nix/store/z64smc72xm53bs4y32z1xz7fqdbckqzp-python3.12-ansible-core-2.17.3.drv",
+      "description": "Radically simple IT automation",
+      "install_id": "ansible",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "ansible-core-2.17.3",
+      "pname": "ansible",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "core-2.17.3",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "out": "/nix/store/fxbyik3sazbk4sldc3c8zaww89dsd337-actionlint-1.7.1"
+=======
+        "dist": "/nix/store/3k8iwlrf6db888dydy62x4bfy3aacawh-python3.12-ansible-core-2.17.3-dist",
+        "out": "/nix/store/mf7rm2iwq0f6dx1vifycs2n44n71r979-python3.12-ansible-core-2.17.3"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "actionlint",
       "broken": false,
       "derivation": "/nix/store/ry8lhqzkjk9gb3amhy2a5l3wqp4qyq94-actionlint-1.7.1.drv",
@@ -153,17 +200,43 @@
       ],
       "unfree": false,
       "version": "1.7.1",
+=======
+      "attr_path": "ansible",
+      "broken": false,
+      "derivation": "/nix/store/l2fpkh52jcl9q5rgap3hbmmcc76rvxsp-python3.12-ansible-core-2.17.3.drv",
+      "description": "Radically simple IT automation",
+      "install_id": "ansible",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "ansible-core-2.17.3",
+      "pname": "ansible",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "core-2.17.3",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "out": "/nix/store/zwnsfp1pw6lxx00gwyk9n9582ckj7xh7-actionlint-1.7.1"
+=======
+        "dist": "/nix/store/qvlilm7qzipl52ylm7nab484ig9hld3f-python3.12-ansible-core-2.17.3-dist",
+        "out": "/nix/store/59ssx8khw5zlwyh750rhbssv2kvr6j51-python3.12-ansible-core-2.17.3"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "aarch64-linux",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "actionlint",
       "broken": false,
       "derivation": "/nix/store/njz3mv60v1q2rwv1ahagny310r23is53-actionlint-1.7.1.drv",
@@ -183,17 +256,43 @@
       ],
       "unfree": false,
       "version": "1.7.1",
+=======
+      "attr_path": "ansible",
+      "broken": false,
+      "derivation": "/nix/store/almsxcgjqkdm2575mfdrgqghd1phz3sf-python3.12-ansible-core-2.17.3.drv",
+      "description": "Radically simple IT automation",
+      "install_id": "ansible",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "ansible-core-2.17.3",
+      "pname": "ansible",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "core-2.17.3",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "out": "/nix/store/r7fwnm7fhdffrglrcdw6fsw7i90k0im5-actionlint-1.7.1"
+=======
+        "dist": "/nix/store/i6zvcwm4mi94z2797n6mz85s835xp71z-python3.12-ansible-core-2.17.3-dist",
+        "out": "/nix/store/5j7i3a46dhf61zdpf4ca3fp560dbi7fn-python3.12-ansible-core-2.17.3"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "actionlint",
       "broken": false,
       "derivation": "/nix/store/zchvm8ccriy6wkv1h1awrxcwqgggzb9b-actionlint-1.7.1.drv",
@@ -213,17 +312,43 @@
       ],
       "unfree": false,
       "version": "1.7.1",
+=======
+      "attr_path": "ansible",
+      "broken": false,
+      "derivation": "/nix/store/n870iznzv78gqxqxccg3f4qi4l9mymjm-python3.12-ansible-core-2.17.3.drv",
+      "description": "Radically simple IT automation",
+      "install_id": "ansible",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "ansible-core-2.17.3",
+      "pname": "ansible",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "core-2.17.3",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "out": "/nix/store/qg83qfbqijhqnl0l0xs7sn24d4vrljjb-actionlint-1.7.1"
+=======
+        "dist": "/nix/store/8basr79bm6flz9k8cs5c6vraxn8v8s3g-python3.12-ansible-core-2.17.3-dist",
+        "out": "/nix/store/zsg029zz3z3fxm2p776d4c91dj0g5dzc-python3.12-ansible-core-2.17.3"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "x86_64-linux",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "awscli",
       "broken": false,
       "derivation": "/nix/store/2jwaqfkrp6bhhgrdhsiz2c6vjj20dkc0-awscli-1.33.13.drv",
@@ -243,18 +368,44 @@
       ],
       "unfree": false,
       "version": "1.33.13",
+=======
+      "attr_path": "python312Packages.jmespath",
+      "broken": false,
+      "derivation": "/nix/store/d4ffna3jjv9gfkp450l5asxxlzhv033c-python3.12-jmespath-1.0.1.drv",
+      "description": "JMESPath allows you to declaratively specify how to extract elements from a JSON document",
+      "install_id": "jmespath",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "python3.12-jmespath-1.0.1",
+      "pname": "jmespath",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "python3.12-jmespath-1.0.1",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "dist": "/nix/store/pnadi2klmjbz8cdra686dnx4znk7d0av-awscli-1.33.13-dist",
         "out": "/nix/store/r6fnls3v4hif8451axfv6239w05kff32-awscli-1.33.13"
+=======
+        "dist": "/nix/store/by0fjvacsgwrr6mlfwdiyi04l652gysy-python3.12-jmespath-1.0.1-dist",
+        "out": "/nix/store/ah5i1f4d37km4d6m3snmid4dzwsx9n7g-python3.12-jmespath-1.0.1"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "awscli",
       "broken": false,
       "derivation": "/nix/store/451683fapxv3ckq7v59jf7bsy67badhf-awscli-1.33.13.drv",
@@ -274,18 +425,44 @@
       ],
       "unfree": false,
       "version": "1.33.13",
+=======
+      "attr_path": "python312Packages.jmespath",
+      "broken": false,
+      "derivation": "/nix/store/q55wjr2ynkwlzkr2kdsxqmcdvc1qkcbx-python3.12-jmespath-1.0.1.drv",
+      "description": "JMESPath allows you to declaratively specify how to extract elements from a JSON document",
+      "install_id": "jmespath",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "python3.12-jmespath-1.0.1",
+      "pname": "jmespath",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "python3.12-jmespath-1.0.1",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "dist": "/nix/store/b769cvzzn6959gpqfp3xf7pga5w10jsi-awscli-1.33.13-dist",
         "out": "/nix/store/hdk2942yrxraxd3jxcs4j0rnfd18mvzk-awscli-1.33.13"
+=======
+        "dist": "/nix/store/09bv5j9ld88an93f2ipiyxlgplkr0b9x-python3.12-jmespath-1.0.1-dist",
+        "out": "/nix/store/6by2wwrmdy608hs3iqlbfq73wza4crha-python3.12-jmespath-1.0.1"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "aarch64-linux",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "awscli",
       "broken": false,
       "derivation": "/nix/store/czdrxssbgz3wgsjxnc0rq35mh6jbr9wr-awscli-1.33.13.drv",
@@ -305,18 +482,44 @@
       ],
       "unfree": false,
       "version": "1.33.13",
+=======
+      "attr_path": "python312Packages.jmespath",
+      "broken": false,
+      "derivation": "/nix/store/z6ny1f79r65z2bmd3xrr0ijnnhszd6qc-python3.12-jmespath-1.0.1.drv",
+      "description": "JMESPath allows you to declaratively specify how to extract elements from a JSON document",
+      "install_id": "jmespath",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "python3.12-jmespath-1.0.1",
+      "pname": "jmespath",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "python3.12-jmespath-1.0.1",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "dist": "/nix/store/gkd31zszz6cq7b4pfv0wp8qh6zkg0ah1-awscli-1.33.13-dist",
         "out": "/nix/store/yvsk0yshnv6qqqr23csp2aqan672h5n6-awscli-1.33.13"
+=======
+        "dist": "/nix/store/dwi6z0b8498ksfl58fsl6jwvm09i7pg1-python3.12-jmespath-1.0.1-dist",
+        "out": "/nix/store/zq9jmmakaib0nl91im76r9ij9g3qp4p2-python3.12-jmespath-1.0.1"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "awscli",
       "broken": false,
       "derivation": "/nix/store/yazzqc4lbrpmgsg57azfy3vzv3m0g5p3-awscli-1.33.13.drv",
@@ -336,18 +539,44 @@
       ],
       "unfree": false,
       "version": "1.33.13",
+=======
+      "attr_path": "python312Packages.jmespath",
+      "broken": false,
+      "derivation": "/nix/store/9i74pi7gc9qgh9p3yrl9kj4p90nlykzv-python3.12-jmespath-1.0.1.drv",
+      "description": "JMESPath allows you to declaratively specify how to extract elements from a JSON document",
+      "install_id": "jmespath",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "python3.12-jmespath-1.0.1",
+      "pname": "jmespath",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "python3.12-jmespath-1.0.1",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "dist": "/nix/store/bk5nhb5sj1y6czp0730vrzmpqpy3wiin-awscli-1.33.13-dist",
         "out": "/nix/store/zk3vn721bfx5lpz1n2lvcfz3m98kxksd-awscli-1.33.13"
+=======
+        "dist": "/nix/store/d5k6qzhdcy4zq4zb8hb3j9axvdzprlbx-python3.12-jmespath-1.0.1-dist",
+        "out": "/nix/store/lprwzc7snvqh547gqsi6kgz2sgy9c70g-python3.12-jmespath-1.0.1"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "x86_64-linux",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "cargo-deny",
       "broken": false,
       "derivation": "/nix/store/hajsf8fxw95j01p6sm8zwvd7mbbdzk0y-cargo-deny-0.16.1.drv",
@@ -367,17 +596,42 @@
       ],
       "unfree": false,
       "version": "0.16.1",
+=======
+      "attr_path": "puppet-bolt",
+      "broken": false,
+      "derivation": "/nix/store/7rh6hhq2qjbyw6bvfwgr39idg7qmsi0i-puppet-bolt-3.30.0.drv",
+      "description": "Execute commands remotely over SSH and WinRM",
+      "install_id": "puppet-bolt",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "puppet-bolt-3.30.0",
+      "pname": "puppet-bolt",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.30.0",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "out": "/nix/store/fc3yd0jkw358dcwrnmy7gp7jk4r90cf6-cargo-deny-0.16.1"
+=======
+        "out": "/nix/store/h2gba2z3alxp8ja1v526064lsx2sq03z-puppet-bolt-3.30.0"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "cargo-deny",
       "broken": false,
       "derivation": "/nix/store/0hmgvs8sjfhw92xv9h0ysl8gaj0vkzya-cargo-deny-0.16.1.drv",
@@ -397,17 +651,42 @@
       ],
       "unfree": false,
       "version": "0.16.1",
+=======
+      "attr_path": "puppet-bolt",
+      "broken": false,
+      "derivation": "/nix/store/s3vj8mrrfv4q1fsmdiyzpjrkjdbf778b-puppet-bolt-3.30.0.drv",
+      "description": "Execute commands remotely over SSH and WinRM",
+      "install_id": "puppet-bolt",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "puppet-bolt-3.30.0",
+      "pname": "puppet-bolt",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.30.0",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "out": "/nix/store/vxr7q7ix8q5030hq1lxj4ahplbkdqaa2-cargo-deny-0.16.1"
+=======
+        "out": "/nix/store/9xmzz356hkxp1gapran1fq6yaq1yh2sm-puppet-bolt-3.30.0"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "aarch64-linux",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "cargo-deny",
       "broken": false,
       "derivation": "/nix/store/4amck8szbsx237bjvdammw2xcs52pp1p-cargo-deny-0.16.1.drv",
@@ -427,17 +706,42 @@
       ],
       "unfree": false,
       "version": "0.16.1",
+=======
+      "attr_path": "puppet-bolt",
+      "broken": false,
+      "derivation": "/nix/store/8ijxnzvqz2swx78bwb7ipbvx360jx4na-puppet-bolt-3.30.0.drv",
+      "description": "Execute commands remotely over SSH and WinRM",
+      "install_id": "puppet-bolt",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "puppet-bolt-3.30.0",
+      "pname": "puppet-bolt",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.30.0",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "out": "/nix/store/lgj1jrr0hw5my50gk82x21akjaipxi9r-cargo-deny-0.16.1"
+=======
+        "out": "/nix/store/mxaddmg9gl3ynbp9ibwq08j5fijbc7s6-puppet-bolt-3.30.0"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
+<<<<<<< HEAD
       "attr_path": "cargo-deny",
       "broken": false,
       "derivation": "/nix/store/jbch887jxpmqa5hxz5ycq9pgvc3mr9jy-cargo-deny-0.16.1.drv",
@@ -847,10 +1151,31 @@
       ],
       "unfree": false,
       "version": "0.189.0",
+=======
+      "attr_path": "puppet-bolt",
+      "broken": false,
+      "derivation": "/nix/store/1xz1fw3lsppsww3i2na9jdyyjq9jsjdn-puppet-bolt-3.30.0.drv",
+      "description": "Execute commands remotely over SSH and WinRM",
+      "install_id": "puppet-bolt",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "name": "puppet-bolt-3.30.0",
+      "pname": "puppet-bolt",
+      "rev": "574d1eac1c200690e27b8eb4e24887f8df7ac27c",
+      "rev_count": 677397,
+      "rev_date": "2024-09-06T14:57:51Z",
+      "scrape_date": "2024-09-09T13:35:41Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.30.0",
+>>>>>>> 09-04-cleaning_up
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
+<<<<<<< HEAD
         "out": "/nix/store/4s9vm34xj3rv642qpwvjadyfmcrycvw6-eksctl-0.189.0"
       },
       "system": "aarch64-darwin",
@@ -2684,6 +3009,9 @@
       ],
       "outputs": {
         "out": "/nix/store/2ahn9czlg2cn81hmw2drg0wl2j99kp0w-shfmt-3.9.0"
+=======
+        "out": "/nix/store/ysgr7694k0zhd78gklm4ahcfzmz72x55-puppet-bolt-3.30.0"
+>>>>>>> 09-04-cleaning_up
       },
       "system": "x86_64-linux",
       "group": "toplevel",

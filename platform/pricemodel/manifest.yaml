@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,10 +8,18 @@ spec:
   selector:
     matchLabels:
       app: price-model
+=======
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: price-model
+spec:
+>>>>>>> 09-04-cleaning_up
   template:
     metadata:
       labels:
         app: price-model
+<<<<<<< HEAD
     spec:
       containers:
         - name: price-model
@@ -29,6 +38,17 @@ spec:
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 30
+=======
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+    spec:
+      containers:
+        - name: price-model
+          image: pocketsizefund/price-model:20240915.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+>>>>>>> 09-04-cleaning_up
           env:
             - name: DARQUBE_API_KEY
               valueFrom:
@@ -55,6 +75,7 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: EDGAR_USER_AGENT
+<<<<<<< HEAD
           resources:
             requests:
               cpu: 100m
@@ -62,6 +83,18 @@ spec:
             limits:
               cpu: 500m
               memory: 2048Mi
+=======
+            - name: FUND
+              value: "paper"
+            - name: K_SINK
+              value: http://broker-ingress.knative-eventing.svc.cluster.local/default/default
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 2048Mi
+>>>>>>> 09-04-cleaning_up
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
@@ -76,4 +109,8 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
+<<<<<<< HEAD
       name: price-model-service
+=======
+      name: price-model
+>>>>>>> 09-04-cleaning_up

@@ -1,7 +1,11 @@
 [project]
 name = "positionmanager"
 version = "20240903.2"
+<<<<<<< HEAD
 description = "Add your description here"
+=======
+description = "Service to handle trading based off of upstream model predictions"
+>>>>>>> 09-04-cleaning_up
 requires-python = ">=3.9, <3.11"
 dependencies = [
     "fastapi>=0.112.2",

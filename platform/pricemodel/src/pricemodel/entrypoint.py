@@ -2,20 +2,29 @@
 
 import datetime
 import os
+from typing import Dict, List
 
 from fastapi import FastAPI, status
+<<<<<<< HEAD
 from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
+=======
+>>>>>>> 09-04-cleaning_up
 from loguru import logger
 from pocketsizefund import config, data, model
-from pocketsizefund.trade import Client
+from pricemodel.trade import Client
 from pydantic import BaseModel
+<<<<<<< HEAD
+=======
+from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
+
+FUND = os.getenv("FUND")
+>>>>>>> 09-04-cleaning_up
 
 trade_client = Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),
     alpaca_api_key=os.getenv("ALPACA_API_KEY"),
     alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-    is_paper=True,
+    is_paper=FUND == "paper",
 )
 
 data_client = data.Client(
@@ -50,9 +59,15 @@ def health() -> CloudEvent:
         source="psf.platform.predictionmodel",
         data=None,
     )
+<<<<<<< HEAD
 
 Ticker = dict[str, list[float]]
 
+=======
+
+Ticker = Dict[str, List[float]]
+
+>>>>>>> 09-04-cleaning_up
 class Predictions(BaseModel):
     tickers: Ticker
 
@@ -67,6 +82,7 @@ async def invocations(event: CloudEvent) -> CloudEvent:
             data={"error": "model not found, make sure MODEL_FILE_NAME is set"}
         )
 
+    # TODO split this out?
     available_tickers = trade_client.get_available_tickers()
 
     end_at = datetime.datetime.now(tz=config.TIMEZONE)
@@ -80,9 +96,15 @@ async def invocations(event: CloudEvent) -> CloudEvent:
 
     equity_bars_raw_data_grouped_by_ticker = equity_bars_raw_data.groupby("ticker")
 
+<<<<<<< HEAD
     predictions: dict[str, list[float]] = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
         ticker_predictions: list[float] = price_model.get_predictions(
+=======
+    predictions: Dict[str, List[float]] = {}
+    for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
+        ticker_predictions: List[float] = price_model.get_predictions(
+>>>>>>> 09-04-cleaning_up
             data=ticker_bars_raw_data,
         )
 
