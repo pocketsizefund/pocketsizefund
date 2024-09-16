@@ -1,7 +1,7 @@
 use actix_web::post;
 use anyhow::Result;
 use apca::api::v2::account;
-use apca::api::v2::order::{Amount, Create, CreateReq, CreateReqInit, Order, Side, Type};
+use apca::api::v2::order::{Amount, Create, CreateReqInit, Order, Side, Type};
 use num_decimal::Num;
 
 use apca::api::v2::orders::List;
