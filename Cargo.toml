@@ -5,7 +5,10 @@ members = [
     "libraries/rust",
     "platform/broker",
     "platform/chronos",
-    "platform/discord",
+    "platform/discordbot",
     "platform/datacollector", 
     "platform/dataprovider",
+    "infrastructure",
+    "scrum",
+    "platform/trader",
 ]

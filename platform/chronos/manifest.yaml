@@ -1,45 +1,40 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: chronos-service
-  namespace: default
+  name: chronos
 spec:
   template:
-    metadata:
-      annotations:
-        autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-        - name: chronos
-          image: pocketsizefund/chronos:202409.4.1
-          args:
-            - --period=1
-          env:
-            - name: APCA_API_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: APCA_API_KEY_ID
-            - name: APCA_API_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: APCA_API_SECRET_KEY
-            - name: APCA_API_BASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: APCA_API_BASE_URL
+      - image: pocketsizefund/chronos:202409.4.1
+        env:
+        - name: APCA_API_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: APCA_API_KEY_ID
+        - name: APCA_API_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: APCA_API_SECRET_KEY
+        - name: APCA_API_BASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: APCA_API_BASE_URL
 ---
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
-  name: chronos-pingsource
+  name: chronos
 spec:
-  schedule: "*/1 * * * *"
+  schedule: "15 9 * * *"
+  timezone: "America/New_York"
   data: '{}'
   sink:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: chronos-service
+      name: chronos
+

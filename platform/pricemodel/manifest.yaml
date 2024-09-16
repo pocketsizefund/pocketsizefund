@@ -7,25 +7,15 @@ spec:
     metadata:
       labels:
         app: price-model
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
         - name: price-model
-          image: pocketsizefund/price-model:20240913.0
+          image: pocketsizefund/price-model:20240915.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 5
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 15
-            periodSeconds: 30
           env:
             - name: DARQUBE_API_KEY
               valueFrom:
@@ -52,15 +42,16 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: EDGAR_USER_AGENT
-            - name: FORCE_REVISION
-              value: "true"
-          resources:
-            requests:
-              cpu: 100m
-              memory: 512Mi
-            limits:
-              cpu: 500m
-              memory: 2048Mi
+            - name: FUND
+              value: "paper"
+            - name: K_SINK
+              value: http://broker-ingress.knative-eventing.svc.cluster.local/default/default
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 2048Mi
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
@@ -75,4 +66,4 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: price-model-service
+      name: price-model

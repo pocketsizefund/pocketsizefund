@@ -5,6 +5,7 @@ services:
       tags:
         - "pocketsizefund/discord:latest"
     ports:
-      - 8080:8080
+      - 8090:8090
     environment:
-      - DISCORD_TOKEN
+      - DISCORD_WEBHOOK_URL
+      - PORT=8090

@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+
+kn service create discordbot \
+  --image pocketsizefund/discordbot:202409.4.0 \
+  --port 8080 \
+  --scale-min 1 \
+  --env DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL \
+  --force
+
+
+kn source ping create morning-vibe-check \
+  --schedule "15 9 * * *" \
+  --data "no matter what is happening you are awesome" \
+  --sink ksvc:discordbot
+
+
+kn source ping create afternoon-vibe-check \
+  --schedule "30 16 * * *" \
+  --data "you guys killed it today!" \
+  --sink ksvc:discordbot
+
+kn trigger create testing-shit \
+  --broker default \
+  --filter type=market.status.check.closed \
+  --sink ksvc:discordbot

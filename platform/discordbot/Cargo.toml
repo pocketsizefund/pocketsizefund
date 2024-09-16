@@ -1,6 +1,6 @@
 [package]
-name = "discord"
-version = "202409.4.0"
+name = "discordbot"
+version = "202409.15.0"
 edition = "2021"
 license = "MIT"
 

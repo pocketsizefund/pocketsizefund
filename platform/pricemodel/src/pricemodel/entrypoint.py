@@ -7,16 +7,17 @@ from typing import Dict, List
 from fastapi import FastAPI, status
 from loguru import logger
 from pocketsizefund import config, data, model
-from pocketsizefund.trade import Client
+from pricemodel.trade import Client
 from pydantic import BaseModel
 from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
+
+FUND = os.getenv("FUND")
 
 trade_client = Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),
     alpaca_api_key=os.getenv("ALPACA_API_KEY"),
     alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-    is_paper=True,
+    is_paper=FUND == "paper",
 )
 
 data_client = data.Client(

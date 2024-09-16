@@ -1,6 +1,5 @@
 use std::net::TcpListener;
-
-use discordbot::run;
+use trader::run;
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
