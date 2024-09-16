@@ -5,5 +5,5 @@
 # mise tools = ["pipx:vulture"]
 
 cd $root
-
-vulture --min-confidence 80 --exclude "*/target/*" .
+uv tool install vulture
+vulture --min-confidence 80 --exclude "*/target/*,*/.venv/*" .

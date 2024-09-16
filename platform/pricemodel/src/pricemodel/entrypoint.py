@@ -8,6 +8,23 @@ from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
 from loguru import logger
 from pocketsizefund import config, data, model
 from pydantic import BaseModel
+from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+
+ENVIRONMENT = os.getenv("ENVIRONMENT")
+DATA_PROVIDER_URL = f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080"
+
+
+sentry_loguru = LoguruIntegration(
+    level=LoggingLevels.INFO.value,
+    event_level=LoggingLevels.ERROR.value,
+)
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    integrations=[sentry_loguru],
+    traces_sample_rate=1.0,
+)
+
 
 from pricemodel.trade import Client
 
@@ -20,12 +37,6 @@ trade_client = Client(
     is_paper=FUND == "paper",
 )
 
-data_client = data.Client(
-    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-    edgar_user_agent=os.getenv("EDGAR_USER_AGENT"),
-    debug=False,
-)
 
 price_model = model.PriceModel()
 
@@ -76,13 +87,37 @@ async def invocations(event: CloudEvent) -> CloudEvent:
     end_at = datetime.datetime.now(tz=config.TIMEZONE)
     start_at = end_at - datetime.timedelta(days=20)
 
-    equity_bars_raw_data = data_client.get_range_equities_bars(
-        tickers=available_tickers,
-        start_at=start_at,
-        end_at=end_at,
+    response = requests.post(
+        url=DATA_PROVIDER_URL + "/",
+        timeout=30,
+        json={
+            "data": {
+                "start_at": start_at,
+                "end_at": end_at,
+            },
+        },
     )
 
-    equity_bars_raw_data_grouped_by_ticker = equity_bars_raw_data.groupby("ticker")
+    response = requests.post(DATA_PROVIDER_URL)
+
+    if response.status_code != status.HTTP_200_OK:
+        return Response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content="error getting data",
+            media_type="text/plain",
+        )
+
+    json_data = response.json()
+
+    equity_bars_raw_data = pd.DataFrame(json_data)
+
+    filtered_equity_bars_raw_data = equity_bars_raw_data["ticker"].isin(
+        available_tickers
+    )
+
+    equity_bars_raw_data_grouped_by_ticker = filtered_equity_bars_raw_data.groupby(
+        "ticker"
+    )
 
     predictions: dict[str, list[float]] = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:

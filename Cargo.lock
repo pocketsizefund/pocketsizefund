@@ -1452,18 +1452,21 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 
 [[package]]
 name = "datacollector"
-version = "0.1.0"
+version = "202409.11.0"
 dependencies = [
  "actix-web",
+ "async-trait",
+ "cargo-machete",
  "chrono",
  "pocketsizefund 0.1.2",
 ]
 
 [[package]]
 name = "dataprovider"
-version = "0.1.0"
+version = "202409.11.0"
 dependencies = [
  "actix-web",
+ "async-trait",
  "chrono",
  "pocketsizefund 0.1.2",
 ]
@@ -3123,6 +3126,7 @@ dependencies = [
  "flate2",
  "fmt",
  "futures",
+ "mockall",
  "mockito",
  "regex",
  "reqwest 0.12.7",

@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pydantic
+sentry-sdk[fastapi]
+pocketsizefund[ml-cpu]
+pocketsizefund[trade]
+pandas

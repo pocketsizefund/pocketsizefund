@@ -15,6 +15,8 @@ use serde_json;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
+use mockall::automock;
+use async_trait::async_trait;
 
 #[derive(Deserialize)]
 struct BarsResponse {
@@ -23,7 +25,6 @@ struct BarsResponse {
     next_token: Option<String>,
 }
 
-// #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Bar {
     pub ticker: Option<String>,
@@ -60,6 +61,23 @@ impl Hash for Bar {
     }
 }
 
+#[automock]
+#[async_trait]
+pub trait Interface {
+    async fn fetch_equities_bars(
+        &self,
+        tickers: Vec<String>,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
+    async fn write_equities_bars(
+        &self,
+        equities_bars: Vec<Bar>,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
+}
+
+#[derive(Clone)]
 pub struct Client {
     alpaca_base_url: String,
     alpaca_api_key_id: String,
@@ -68,8 +86,6 @@ pub struct Client {
     s3_client: S3Client,
     s3_data_bucket_name: String,
 }
-
-const EQUITY_BARS_PATH: &str = "equity/bars";
 
 impl Client {
     pub fn new(
@@ -98,7 +114,72 @@ impl Client {
         }
     }
 
-    pub async fn fetch_equities_bars(
+    fn build_equities_bars_url(
+        &self,
+        ticker: &String,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+        page_token: Option<&str>,
+    ) -> Result<Url, Box<dyn std::error::Error>> {
+        let path = format!("v2/stocks/{}/bars", ticker);
+
+        let start_str = start.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+        let end_str = end.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
+        let mut alpaca_url = Url::parse(&self.alpaca_base_url)?.join(&path)?;
+
+        {
+            let mut query_pairs = alpaca_url.query_pairs_mut();
+
+            query_pairs
+                .append_pair("timeframe", "1D")
+                .append_pair("start", &start_str)
+                .append_pair("end", &end_str)
+                .append_pair("limit", "10000")
+                .append_pair("adjustment", "all")
+                .append_pair("feed", "sip")
+                .append_pair("sort", "asc");
+
+            if let Some(token) = page_token {
+                query_pairs.append_pair("page_token", &token);
+            }
+        }
+
+        Ok(alpaca_url)
+    }
+
+    async fn _load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
+        let key = format!("{}/all.gz", EQUITY_BARS_PATH);
+
+        let output = self
+            .s3_client
+            .get_object()
+            .bucket(&self.s3_data_bucket_name)
+            .key(key)
+            .send()
+            .await?;
+
+        let compressed_data = output.body.collect().await?;
+
+        let compressed_bytes = compressed_data.into_bytes();
+
+        let mut decoder = GzDecoder::new(&compressed_bytes[..]);
+
+        let mut decompressed_data = Vec::new();
+
+        decoder.read_to_end(&mut decompressed_data)?;
+
+        let equities_bars = serde_json::from_slice(&decompressed_data)?;
+
+        Ok(equities_bars)
+    }
+}
+
+const EQUITY_BARS_PATH: &str = "equity/bars";
+
+#[async_trait]
+impl Interface for Client {
+    async fn fetch_equities_bars(
         &self,
         tickers: Vec<String>,
         start: DateTime<Utc>,
@@ -160,48 +241,14 @@ impl Client {
         Ok(equities_bars)
     }
 
-    fn build_equities_bars_url(
-        &self,
-        ticker: &String,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
-        page_token: Option<&str>,
-    ) -> Result<Url, Box<dyn std::error::Error>> {
-        let path = format!("v2/stocks/{}/bars", ticker);
-
-        let start_str = start.format("%Y-%m-%dT%H:%M:%SZ").to_string();
-        let end_str = end.format("%Y-%m-%dT%H:%M:%SZ").to_string();
-
-        let mut alpaca_url = Url::parse(&self.alpaca_base_url)?.join(&path)?;
-
-        {
-            let mut query_pairs = alpaca_url.query_pairs_mut();
-
-            query_pairs
-                .append_pair("timeframe", "1D")
-                .append_pair("start", &start_str)
-                .append_pair("end", &end_str)
-                .append_pair("limit", "10000")
-                .append_pair("adjustment", "all")
-                .append_pair("feed", "sip")
-                .append_pair("sort", "asc");
-
-            if let Some(token) = page_token {
-                query_pairs.append_pair("page_token", &token);
-            }
-        }
-
-        Ok(alpaca_url)
-    }
-
-    pub async fn write_equities_bars(
+    async fn write_equities_bars(
         &self,
         equities_bars: Vec<Bar>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut combined_equities_bars: HashSet<Bar> = HashSet::new();
-
-        let original_equities_bars = self.load_all_equities_bars().await?;
-
+        
+        let original_equities_bars = self._load_equities_bars().await?;
+    
         combined_equities_bars.extend(original_equities_bars.into_iter());
 
         combined_equities_bars.extend(equities_bars.into_iter());
@@ -234,36 +281,8 @@ impl Client {
         }
     }
 
-    pub async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
-        self.load_all_equities_bars().await
-    }
-
-    async fn load_all_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
-        let mut equities_bars: Vec<Bar> = Vec::new();
-
-        let key = format!("{}/all.gz", EQUITY_BARS_PATH);
-
-        let output = self
-            .s3_client
-            .get_object()
-            .bucket(&self.s3_data_bucket_name)
-            .key(key)
-            .send()
-            .await?;
-
-        let compressed_data = output.body.collect().await?;
-
-        let compressed_bytes = compressed_data.into_bytes();
-
-        let mut decoder = GzDecoder::new(&compressed_bytes[..]);
-
-        let mut decompressed_data = Vec::new();
-
-        decoder.read_to_end(&mut decompressed_data)?;
-
-        equities_bars = serde_json::from_slice(&decompressed_data)?;
-
-        Ok(equities_bars)
+    async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
+        self._load_equities_bars().await
     }
 }
 

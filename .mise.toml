@@ -1,0 +1,4 @@
+[tools]
+python = "3.10"
+poetry = "latest"
+uv = "latest"

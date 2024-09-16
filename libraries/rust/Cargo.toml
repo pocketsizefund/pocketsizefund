@@ -1,6 +1,6 @@
 [package]
 name = "pocketsizefund"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license = "MIT"
 description = "Open source quantitative trading"
@@ -62,7 +62,7 @@ cloudevents-sdk = { version = "0.7.0", features = [
 ], optional = true }
 actix-web = { version = "4.3.1", features = [], optional = true }
 apca = "0.29.0"
-
+mockall = "0.11"
 
 [dev-dependencies]
 color-eyre = "0.6.3"
