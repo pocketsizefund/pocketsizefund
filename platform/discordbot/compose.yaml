@@ -3,9 +3,9 @@ services:
     build:
       context: .
       tags:
-        - "pocketsizefund/discord:latest"
+        - "pocketsizefund/discordbot:latest"
     ports:
-      - 8090:8090
+      - 8080:8080
     environment:
       - DISCORD_WEBHOOK_URL
-      - PORT=8090
+      - PORT=8080

@@ -34,17 +34,3 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: EDGAR_USER_AGENT
----
-apiVersion: sources.knative.dev/v1
-kind: PingSource
-metadata:
-  name: position-manager-trigger
-spec:
-  schedule: "42 12 * * *"
-  timezone: "America/New_York"
-  data: '{"message": "Run position manager"}'
-  sink:
-    ref:
-      apiVersion: serving.knative.dev/v1
-      kind: Service
-      name: position-manager-service
