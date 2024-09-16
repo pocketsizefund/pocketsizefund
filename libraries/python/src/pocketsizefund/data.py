@@ -10,8 +10,7 @@ import requests
 from alpaca.data import historical, timeframe
 from alpaca.data import requests as alpaca_data_requests
 from loguru import logger
-
-from pocketsizefund import config
+from datetime import timezone
 
 ALPACA_TICKER_CHUNK_SIZE = 50
 ALPACA_DATETIME_CHUNK_SIZE_IN_DAYS = 200
@@ -78,7 +77,7 @@ class Client:
             pd.DataFrame: Bars.
         """
         if self.debug:
-            self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
+            self.runtime_start = datetime.datetime.now(tz=timezone.utc)
             logger.debug("beginning get range equities data")
 
         start_at = start_at.replace(hour=0, minute=0, second=0)
@@ -121,7 +120,7 @@ class Client:
                                 row["t"],
                                 "%Y-%m-%dT%H:%M:%SZ",
                             ).replace(
-                                tzinfo=config.TIMEZONE,
+                                tzinfo=timezone.utc,
                                 hour=0,
                                 minute=0,
                                 second=0,
@@ -144,7 +143,7 @@ class Client:
         )
 
         if self.debug:
-            runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
+            runtime_stop = datetime.datetime.now(tz=timezone.utc)
 
             runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
@@ -170,7 +169,7 @@ class Client:
             list[dict[str, any]]: List of filings.
         """
         if self.debug:
-            self.runtime_start = datetime.datetime.now(tz=config.TIMEZONE)
+            self.runtime_start = datetime.datetime.now(tz=timezone.utc)
             logger.debug("beginning get range corporate filings data")
 
         response = self.http_client.get(
@@ -251,7 +250,7 @@ class Client:
             )
 
         if self.debug:
-            runtime_stop = datetime.datetime.now(tz=config.TIMEZONE)
+            runtime_stop = datetime.datetime.now(tz=timezone.utc)
 
             runtime_in_minutes = (runtime_stop - self.runtime_start).total_seconds() / 60
 
@@ -272,9 +271,9 @@ class Client:
         indices = [index for index, form in enumerate(forms) if form == target_form]
 
         if start_at.tzinfo is None:
-            start_at = start_at.replace(tzinfo=config.TIMEZONE)
+            start_at = start_at.replace(tzinfo=timezone.utc)
         if end_at.tzinfo is None:
-            end_at = end_at.replace(tzinfo=config.TIMEZONE)
+            end_at = end_at.replace(tzinfo=timezone.utc)
 
         forms_information = []
         for index in indices:
