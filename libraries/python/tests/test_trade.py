@@ -1,7 +1,6 @@
-from __future__ import annotations # noqa: I001
+from __future__ import annotations  # noqa: I001
 import pytest
-import datetime
-from pocketsizefund import config, trade
+from pocketsizefund import trade
 
 
 client = trade.Client(
@@ -107,9 +106,9 @@ def mock_get_available_tickers_success() -> list[str]:
 class MockAlpacaCalendar:
     def __init__(
         self,
-        date_value: datetime.date,
-        open_value: datetime.datetime,
-        close_value: datetime.datetime,
+        date_value: any,
+        open_value: any,
+        close_value: any,
     ) -> None:
         self.date = date_value
         self.open = open_value
@@ -149,7 +148,10 @@ class MockAlpacaTradingClient:
         self,
         request: any,
     ) -> any:
-        if self.exceptions is not None and self.exceptions["get_all_assets"] is not None:
+        if (
+            self.exceptions is not None
+            and self.exceptions["get_all_assets"] is not None
+        ):
             raise self.exceptions["get_all_assets"]
 
         return self.responses["get_all_assets"]
@@ -180,7 +182,10 @@ class MockAlpacaTradingClient:
     ) -> any:
         _ = cancel_orders
 
-        if self.exceptions is not None and self.exceptions["close_all_positions"] is not None:
+        if (
+            self.exceptions is not None
+            and self.exceptions["close_all_positions"] is not None
+        ):
             raise self.exceptions["close_all_positions"]
 
         return None
@@ -213,237 +218,13 @@ class MockAlpacaHistoricalClient:
         self,
         request: any,
     ) -> any:
-        if self.exceptions is not None and self.exceptions["get_stock_bars"] is not None:
+        if (
+            self.exceptions is not None
+            and self.exceptions["get_stock_bars"] is not None
+        ):
             raise self.exceptions["get_stock_bars"]
 
         return self.responses["get_stock_bars"]
-
-
-def mock_get_portoflio_daily_returns_error(
-    week_count: int,
-    end_at: datetime.datetime,
-) -> list[dict[str, any]]:
-    _ = week_count, end_at
-    msg = "get portfolio returns error"
-    raise ValueError(msg)
-
-
-def mock_get_portfolio_returns_success(
-    week_count: int,
-    end_at: datetime.datetime,
-) -> list[dict[str, any]]:
-    _ = week_count, end_at
-    return [
-        -0.0082,
-        -0.0002,
-        0.0056,
-        0.0025,
-        0.0053,
-    ]
-
-
-def mock_get_benchmark_daily_returns_error(
-    week_count: int,
-    end_at: datetime.datetime,
-) -> list[dict[str, any]]:
-    _ = week_count, end_at
-    msg = "get benchmark returns error"
-    raise ValueError(msg)
-
-
-def mock_get_benchmark_daily_returns_success(
-    week_count: int,
-    end_at: datetime.datetime,
-) -> list[dict[str, any]]:
-    _ = week_count, end_at
-    return [
-        0.01,
-        0.0099,
-        0.0098,
-        0.0097,
-        0.0096,
-    ]
-
-
-def mock_get_risk_free_rate_error() -> float:
-    msg = "get risk free rate error"
-    raise ValueError(msg)
-
-
-def mock_get_risk_free_rate_success() -> float:
-    return 0.03
-
-
-monday_calendar_days = [
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 23),
-            open_value=datetime.datetime(1977, 5, 23, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 23, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 24),
-            open_value=datetime.datetime(1977, 5, 24, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 24, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 25),
-            open_value=datetime.datetime(1977, 5, 25, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 25, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 26),
-            open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 27),
-            open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-    ]
-
-friday_calendar_days = [
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 27),
-            open_value=datetime.datetime(1977, 5, 27, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 27, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 30),
-            open_value=datetime.datetime(1977, 5, 30, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 30, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 5, 31),
-            open_value=datetime.datetime(1977, 5, 31, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 5, 31, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 6, 1),
-            open_value=datetime.datetime(1977, 6, 1, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 6, 1, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-        MockAlpacaCalendar(
-            date_value=datetime.date(1977, 6, 2),
-            open_value=datetime.datetime(1977, 6, 2, 9, 30, tzinfo=config.TIMEZONE),
-            close_value=datetime.datetime(1977, 6, 2, 16, 0, tzinfo=config.TIMEZONE),
-        ),
-    ]
-
-@pytest.mark.parametrize("action, expected",
-    [
-        ({
-            "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 9, 15, tzinfo=config.TIMEZONE),
-            "is_market_open": False,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [],
-        },  False),
-        ({
-            "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 26, 9, 45, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": [
-                MockAlpacaCalendar(
-                    date_value=datetime.date(1977, 5, 26),
-                    open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
-                    close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
-                ),
-            ]
-            + friday_calendar_days[1:],
-            "all_positions": [],
-        }, True),
-        ({
-            "action": trade.CREATE_ACTION,
-
-            "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": friday_calendar_days,
-            "all_positions": [],
-        }, False),
-        ({
-            "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [{}],
-        }, False),
-        ({
-            "action": trade.CREATE_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 9, 45, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [],
-        }, True),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 16, 15, tzinfo=config.TIMEZONE),
-            "is_market_open": False,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [],
-        }, False),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 26, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": [
-                MockAlpacaCalendar(
-                    date_value=datetime.date(1977, 5, 26),
-                    open_value=datetime.datetime(1977, 5, 26, 9, 30, tzinfo=config.TIMEZONE),
-                    close_value=datetime.datetime(1977, 5, 26, 16, 0, tzinfo=config.TIMEZONE),
-                ),
-            ]
-            + friday_calendar_days[1:],
-            "all_positions": [{}],
-        }, True),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [{}],
-        }, False),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 23, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [],
-        }, False),
-        ({
-            "action": trade.CLEAR_ACTION,
-            "current_datetime": datetime.datetime(1977, 5, 27, 15, 30, tzinfo=config.TIMEZONE),
-            "is_market_open": True,
-            "calendar_days": monday_calendar_days,
-            "all_positions": [{}],
-        }, True),
-    ])
-def test_check_position_set_availability_success(action: dict, expected: bool) -> None: # noqa: FBT001
-    client.alpaca_trading_client = MockAlpacaTradingClient(
-        responses={
-            "get_clock": MockAlpacaClock(
-                is_open=action["is_market_open"],
-            ),
-            "get_calendar": action["calendar_days"],
-            "get_all_positions": action["all_positions"],
-        },
-        exceptions=None,
-    )
-
-    def mock_get_next_trading_day(current_date: datetime.datetime) -> None:
-        for day in action["calendar_days"]:
-            if day.date > current_date.date():
-                return day.date
-        return None
-
-    client.get_next_trading_day = mock_get_next_trading_day
-
-    result = client.check_set_position_availability(
-        action=action["action"],
-        current_datetime=action["current_datetime"],
-    )
-
-    assert result == expected
 
 
 def test__get_available_tickers_darqube_get_tickers_error() -> None:

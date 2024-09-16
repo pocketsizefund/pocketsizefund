@@ -9,15 +9,17 @@ from loguru import logger
 from pocketsizefund import trade
 
 POSITIONS_COUNT = 10
-
-PRICE_MODEL_URL = "http://price-model.default.svc.cluster.local:8080"
+ENVIRONMENT = os.getenv("ENVIRONMENT")
+PRICE_MODEL_URL = f"http://price-model.{ENVIRONMENT}.svc.cluster.local:8080"
 
 app = FastAPI()
+
 
 @app.get("/health", status_code=status.HTTP_200_OK)
 def health() -> None:
     """Health check endpoint that the cluster pings to ensure the service is up."""
     return
+
 
 @app.post("/")
 def predictions() -> None:

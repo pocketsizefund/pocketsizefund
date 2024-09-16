@@ -1,4 +1,4 @@
-from __future__ import annotations # noqa: I001
+from __future__ import annotations  # noqa: I001
 from typing import TYPE_CHECKING
 import datetime
 

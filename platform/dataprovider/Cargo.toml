@@ -1,11 +1,17 @@
 [package]
 name = "dataprovider"
-version = "0.1.0"
+version = "202409.11.0"
 edition = "2021"
 license = "MIT"
 
 [dependencies]
-actix-web = "4"
+actix-web = "4.9.0"
 chrono = { version = "0.4.38", features = ["serde"] }
-# pocketsizefund = { version = "0.1.0", features = ["data"] }
-pocketsizefund = { git = "https://github.com/pocketsizefund/pocketsizefund.git", branch = "master", features = ["data"] }
+cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-http", "actix-web", "http-binding", "http-body", "reqwest"] }
+serde_json = { version = "1.0.120" }
+mockall = "0.11"
+async-trait = "0.1.82"
+uuid = { version = "1.8.0", features = ["v4"] }
+tracing = { version = "0.1.40", features = ["async-await"] }
+serde = { version = "1.0.204", features = ["derive"] }
+pocketsizefund = { version = "0.1.6", features = ["data"] }

@@ -33,7 +33,8 @@ class Client:
             alpaca_api_key (str): The API key for Alpaca.
             alpaca_api_secret (str): The API secret key for Alpaca.
             alpha_vantage_api_key (str): The API key for Alpha Vantage.
-            is_paper (bool, optional): Indicates whether the client is in paper trading mode.
+            is_paper (bool, optional): Indicates whether the client is in paper
+                trading mode.
                 Defaults to True.
 
         Returns:
@@ -188,7 +189,9 @@ class Client:
 
         darqube_response_json = darqube_response.json()
 
-        constituents = [darqube_response_json[key]["Code"] for key in darqube_response_json]
+        constituents = [
+            darqube_response_json[key]["Code"] for key in darqube_response_json
+        ]
 
         request = alpaca_trading_requests.GetAssetsRequest(
             status=enums.AssetStatus.ACTIVE,

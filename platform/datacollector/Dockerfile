@@ -1,25 +1,34 @@
-FROM rust:1.79.0 as build
+ARG RUST_VERSION=1.80.1
+ARG APP_NAME=datacollector
 
-RUN USER=root cargo new --bin datacollector
+FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
+ARG APP_NAME
+WORKDIR /app
 
-WORKDIR /datacollector
+FROM chef AS planner
+COPY . .
 
-COPY ./Cargo.lock ./Cargo.lock
+RUN cargo chef prepare  --recipe-path recipe.json
 
-COPY ./Cargo.toml ./Cargo.toml
+FROM chef AS builder
+COPY --from=planner /app/recipe.json recipe.json
 
-RUN cargo build --release
+RUN cargo chef cook --release --recipe-path recipe.json
+COPY . .
 
-RUN rm src/*.rs
+ENV SQLX_OFFLINE=true
+ENV APP_NAME=${APP_NAME}
 
-COPY ./src ./src
+RUN cargo build --release --bin datacollector
 
-RUN rm ./target/release/deps/datacollector*
+FROM debian:bookworm-slim AS final
+WORKDIR /app
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN cargo build --release
+COPY --from=builder /app/target/release/datacollector datacollector
 
-FROM rust:1.79.0
-
-COPY --from=build /datacollector/target/release/datacollector .
-
-CMD ["./datacollector"]
+ENTRYPOINT ["./datacollector"]
