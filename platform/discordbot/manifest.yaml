@@ -23,7 +23,7 @@ metadata:
 spec:
   schedule: "15 9 * * *"
   timezone: "America/New_York"
-  data: 'today is going to a an awesome day'
+  data: 'today is going to an awesome day'
   sink:
     ref:
       apiVersion: serving.knative.dev/v1

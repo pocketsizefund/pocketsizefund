@@ -1,6 +1,0 @@
-#!/usr/bin/env sh
-
-kn service delete discordbot-service
-kn source ping delete morning-vibe-check
-kn source ping delete afternoon-vibe-check
-kn source ping delete testing-shit
