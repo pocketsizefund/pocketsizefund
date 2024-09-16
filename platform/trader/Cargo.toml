@@ -2,6 +2,7 @@
 name = "trader"
 version = "202409.15.1"
 edition = "2021"
+license = "MIT"
 
 [lib]
 name = "trader"

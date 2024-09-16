@@ -8,7 +8,5 @@ members = [
     "platform/discordbot",
     "platform/datacollector", 
     "platform/dataprovider",
-    "infrastructure",
-    "scrum",
     "platform/trader",
 ]
