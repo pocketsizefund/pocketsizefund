@@ -142,8 +142,6 @@ impl Market {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_log::test;
-    use url::Url;
     use cloudevents::AttributesReader;
     use test_log::test;
     use url::Url;
