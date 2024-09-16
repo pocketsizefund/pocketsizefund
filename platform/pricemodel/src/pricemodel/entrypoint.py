@@ -2,14 +2,14 @@
 
 import datetime
 import os
-from typing import Dict, List
 
 from fastapi import FastAPI, status
+from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
 from loguru import logger
 from pocketsizefund import config, data, model
-from pricemodel.trade import Client
 from pydantic import BaseModel
-from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
+
+from pricemodel.trade import Client
 
 FUND = os.getenv("FUND")
 
@@ -53,7 +53,7 @@ def health() -> CloudEvent:
         data=None,
     )
 
-Ticker = Dict[str, List[float]]
+Ticker = dict[str, list[float]]
 
 class Predictions(BaseModel):
     tickers: Ticker
@@ -69,7 +69,6 @@ async def invocations(event: CloudEvent) -> CloudEvent:
             data={"error": "model not found, make sure MODEL_FILE_NAME is set"}
         )
 
-    # TODO split this out?
     available_tickers = trade_client.get_available_tickers()
 
     end_at = datetime.datetime.now(tz=config.TIMEZONE)
@@ -83,9 +82,9 @@ async def invocations(event: CloudEvent) -> CloudEvent:
 
     equity_bars_raw_data_grouped_by_ticker = equity_bars_raw_data.groupby("ticker")
 
-    predictions: Dict[str, List[float]] = {}
+    predictions: dict[str, list[float]] = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:
-        ticker_predictions: List[float] = price_model.get_predictions(
+        ticker_predictions: list[float] = price_model.get_predictions(
             data=ticker_bars_raw_data,
         )
 
