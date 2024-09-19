@@ -2,11 +2,11 @@
 resolver = "2"
 
 members = [
-    "libraries/rust",
+    # "libraries/rust",
     "platform/broker",
     "platform/chronos",
     "platform/discordbot",
     "platform/datacollector", 
     "platform/dataprovider",
-    "platform/trader",
+    "platform/trader", "platform/pricemodel",
 ]

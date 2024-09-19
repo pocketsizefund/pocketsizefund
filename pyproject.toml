@@ -35,6 +35,9 @@ dev-dependencies = [
 [tool.uv.sources]
 pocketsizefund = { workspace = true }
 
+[tool.uv.workspace]
+members = ["python/pipelines"]
+
 [uv.tool.vulture]
 make_whitelist = true
 min_confidence = 80

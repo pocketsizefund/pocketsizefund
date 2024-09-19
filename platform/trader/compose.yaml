@@ -49,5 +49,3 @@ services:
       - APCA_API_KEY_ID
       - APCA_API_SECRET_KEY
       - ALPACA_API_BASE_URL
-
-

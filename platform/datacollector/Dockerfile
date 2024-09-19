@@ -31,4 +31,6 @@ RUN apt-get update -y \
 
 COPY --from=builder /app/target/release/datacollector datacollector
 
+ENV RUST_BACKTRACE="full"
+
 ENTRYPOINT ["./datacollector"]
