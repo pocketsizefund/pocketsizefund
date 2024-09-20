@@ -8,6 +8,8 @@ use tracing;
 use chrono::{DateTime, Utc};
 use mockall::mock;
 use std::sync::Arc;
+use actix_web::middleware::Logger;
+use log::info;
 
 mod tickers;
 
@@ -18,13 +20,19 @@ async fn health_handler() -> HttpResponse {
     HttpResponse::Ok().body("OK")
 }
 
-#[post("/")]
+#[post("/data")]
 async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Event {
+    info!("data handler called");
+
     let old_bars = data_client.load_equities_bars().await.unwrap();
+
+    info!("old bars count: {}", old_bars.len());
 
     let most_recent_datetime = old_bars.iter().max_by_key(|bar| bar.timestamp).unwrap();
 
     let current_datetime = chrono::Utc::now();
+
+    info!("most recent datetime: {}, current datetime: {}", most_recent_datetime.timestamp, current_datetime);
 
     let dow_jones_tickers = get_dow_jones_tickers();
 
@@ -36,6 +44,8 @@ async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Event {
         )
         .await
         .unwrap();
+
+    info!("new bars count: {}", new_bars.len());
 
     data_client.write_equities_bars(new_bars).await.unwrap();
 
@@ -59,7 +69,12 @@ async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Event {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let server_port_environment_variable = env::var("SERVER_PORT").unwrap();
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
+
+    info!("data collector started");
+
+    let server_port_environment_variable = env::var("SERVER_PORT")
+        .unwrap_or("8080".to_string());
 
     let server_port = server_port_environment_variable.parse::<u16>().unwrap();
 
@@ -74,6 +89,7 @@ async fn main() -> std::io::Result<()> {
     let data_client = web::Data::new(data_client);
 
     HttpServer::new(move || App::new()
+        .wrap(Logger::default())
         .app_data(data_client.clone())
         .service(health_handler)
         .service(data_handler))
@@ -173,7 +189,7 @@ mod tests {
             .await;
 
         let req = test::TestRequest::post()
-            .uri("/")
+            .uri("/data")
             .insert_header(ContentType::plaintext())
             .to_request();
 

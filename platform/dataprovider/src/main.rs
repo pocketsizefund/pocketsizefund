@@ -9,6 +9,7 @@ use uuid::Uuid;
 use tracing;
 use serde_json::json;
 use serde::Deserialize;
+use actix_web::middleware::Logger;
 
 #[post("/health")]
 async fn health_handler() -> HttpResponse {
@@ -65,13 +66,16 @@ async fn data_handler(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let server_port_environment_variable = env::var("SERVER_PORT").unwrap();
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
+
+    let server_port_environment_variable = env::var("SERVER_PORT")
+        .unwrap_or("8080".to_string());
 
     let server_port = server_port_environment_variable.parse::<u16>().unwrap();
 
     let data_client = DataClient::new(
-        env::var("ALPACA_API_KEY_ID").unwrap(),
-        env::var("ALPACA_API_SECRET_KEY").unwrap(),
+        env::var("ALPACA_API_KEY").unwrap(),
+        env::var("ALPACA_API_SECRET").unwrap(),
         env::var("AWS_ACCESS_KEY_ID").unwrap(),
         env::var("AWS_SECRET_ACCESS_KEY").unwrap(),
         env::var("S3_DATA_BUCKET_NAME").unwrap(),
@@ -80,6 +84,7 @@ async fn main() -> std::io::Result<()> {
     let data_client = web::Data::new(data_client);
 
     HttpServer::new(move || App::new()
+        .wrap(Logger::default())
         .app_data(data_client.clone())
         .service(health_handler)
         .service(data_handler))
