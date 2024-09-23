@@ -1,7 +1,7 @@
 use crate::tickers::get_dow_jones_tickers;
 use crate::Interface;
 use actix_web::{post, web};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use log::info;
 use pocketsizefund::data::Client as DataClient;
