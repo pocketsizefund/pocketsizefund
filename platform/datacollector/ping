@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+http --verbose POST http://localhost:8081/data \
+  Content-Type:cloudevents+json \
+  ce-specversion:1.0 \
+  ce-type:my.request-type.v1 \
+  ce-id:123 \
+  ce-source:my-source

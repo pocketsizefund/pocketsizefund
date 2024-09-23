@@ -4,6 +4,14 @@ version = "202409.11.0"
 edition = "2021"
 license = "MIT"
 
+[lib]
+name = "datacollector"
+path = "src/lib.rs"
+
+[[bin]]
+name = "datacollector"
+path = "src/main.rs"
+
 [dependencies]
 actix-web = "4.9.0"
 chrono = { version = "0.4.38", features = ["serde"] }
@@ -16,6 +24,8 @@ async-trait = "0.1.82"
 pocketsizefund = { version = "0.1.6", features = ["data"] }
 env_logger = "0.11.5"
 log = "0.4"
+anyhow = { version = "1.0.89", features = ["backtrace"] }
+tokio = { version = "1.40.0", features = ["full"] }
 
 [dev-dependencies]
 cargo-machete = "0.6.2"
