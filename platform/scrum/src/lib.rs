@@ -1,4 +1,3 @@
-pub mod github;
 pub mod routes;
 use actix_web::dev::Server;
 use actix_web::middleware::Logger;
@@ -13,7 +12,6 @@ pub fn run(listener: TcpListener) -> Result<Server> {
         App::new()
             .wrap(Logger::default())
             .service(routes::health::check)
-            .service(routes::event::handler)
             .service(routes::issues::handler)
     })
     .listen(listener)?
