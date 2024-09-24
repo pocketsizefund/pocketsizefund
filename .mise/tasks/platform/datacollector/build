@@ -7,7 +7,7 @@ cd $root/platform/datacollector
 
 cp $root/Cargo.lock .
 
-IMAGE=pocketsizefund/data-collector
+IMAGE=pocketsizefund/datacollector
 
 VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 

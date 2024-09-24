@@ -7,7 +7,7 @@ cd $root/platform/dataprovider
 
 cp $root/Cargo.lock .
 
-IMAGE=pocketsizefund/data-provider
+IMAGE=pocketsizefund/dataprovider
 
 VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 
