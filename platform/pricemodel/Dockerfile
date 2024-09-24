@@ -4,7 +4,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock /app
+COPY pyproject.toml uv.lock /app/
 
 ARG MODEL_FILE_NAME
 

@@ -3,38 +3,27 @@
 import datetime
 import os
 
-import pandas as pd
+from fastapi import FastAPI, status, Response
 import requests
-import sentry_sdk
-from fastapi import FastAPI, Response, status
+import pandas as pd
+from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
 from loguru import logger
 from pocketsizefund import config, model
-from pocketsizefund.trade import Client
 from pydantic import BaseModel
-from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+from pricemodel.trade import Client
 
 ENVIRONMENT = os.getenv("ENVIRONMENT")
 DATA_PROVIDER_URL = f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080"
 
 
-sentry_loguru = LoguruIntegration(
-    level=LoggingLevels.INFO.value,
-    event_level=LoggingLevels.ERROR.value,
-)
 
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    integrations=[sentry_loguru],
-    traces_sample_rate=1.0,
-)
-
+FUND = os.getenv("FUND")
 
 trade_client = Client(
     darqube_api_key=os.getenv("DARQUBE_API_KEY"),
     alpaca_api_key=os.getenv("ALPACA_API_KEY"),
     alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-    is_paper=True,
+    is_paper=FUND == "paper",
 )
 
 
@@ -46,19 +35,22 @@ try:
 except FileNotFoundError:
     logger.exception("model not found, make sure MODEL_FILE_NAME is set")
     price_model = None
-
 except IsADirectoryError:
     logger.exception("model is a directory, make sure MODEL_FILE_NAME is set")
     price_model = None
 
-
 app = FastAPI()
+app = install_fastapi_cloudevents(app)
 
 
 @app.get("/health", status_code=status.HTTP_200_OK)
-def health() -> None:
+def health() -> CloudEvent:
     """Health check endpoint that the cluster pings to ensure the service is up."""
-    return
+    return CloudEvent(
+        type="health.check",
+        source="psf.platform.predictionmodel",
+        data=None,
+    )
 
 
 Ticker = dict[str, list[float]]
@@ -68,14 +60,15 @@ class Predictions(BaseModel):
     tickers: Ticker
 
 
-@app.get("/predictions")
-def invocations() -> Predictions:
+@app.post("/")
+async def invocations(event: CloudEvent) -> CloudEvent:
     """Invocations handles prediction requests to the inference endpoint."""
+    logger.info(f"received event: {event}")
     if price_model is None:
-        return Response(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content="model not found, make sure MODEL_FILE_NAME is set",
-            media_type="text/plain",
+        return CloudEvent(
+            type="prediction.error",
+            source="psf.platform.predictionmodel",
+            data={"error": "model not found, make sure MODEL_FILE_NAME is set"},
         )
 
     available_tickers = trade_client.get_available_tickers()
@@ -83,7 +76,7 @@ def invocations() -> Predictions:
     end_at = datetime.datetime.now(tz=config.TIMEZONE)
     start_at = end_at - datetime.timedelta(days=20)
 
-    response = requests.post(
+    response = requests.post( # noqa: ASYNC210
         url=DATA_PROVIDER_URL + "/",
         timeout=30,
         json={
@@ -94,7 +87,7 @@ def invocations() -> Predictions:
         },
     )
 
-    response = requests.post(DATA_PROVIDER_URL)
+    response = requests.post(DATA_PROVIDER_URL) # noqa: ASYNC210
 
     if response.status_code != status.HTTP_200_OK:
         return Response(
@@ -123,4 +116,8 @@ def invocations() -> Predictions:
 
         predictions[ticker] = ticker_predictions
 
-    return Predictions(tickers=predictions)
+    return CloudEvent(
+        type="psf.platform.predictionmodel",
+        source="prediction.success",
+        data={"tickers": predictions},
+    )

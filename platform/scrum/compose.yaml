@@ -1,0 +1,16 @@
+services:
+  scrum:
+    build:
+      context: .
+      tags:
+        - "scrum:latest"
+    ports:
+      - 8080:8080
+    platform: linux/amd64
+    environment:
+      - PORT=8081
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
+      - APCA_API_BASE_URL
+      - APCA_API_KEY_ID
+      - APCA_API_SECRET_KEY

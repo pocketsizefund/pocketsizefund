@@ -1,0 +1,28 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: scrum
+spec:
+  template:
+    metadata:
+      labels:
+        app: scrum
+    spec:
+      containers:
+        - image: pocketsizefund/scrum:202409.23.0
+          ports:
+            - containerPort: 8080
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: scrum-sync
+spec:
+  schedule: "0 * * * *"
+  timezone: "America/New_York"
+  data: ''
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: scrum

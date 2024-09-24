@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+
+# mise description="create s3 buckets"
+
+cd $root/infrastructure/aws
+AWS_REGION=$(cat cluster-config.yaml | yq .metadata.region)
+
+BUCKET_SECRETS=$(aws secretsmanager get-secret-value --secret-id buckets | jq -r .SecretString | jq)
+FUND_DATA_BUCKET=$(jq -r .FUND_DATA_BUCKET <<< $BUCKET_SECRETS)
+FUND_ARTIFACTS_BUCKET=$(jq -r .FUND_ARTIFACTS_BUCKET <<< $BUCKET_SECRETS)
+
+if ! aws s3api head-bucket --bucket $FUND_DATA_BUCKET --region $AWS_REGION 2>/dev/null; then
+    aws s3 mb s3://$FUND_DATA_BUCKET --region $AWS_REGION
+    echo "Created bucket: $FUND_DATA_BUCKET"
+else
+    echo "Bucket already exists: $FUND_DATA_BUCKET"
+fi
+
+if ! aws s3api head-bucket --bucket $FUND_ARTIFACTS_BUCKET --region $AWS_REGION 2>/dev/null; then
+    aws s3 mb s3://$FUND_ARTIFACTS_BUCKET --region $AWS_REGION
+    echo "Created bucket: $FUND_ARTIFACTS_BUCKET"
+else
+    echo "Bucket already exists: $FUND_ARTIFACTS_BUCKET"
+fi
+

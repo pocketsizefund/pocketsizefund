@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+# mise description="test scrum master service"
+# mise tools=["cargo"]
+
+cd $root/platform/scrum
+exit 1
+
+

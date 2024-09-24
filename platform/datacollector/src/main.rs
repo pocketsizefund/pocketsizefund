@@ -1,13 +1,13 @@
 use actix_web::{post, web, App, HttpResponse, HttpServer};
-use pocketsizefund::data::{Client as DataClient, Interface, Bar};
-use std::env;
-use cloudevents::{Event, EventBuilder, EventBuilderV10};
-use serde_json::json;
-use uuid::Uuid;
-use tracing;
 use chrono::{DateTime, Utc};
+use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use mockall::mock;
+use pocketsizefund::data::{Bar, Client as DataClient, Interface};
+use serde_json::json;
+use std::env;
 use std::sync::Arc;
+use tracing;
+use uuid::Uuid;
 
 mod tickers;
 
@@ -73,13 +73,15 @@ async fn main() -> std::io::Result<()> {
 
     let data_client = web::Data::new(data_client);
 
-    HttpServer::new(move || App::new()
-        .app_data(data_client.clone())
-        .service(health_handler)
-        .service(data_handler))
-        .bind(("127.0.0.1", server_port))?
-        .run()
-        .await
+    HttpServer::new(move || {
+        App::new()
+            .app_data(data_client.clone())
+            .service(health_handler)
+            .service(data_handler)
+    })
+    .bind(("127.0.0.1", server_port))?
+    .run()
+    .await
 }
 
 mock! {
@@ -97,7 +99,7 @@ mock! {
             &self,
             equities_bars: Vec<Bar>,
         ) -> Result<(), Box<dyn std::error::Error>>;
-        async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;   
+        async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
     }
 }
 
@@ -105,14 +107,12 @@ mock! {
 mod tests {
     use super::*;
     use actix_web::{http::header::ContentType, test, App};
+    use chrono::{TimeZone, Utc};
     use pocketsizefund::data::Bar;
-    use chrono::{Utc, TimeZone};
 
     #[actix_web::test]
     async fn test_health_handler() {
-        let app = test::init_service(App::new()
-            .service(health_handler))
-            .await;
+        let app = test::init_service(App::new().service(health_handler)).await;
 
         let req = test::TestRequest::post()
             .uri("/health")
@@ -127,11 +127,11 @@ mod tests {
     #[actix_web::test]
     async fn test_data_handler() {
         let mut mock_client = MockInterfaceMock::new();
-        
-        mock_client.expect_load_equities_bars()
-            .returning(|| Ok(vec![Bar {
-                ticker: Some("AAPL".to_string()), 
-                timestamp:  Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
+
+        mock_client.expect_load_equities_bars().returning(|| {
+            Ok(vec![Bar {
+                ticker: Some("AAPL".to_string()),
+                timestamp: Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
                 open: 150.0,
                 high: 152.5,
                 low: 149.5,
@@ -139,22 +139,27 @@ mod tests {
                 volume: 1_000_000,
                 number_of_trades: 5_000,
                 volume_weighted_average_price: 151.2,
-            }]));
+            }])
+        });
 
-        mock_client.expect_fetch_equities_bars()
-            .returning(|_, _, _| Ok(vec![Bar {
-                ticker: Some("AAPL".to_string()), 
-                timestamp:  Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
-                open: 150.5,
-                high: 152.3,
-                low: 149.8,
-                close: 151.0,
-                volume: 1_200_000,
-                number_of_trades: 5_000,
-                volume_weighted_average_price: 150.9,
-            }]));
+        mock_client
+            .expect_fetch_equities_bars()
+            .returning(|_, _, _| {
+                Ok(vec![Bar {
+                    ticker: Some("AAPL".to_string()),
+                    timestamp: Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
+                    open: 150.5,
+                    high: 152.3,
+                    low: 149.8,
+                    close: 151.0,
+                    volume: 1_200_000,
+                    number_of_trades: 5_000,
+                    volume_weighted_average_price: 150.9,
+                }])
+            });
 
-        mock_client.expect_write_equities_bars()
+        mock_client
+            .expect_write_equities_bars()
             .returning(|_| Ok(()));
 
         env::set_var("ALPACA_API_KEY", "VALUE");
@@ -167,10 +172,12 @@ mod tests {
 
         let mock_client = web::Data::new(mock_client);
 
-        let app = test::init_service(App::new()
-            .app_data(mock_client.clone())
-            .service(data_handler))
-            .await;
+        let app = test::init_service(
+            App::new()
+                .app_data(mock_client.clone())
+                .service(data_handler),
+        )
+        .await;
 
         let req = test::TestRequest::post()
             .uri("/")

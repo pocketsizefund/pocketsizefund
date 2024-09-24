@@ -342,6 +342,23 @@ wheels = [
 ]
 
 [[package]]
+name = "cloudevents"
+version = "1.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "deprecation" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/93/41/97a7448adf5888d394a22d491749fb55b1e06e95870bd9edc3d58889bb8a/cloudevents-1.11.0.tar.gz", hash = "sha256:5be990583e99f3b08af5a709460e20b25cb169270227957a20b47a6ec8635e66", size = 33670 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cf/0e/268a75b712e4dd504cff19e4b987942cd93532d1680009d6492c9d41bdac/cloudevents-1.11.0-py3-none-any.whl", hash = "sha256:77edb4f2b01f405c44ea77120c3213418dbc63d8859f98e9e85de875502b8a76", size = 55088 },
+]
+
+[package.optional-dependencies]
+pydantic = [
+    { name = "pydantic" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -447,6 +464,18 @@ wheels = [
 ]
 
 [[package]]
+name = "deprecation"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/d3/8ae2869247df154b64c1884d7346d412fed0c49df84db635aab2d1c40e62/deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff", size = 173788 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/c3/253a89ee03fc9b9682f1541728eb66db7db22148cd94f89ab22528cd1e1b/deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a", size = 11178 },
+]
+
+[[package]]
 name = "docker-pycreds"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -479,6 +508,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9c/11/4874d165e7ef97aa803a567a4be8f9c8b0bd7cced6d536d44033ef7d4bfa/fastapi-0.112.2.tar.gz", hash = "sha256:3d4729c038414d5193840706907a41839d839523da6ed0c2811f1168cac1798c", size = 291967 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5c/ae/6570ae1b67007735229f10f2e1174d6e33c056ee9c0c1754d432acbede94/fastapi-0.112.2-py3-none-any.whl", hash = "sha256:db84b470bd0e2b1075942231e90e3577e12a903c4dc8696f0d206a7904a7af1c", size = 93471 },
+]
+
+[[package]]
+name = "fastapi-cloudevents"
+version = "2.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudevents", extra = ["pydantic"] },
+    { name = "fastapi" },
+    { name = "pydantic-settings" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1b/6e/21bb3a8ca082fa952fe7278ad7ce05c8e8c8a04e61a150d13313c291d55b/fastapi-cloudevents-2.0.2.tar.gz", hash = "sha256:0e07d56caa39d829c63bdafb2bfead8795c678c293680e1142de14979275416f", size = 14161 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/42/5f0b74272891b739b0f7347d128c7d4abbc46feb22d8a53dc8ee0e6e5993/fastapi_cloudevents-2.0.2-py3-none-any.whl", hash = "sha256:d069705203756df592fb8d7151519ac57b386ce26e42421f4f0b61bfc37f6abf", size = 16596 },
 ]
 
 [[package]]
@@ -1490,7 +1533,9 @@ version = "20240903.0"
 source = { editable = "." }
 dependencies = [
     { name = "bs4" },
+    { name = "cloudevents" },
     { name = "fastapi" },
+    { name = "fastapi-cloudevents" },
     { name = "numpy" },
     { name = "pocketsizefund", extra = ["ml", "trade"] },
     { name = "pydantic" },
@@ -1500,7 +1545,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bs4", specifier = ">=0.0.2" },
+    { name = "cloudevents", specifier = ">=1.11.0" },
     { name = "fastapi", specifier = ">=0.112.2" },
+    { name = "fastapi-cloudevents", specifier = ">=2.0.2" },
     { name = "numpy", specifier = "<2" },
     { name = "pocketsizefund", extras = ["ml", "ml-cpu", "trade"] },
     { name = "pydantic", specifier = ">=2.8.2" },
@@ -1642,6 +1689,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pydantic-settings"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/58/14/7bfb313ccee79f97dc235721b035174af94ef4472cfe455c259cd2971f2f/pydantic_settings-2.4.0.tar.gz", hash = "sha256:ed81c3a0f46392b4d7c0a565c05884e6e54b3456e6f0fe4d8814981172dc9a88", size = 63033 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/46/7f90f36c1bdcf24962d2b7b0e11aba3bbd65ea7904cb2553072882a4e6b7/pydantic_settings-2.4.0-py3-none-any.whl", hash = "sha256:bb6849dc067f1687574c12a639e231f3a6feeed0a12d710c1382045c5db1c315", size = 23996 },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1660,6 +1720,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892 },
+]
+
+[[package]]
+name = "python-dotenv"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/57/e84d88dfe0aec03b7a2d4327012c1627ab5f03652216c63d49846d7a6c58/python-dotenv-1.0.1.tar.gz", hash = "sha256:e324ee90a023d808f1959c46bcbc04446a10ced277783dc6ee09987c37ec10ca", size = 39115 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6a/3e/b68c118422ec867fa7ab88444e1274aa40681c606d59ac27de5a5588f082/python_dotenv-1.0.1-py3-none-any.whl", hash = "sha256:f7b63ef50f1b690dddf550d03497b66d609393b40b564ed0d674909a68ebf16a", size = 19863 },
 ]
 
 [[package]]
