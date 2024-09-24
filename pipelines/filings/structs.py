@@ -116,7 +116,9 @@ class EarningsStatement(BaseModel):
         ...,
         description="Confidence: Indicates strong belief in future performance.",
     )
-    optimism: int = Field(..., description="Optimism: Shows positive outlook and expectations.")
+    optimism: int = Field(
+        ..., description="Optimism: Shows positive outlook and expectations."
+    )
     satisfaction: int = Field(
         ...,
         description="Satisfaction: Reflects contentment with current performance.",

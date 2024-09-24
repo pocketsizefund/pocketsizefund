@@ -3,30 +3,19 @@
 import datetime
 import os
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, Response
+import requests
+import pandas as pd
 from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
 from loguru import logger
-from pocketsizefund import config, data, model
+from pocketsizefund import config, model
 from pydantic import BaseModel
-from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+from pricemodel.trade import Client
 
 ENVIRONMENT = os.getenv("ENVIRONMENT")
 DATA_PROVIDER_URL = f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080"
 
 
-sentry_loguru = LoguruIntegration(
-    level=LoggingLevels.INFO.value,
-    event_level=LoggingLevels.ERROR.value,
-)
-
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    integrations=[sentry_loguru],
-    traces_sample_rate=1.0,
-)
-
-
-from pricemodel.trade import Client
 
 FUND = os.getenv("FUND")
 
@@ -87,7 +76,7 @@ async def invocations(event: CloudEvent) -> CloudEvent:
     end_at = datetime.datetime.now(tz=config.TIMEZONE)
     start_at = end_at - datetime.timedelta(days=20)
 
-    response = requests.post(
+    response = requests.post( # noqa: ASYNC210
         url=DATA_PROVIDER_URL + "/",
         timeout=30,
         json={
@@ -98,7 +87,7 @@ async def invocations(event: CloudEvent) -> CloudEvent:
         },
     )
 
-    response = requests.post(DATA_PROVIDER_URL)
+    response = requests.post(DATA_PROVIDER_URL) # noqa: ASYNC210
 
     if response.status_code != status.HTTP_200_OK:
         return Response(
