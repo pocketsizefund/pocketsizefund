@@ -10,9 +10,7 @@ name = "pocketsizefund"
 path = "src/lib.rs"
 
 [features]
-polygon = ["dep:reqwest"]
 events = ["dep:cloudevents-sdk", "dep:serde", "dep:serde_json"]
-llm = ["dep:reqwest"]
 data = [
   "dep:serde",
   "dep:serde_json",
@@ -32,7 +30,7 @@ chrono = { version = "0.4.38", features = ["serde"] }
 color-eyre = "0.6.3"
 fmt = "0.1.0"
 uuid = { version = "1.8.0", features = ["v4"] }
-reqwest = { version = "0.12.5", features = ["json"], optional = true }
+reqwest = { version = "0.12.5", features = ["json", "default-tls"], optional = true }
 rust_decimal = "1.35.0"
 serde = { version = "1.0.204", features = ["derive"], optional = true }
 serde_json = { version = "1.0.120", optional = true }

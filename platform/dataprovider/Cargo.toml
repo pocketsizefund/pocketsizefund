@@ -14,5 +14,5 @@ async-trait = "0.1.82"
 uuid = { version = "1.8.0", features = ["v4"] }
 tracing = { version = "0.1.40", features = ["async-await"] }
 serde = { version = "1.0.204", features = ["derive"] }
-pocketsizefund = { version = "0.1.6", features = ["data"] }
+pocketsizefund = { path = "../../libraries/rust", features = ["data"] }
 env_logger = "0.11.5"

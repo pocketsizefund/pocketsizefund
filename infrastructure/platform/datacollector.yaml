@@ -52,37 +52,12 @@ spec:
             - name: SERVER_PORT
               value: "8080"
 ---
-# apiVersion: batch/v1
-# kind: CronJob
-# metadata:
-#   name: morningtrigger
-#   labels:
-#     layer: data
-# spec:
-#   # schedule: "0 18 * * 1-5"
-#   schedule: "* * * * *" # TEMPORARY
-#   jobTemplate:
-#     spec:
-#       template:
-#         spec:
-#           restartPolicy: OnFailure
-#           containers:
-#             - name: trigger
-#               image: curlimages/curl
-#               args:
-#                 - /bin/sh
-#                 - -c
-#                 - >
-#                   curl -X POST http://datacollector.default.svc.cluster.local/data
-
-#                 # -H "Content-Type: application/cloudevents+json"
-#                 # -H "ce-specversion: 1.0"
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
   name: morning-ping
 spec:
-  schedule: "* * * * *"
+  schedule: "0 18 * * 1-5"
   sink:
     ref:
       apiVersion: eventing.knative.dev/v1
