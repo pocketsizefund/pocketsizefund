@@ -1,34 +1,36 @@
 import polars as pl
-from polars import lazy as pl_lazy
 import numpy as np
 from datetime import datetime, timedelta, timezone
 import pickle
+from tempfile import TemporaryDirectory
 import os
 import mlflow
+from pathlib import Path
 import mlflow.pyfunc
 from category_encoders import OrdinalEncoder
 from rich.console import Console
 from rich import pretty
+import sys
+from types import SimpleNamespace
 
-# Initialize rich console
+
+from pricemodel.pipeline.trainer import Trainer
+from pricemodel.pipeline.experiment import Experiment
+
 console = Console()
 pretty.install()
 
-# Constants
-MIN_OBSERVATIONS_PER_TICKER = 100  # Define your threshold
-FRESHNESS_DATE = '2023-12-31'      # Define your freshness date
+MIN_OBSERVATIONS_PER_TICKER = 100
+FRESHNESS_DATE = '2023-12-31'
 
-# Load Data using Polars LazyFrame
-data = pl_lazy.read_csv("data/previous-close/sample.csv").sort(["ticker", "timestamp"])
 
-# Data Preparation and Feature Engineering
-def prepare_data(data: pl_lazy.LazyFrame) -> pl.DataFrame:
+
+def prepare_data(data_path, training_cutoff: str) -> pl.DataFrame:
     console.print("Starting data preparation...", style="cyan")
-    
-    # Ensure proper data types
     console.print("Ensuring proper data types...", style="cyan")
-    data = data.with_columns([
-        pl.col("timestamp").str.strptime(pl.Date, fmt="%Y-%m-%d"),
+
+    data = pl.scan_csv(data_path).sort(["ticker", "timestamp"]).with_columns([
+        pl.col("timestamp").str.to_datetime().cast(pl.Date),
         pl.col("open").cast(pl.Float64),
         pl.col("high").cast(pl.Float64),
         pl.col("low").cast(pl.Float64),
@@ -36,54 +38,45 @@ def prepare_data(data: pl_lazy.LazyFrame) -> pl.DataFrame:
         pl.col("volume").cast(pl.Float64),
         pl.col("ticker").cast(pl.Utf8),
     ])
-    
-    # Drop duplicates
+
     console.print("Dropping duplicate rows...", style="cyan")
     data = data.unique(subset=["ticker", "timestamp"])
     
-    # Filter tickers with insufficient data
     console.print("Filtering tickers with insufficient data...", style="cyan")
-    # Compute counts per ticker
-    ticker_counts = data.groupby("ticker").agg(pl.count().alias("count"))
-    # Filter tickers that meet the minimum observations threshold
-    valid_tickers = ticker_counts.filter(
+    ticker_counts = data.group_by("ticker").agg(pl.count().alias("count"))
+    valid_tickers = ticker_counts.collect().filter(
         pl.col("count") >= MIN_OBSERVATIONS_PER_TICKER
     )["ticker"]
-    # Filter the original data
     data = data.filter(pl.col("ticker").is_in(valid_tickers))
     
-    # Assert that data is not empty after filtering
     assert data.collect().height > 0, "No data left after filtering for minimum observations."
     
-    # Filter tickers without recent data
     console.print(f"Filtering tickers without data after {FRESHNESS_DATE}...", style="cyan")
-    freshness_dt = datetime.strptime(FRESHNESS_DATE, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    # Find the latest timestamp per ticker
-    latest_timestamps = data.groupby("ticker").agg(pl.col("timestamp").max().alias("max_timestamp"))
-    # Ensure 'max_timestamp' is timezone-aware and in UTC
-    latest_timestamps = latest_timestamps.with_columns([
-        pl.col("max_timestamp").dt.replace_time_zone("UTC")
-    ])
-    # Filter tickers that have data after the freshness date
-    valid_tickers = latest_timestamps.filter(
-        pl.col("max_timestamp") >= freshness_dt
+    freshness_dt = datetime.strptime(FRESHNESS_DATE, "%Y-%m-%d")
+
+    valid_tickers = (
+            data
+            .group_by("ticker")
+            .agg(pl.col("timestamp")
+                 .max()
+                 .alias("latest_date"))
+    ).collect().filter(
+        pl.col("latest_date") >= freshness_dt
     )["ticker"]
-    # Filter the original data
+
     data = data.filter(pl.col("ticker").is_in(valid_tickers))
+
     
-    # Assert that data is not empty after filtering
     assert data.collect().height > 0, "No data left after filtering for freshness date."
     
-    # Collect unique tickers
     tickers = data.select("ticker").unique()
-    # Ensure min_date and max_date are scalar datetime objects
     min_date = data.select(pl.col("timestamp").min()).collect()[0, 0]
     max_date = data.select(pl.col("timestamp").max()).collect()[0, 0]
+
     
     console.print(f"min_date: {min_date}, type: {type(min_date)}", style="cyan")
     console.print(f"max_date: {max_date}, type: {type(max_date)}", style="cyan")
     
-    # Generate full date range and perform cross join
     console.print("Generating full date range and performing cross join.", style="cyan")
     full_dates = pl.DataFrame({
         "timestamp": pl.date_range(
@@ -91,47 +84,46 @@ def prepare_data(data: pl_lazy.LazyFrame) -> pl.DataFrame:
             end=max_date,
             interval="1d",
             closed="both",
-            eager=True  # Ensure eager evaluation
+            eager=True
         )
-    })
+    }).lazy()
+
     
-    # Proceed with cross join
     full_df = tickers.join(full_dates, how="cross")
     
-    # Assign time_idx during cross join
     full_df = full_df.with_columns([
         pl.col("timestamp").rank(method="dense").cast(pl.Int32).alias("time_idx") - 1  # Start from 0
     ])
     
-    # Join with original data
     console.print("Joining full dataframe with original data...", style="cyan")
-    data = full_df.join(data.collect(), on=["ticker", "timestamp"], how="left")
+    data = full_df.join(data, on=["ticker", "timestamp"], how="left")
+
     
-    # Sort data
-    data = data.sort(["ticker", "timestamp"])
-    
-    # Fill missing numeric values using interpolation
     console.print("Filling missing numeric values using interpolation...", style="cyan")
     numeric_cols = ["open", "high", "low", "close", "volume"]
     
-    # Proceed with filling missing numeric values using interpolation
+
     data = (
         data
-        .groupby("ticker")
-        .apply(lambda df: df.sort("timestamp")
-                            .with_columns([pl.col(col)
-                                             .interpolate()
-                                             .fill_null(strategy="forward")
-                                             .fill_null(strategy="backward") for col in numeric_cols])
-               )
+        .sort(["ticker", "timestamp"])
+        .group_by("ticker")
+        .agg([
+            pl.all().exclude("ticker")
+            .interpolate()
+            .fill_null(strategy="forward")
+            .fill_null(strategy="backward"),
+            (pl.col("time_idx") - pl.col("time_idx").min()).alias("relative_time_idx")
+        ])
+        .explode(pl.exclude("ticker"))
     )
-    
-    # Check for any remaining missing values in numeric columns
+
     for col in numeric_cols:
-        missing_count = data.select(pl.col(col).is_null().sum())[0, 0]
+        missing_count = data.collect().select(pl.col(col).is_null().sum())[0, 0]
         assert missing_count == 0, f"Missing values remain in column {col}."
     
-    # Compute date features
+    ticker_counts = data.group_by("ticker").agg(pl.len()).collect()
+    assert ticker_counts["len"].is_duplicated().all(), "Not all tickers have the same number of observations."
+    
     console.print("Computing date features...", style="cyan")
     data = data.with_columns([
         pl.col("timestamp").dt.weekday().alias("day_of_week"),  # Monday=0, Sunday=6
@@ -140,47 +132,36 @@ def prepare_data(data: pl_lazy.LazyFrame) -> pl.DataFrame:
         pl.col("timestamp").dt.month().alias("month_of_year"),
         ((pl.col("timestamp").dt.day() - 1) // 7 + 1).alias("week_of_month"),
     ])
+
     
-    # Scale date features to [0, 1]
     data = data.with_columns([
-        (pl.col("day_of_week") / 6).alias("day_of_week_scaled"),
-        (pl.col("week_of_year") / 52).alias("week_of_year_scaled"),
-        (pl.col("month_of_year") / 12).alias("month_of_year_scaled"),
-        (pl.col("week_of_month") / 4).alias("week_of_month_scaled"),
+        (pl.col("day_of_week") / 6).alias("day_of_week"),
+        (pl.col("week_of_year") / 52).alias("week_of_year"),
+        (pl.col("month_of_year") / 12).alias("month_of_year"),
+        (pl.col("week_of_month") / 4).alias("week_of_month"),
     ])
+
     
-    # Create relative_time_idx per group
-    console.print("Computing relative_time_idx per group...", style="cyan")
-    data = data.groupby("ticker").apply(
-        lambda df: df.with_columns([
-            (pl.col("time_idx") - pl.col("time_idx").min()).alias("relative_time_idx")
-        ])
-    )
+
     
-    # Encode 'ticker' using category_encoders
     console.print("Encoding 'ticker' using OrdinalEncoder...", style="cyan")
-    ticker_df = data.select("ticker").to_pandas()
+    ticker_df = data.select("ticker").collect().to_pandas()
     
-    # Initialize OrdinalEncoder with handle_unknown='use_encoded_value' and unknown_value=-1
     encoder = OrdinalEncoder(
         cols=["ticker"],
-        handle_unknown='use_encoded_value',
-        handle_missing='use_encoded_value',
-        unknown_value=-1
+        handle_unknown='value',
+        handle_missing='value',
     )
     
-    # Fit encoder
     encoder.fit(ticker_df)
     
-    # Transform and add encoded ticker to data
     ticker_encoded = encoder.transform(ticker_df)["ticker"].values
     data = data.with_columns([
         pl.Series(name="ticker_encoded", values=ticker_encoded)
     ])
     
-    # Compute static real variables per ticker
     console.print("Computing static real variables per ticker...", style="cyan")
-    static_real_features = data.groupby("ticker_encoded").agg([
+    static_real_features = data.group_by("ticker_encoded").agg([
         pl.col("open").mean().alias("open_center"),
         pl.col("open").std().alias("open_scale"),
         pl.col("high").mean().alias("high_center"),
@@ -190,8 +171,8 @@ def prepare_data(data: pl_lazy.LazyFrame) -> pl.DataFrame:
         pl.col("close").mean().alias("close_center"),
         pl.col("close").std().alias("close_scale"),
     ])
+
     
-    # Handle cases where standard deviation is zero
     console.print("Handling cases where standard deviation is zero...", style="cyan")
     static_real_features = static_real_features.with_columns([
         pl.when(pl.col(col) == 0).then(1e-8).otherwise(pl.col(col)).alias(col) for col in [
@@ -199,90 +180,69 @@ def prepare_data(data: pl_lazy.LazyFrame) -> pl.DataFrame:
         ]
     ])
     
-    # Store static features for later use (e.g., during inference)
-    static_features = static_real_features.to_pandas()
+    static_features = static_real_features.collect().to_pandas()
     
-    # Join static features back to data
     console.print("Joining static features back to data...", style="cyan")
     data = data.join(static_real_features, on="ticker_encoded", how="left")
+
     
-    # Normalize real-valued features
     console.print("Normalizing real-valued features...", style="cyan")
     data = data.with_columns([
-        ((pl.col("open") - pl.col("open_center")) / pl.col("open_scale")).alias("open_normalized"),
-        ((pl.col("high") - pl.col("high_center")) / pl.col("high_scale")).alias("high_normalized"),
-        ((pl.col("low") - pl.col("low_center")) / pl.col("low_scale")).alias("low_normalized"),
-        ((pl.col("close") - pl.col("close_center")) / pl.col("close_scale")).alias("close_normalized"),
+        ((pl.col("open") - pl.col("open_center")) / pl.col("open_scale")).alias("open"),
+        ((pl.col("high") - pl.col("high_center")) / pl.col("high_scale")).alias("high"),
+        ((pl.col("low") - pl.col("low_center")) / pl.col("low_scale")).alias("low"),
+        ((pl.col("close") - pl.col("close_center")) / pl.col("close_scale")).alias("close"),
     ])
-    
-    # Check for any missing values after normalization
-    normalized_cols = ["open_normalized", "high_normalized", "low_normalized", "close_normalized"]
+
+    normalized_cols = ["open", "high", "low", "close"]
     for col in normalized_cols:
-        missing_count = data.select(pl.col(col).is_null().sum())[0, 0]
+        missing_count = data.select(pl.col(col).is_null().sum()).collect()[0, 0]
         assert missing_count == 0, f"Missing values in normalized column {col}."
     
     console.print("Data preparation completed successfully.", style="cyan")
+
     
-    return data, static_features, encoder
 
-# Prepare data
-data_prepared, static_features, encoder = prepare_data(data)
-
-# Data Splitting
-def split_data(data: pl.DataFrame) -> tuple:
     console.print("Splitting data into training and validation sets...", style="cyan")
     
-    # Ensure 'timestamp' is datetime
-    data = data.with_columns([
-        pl.col("timestamp").cast(pl.Date)
-    ])
     
-    # Define split dates
-    training_cutoff = datetime.strptime("2024-04-01", "%Y-%m-%d")
+    training_cutoff = datetime.strptime(training_cutoff, "%Y-%m-%d")
     
-    # Split data
     training_data = data.filter(pl.col("timestamp") < training_cutoff)
     validation_data = data.filter(pl.col("timestamp") >= training_cutoff)
+
+    training_dates = set(training_data.select("timestamp").unique().collect()["timestamp"].to_list())
+    validation_dates = set(validation_data.select("timestamp").unique().collect()["timestamp"].to_list())
+    overlap = training_dates.intersection(validation_dates)
     
-    # Check for date overlaps
-    training_dates = set(training_data.select("timestamp").unique()["timestamp"].to_list())
-    validation_dates = set(validation_data.select("timestamp").unique()["timestamp"].to_list())
-    
-    assert len(training_dates.intersection(validation_dates)) == 0, "Training and validation sets have overlapping dates."
+    assert len(overlap) == 0, "Training and validation sets have overlapping dates."
     
     console.print("Data splitting completed successfully.", style="cyan")
     
-    return training_data, validation_data
+    return SimpleNamespace(sets=SimpleNamespace(training=training_data, validation=validation_data),
+                           artifacts=SimpleNamespace(static_features=static_features, encoder=encoder))
 
-training_data, validation_data = split_data(data_prepared)
 
-# Dataset Class Compatible with MLFlow
 class TimeSeriesDataset(mlflow.pyfunc.PythonModel):
-    def __init__(self, data: pl.DataFrame, static_features, encoder):
-        self.data = data
-        self.static_features = static_features
-        self.encoder = encoder
+    def __init__(self, data):
+        self.datasets = data.sets
+        self.artifacts = data.artifacts
         self.features = [
             "ticker_encoded", "relative_time_idx", "time_idx",
-            "open_normalized", "high_normalized", "low_normalized", "close_normalized",
-            "day_of_week_scaled", "week_of_month_scaled", "month_of_year_scaled", "week_of_year_scaled",
+            "open", "high", "low", "close",
+            "day_of_week", "week_of_month", "month_of_year", "week_of_year",
             "is_weekend"
         ]
-        self.target = "close_normalized"
-        # Checks
-        missing_cols = [col for col in self.features + [self.target] if col not in data.columns]
+        self.target = ["open", "high", "low", "close"]
+        missing_cols = [col for col in self.features + self.target if col not in self.datasets.training.collect_schema().names()]
         if missing_cols:
             raise ValueError(f"Missing columns in data: {missing_cols}")
     
-    def load_context(self, context):
-        # Load artifacts from context.artifacts
-        import joblib
-        self.static_features = joblib.load(context.artifacts["static_features"])
-        self.encoder = joblib.load(context.artifacts["encoder"])
+    def load_artifacts(self, context):
+        pass
     
     def prepare_inference_data(self, tickers, start_date, end_date):
         console.print("Preparing inference data...", style="cyan")
-        # Generate date range
         date_range = pl.DataFrame({
             "timestamp": pl.date_range(
                 start=start_date,
@@ -388,19 +348,39 @@ class TimeSeriesDataset(mlflow.pyfunc.PythonModel):
         return inference_df
     
     def predict(self, context, model_input):
-        # Implement model prediction logic here
-        pass  # Placeholder
+        pass
     
     def get_data(self):
         return self.data
     
-    def save(self, path):
-        # Save the dataset and artifacts
-        with open(os.path.join(path, "dataset.pkl"), "wb") as f:
-            pickle.dump(self.data.to_pandas(), f)
-        with open(os.path.join(path, "static_features.pkl"), "wb") as f:
-            pickle.dump(self.static_features, f)
-        # Save encoder using joblib
-        import joblib
-        joblib.dump(self.encoder, os.path.join(path, "encoder.pkl"))
+    def save_checkpoint(self, flow, run):
+        run_id = run.info.run_id
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp, f"artifacts-{run_id}")
 
+            with open(path, "wb") as f:
+                pickle.dump(self.artifacts, f)
+
+            flow.log_artifact(path)
+            flow.log_input(mlflow.data.from_pandas(self.datasets.training.collect().to_pandas()), "training")
+            flow.log_input(mlflow.data.from_pandas(self.datasets.validation.collect().to_pandas()), "validation")
+
+
+if __name__ == "__main__":
+    tracking_uri = "http://localhost:8092"
+    mlflow.set_tracking_uri(tracking_uri)
+    
+    with mlflow.start_run() as run:
+
+        experiment = Experiment(name="daily ticker OHLCV", team="psf-core", domain="forecasting", model_architecture="temporal-fusion-transformer")
+
+        data = prepare_data("data/previous-close/sample.csv", training_cutoff="2024-04-01")
+
+        dataset = TimeSeriesDataset(data)
+
+        # dataset.save_checkpoint(mlflow, run)
+
+        trainer = Trainer(
+            experiment=experiment,
+            model=TemporalFusionTransformer,
+        )
