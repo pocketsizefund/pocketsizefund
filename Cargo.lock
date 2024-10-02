@@ -1188,7 +1188,7 @@ dependencies = [
  "env_logger 0.11.5",
  "lazy_static",
  "log",
- "pocketsizefund 0.1.6",
+ "pocketsizefund 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.12.7",
  "serde",
  "serde_json",
@@ -1458,7 +1458,12 @@ dependencies = [
  "async-trait",
  "cargo-machete",
  "chrono",
- "pocketsizefund 0.1.2",
+ "cloudevents-sdk",
+ "mockall",
+ "pocketsizefund 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -1468,7 +1473,13 @@ dependencies = [
  "actix-web",
  "async-trait",
  "chrono",
- "pocketsizefund 0.1.2",
+ "cloudevents-sdk",
+ "mockall",
+ "pocketsizefund 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -3084,33 +3095,7 @@ checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 
 [[package]]
 name = "pocketsizefund"
-version = "0.1.2"
-source = "git+https://github.com/pocketsizefund/pocketsizefund.git?branch=master#d1c5b5c27e9fa6ff9cfeb30ca85f78c3f0dd0d55"
-dependencies = [
- "anyhow",
- "apca",
- "async-trait",
- "aws-config",
- "aws-credential-types",
- "aws-sdk-s3",
- "aws-types",
- "chrono",
- "color-eyre",
- "flate2",
- "fmt",
- "reqwest 0.12.7",
- "rust_decimal",
- "serde",
- "serde_json",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "pocketsizefund"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -3151,9 +3136,14 @@ dependencies = [
  "anyhow",
  "apca",
  "async-trait",
+ "aws-config",
+ "aws-credential-types",
+ "aws-sdk-s3",
+ "aws-types",
  "chrono",
  "cloudevents-sdk",
  "color-eyre",
+ "flate2",
  "fmt",
  "mockall",
  "reqwest 0.12.7",
@@ -3163,6 +3153,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
  "uuid",
 ]
 
@@ -4519,7 +4510,7 @@ dependencies = [
  "cloudevents-sdk",
  "env_logger 0.11.5",
  "num-decimal",
- "pocketsizefund 0.1.6",
+ "pocketsizefund 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand",
  "reqwest 0.12.7",
  "rust_decimal",

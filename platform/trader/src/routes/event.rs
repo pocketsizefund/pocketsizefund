@@ -26,7 +26,10 @@ pub async fn handler(event: Event) -> Event {
 
     info!("market status: {:?}", market.status);
 
-    let account = get_account().await.unwrap();
+    let account = get_account().await.unwrap_or_else(
+        tracing::error!("failed to get account");
+        return event;
+    );
     let account_standing = AccountStanding::new(account);
 
     if !account_standing.in_good_standing() {
@@ -42,14 +45,23 @@ pub async fn handler(event: Event) -> Event {
 
     let predictions = get_predictions().await;
 
-    let open_orders = get_orders().await.unwrap();
+    let open_orders = get_orders().await.unwrap_or_else(
+        tracing::warn!("failed to get open orders");
+        0
+    );
 
     post_to_discord(format!("open orders: {}", open_orders.len())).await;
 
     match predictions {
         Ok(predictions) => {
-            let choice = predictions.pick_at_random().unwrap();
-            let response = baseline_buy(choice).await.unwrap();
+            let choice = predictions.pick_at_random().unwrap_or_else(
+                tracing::error!("failed to pick random ticker");
+                return event;
+            );
+            let response = baseline_buy(choice).await.unwrap(
+                tracing::error!("failed to buy");
+                return event;
+            );
             post_to_discord(format!(
                 "initiated market order [symbol={}, order id={}]",
                 response.symbol, response.client_order_id
@@ -106,7 +118,10 @@ async fn get_predictions() -> Result<Tickers, Box<dyn std::error::Error>> {
 }
 
 async fn post_to_discord(message: String) {
-    let discord_endpoint = env::var("DISCORD_BOT_URL").unwrap();
+    let discord_endpoint = env::var("DISCORD_BOT_URL").unwrap_or_else(
+        tracing::error!("failed to load discord url");
+        return;
+    );
 
     reqwest::Client::new()
         .post(discord_endpoint)
@@ -122,7 +137,10 @@ async fn post_to_discord(message: String) {
 }
 
 async fn get_account() -> Result<account::Account, Box<dyn std::error::Error>> {
-    let api_info = ApiInfo::from_env().unwrap();
+    let api_info = ApiInfo::from_env().unwrap_or_else(
+        tracing::error!("failed to load api config");
+        return;
+    );
     let client = ApcaClient::new(api_info);
 
     let account = client.issue::<account::Get>(&()).await?;
