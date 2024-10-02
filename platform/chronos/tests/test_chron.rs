@@ -22,7 +22,7 @@ fn initialize() {
 #[tokio::test]
 async fn test_event_handler() -> Result<(), Box<dyn std::error::Error>> {
     initialize();
-    let address: String = format!("http://127.0.0.1:{}/market-status", TEST_PORT);
+    let address: String = format!("http://127.0.0.1:{}/", TEST_PORT);
 
     let client = reqwest::Client::new();
 
@@ -64,7 +64,7 @@ async fn test_event_handler() -> Result<(), Box<dyn std::error::Error>> {
 #[tokio::test]
 async fn test_cloud_event_response() -> Result<(), Box<dyn std::error::Error>> {
     initialize();
-    let address = format!("http://127.0.0.1:{}/market-status", TEST_PORT);
+    let address = format!("http://127.0.0.1:{}/", TEST_PORT);
 
     env::set_var("APCA_API_KEY_ID", "test_value");
     env::set_var("APCA_API_SECRET_KEY", "test_value");

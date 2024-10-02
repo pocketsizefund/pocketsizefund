@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# mise description="create s3 buckets"
+# mise depends=["infrastructure:aws:buckets", "infrastructure:aws:eks"]

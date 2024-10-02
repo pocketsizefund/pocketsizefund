@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# mise description="create infrastructure"
+# mise description="launch infrastructure"
 
 cd $root/infrastructure
 CLUSTER_NAME=$(grep 'name:' aws/cluster-config.yaml | awk '{print $2}')
@@ -27,6 +27,7 @@ SECRETS=$(aws secretsmanager get-secret-value --secret-id platform | jq -r .Secr
 APCA_API_KEY_ID=$(jq -r .APCA_API_KEY_ID <<< $SECRETS)
 ALPACA_API_SECRET=$(jq -r .ALPACA_API_SECRET <<< $SECRETS)
 APCA_API_SECRET_KEY=$(jq -r .APCA_API_SECRET_KEY <<< $SECRETS)
+APCA_API_BASE_URL=$(jq -r .APCA_API_BASE_URL <<< $SECRETS)
 ALPHA_VANTAGE_API_KEY=$(jq -r .ALPHA_VANTAGE_API_KEY <<< $SECRETS)
 EDGAR_USER_AGENT=$(jq -r .EDGAR_USER_AGENT <<< $SECRETS)
 DARQUBE_API_KEY=$(jq -r .DARQUBE_API_KEY <<< $SECRETS)
@@ -37,6 +38,7 @@ kubectl create secret generic platform \
     --from-literal="ALPACA_API_SECRET=$ALPACA_API_SECRET" \
     --from-literal="APCA_API_KEY_ID=$APCA_API_KEY_ID" \
     --from-literal="APCA_API_SECRET_KEY=$APCA_API_SECRET_KEY" \
+    --from-literal="APCA_API_BASE_URL=$APCA_API_BASE_URL" \
     --from-literal="ALPHA_VANTAGE_API_KEY=$ALPHA_VANTAGE_API_KEY" \
     --from-literal="EDGAR_USER_AGENT=$EDGAR_USER_AGENT" \
     --from-literal="DARQUBE_API_KEY=$DARQUBE_API_KEY" \
@@ -53,23 +55,29 @@ kubectl patch configmap/config-network \
   --namespace knative-serving \
   --type merge \
   --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
+kubectl apply -f knative/broker.yaml
+kubectl apply -f knative/event-display.yaml
+
+MONITORING_SECRETS=$(aws secretsmanager get-secret-value --secret-id monitoring | jq -r .SecretString | jq)
+GRAFANA_ADMIN_PASSWORD=$(jq -r .GRAFANA_ADMIN_PASSWORD <<< $MONITORING_SECRETS)
+
 helm install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --create-namespace \
   --set grafana.service.type=ClusterIP \
   --set prometheus.service.type=ClusterIP \
-  --set alertmanager.service.type=ClusterIP
+  --set alertmanager.service.type=ClusterIP \
+  --set grafana.adminEnabled=true \
+  --set grafana.adminUser=admin \
+  --set grafana.adminPassword="$GRAFANA_ADMIN_PASSWORD" \
+  --set grafana.adminPassword.forceUpdate=true
 
-for file in platform/*.yaml; do
+cd $root/platform
+find . -name manifest.yaml -type f | while read -r file; do
+  echo "Applying $file"
   kubectl apply -f "$file"
 done
 
-
-
-kubectl get pods -n knative-serving
-kubectl get pods -n knative-eventing
-kubectl get pods -n monitoring
-
 aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+echo "Grafana admin password: $GRAFANA_ADMIN_PASSWORD"

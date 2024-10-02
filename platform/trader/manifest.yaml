@@ -1,0 +1,50 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trader
+spec:
+  template:
+    metadata:
+      labels:
+        app: trader
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+    spec:
+      containers:
+        - image: pocketsizefund/trader:202409.15.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: APCA_API_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: APCA_API_KEY_ID
+            - name: APCA_API_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: APCA_API_SECRET_KEY
+            - name: APCA_API_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: APCA_API_BASE_URL
+            - name: DISCORD_BOT_URL
+              value:  http://discordbot.default.svc.cluster.local
+            - name: PRICE_MODEL_URL
+              value: http://price-model.default.svc.cluster.local
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: morning-trades
+spec:
+  schedule: "30 9 * * *"
+  timezone: "America/New_York"
+  data: ''
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: trader

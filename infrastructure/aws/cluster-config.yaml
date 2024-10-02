@@ -2,7 +2,7 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: pocketsizefund
+  name: pocketsizefund-20240914
   region: us-east-1
 
 managedNodeGroups:
