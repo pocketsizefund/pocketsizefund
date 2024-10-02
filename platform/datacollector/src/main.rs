@@ -5,11 +5,13 @@ use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
 use uuid::Uuid;
 use tracing;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, Duration};
 use mockall::mock;
 use std::sync::Arc;
 use actix_web::middleware::Logger;
 use log::info;
+use std::io;
+use std::num::ParseIntError;
 
 mod tickers;
 
@@ -21,35 +23,40 @@ async fn health_handler() -> HttpResponse {
 }
 
 #[post("/data")]
-async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Event {
-    info!("data handler called");
+async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Result<cloudevents::Event, Box<dyn std::error::Error>> {
+    let old_bars = data_client.load_equities_bars().await.unwrap_or_else(|e| {
+        info!("Failed to load old bars: {}", e);
+        Vec::new()
+    });
 
-    let old_bars = data_client.load_equities_bars().await.unwrap();
-
-    info!("old bars count: {}", old_bars.len());
-
-    let most_recent_datetime = old_bars.iter().max_by_key(|bar| bar.timestamp).unwrap();
-
+    let most_recent_datetime = old_bars.iter()
+        .max_by_key(|bar| bar.timestamp)
+        .map(|bar| bar.timestamp)
+        .unwrap_or_else(|| {
+            info!("No maximum timestamp found in old bars, using fallback value.");
+            Utc::now() - Duration::days(365 * 10)
+        });
+    
     let current_datetime = chrono::Utc::now();
-
-    info!("most recent datetime: {}, current datetime: {}", most_recent_datetime.timestamp, current_datetime);
 
     let dow_jones_tickers = get_dow_jones_tickers();
 
-    let new_bars = data_client
-        .fetch_equities_bars(
+    let new_bars = data_client.fetch_equities_bars(
             dow_jones_tickers,
-            most_recent_datetime.timestamp,
+            most_recent_datetime,
             current_datetime,
         )
-        .await
-        .unwrap();
+        .await.unwrap_or_else(|e| {
+            info!("Failed to fetch new bars: {}", e);
+            Vec::new()
+        });
 
-    info!("new bars count: {}", new_bars.len());
+    data_client.write_equities_bars(new_bars)
+        .await.unwrap_or_else(|e| {
+            info!("Failed to write new bars to data store: {}", e);
+        });
 
-    data_client.write_equities_bars(new_bars).await.unwrap();
-
-    EventBuilderV10::new()
+    Ok(EventBuilderV10::new()
         .id(Uuid::new_v4().to_string())
         .ty("data.equities.bars.updated")
         .source("psf.platform.datacollector")
@@ -64,27 +71,28 @@ async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Event {
         .unwrap_or_else(|e| {
             tracing::error!("Failed to build event: {}", e);
             Event::default()
-        })
+        }))
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
-    info!("data collector started");
-
     let server_port_environment_variable = env::var("SERVER_PORT")
         .unwrap_or("8080".to_string());
 
-    let server_port = server_port_environment_variable.parse::<u16>().unwrap();
+    let server_port = server_port_environment_variable.parse::<u16>()
+        .map_err(|e: ParseIntError| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let data_client = DataClient::new(
-        env::var("ALPACA_API_KEY").unwrap(),
-        env::var("ALPACA_API_SECRET").unwrap(),
-        env::var("AWS_ACCESS_KEY_ID").unwrap(),
-        env::var("AWS_SECRET_ACCESS_KEY").unwrap(),
-        env::var("S3_DATA_BUCKET_NAME").unwrap(),
+        env::var("ALPACA_API_KEY").expect("Alpaca API key"),
+        env::var("ALPACA_API_SECRET").expect("Alpaca API secret"),
+        env::var("AWS_ACCESS_KEY_ID").expect("AWS access key ID"),
+        env::var("AWS_SECRET_ACCESS_KEY").expect("AWS secret access key"),
+        env::var("S3_DATA_BUCKET_NAME").expect("S3 data bucket name"),
     );
+
+    let data_client: Arc<dyn Interface> = Arc::new(data_client);
 
     let data_client = web::Data::new(data_client);
 
@@ -93,7 +101,7 @@ async fn main() -> std::io::Result<()> {
         .app_data(data_client.clone())
         .service(health_handler)
         .service(data_handler))
-        .bind(("127.0.0.1", server_port))?
+        .bind(("0.0.0.0", server_port))?
         .run()
         .await
 }

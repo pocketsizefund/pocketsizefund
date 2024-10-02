@@ -5,4 +5,4 @@
 
 cd $root/platform/datacollector
 
-docker compose up --build
+docker compose up --build 

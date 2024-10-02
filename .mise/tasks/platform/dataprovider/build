@@ -3,15 +3,12 @@
 # mise description="build docker image for the data provider"
 # mise tools=["rust"]
 
-cd $root/platform/dataprovider
-
-cp $root/Cargo.lock .
-
 IMAGE=pocketsizefund/dataprovider
 
-VERSION=$(cargo pkgid | awk -F# '{print $NF}')
+VERSION=1.0.0
 
 docker build \
+    --file platform/dataprovider/Dockerfile \
     --tag $IMAGE:latest \
     --tag $IMAGE:$VERSION \
     --platform $PLATFORM \
