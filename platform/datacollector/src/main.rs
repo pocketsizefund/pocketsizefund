@@ -4,7 +4,6 @@ use std::env;
 use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
 use uuid::Uuid;
-use tracing;
 use chrono::{DateTime, Utc};
 use mockall::mock;
 use std::sync::Arc;

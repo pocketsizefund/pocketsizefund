@@ -1,17 +1,25 @@
 [project]
 name = "pricemodel"
-version = "20240915.0"
+version = "20241003.0"
 description = "PSF Price Model"
 requires-python = ">=3.9, <3.11"
 dependencies = [
     "fastapi>=0.112.2",
+    "loguru>=0.7.2",
     "uvicorn>=0.30.6",
+    "requests>=2.32.3",
     "pydantic>=2.8.2",
     "bs4>=0.0.2",
-    "pocketsizefund[ml,ml-cpu,trade]",
     "numpy<2",
     "cloudevents>=1.11.0",
     "fastapi-cloudevents>=2.0.2",
+    "pytorch-forecasting>=1.1.1",
+    "tensorboard>=2.18.0",
+    "pandas>=2.2.2",
+    "boto3>=1.35.10",
+    "alpaca-py>=0.30.1",
+    "bs4>=0.0.2",
+    "lxml>=5.3.0",
 ]
 
 [build-system]

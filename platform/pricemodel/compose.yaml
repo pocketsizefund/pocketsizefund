@@ -3,7 +3,7 @@ services:
     build:
       context: .
       tags:
-        - "pricemodel:latest"
+        - pricemodel:latest
     platform: linux/amd64
     ports:
       - 8080:8080
@@ -16,3 +16,36 @@ services:
       - APCA_API_KEY_ID
       - APCA_API_BASE_URL
       - APCA_API_SECRET
+    depends_on:
+      - dataprovider
+      - discordbot
+
+  dataprovider:
+    image: data-provider
+    ports:
+      - 8083:8083
+    environment:
+      - ALPACA_API_KEY_ID
+      - ALPACA_API_SECRET_KEY
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - S3_DATA_BUCKET_NAME
+      - SERVER_PORT=8080
+
+  discordbot:
+    image: pocketsizefund/discordbot:latest
+    ports:
+      - 8082:8082
+    environment:
+      - PORT=8082
+      - DISCORD_WEBHOOK_URL
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
+      - DARQUBE_API_KEY
+      - ALPHA_VANTAGE_API_KEY
+      - APCA_API_BASE_URL
+      - APCA_API_KEY_ID
+      - APCA_API_SECRET_KEY
+      - ALPACA_API_BASE_URL
+
+

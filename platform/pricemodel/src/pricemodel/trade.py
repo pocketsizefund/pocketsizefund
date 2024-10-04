@@ -18,6 +18,7 @@ class Client:
         darqube_api_key: str,
         alpaca_api_key: str,
         alpaca_api_secret: str,
+        alpha_vantage_api_key: str,
         is_paper: bool = True,  # noqa: FBT001, FBT002
     ) -> None:
         """Initialize a new instance of the Client class.
@@ -25,12 +26,15 @@ class Client:
         This is used to interact with several systems including:
         - Darqube
         - Alpaca
+        - Alpha Vantage
 
         Args:
             darqube_api_key (str): The API key for Darqube.
             alpaca_api_key (str): The API key for Alpaca.
             alpaca_api_secret (str): The API secret key for Alpaca.
-            is_paper (bool, optional): Indicates whether the client is in paper trading mode.
+            alpha_vantage_api_key (str): The API key for Alpha Vantage.
+            is_paper (bool, optional): Indicates whether the client is in paper
+                trading mode.
                 Defaults to True.
 
         Returns:
@@ -53,6 +57,7 @@ class Client:
             secret_key=alpaca_api_secret,
             raw_data=True,
         )
+        self.alpha_vantage_api_key = alpha_vantage_api_key
         self.schedule_periods = (
             datetime.time(hour=9, minute=30),
             datetime.time(hour=11, minute=30),
@@ -184,7 +189,9 @@ class Client:
 
         darqube_response_json = darqube_response.json()
 
-        constituents = [darqube_response_json[key]["Code"] for key in darqube_response_json]
+        constituents = [
+            darqube_response_json[key]["Code"] for key in darqube_response_json
+        ]
 
         request = alpaca_trading_requests.GetAssetsRequest(
             status=enums.AssetStatus.ACTIVE,

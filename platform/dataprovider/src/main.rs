@@ -6,7 +6,6 @@ use std::sync::Arc;
 use pocketsizefund::data::{Client as DataClient, Interface, Bar};
 use mockall::mock;
 use uuid::Uuid;
-use tracing;
 use serde_json::json;
 use serde::Deserialize;
 
@@ -70,11 +69,11 @@ async fn main() -> std::io::Result<()> {
     let server_port = server_port_environment_variable.parse::<u16>().unwrap();
 
     let data_client = DataClient::new(
-        env::var("ALPACA_API_KEY_ID").unwrap(),
-        env::var("ALPACA_API_SECRET_KEY").unwrap(),
-        env::var("AWS_ACCESS_KEY_ID").unwrap(),
-        env::var("AWS_SECRET_ACCESS_KEY").unwrap(),
-        env::var("S3_DATA_BUCKET_NAME").unwrap(),
+        env::var("ALPACA_API_KEY_ID").expect("ALPACA_API_KEY_ID"),
+        env::var("ALPACA_API_SECRET_KEY").expect("ALPACA_API_SECRET_KEY"),
+        env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID"),
+        env::var("AWS_SECRET_ACCESS_KEY").expect("AWS_SECRET_ACCESS_KEY"),
+        env::var("S3_DATA_BUCKET_NAME").expect("S3_DATA_BUCKET_NAME"),
     );
 
     let data_client = web::Data::new(data_client);
