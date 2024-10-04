@@ -3,9 +3,9 @@
 # mise description="push data collector image to docker hub"
 # mise depends=["platform:datacollector:build"]
 
-cd platform/datacollector
+cd $root/platform/datacollector
 
-IMAGE=pocketsizefund/data-collector
+IMAGE=pocketsizefund/datacollector
 
 VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 

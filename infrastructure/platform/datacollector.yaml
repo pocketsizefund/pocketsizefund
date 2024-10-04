@@ -7,10 +7,13 @@ metadata:
     layer: data
 spec:
   template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-        - name: data-collector
-          image: pocketsizefund/datacollector:0.1.0
+        - name: datacollector
+          image: pocketsizefund/datacollector:202409.11.0
           ports:
             - containerPort: 8080
           resources:
@@ -31,32 +34,33 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: ALPACA_API_SECRET
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: AWS_SECRET_ACCESS_KEY
             - name: S3_DATA_BUCKET_NAME
               valueFrom:
                 secretKeyRef:
                   name: platform
                   key: S3_DATA_BUCKET_NAME
+            - name: SERVER_PORT
+              value: "8080"
 ---
-apiVersion: batch/v1
-kind: CronJob
+apiVersion: sources.knative.dev/v1
+kind: PingSource
 metadata:
-  name: morning-trigger
-  labels:
-    layer: data
+  name: morning-ping
 spec:
   schedule: "0 18 * * 1-5"
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: OnFailure
-          containers:
-            - name: trigger
-              image: curlimages/curl
-              args:
-                - /bin/sh
-                - -c
-                - >
-                  curl http://datacollector.live.svc.cluster.local/data
-                  -H "Content-Type: application/cloudevents+json"
-                  -H "ce-specversion: 1.0"
+  sink:
+    ref:
+      apiVersion: eventing.knative.dev/v1
+      kind: Service
+      name: datacollector
+    uri: /data

@@ -8,6 +8,9 @@ use mockall::mock;
 use uuid::Uuid;
 use serde_json::json;
 use serde::Deserialize;
+use actix_web::middleware::Logger;
+use std::num::ParseIntError;
+use std::io;
 
 #[post("/health")]
 async fn health_handler() -> HttpResponse {
@@ -25,7 +28,7 @@ struct Payload {
     data: Data,
 }
 
-#[post("/")]
+#[post("/data")]
 async fn data_handler(
     body: web::Bytes, 
     data_client: web::Data<Arc<dyn Interface>>,
@@ -35,7 +38,10 @@ async fn data_handler(
         Err(_) => return HttpResponse::BadRequest().body("Invalid JSON or incorrect date format"),
     };
 
-    let old_bars = data_client.load_equities_bars().await.unwrap();
+    let old_bars = data_client.load_equities_bars().await.unwrap_or_else(|e| {
+        tracing::error!("Failed to load old bars: {}", e);
+        Vec::new()
+    });
 
     let filtered_bars: Vec<Bar> = old_bars
         .into_iter()
@@ -64,25 +70,32 @@ async fn data_handler(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let server_port_environment_variable = env::var("SERVER_PORT").unwrap();
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
-    let server_port = server_port_environment_variable.parse::<u16>().unwrap();
+    let server_port_environment_variable = env::var("SERVER_PORT")
+        .unwrap_or("8080".to_string());
+
+    let server_port = server_port_environment_variable.parse::<u16>()
+        .map_err(|e: ParseIntError| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let data_client = DataClient::new(
-        env::var("ALPACA_API_KEY_ID").expect("ALPACA_API_KEY_ID"),
-        env::var("ALPACA_API_SECRET_KEY").expect("ALPACA_API_SECRET_KEY"),
-        env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID"),
-        env::var("AWS_SECRET_ACCESS_KEY").expect("AWS_SECRET_ACCESS_KEY"),
-        env::var("S3_DATA_BUCKET_NAME").expect("S3_DATA_BUCKET_NAME"),
+        env::var("ALPACA_API_KEY").expect("Alpaca API key not found"),
+        env::var("ALPACA_API_SECRET").expect("Alpaca API secret not found"),
+        env::var("AWS_ACCESS_KEY_ID").expect("AWS access key ID not found"),
+        env::var("AWS_SECRET_ACCESS_KEY").expect("AWS secret access key not found"),
+        env::var("S3_DATA_BUCKET_NAME").expect("S3 data bucket name not found"),
     );
 
-    let data_client = web::Data::new(data_client);
+    let data_client: Arc<dyn Interface> = Arc::new(data_client);
 
+    let data_client = web::Data::new(data_client);
+    
     HttpServer::new(move || App::new()
+        .wrap(Logger::default())
         .app_data(data_client.clone())
         .service(health_handler)
         .service(data_handler))
-        .bind(("127.0.0.1", server_port))?
+        .bind(("0.0.0.0", server_port))?
         .run()
         .await
 }
@@ -179,7 +192,7 @@ mod tests {
         });
 
         let req = test::TestRequest::post()
-            .uri("/")
+            .uri("/data")
             .set_json(&payload)
             .to_request();
 

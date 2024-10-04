@@ -63,7 +63,7 @@ impl Hash for Bar {
 
 #[automock]
 #[async_trait]
-pub trait Interface {
+pub trait Interface: Send + Sync {
     async fn fetch_equities_bars(
         &self,
         tickers: Vec<String>,
@@ -114,7 +114,7 @@ impl Client {
         }
     }
 
-    fn build_equities_bars_url(
+    fn _build_equities_bars_url(
         &self,
         ticker: &String,
         start: DateTime<Utc>,
@@ -151,7 +151,7 @@ impl Client {
     async fn _load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
         let key = format!("{}/all.gz", EQUITY_BARS_PATH);
 
-        let output = self
+        let get_object_response = self
             .s3_client
             .get_object()
             .bucket(&self.s3_data_bucket_name)
@@ -159,7 +159,7 @@ impl Client {
             .send()
             .await?;
 
-        let compressed_data = output.body.collect().await?;
+        let compressed_data = get_object_response.body.collect().await?;
 
         let compressed_bytes = compressed_data.into_bytes();
 
@@ -203,7 +203,7 @@ impl Interface for Client {
                 let mut page_token: Option<String> = None;
 
                 let alpaca_url =
-                    self.build_equities_bars_url(&ticker, start, end, page_token.as_deref())?;
+                    self._build_equities_bars_url(&ticker, start, end, page_token.as_deref())?;
 
                 let response = self
                     .http_client
@@ -294,7 +294,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_build_equities_bars_url() {
+    fn test__build_equities_bars_url() {
         let client = Client {
             alpaca_base_url: "https://paper-api.alpaca.markets".to_string(),
             alpaca_api_key_id: "your_api_key".to_string(),
@@ -313,7 +313,7 @@ mod tests {
         let page_token = Some("next_page_token");
 
         let result = client
-            .build_equities_bars_url(&ticker, start, end, page_token)
+            ._build_equities_bars_url(&ticker, start, end, page_token)
             .unwrap();
 
         assert_eq!(result.scheme(), "https");

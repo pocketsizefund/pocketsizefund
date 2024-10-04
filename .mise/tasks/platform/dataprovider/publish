@@ -3,9 +3,9 @@
 # mise description="push data provider image to docker hub"
 # mise depends=["platform:dataprovider:build"]
 
-cd platform/dataprovider
+cd $root/platform/dataprovider
 
-IMAGE=pocketsizefund/data-provider
+IMAGE=pocketsizefund/dataprovider
 VERSION=$(cargo pkgid | awk -F# '{print $NF}')
 
 docker push $IMAGE:latest
