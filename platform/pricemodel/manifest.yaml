@@ -46,12 +46,6 @@ spec:
               value: "paper"
             - name: K_SINK
               value: http://broker-ingress.knative-eventing.svc.cluster.local/default/default
-          requests:
-            cpu: 100m
-            memory: 512Mi
-          limits:
-            cpu: 500m
-            memory: 2048Mi
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger

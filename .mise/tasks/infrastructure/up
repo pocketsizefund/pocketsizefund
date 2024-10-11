@@ -46,17 +46,16 @@ kubectl create secret generic platform \
     --from-literal="FUND_DATA_BUCKET=$FUND_DATA_BUCKET" \
     --from-literal="FUND_ARTIFACTS_BUCKET=$FUND_ARTIFACTS_BUCKET"
 
-kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.9.0/serving-crds.yaml
-kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.9.0/serving-core.yaml
-kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.9.0/eventing-crds.yaml
-kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.9.0/eventing-core.yaml
-kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.9.0/kourier.yaml
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.9.0/serving-crds.yaml | kubectl colorize-applied
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.9.0/serving-core.yaml | kubectl colorize-applied
+kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.9.0/eventing-crds.yaml | kubectl colorize-applied
+kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.9.0/eventing-core.yaml | kubectl colorize-applied
+kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.9.0/kourier.yaml | kubectl colorize-applied
 kubectl patch configmap/config-network \
   --namespace knative-serving \
   --type merge \
-  --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
-kubectl apply -f knative/broker.yaml
-kubectl apply -f knative/event-display.yaml
+  --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}' | kubectl colorize-applied
+kubectl apply -f knative/broker.yaml | kubectl colorize-applied
 
 MONITORING_SECRETS=$(aws secretsmanager get-secret-value --secret-id monitoring | jq -r .SecretString | jq)
 GRAFANA_ADMIN_PASSWORD=$(jq -r .GRAFANA_ADMIN_PASSWORD <<< $MONITORING_SECRETS)
@@ -75,9 +74,9 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 cd $root/platform
 find . -name manifest.yaml -type f | while read -r file; do
   echo "Applying $file"
-  kubectl apply -f "$file"
+  kubectl apply -f "$file" | kubectl colorize-applied
 done
 
-aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+aws eks update-kubeconfig --region $AWS_REGION --name $FUND_CLUSTER_NAME
 
 echo "Grafana admin password: $GRAFANA_ADMIN_PASSWORD"

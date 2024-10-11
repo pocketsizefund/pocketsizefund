@@ -55,8 +55,17 @@
                 nushell
                 cargo-deny
                 openssl
-
+                mise
                 ruff
+                awscli
+                jq
+                helm
+                yq
+                eksctl
+                kubectl
+                krew
+                kn
+                gum
               ];
 
               languages = {
@@ -93,14 +102,29 @@
                   exec = "alejandra .";
                   before = ["devenv:enterShell"];
                 };
-                "cargo:clippy" = {
-                  exec = "cargo clippy --allow-dirty --fix";
+                "k8s:kubectl:krew:install" = {
+                  exec = ''
+                    krew install krew
+                    kubectl krew install assert
+                    kubectl krew install colorize-applied
+                    kubectl krew install cost
+                  '';
+                  before = ["k8s:costs"];
+                };
+                "k8s:costs" = {
+                  exec = ''
+                    kubectl cost namespace --show-all-resources
+                  '';
                   before = ["devenv:enterShell"];
                 };
-                "cargo:test" = {
-                  exec = "cargo test --all-features";
-                  before = ["devenv:enterShell"];
-                };
+                # "cargo:clippy" = {
+                #   exec = "cargo clippy --allow-dirty --fix";
+                #   before = ["devenv:enterShell"];
+                # };
+                # "cargo:test" = {
+                #   exec = "cargo test --all-features";
+                #   before = ["devenv:enterShell"];
+                # };
               };
             })
           ];

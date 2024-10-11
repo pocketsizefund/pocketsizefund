@@ -13,21 +13,7 @@ from pytorch_forecasting.metrics import RMSE
 from torch.utils.data import DataLoader
 import torch
 
-# import wandb
-
-
-# import warnings
-# warnings.filterwarnings(
-#     action='ignore',
-#     message='X does not have valid feature names',
-#     category=UserWarning,
-#     module='sklearn'
-# )
-
-
-
 pl.seed_everything(42)
-
 
 def join_tickers() -> pd.DataFrame:
     files = os.listdir("data/previous-close")

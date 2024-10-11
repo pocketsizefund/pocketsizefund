@@ -2,14 +2,14 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: pocketsizefund-20240914
+  name: pocketsizefund-20241009
   region: us-east-1
 
 managedNodeGroups:
   - name: eks-managed-node-group
     instanceType: t3.medium
-    desiredCapacity: 2
-    minSize: 1
+    desiredCapacity: 3
+    minSize: 2
     maxSize: 4
     privateNetworking: true
 

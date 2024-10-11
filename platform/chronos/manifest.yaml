@@ -1,6 +1,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
+  name: chronos
 spec:
   template:
     spec:
@@ -26,6 +27,7 @@ spec:
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
+  name: chronos
 spec:
   schedule: "15 9 * * *"
   timezone: "America/New_York"

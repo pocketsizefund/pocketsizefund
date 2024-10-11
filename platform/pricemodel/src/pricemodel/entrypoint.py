@@ -11,7 +11,7 @@ from pydantic import BaseModel
 import requests
 
 ENVIRONMENT = os.getenv("ENVIRONMENT")
-DATA_PROVIDER_URL = f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080"
+DATA_PROVIDER_URL = os.getenv("DATA_PROVIDER_URL", f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080/")
 
 from pricemodel.trade import Client
 
@@ -58,11 +58,17 @@ async def invocations(event: CloudEvent) -> CloudEvent:
 
     # available_tickers = trade_client.get_available_tickers()
 
-    end_at = datetime.datetime.now(tz=config.TIMEZONE)
-    start_at = end_at - datetime.timedelta(days=20)
+    end_at = datetime.datetime.now(tz=config.TIMEZONE).replace(microsecond=0)
+
+    start_at = (end_at - datetime.timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_at = end_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+
+    logger.info(f"{start_at=}")
+    logger.info(f"{end_at=}")
 
     response = requests.post(
-        url=DATA_PROVIDER_URL + "/",
+        url=DATA_PROVIDER_URL,
         timeout=30,
         json={
             "data": {
@@ -74,13 +80,15 @@ async def invocations(event: CloudEvent) -> CloudEvent:
 
     response = requests.post(DATA_PROVIDER_URL)
 
-    if response.status_code != status.HTTP_200_OK:
-        return Response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content="error getting data",
-            media_type="text/plain",
-        )
+    response.raise_for_status()
 
+    # if response.status_code != status.HTTP_200_OK:
+    #     return Response(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         content="error getting data",
+    #         media_type="text/plain",
+    #     )
+    #
     json_data = response.json()
 
     equity_bars_raw_data = pd.DataFrame(json_data)

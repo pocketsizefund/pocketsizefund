@@ -1,7 +1,6 @@
 from tinygrad import nn
 import sys
 
-
 class TemporalFusionTransformer:
     def __init__(self, num_tickers: int, input_dim: int, embedding_dim: int):
         self.num_tickers = num_tickers
@@ -11,7 +10,6 @@ class TemporalFusionTransformer:
         self.lstm = nn.LSTMCell(12, 8)
         # self.lstm2 = nn.LSTMCell(12, 12)
         self.fc1 = nn.Linear(8, 4, bias=True)
-
 
     def __call__(self, x):
         print(x.shape)

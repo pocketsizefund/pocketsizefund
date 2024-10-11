@@ -4,7 +4,7 @@
 
 cd $root/platform
 find . -name "manifest.yaml" -type f | while read -r file; do
-  kubectl apply -f "$file"
+  kubectl apply -f "$file" | kubectl colorize-applied
 done
 
 

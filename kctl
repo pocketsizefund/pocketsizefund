@@ -1,0 +1,83 @@
+
+
+[34mkubie[39m ([32m0.24.0[39m)
+  Shell independent context and namespace switcher for kubectl
+  Homepage: https://github.com/sbstp/kubie
+  Position: pkgs/development/tools/kubie/default.nix:25
+
+[34mtubekit[39m ([32m5[39m)
+  Kubectl alternative with quick context switching
+  Homepage: https://github.com/reconquest/tubekit
+  Position: pkgs/applications/networking/cluster/tubekit/default.nix:20
+
+[34mtubekit-unwrapped[39m ([32m5[39m)
+  Kubectl alternative with quick context switching
+  Homepage: https://github.com/reconquest/tubekit
+  Position: pkgs/applications/networking/cluster/tubekit/default.nix:20
+
+[34mkrew[39m ([32m0.4.4[39m)
+  Package manager for kubectl plugins
+  Homepage: https://github.com/kubernetes-sigs/krew
+  Position: pkgs/development/tools/krew/default.nix:26
+
+[34mkubedb-cli[39m ([32m0.48.0[39m)
+  kubectl plugin for KubeDB by AppsCode
+  Homepage: https://github.com/kubedb/cli
+  Position: pkgs/applications/networking/cluster/kubedb-cli/default.nix:20
+
+[34mkubecolor[39m ([32m0.4.0[39m)
+  Colorizes kubectl output
+  Homepage: https://github.com/kubecolor/kubecolor
+  Position: pkgs/by-name/ku/kubecolor/package.nix:43
+
+[34mkubectl-view-allocations[39m ([32m0.18.1[39m)
+  kubectl plugin to list allocations (cpu, memory, gpu,... X utilization,
+  requested, limit, allocatable,...)
+  Homepage: https://github.com/davidB/kubectl-view-allocations
+  Position: pkgs/applications/networking/cluster/kubectl-view-allocations/default.nix:30
+
+[34mkubectl-view-secret[39m ([32m0.13.0[39m)
+  Kubernetes CLI plugin to decode Kubernetes secrets
+  Homepage: https://github.com/elsesiy/kubectl-view-secret
+  Position: pkgs/applications/networking/cluster/kubectl-view-secret/default.nix:23
+
+[34mkubectl-node-shell[39m ([32m1.10.1[39m)
+  Exec into node via kubectl
+  Homepage: https://github.com/kvaps/kubectl-node-shell
+  Position: pkgs/applications/networking/cluster/kubectl-node-shell/default.nix:26
+
+[34mkubectl-evict-pod[39m ([32m0.0.14[39m)
+  This plugin evicts the given pod and is useful for testing pod disruption budget
+  rules
+  Homepage: https://github.com/rajatjindal/kubectl-evict-pod
+  Position: pkgs/applications/networking/cluster/kubectl-evict-pod/default.nix:17
+
+[34mkubectl-validate[39m ([32m0.0.4[39m)
+  Tool for local validation of resources for native Kubernetes types and CRDs
+  Homepage: https://github.com/kubernetes-sigs/kubectl-validate
+  Position: pkgs/by-name/ku/kubectl-validate/package.nix:37
+
+[34mkubectl-convert[39m ([32m1.31.0[39m)
+  Kubernetes CLI
+  Homepage: https://github.com/kubernetes/kubectl
+  Position: pkgs/applications/networking/cluster/kubernetes/kubectl.nix:28
+
+[34mkubectl-example[39m ([32m1.2.0[39m)
+  kubectl plugin for retrieving resource example YAMLs
+  Homepage: https://github.com/seredot/kubectl-example
+  Position: pkgs/applications/networking/cluster/kubectl-example/default.nix:17
+
+[34mkubectl-images[39m ([32m0.6.3[39m)
+  Show container images used in the cluster
+  Homepage: https://github.com/chenjiandongx/kubectl-images
+  Position: pkgs/by-name/ku/kubectl-images/package.nix:21
+
+  kubectl-tree
+  kubectl-ktop
+  kubectl-neat
+  kubectl-klock
+  kubectl-gadget
+  kubectl-doctor
+  kubectl-images
+  kubectl-explore
+  kubectl-alfred

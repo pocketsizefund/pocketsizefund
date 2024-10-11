@@ -232,7 +232,9 @@ impl Interface for Client {
                 equities_bars.extend(bars_with_ticker);
 
                 match bar_response.next_token {
-                    Some(token) => page_token = Some(token),
+                    Some(token) => {
+                        page_token = Some(token);
+                    }
                     None => break,
                 }
             }

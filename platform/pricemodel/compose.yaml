@@ -16,6 +16,8 @@ services:
       - APCA_API_KEY_ID
       - APCA_API_BASE_URL
       - APCA_API_SECRET
+      - DATA_PROVIDER_URL=http://dataprovider:8083/data
+      - DISCORD_BOT_URL=http://discordbot:8082
     depends_on:
       - dataprovider
       - discordbot
@@ -25,12 +27,12 @@ services:
     ports:
       - 8083:8083
     environment:
-      - ALPACA_API_KEY_ID
-      - ALPACA_API_SECRET_KEY
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
       - AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY
       - S3_DATA_BUCKET_NAME
-      - SERVER_PORT=8080
+      - SERVER_PORT=8083
 
   discordbot:
     image: pocketsizefund/discordbot:latest

@@ -3,15 +3,15 @@
 # mise description="create eks cluster"
 
 cd $root/infrastructure/aws
-CLUSTER_NAME=$(cat cluster-config.yaml | yq .metadata.name)
-AWS_REGION=$(cat cluster-config.yaml | yq .metadata.region)
 
-echo "creating s3 buckets in $CLUSTER_NAME in $AWS_REGION"
+echo "creating s3 buckets in $FUND_CLUSTER_NAME in $AWS_REGION"
 
-if eksctl get cluster --name=$CLUSTER_NAME --region=$AWS_REGION 2>/dev/null; then
-   echo "Cluster $CLUSTER_NAME already exists. Updating..."
+if eksctl get cluster --name=$FUND_CLUSTER_NAME --region=$AWS_REGION 2>/dev/null; then
+   echo "Cluster $FUND_CLUSTER_NAME already exists. Updating..."
    eksctl upgrade cluster -f cluster-config.yaml
 else
-  echo "Creating new cluster $CLUSTER_NAME..."
+  echo "Creating new cluster $FUND_CLUSTER_NAME..."
   eksctl create cluster -f cluster-config.yaml
 fi
+
+aws eks update-kubeconfig --region $AWS_REGION --name $FUND_CLUSTER_NAME

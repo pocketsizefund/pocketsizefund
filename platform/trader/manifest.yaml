@@ -48,3 +48,17 @@ spec:
       apiVersion: serving.knative.dev/v1
       kind: Service
       name: trader
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: afternoon-trades
+spec:
+  schedule: "30 14 * * *"
+  timezone: "America/New_York"
+  data: ''
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: trader
