@@ -1,8 +1,9 @@
 use actix_web::{post, web, App, HttpResponse, HttpServer};
-use pocketsizefund::data::{Client as DataClient, Interface, Bar};
+use pocketsizefund::data::{Client as DataClient, Interface, Bar, Prediction};
 use std::env;
 use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
+use serde::Deserialize;
 use uuid::Uuid;
 use tracing;
 use chrono::{DateTime, Utc, Duration};
@@ -16,6 +17,12 @@ use std::num::ParseIntError;
 mod tickers;
 
 use tickers::get_dow_jones_tickers;
+
+
+#[derive(Deserialize)]
+struct Payload {
+    predictions: Vec<Prediction>,
+}
 
 #[post("/health")]
 async fn health_handler() -> HttpResponse {
@@ -74,6 +81,47 @@ async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Result<clou
         }))
 }
 
+#[post("/predictions")]
+async fn predictions_handler(
+    body: web::Bytes, 
+    data_client: web::Data<Arc<dyn Interface>>,
+) -> HttpResponse {
+    let payload: Payload = match serde_json::from_slice(&body) {
+        Ok(val) => val,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid JSON or incorrect predictions format"),
+    };
+
+    let result = data_client.write_predictions(payload.predictions).await;
+
+    match result {
+        Ok(_) => {
+            EventBuilderV10::new()
+            .id(Uuid::new_v4().to_string())
+            .ty("data.equities.predictions.write")
+            .source("psf.platform.datacollector")
+            .data(
+                "application/cloudevents+json",
+                json!({
+                    "status": "success".to_string(),
+                }),
+            )
+            .extension("timestamp", Utc::now().to_rfc3339().to_string())
+            .build()
+            .unwrap_or_else(|e| {
+                tracing::error!("Failed to build event: {}", e);
+                Event::default()
+            });
+
+            
+            HttpResponse::Ok().body("Predictions written successfully")
+        },
+        Err(e) => {
+            info!("Failed to write predictions: {}", e);
+            HttpResponse::InternalServerError().body("Failed to write predictions")
+        }
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
@@ -100,7 +148,8 @@ async fn main() -> std::io::Result<()> {
         .wrap(Logger::default())
         .app_data(data_client.clone())
         .service(health_handler)
-        .service(data_handler))
+        .service(data_handler)
+        .service(predictions_handler))
         .bind(("0.0.0.0", server_port))?
         .run()
         .await
@@ -121,7 +170,12 @@ mock! {
             &self,
             equities_bars: Vec<Bar>,
         ) -> Result<(), Box<dyn std::error::Error>>;
-        async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;   
+        async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
+        async fn write_predictions(
+            &self,
+            predictions: Vec<Prediction>,
+        ) -> Result<(), Box<dyn std::error::Error>>;
+        async fn load_predictions(&self) -> Result<Vec<Prediction>, Box<dyn std::error::Error>>;
     }
 }
 
@@ -199,6 +253,33 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/data")
             .insert_header(ContentType::plaintext())
+            .to_request();
+
+        let resp = test::call_service(&app, req).await;
+
+        assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_predictions_handler() {
+        let mut mock_client = MockInterfaceMock::new();
+        
+        mock_client.expect_write_predictions()
+            .returning(|_| Ok(()));
+
+        let mock_client: Arc<dyn Interface> = Arc::new(mock_client);
+
+        let mock_client = web::Data::new(mock_client);
+
+        let app = test::init_service(App::new()
+            .app_data(mock_client.clone())
+            .service(predictions_handler))
+            .await;
+
+        let req = test::TestRequest::post()
+            .uri("/predictions")
+            .insert_header(ContentType::json())
+            .set_payload(r#"{"predictions": []}"#)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
