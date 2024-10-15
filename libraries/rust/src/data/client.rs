@@ -17,6 +17,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use mockall::automock;
 use async_trait::async_trait;
+use serde::de::DeserializeOwned;
 
 #[derive(Deserialize)]
 struct BarsResponse {
@@ -61,6 +62,29 @@ impl Hash for Bar {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Prediction {
+    pub ticker: String,
+    pub timestamp: DateTime<Utc>,
+    pub timestamps: Vec<DateTime<Utc>>,
+    pub prices: Vec<f32>,
+}
+
+impl PartialEq for Prediction {
+    fn eq(&self, other: &Self) -> bool {
+        self.ticker == other.ticker && self.timestamp == other.timestamp
+    }
+}
+
+impl Eq for Prediction {}
+
+impl Hash for Prediction {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.ticker.hash(state);
+        self.timestamp.hash(state);
+    }
+}
+
 #[automock]
 #[async_trait]
 pub trait Interface: Send + Sync {
@@ -75,6 +99,11 @@ pub trait Interface: Send + Sync {
         equities_bars: Vec<Bar>,
     ) -> Result<(), Box<dyn std::error::Error>>;
     async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
+    async fn write_predictions(
+        &self,
+        predictions: Vec<Prediction>,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    async fn load_predictions(&self) -> Result<Vec<Prediction>, Box<dyn std::error::Error>>;
 }
 
 #[derive(Clone)]
@@ -147,35 +176,11 @@ impl Client {
 
         Ok(alpaca_url)
     }
-
-    async fn _load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
-        let key = format!("{}/all.gz", EQUITY_BARS_PATH);
-
-        let get_object_response = self
-            .s3_client
-            .get_object()
-            .bucket(&self.s3_data_bucket_name)
-            .key(key)
-            .send()
-            .await?;
-
-        let compressed_data = get_object_response.body.collect().await?;
-
-        let compressed_bytes = compressed_data.into_bytes();
-
-        let mut decoder = GzDecoder::new(&compressed_bytes[..]);
-
-        let mut decompressed_data = Vec::new();
-
-        decoder.read_to_end(&mut decompressed_data)?;
-
-        let equities_bars = serde_json::from_slice(&decompressed_data)?;
-
-        Ok(equities_bars)
-    }
 }
 
-const EQUITY_BARS_PATH: &str = "equity/bars";
+const EQUITY_BARS_PATH: &str = "equity/bar/all.gz";
+
+const PREDICTIONS_PATH: &str = "predictions/all.gz";
 
 #[async_trait]
 impl Interface for Client {
@@ -247,43 +252,129 @@ impl Interface for Client {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut combined_equities_bars: HashSet<Bar> = HashSet::new();
         
-        let original_equities_bars = self._load_equities_bars().await?;
+        let original_equities_bars: Vec<Bar> = load_objects(
+            &self.s3_client, 
+            self.s3_data_bucket_name.clone(), 
+            EQUITY_BARS_PATH.to_string(),
+        ).await?;
     
         combined_equities_bars.extend(original_equities_bars.into_iter());
 
         combined_equities_bars.extend(equities_bars.into_iter());
 
-        let equities_bars_json = serde_json::to_vec(&combined_equities_bars).unwrap();
+        let result = write_objects(
+            &self.s3_client, 
+            self.s3_data_bucket_name.clone(), 
+            EQUITY_BARS_PATH.to_string(), 
+            &combined_equities_bars,
+        ).await?;
 
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-
-        encoder.write_all(&equities_bars_json)?;
-
-        let compressed_data = encoder.finish()?;
-
-        let equities_bars_bytes = ByteStream::from(compressed_data);
-
-        let key = format!("{}/all.gz", EQUITY_BARS_PATH);
-
-        let output = self
-            .s3_client
-            .put_object()
-            .bucket(&self.s3_data_bucket_name)
-            .key(key)
-            .body(equities_bars_bytes)
-            .send();
-
-        let result = output.await;
-
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(Box::new(e) as Box<dyn std::error::Error>),
-        }
+        Ok(result)
     }
 
     async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
-        self._load_equities_bars().await
+        let equities_bars = load_objects(
+            &self.s3_client, 
+            self.s3_data_bucket_name.clone(), 
+            EQUITY_BARS_PATH.to_string(),
+        ).await?;
+
+        Ok(equities_bars)
     }
+
+    async fn write_predictions(
+        &self,
+        predictions: Vec<Prediction>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut combined_predictions: HashSet<Prediction> = HashSet::new();
+        
+        let original_predictions: Vec<Prediction> = load_objects(
+            &self.s3_client, 
+            self.s3_data_bucket_name.clone(), 
+            PREDICTIONS_PATH.to_string(),
+        ).await?;
+    
+        combined_predictions.extend(original_predictions.into_iter());
+
+        combined_predictions.extend(predictions.into_iter());
+
+        let result = write_objects(
+            &self.s3_client, 
+            self.s3_data_bucket_name.clone(), 
+            PREDICTIONS_PATH.to_string(),
+            &combined_predictions,
+        ).await?;
+
+        Ok(result)
+    }
+
+    async fn load_predictions(&self) -> Result<Vec<Prediction>, Box<dyn std::error::Error>> {
+        let predictions = load_objects(
+            &self.s3_client, 
+            self.s3_data_bucket_name.clone(), 
+            PREDICTIONS_PATH.to_string(),
+        ).await?;
+
+        Ok(predictions)
+    }
+}
+
+async fn write_objects<T: Serialize>(
+    s3_client: &S3Client,
+    bucket: String,
+    key: String,
+    object: &T,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let objects_json = serde_json::to_vec(&object).unwrap();
+
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+
+    encoder.write_all(&objects_json)?;
+
+    let compressed_data = encoder.finish()?;
+
+    let objects_bytes = ByteStream::from(compressed_data);
+
+    let output = s3_client
+        .put_object()
+        .bucket(bucket)
+        .key(key)
+        .body(objects_bytes)
+        .send();
+
+    let result = output.await;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(Box::new(e) as Box<dyn std::error::Error>),
+    }
+}
+
+async fn load_objects<T: DeserializeOwned>(
+    s3_client: &S3Client,
+    bucket: String,
+    key: String,
+) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+    let get_object_response = s3_client
+        .get_object()
+        .bucket(bucket)
+        .key(key)
+        .send()
+        .await?;
+
+    let compressed_data = get_object_response.body.collect().await?;
+
+    let compressed_bytes = compressed_data.into_bytes();
+
+    let mut decoder = GzDecoder::new(&compressed_bytes[..]);
+
+    let mut decompressed_data = Vec::new();
+
+    decoder.read_to_end(&mut decompressed_data)?;
+
+    let predictions = serde_json::from_slice(&decompressed_data)?;
+
+    Ok(predictions)
 }
 
 #[cfg(test)]
@@ -294,7 +385,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test__build_equities_bars_url() {
+    fn test_build_equities_bars_url() {
         let client = Client {
             alpaca_base_url: "https://paper-api.alpaca.markets".to_string(),
             alpaca_api_key_id: "your_api_key".to_string(),

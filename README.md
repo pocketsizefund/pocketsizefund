@@ -1,8 +1,8 @@
 # pocketsizefund 
 
-> Open source quantitative trading 🍊  
+> Open source quantitative hedge fund 🍊  
 
-[![Python checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yml) [![Rust checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yml) [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund) [![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)]([https://discord.gg/uPEBbYYDB6](https://discord.gg/ZsNXCFm7ad))  
+[![Python checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yaml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/python.yaml) [![Rust checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yaml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/rust.yaml) [![Coverage Status](https://coveralls.io/repos/github/pocketsizefund/pocketsizefund/badge.svg)](https://coveralls.io/github/pocketsizefund/pocketsizefund) [![Discord](https://img.shields.io/discord/1038839012602941528.svg?color=7289da&&logo=discord)]([https://discord.gg/uPEBbYYDB6](https://discord.gg/ZsNXCFm7ad))  
 
 ## About
 
