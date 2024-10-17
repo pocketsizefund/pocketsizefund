@@ -1185,7 +1185,7 @@ dependencies = [
  "env_logger 0.11.5",
  "lazy_static",
  "log",
- "pocketsizefund 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pocketsizefund",
  "reqwest 0.12.7",
  "serde",
  "serde_json",
@@ -1459,7 +1459,8 @@ dependencies = [
  "env_logger 0.11.5",
  "log",
  "mockall",
- "pocketsizefund 0.1.6",
+ "pocketsizefund",
+ "serde",
  "serde_json",
  "tracing",
  "uuid",
@@ -1475,7 +1476,7 @@ dependencies = [
  "cloudevents-sdk",
  "env_logger 0.11.5",
  "mockall",
- "pocketsizefund 0.1.6",
+ "pocketsizefund",
  "serde",
  "serde_json",
  "tracing",
@@ -3122,31 +3123,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
- "uuid",
-]
-
-[[package]]
-name = "pocketsizefund"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc00e89e6273e2775221fc213873111b3f9a595a6c48940e4a5667ede59eaf71"
-dependencies = [
- "actix-web",
- "anyhow",
- "apca",
- "async-trait",
- "chrono",
- "cloudevents-sdk",
- "color-eyre",
- "fmt",
- "mockall",
- "reqwest 0.12.7",
- "rust_decimal",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 
