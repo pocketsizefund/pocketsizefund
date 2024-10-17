@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+# mise description="create knative serving and eventing"
+
+KNATIVE_VERSION="v1.15.1"
+
+cd $root/
+
+echo "Installing Knative Serving"
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-$KNATIVE_VERSION/serving-crds.yaml | kubectl colorize-applied
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-$KNATIVE_VERSION/serving-core.yaml | kubectl colorize-applied
+kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-$KNATIVE_VERSION/kourier.yaml | kubectl colorize-applied
+kubectl patch configmap/config-network \
+  --namespace knative-serving \
+  --type merge \
+  --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}' | kubectl colorize-applied
+
+echo "Installing Knative Eventing"
+kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$KNATIVE_VERSION/eventing-crds.yaml | kubectl colorize-applied
+
+kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$KNATIVE_VERSION/eventing-core.yaml | kubectl colorize-applied
+kubectl apply -f https://raw.githubusercontent.com/knative/eventing/release-${KNATIVE_VERSION#v}/config/core/resources/eventing-tls-networking.yaml | kubectl colorize-applied
+kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$KNATIVE_VERSION/in-memory-channel.yaml | kubectl colorize-applied
+
+kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$KNATIVE_VERSION/eventing-crds.yaml
+kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$KNATIVE_VERSION/eventing-core.yaml
+kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$KNATIVE_VERSION/mt-channel-broker.yaml
+
+kn broker create default

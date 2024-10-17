@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+# mise description="test trader service"
+# mise tools=["cargo"]
+
+cd $root/platform/trader
+exit 1
+
+

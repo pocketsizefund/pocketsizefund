@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+
+# mise description="create s3 buckets"
+
+cd $root/infrastructure
+
+if ! aws s3api head-bucket --bucket $S3_DATA_BUCKET --region $AWS_REGION 2>/dev/null; then
+    aws s3 mb "s3://$S3_DATA_BUCKET" --region $AWS_REGION
+    echo "Created bucket: $S3_DATA_BUCKET"
+else
+    echo "Bucket already exists: $S3_DATA_BUCKET"
+fi
+
+if ! aws s3api head-bucket --bucket $S3_ARTIFACTS_BUCKET --region $AWS_REGION 2>/dev/null; then
+    aws s3 mb s3://$S3_ARTIFACTS_BUCKET --region $AWS_REGION
+    echo "Created bucket: $S3_ARTIFACTS_BUCKET"
+else
+    echo "Bucket already exists: $S3_ARTIFACTS_BUCKET"
+fi
+

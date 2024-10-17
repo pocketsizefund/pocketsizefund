@@ -1,0 +1,45 @@
+{
+  description = "Python development environment with uv package manager";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            python3
+            python3Packages.pip
+            uv
+          ];
+
+          shellHook = ''
+            # Create a virtual environment if it doesn't exist
+            if [ ! -d "venv" ]; then
+              echo "Creating virtual environment..."
+              python -m venv venv
+            fi
+
+            # Activate the virtual environment
+            source venv/bin/activate
+
+            # Upgrade pip and install uv
+            pip install --upgrade pip
+            pip install uv
+
+            # Set up uv as the package manager
+            alias pip="uv pip"
+            alias venv="uv venv"
+
+            echo "Python environment with uv package manager is ready!"
+          '';
+        };
+      }
+    );
+}

@@ -1,56 +1,34 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.59.0 AS chef
+ARG RUST_VERSION=1.81.0
+ARG APP_NAME=dataprovider
 
-RUN rustup toolchain install nightly
-
-RUN rustup default nightly
-
-WORKDIR app/
+FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
+ARG APP_NAME
+WORKDIR /app
 
 FROM chef AS planner
+COPY . .
 
-COPY libraries/rust/ libraries/rust/
-
-COPY platform/dataprovider/ platform/dataprovider/
-
-COPY Cargo.toml Cargo.toml
-
-RUN echo '[workspace]\n\
-resolver = "2"\n\
-members = [\n\
-    "libraries/rust",\n\
-    "platform/dataprovider",\n\ 
-]\n\
-' > Cargo.toml
-
-COPY Cargo.lock Cargo.lock
-
-RUN cargo chef prepare --recipe-path recipe.json
+RUN cargo chef prepare  --recipe-path recipe.json
 
 FROM chef AS builder
-
 COPY --from=planner /app/recipe.json recipe.json
 
 RUN cargo chef cook --release --recipe-path recipe.json
+COPY . .
 
-COPY libraries/rust/src libraries/rust/src
-
-COPY platform/dataprovider/src platform/dataprovider/src
+ENV SQLX_OFFLINE=true
+ENV APP_NAME=${APP_NAME}
 
 RUN cargo build --release --bin dataprovider
 
-FROM debian:bullseye-slim AS runtime
+FROM debian:bookworm-slim AS final
+WORKDIR /app
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates openssl && \
-    update-ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/target/release/dataprovider dataprovider
 
-ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-
-ENV SSL_CERT_DIR=/etc/ssl/certs
-
-WORKDIR app
-
-COPY --from=builder /app/target/release/dataprovider /usr/local/bin
-
-ENTRYPOINT ["/usr/local/bin/dataprovider"]
+ENTRYPOINT ["./dataprovider"]

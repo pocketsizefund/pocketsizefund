@@ -3,62 +3,45 @@
 import datetime
 import os
 
-import pandas as pd
-import requests
-import sentry_sdk
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, status
+from fastapi_cloudevents import CloudEvent, install_fastapi_cloudevents
 from loguru import logger
-from pocketsizefund import config, model
-from pocketsizefund.trade import Client
+from pricemodel import config, data, model
 from pydantic import BaseModel
-from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+import requests
 
 ENVIRONMENT = os.getenv("ENVIRONMENT")
-DATA_PROVIDER_URL = f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080"
+DATA_PROVIDER_URL = os.getenv("DATA_PROVIDER_URL", f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080/")
 
+from pricemodel.trade import Client
 
-sentry_loguru = LoguruIntegration(
-    level=LoggingLevels.INFO.value,
-    event_level=LoggingLevels.ERROR.value,
-)
+FUND = os.getenv("FUND")
 
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    integrations=[sentry_loguru],
-    traces_sample_rate=1.0,
-)
-
-
-trade_client = Client(
-    darqube_api_key=os.getenv("DARQUBE_API_KEY"),
-    alpaca_api_key=os.getenv("ALPACA_API_KEY"),
-    alpaca_api_secret=os.getenv("ALPACA_API_SECRET"),
-    alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY"),
-    is_paper=True,
-)
+# trade_client = Client(
+#     darqube_api_key=os.getenv("DARQUBE_API_KEY", "YO"),
+#     alpaca_api_key=os.getenv("ALPACA_API_KEY", "YO"),
+#     alpaca_api_secret=os.getenv("ALPACA_API_SECRET", "YO"),
+#     is_paper=FUND == "paper",
+# )
 
 
 price_model = model.PriceModel()
 
-try:
-    price_model.load_model(file_path="price-model.ckpt")
-    logger.info(f"loaded {price_model=}")
-except FileNotFoundError:
-    logger.exception("model not found, make sure MODEL_FILE_NAME is set")
-    price_model = None
-
-except IsADirectoryError:
-    logger.exception("model is a directory, make sure MODEL_FILE_NAME is set")
-    price_model = None
-
+price_model.load_model(file_path="price-model.ckpt")
+logger.info(f"loaded {price_model=}")
 
 app = FastAPI()
+app = install_fastapi_cloudevents(app)
 
 
 @app.get("/health", status_code=status.HTTP_200_OK)
-def health() -> None:
+def health() -> CloudEvent:
     """Health check endpoint that the cluster pings to ensure the service is up."""
-    return
+    return CloudEvent(
+        type="health.check",
+        source="psf.platform.predictionmodel",
+        data=None,
+    )
 
 
 Ticker = dict[str, list[float]]
@@ -68,23 +51,24 @@ class Predictions(BaseModel):
     tickers: Ticker
 
 
-@app.get("/predictions")
-def invocations() -> Predictions:
+@app.post("/")
+async def invocations(event: CloudEvent) -> CloudEvent:
     """Invocations handles prediction requests to the inference endpoint."""
-    if price_model is None:
-        return Response(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content="model not found, make sure MODEL_FILE_NAME is set",
-            media_type="text/plain",
-        )
+    logger.info(f"received event: {event}")
 
-    available_tickers = trade_client.get_available_tickers()
+    # available_tickers = trade_client.get_available_tickers()
 
-    end_at = datetime.datetime.now(tz=config.TIMEZONE)
-    start_at = end_at - datetime.timedelta(days=20)
+    end_at = datetime.datetime.now(tz=config.TIMEZONE).replace(microsecond=0)
+
+    start_at = (end_at - datetime.timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_at = end_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+
+    logger.info(f"{start_at=}")
+    logger.info(f"{end_at=}")
 
     response = requests.post(
-        url=DATA_PROVIDER_URL + "/",
+        url=DATA_PROVIDER_URL,
         timeout=30,
         json={
             "data": {
@@ -96,13 +80,15 @@ def invocations() -> Predictions:
 
     response = requests.post(DATA_PROVIDER_URL)
 
-    if response.status_code != status.HTTP_200_OK:
-        return Response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content="error getting data",
-            media_type="text/plain",
-        )
+    response.raise_for_status()
 
+    # if response.status_code != status.HTTP_200_OK:
+    #     return Response(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         content="error getting data",
+    #         media_type="text/plain",
+    #     )
+    #
     json_data = response.json()
 
     equity_bars_raw_data = pd.DataFrame(json_data)
@@ -123,4 +109,8 @@ def invocations() -> Predictions:
 
         predictions[ticker] = ticker_predictions
 
-    return Predictions(tickers=predictions)
+    return CloudEvent(
+        type="psf.platform.predictionmodel",
+        source="prediction.success",
+        data={"tickers": predictions},
+    )

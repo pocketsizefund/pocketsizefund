@@ -1,5 +1,5 @@
 services:
-  discord:
+  chronos:
     build:
       context: .
       target: final

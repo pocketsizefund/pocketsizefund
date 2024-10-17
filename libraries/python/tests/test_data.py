@@ -1,9 +1,10 @@
 from __future__ import annotations  # noqa: I001
 from typing import TYPE_CHECKING
 import datetime
+from datetime import timezone
 
 import pytest
-from pocketsizefund import config, data
+from pocketsizefund import data
 
 if TYPE_CHECKING:
     from alpaca.data import requests as alpaca_data_requests
@@ -174,10 +175,10 @@ def test_get_range_equities_bars_alpaca_get_stock_bars_error() -> None:
         _ = client.get_range_equities_bars(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
         )
 
@@ -226,10 +227,10 @@ def test_get_range_equities_bars_success() -> None:
     range_equities_bars = client.get_range_equities_bars(
         tickers=["TICKER"],
         start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-            tzinfo=config.TIMEZONE,
+            tzinfo=timezone.utc,
         ),
         end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-            tzinfo=config.TIMEZONE,
+            tzinfo=timezone.utc,
         ),
     )
 
@@ -252,10 +253,10 @@ def test_private_get_forms_information_success() -> None:
 
     forms_information = client._get_forms_information(
         start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-            tzinfo=config.TIMEZONE,
+            tzinfo=timezone.utc,
         ),
         end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-            tzinfo=config.TIMEZONE,
+            tzinfo=timezone.utc,
         ),
         accession_numbers=[
             "0001171843-24-001239",
@@ -280,7 +281,7 @@ def test_private_get_forms_information_success() -> None:
         18,
         36,
         45,
-        tzinfo=config.TIMEZONE,
+        tzinfo=timezone.utc,
     )
 
 
@@ -311,7 +312,7 @@ def test_private_get_forms_contents_success() -> None:
                     18,
                     36,
                     45,
-                    tzinfo=config.TIMEZONE,
+                    tzinfo=timezone.utc,
                 ),
                 "accession_number": "0001171843-24-001239",
             },
@@ -325,7 +326,7 @@ def test_private_get_forms_contents_success() -> None:
         18,
         36,
         45,
-        tzinfo=config.TIMEZONE,
+        tzinfo=timezone.utc,
     )
 
     assert forms_contents[0]["content"] == ["form contents"]
@@ -349,10 +350,10 @@ def test_get_range_corporate_filings_get_tickers_http_error() -> None:
         _ = client.get_range_corporate_filings(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
         )
 
@@ -384,10 +385,10 @@ def test_get_range_corporate_filings_get_submissions_http_error() -> None:
         _ = client.get_range_corporate_filings(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
         )
 
@@ -430,10 +431,10 @@ def test_get_range_corporate_filings_get_forms_information_error() -> None:
         _ = client.get_range_corporate_filings(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
         )
 
@@ -477,10 +478,10 @@ def test_get_range_corporate_filings_get_forms_contents_error() -> None:
         _ = client.get_range_corporate_filings(
             tickers=["TICKER"],
             start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
             end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-                tzinfo=config.TIMEZONE,
+                tzinfo=timezone.utc,
             ),
         )
 
@@ -523,10 +524,10 @@ def test_get_range_corporate_filings_success() -> None:
     corporate_filings = client.get_range_corporate_filings(
         tickers=["TICKER"],
         start_at=datetime.datetime.strptime("1977-05-25", "%Y-%m-%d").replace(
-            tzinfo=config.TIMEZONE,
+            tzinfo=timezone.utc,
         ),
         end_at=datetime.datetime.strptime("1977-05-28", "%Y-%m-%d").replace(
-            tzinfo=config.TIMEZONE,
+            tzinfo=timezone.utc,
         ),
     )
 

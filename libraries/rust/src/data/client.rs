@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use aws_credential_types::Credentials;
 use aws_sdk_s3::client::Client as S3Client;
 use aws_sdk_s3::primitives::ByteStream;
@@ -7,6 +8,7 @@ use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use mockall::automock;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use reqwest::Client as HTTPClient;
 use reqwest::Url;
@@ -15,8 +17,6 @@ use serde_json;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
-use mockall::automock;
-use async_trait::async_trait;
 
 #[derive(Deserialize)]
 struct BarsResponse {
@@ -246,9 +246,9 @@ impl Interface for Client {
         equities_bars: Vec<Bar>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut combined_equities_bars: HashSet<Bar> = HashSet::new();
-        
+
         let original_equities_bars = self._load_equities_bars().await?;
-    
+
         combined_equities_bars.extend(original_equities_bars.into_iter());
 
         combined_equities_bars.extend(equities_bars.into_iter());

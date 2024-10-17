@@ -1,0 +1,39 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: chronos
+spec:
+  template:
+    spec:
+      containers:
+      - image: pocketsizefund/chronos:202409.4.1
+        env:
+        - name: APCA_API_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: APCA_API_KEY_ID
+        - name: APCA_API_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: APCA_API_SECRET_KEY
+        - name: APCA_API_BASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: platform
+              key: APCA_API_BASE_URL
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: chronos
+spec:
+  schedule: "15 9 * * *"
+  timezone: "America/New_York"
+  data: '{}'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: chronos
