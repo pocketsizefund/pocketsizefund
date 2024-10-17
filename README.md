@@ -36,6 +36,7 @@ An unordered and non-exhaustive list of principles we work towards:
 > No code is good code  
 > Never write documentation  
 > Git is truth  
+> Communicate with issues and pull requests  
 
 ### Links
 
