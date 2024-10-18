@@ -3,7 +3,6 @@ name = "pocketsizefund"
 version = "0.1.6"
 edition = "2021"
 license = "MIT"
-description = "Open source quantitative trading"
 
 [lib]
 name = "pocketsizefund"
@@ -14,7 +13,6 @@ events = ["dep:cloudevents-sdk", "dep:serde", "dep:serde_json"]
 data = [
   "dep:serde",
   "dep:serde_json",
-  "dep:aws-config",
   "dep:aws-sdk-s3",
   "dep:aws-credential-types",
   "dep:aws-types",
@@ -22,16 +20,12 @@ data = [
   "dep:reqwest",
   "dep:flate2",
 ]
-web = ["dep:reqwest", "dep:actix-web", "dep:tokio"]
+web = ["dep:reqwest", "dep:tokio"]
 
 [dependencies]
-anyhow = "1.0.86"
 chrono = { version = "0.4.38", features = ["serde"] }
-color-eyre = "0.6.3"
-fmt = "0.1.0"
 uuid = { version = "1.8.0", features = ["v4"] }
 reqwest = { version = "0.12.5", features = ["json", "default-tls"], optional = true }
-rust_decimal = "1.35.0"
 serde = { version = "1.0.204", features = ["derive"], optional = true }
 serde_json = { version = "1.0.120", optional = true }
 tokio = { version = "1.38.1", features = [
@@ -40,10 +34,6 @@ tokio = { version = "1.38.1", features = [
   "tracing",
 ], optional = true }
 tracing = { version = "0.1.40", features = ["async-await"] }
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-aws-config = { version = "1.1.7", features = [
-  "behavior-version-latest",
-], optional = true }
 aws-sdk-s3 = { version = "1.42.0", features = [
   "behavior-version-latest",
 ], optional = true }
@@ -58,13 +48,10 @@ cloudevents-sdk = { version = "0.7.0", features = [
   "actix-web",
   "reqwest",
 ], optional = true }
-actix-web = { version = "4.3.1", features = [], optional = true }
 apca = "0.29.0"
 mockall = "0.11"
 
 [dev-dependencies]
-color-eyre = "0.6.3"
 tokio = { version = "1.38.1", features = ["test-util"] }
 mockito = "1.4.0"
 regex = "1.9.3"
-futures = "0.3.30"

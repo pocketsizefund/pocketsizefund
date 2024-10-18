@@ -1,11 +1,10 @@
 use actix_web::{post, web, App, HttpResponse, HttpServer};
 use chrono::{DateTime, Utc};
 use std::env;
-use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use std::sync::Arc;
 use pocketsizefund::data::{Client as DataClient, Interface, Bar, Prediction};
+use pocketsizefund::events::events::build_response_event;
 use mockall::mock;
-use uuid::Uuid;
 use tracing;
 use serde_json::json;
 use serde::Deserialize;
@@ -49,22 +48,13 @@ async fn data_handler(
         .filter(|bar| bar.timestamp >= payload.data.start_at && bar.timestamp <= payload.data.end_at)
         .collect();
 
-    EventBuilderV10::new()
-        .id(Uuid::new_v4().to_string())
-        .ty("data.equities.bars.read")
-        .source("psf.platform.dataprovider")
-        .data(
-            "application/cloudevents+json",
-            json!({
-                "status": "success".to_string(),
-            }),
-        )
-        .extension("timestamp", Utc::now().to_rfc3339().to_string())
-        .build()
-        .unwrap_or_else(|e| {
-            tracing::error!("Failed to build event: {}", e);
-            Event::default()
-        });
+    build_response_event(
+        "dataprovider".to_string(), 
+        vec!("equities".to_string(),"bars".to_string(), "read".to_string()),
+        Some(json!({
+            "status": "success".to_string(),
+        }).to_string()),
+    );
 
     HttpResponse::Ok().json(filtered_bars)
 }
@@ -87,22 +77,13 @@ async fn predictions_handler(
                 .filter(|prediction| prediction.timestamp >= payload.data.start_at && prediction.timestamp <= payload.data.end_at)
                 .collect();
 
-            EventBuilderV10::new()
-                .id(Uuid::new_v4().to_string())
-                .ty("data.equities.predictions.load")
-                .source("psf.platform.dataprovider")
-                .data(
-                    "application/cloudevents+json",
-                    json!({
-                        "status": "success".to_string(),
-                    }),
-                )
-                .extension("timestamp", Utc::now().to_rfc3339().to_string())
-                .build()
-                .unwrap_or_else(|e| {
-                    tracing::error!("Failed to build event: {}", e);
-                    Event::default()
-                });
+            build_response_event(
+                "dataprovider".to_string(),
+                vec!("equities".to_string(),"predictions".to_string(), "read".to_string()),
+                Some(json!({
+                    "status": "success".to_string(),
+                }).to_string()),
+            );
 
             HttpResponse::Ok().json(filtered_predictions)
         },
