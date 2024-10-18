@@ -7,12 +7,10 @@ license = "MIT"
 [dependencies]
 actix-web = "4.9.0"
 chrono = { version = "0.4.38", features = ["serde"] }
-cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-http", "actix-web", "http-binding", "http-body", "reqwest"] }
 serde_json = { version = "1.0.120" }
 mockall = "0.11"
 async-trait = "0.1.82"
-uuid = { version = "1.8.0", features = ["v4"] }
 tracing = { version = "0.1.40", features = ["async-await"] }
 serde = { version = "1.0.204", features = ["derive"] }
-pocketsizefund = { path = "../../libraries/rust", features = ["data"] }
+pocketsizefund = { path = "../../libraries/rust", features = ["data", "events"] }
 env_logger = "0.11.5"
