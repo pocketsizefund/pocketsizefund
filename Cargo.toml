@@ -7,5 +7,5 @@ members = [
     "platform/chronos",
     "platform/discord",
     "platform/datacollector", 
-    "platform/dataprovider",
+    "platform/dataprovider", "platform/accountadministrator",
 ]
