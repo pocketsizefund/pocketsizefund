@@ -4,6 +4,5 @@
 # mise tools=["cargo"]
 
 cd $root/platform/positionmanager
-exit 1
 
-
+cargo test
