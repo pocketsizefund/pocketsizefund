@@ -1,26 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: position-manager
+  name: positionmanager
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: position-manager
+      app: positionmanager
   template:
     metadata:
       labels:
-        app: position-manager
+        app: positionmanager
     spec:
       containers:
-        - name: position-manager
-          image: pocketsizefund/position-manager:20240903.2
+        - name: positionmanager
+          image: pocketsizefund/positionmanager:1.0.0
           env:
-            - name: DARQUBE_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: DARQUBE_API_KEY
             - name: ALPACA_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -31,13 +26,28 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: ALPACA_API_SECRET
-            - name: ALPHA_VANTAGE_API_KEY
+            - name: DARQUBE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: ALPHA_VANTAGE_API_KEY
-            - name: EDGAR_USER_AGENT
+                  key: DARQUBE_API_KEY
+            - name: IS_PRODUCTION
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: EDGAR_USER_AGENT
+                  key: IS_PRODUCTION
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: positionmanagertrigger
+spec:
+  broker: default
+  filter:
+    attributes:
+      type: psf.predictions.equities.write
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: positionmanager

@@ -1,18 +1,56 @@
-ARG PYTHON_VERSION=3.10.14
-FROM python:${PYTHON_VERSION} AS base
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+FROM lukemathwalker/cargo-chef:latest-rust-1.59.0 AS chef
 
-ENV PYTHONDONTWRITEBYTECODE=1
-WORKDIR /app
+RUN rustup toolchain install nightly
 
-COPY pyproject.toml uv.lock /app
+RUN rustup default nightly
 
-COPY src /app/src
+WORKDIR app/
 
-RUN uv sync
+FROM chef AS planner
 
-RUN cd /app/src
+COPY libraries/rust/ libraries/rust/
 
-EXPOSE 8080
+COPY platform/positionmanager/ platform/positionmanager/
 
-ENTRYPOINT ["uv", "run", "uvicorn", "src.positionmanager.entrypoint:app", "--host", "0.0.0.0", "--port", "8080"]
+COPY Cargo.toml Cargo.toml
+
+RUN echo '[workspace]\n\
+resolver = "2"\n\
+members = [\n\
+    "libraries/rust",\n\
+    "platform/positionmanager",\n\ 
+]\n\
+' > Cargo.toml
+
+COPY Cargo.lock Cargo.lock
+
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+
+COPY --from=planner /app/recipe.json recipe.json
+
+RUN cargo chef cook --release --recipe-path recipe.json
+
+COPY libraries/rust/src libraries/rust/src
+
+COPY platform/positionmanager/src platform/positionmanager/src
+
+RUN cargo build --release --bin positionmanager
+
+FROM debian:bullseye-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates openssl && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+ENV SSL_CERT_DIR=/etc/ssl/certs
+
+WORKDIR app
+
+COPY --from=builder /app/target/release/positionmanager /usr/local/bin
+
+ENTRYPOINT ["/usr/local/bin/positionmanager"]

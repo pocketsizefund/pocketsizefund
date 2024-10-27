@@ -1,6 +1,15 @@
 use actix_web::{post, web, App, HttpResponse, HttpServer};
-use pocketsizefund::data::{Client as DataClient, Interface, Bar, Prediction};
+use pocketsizefund::data::{
+    Client as DataClient,
+    Interface as DataInterface,
+    Bar,
+    Prediction,
+};
 use pocketsizefund::events::build_response_event;
+use pocketsizefund::trade::{
+    Interface as TradeInterface,
+    Client as TradeClient,
+};
 use std::env;
 use serde_json::json;
 use serde::Deserialize;
@@ -11,10 +20,6 @@ use actix_web::middleware::Logger;
 use log::info;
 use std::io;
 use std::num::ParseIntError;
-
-mod tickers;
-
-use tickers::get_dow_jones_tickers;
 
 
 #[derive(Deserialize)]
@@ -28,7 +33,10 @@ async fn health_handler() -> HttpResponse {
 }
 
 #[post("/data")]
-async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Result<cloudevents::Event, Box<dyn std::error::Error>> {
+async fn data_handler(
+    data_client: web::Data<Arc<dyn DataInterface>>,
+    trade_client: web::Data<Arc<dyn TradeInterface>>,
+) -> Result<cloudevents::Event, Box<dyn std::error::Error>> {
     let old_bars = data_client.load_equities_bars().await.unwrap_or_else(|e| {
         info!("Failed to load old bars: {}", e);
         Vec::new()
@@ -44,10 +52,13 @@ async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Result<clou
     
     let current_datetime = chrono::Utc::now();
 
-    let dow_jones_tickers = get_dow_jones_tickers();
+    let available_tickers = trade_client.get_available_tickers().await.unwrap_or_else(|e| {
+        info!("Failed to get available tickers: {}", e);
+        Vec::new()
+    });
 
     let new_bars = data_client.fetch_equities_bars(
-            dow_jones_tickers,
+            available_tickers,
             most_recent_datetime,
             current_datetime,
         )
@@ -77,7 +88,7 @@ async fn data_handler(data_client: web::Data<Arc<dyn Interface>>) -> Result<clou
 #[post("/predictions")]
 async fn predictions_handler(
     body: web::Bytes, 
-    data_client: web::Data<Arc<dyn Interface>>,
+    data_client: web::Data<Arc<dyn DataInterface>>,
 ) -> HttpResponse {
     let payload: Payload = match serde_json::from_slice(&body) {
         Ok(val) => val,
@@ -91,6 +102,7 @@ async fn predictions_handler(
                 vec!("equities".to_string(), "predictions".to_string(), "write".to_string()),
                 Some(json!({
                     "status": "success".to_string(),
+                    "written_at": Utc::now().to_rfc3339().to_string(),
                 }).to_string(),
             ));
         
@@ -121,13 +133,25 @@ async fn main() -> std::io::Result<()> {
         env::var("S3_DATA_BUCKET_NAME").expect("S3 data bucket name"),
     );
 
-    let data_client: Arc<dyn Interface> = Arc::new(data_client);
+    let data_client: Arc<dyn DataInterface> = Arc::new(data_client);
 
     let data_client = web::Data::new(data_client);
+
+    let trade_client = TradeClient::new(
+        env::var("ALPACA_API_KEY").expect("Alpaca API key"),
+        env::var("ALPACA_API_SECRET").expect("Alpaca API secret"),
+        env::var("DARQUBE_API_KEY").expect("Darqube API key"),
+        env::var("IS_PRODUCTION").expect("Production flag not found").parse().expect("Production flag not a boolean"),
+    );
+
+    let trade_client: Arc<dyn TradeInterface> = Arc::new(trade_client);
+
+    let trade_client = web::Data::new(trade_client);
 
     HttpServer::new(move || App::new()
         .wrap(Logger::default())
         .app_data(data_client.clone())
+        .app_data(trade_client.clone())
         .service(health_handler)
         .service(data_handler)
         .service(predictions_handler))
@@ -137,10 +161,10 @@ async fn main() -> std::io::Result<()> {
 }
 
 mock! {
-    pub InterfaceMock {}
+    pub DataInterfaceMock {}
 
     #[async_trait::async_trait]
-    impl Interface for InterfaceMock {
+    impl DataInterface for DataInterfaceMock {
         async fn fetch_equities_bars(
             &self,
             tickers: Vec<String>,
@@ -160,6 +184,16 @@ mock! {
     }
 }
 
+mock! {
+    pub TradeInterfaceMock {}
+
+    #[async_trait::async_trait]
+    impl TradeInterface for TradeInterfaceMock {
+        async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
+        async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,21 +207,21 @@ mod tests {
             .service(health_handler))
             .await;
 
-        let req = test::TestRequest::post()
+        let request = test::TestRequest::post()
             .uri("/health")
             .insert_header(ContentType::plaintext())
             .to_request();
 
-        let resp = test::call_service(&app, req).await;
+        let response = test::call_service(&app, request).await;
 
-        assert!(resp.status().is_success());
+        assert!(response.status().is_success());
     }
 
     #[actix_web::test]
     async fn test_data_handler() {
-        let mut mock_client = MockInterfaceMock::new();
+        let mut mock_data_client: MockDataInterfaceMock = MockDataInterfaceMock::new();
         
-        mock_client.expect_load_equities_bars()
+        mock_data_client.expect_load_equities_bars()
             .returning(|| Ok(vec![Bar {
                 ticker: Some("AAPL".to_string()), 
                 timestamp:  Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
@@ -200,7 +234,7 @@ mod tests {
                 volume_weighted_average_price: 151.2,
             }]));
 
-        mock_client.expect_fetch_equities_bars()
+        mock_data_client.expect_fetch_equities_bars()
             .returning(|_, _, _| Ok(vec![Bar {
                 ticker: Some("AAPL".to_string()), 
                 timestamp:  Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
@@ -213,42 +247,54 @@ mod tests {
                 volume_weighted_average_price: 150.9,
             }]));
 
-        mock_client.expect_write_equities_bars()
+        mock_data_client.expect_write_equities_bars()
             .returning(|_| Ok(()));
+
+        let mut mock_trade_client: MockTradeInterfaceMock = MockTradeInterfaceMock::new();
+
+        mock_trade_client.expect_get_available_tickers()
+            .returning(|| Ok(vec!["AAPL".to_string()]));
 
         env::set_var("ALPACA_API_KEY", "VALUE");
         env::set_var("ALPACA_API_SECRET", "VALUE");
         env::set_var("AWS_ACCESS_KEY_ID", "VALUE");
         env::set_var("AWS_SECRET_ACCESS_KEY", "VALUE");
         env::set_var("S3_DATA_BUCKET_NAME", "VALUE");
+        env::set_var("DARQUBE_API_KEY", "VALUE");
+        env::set_var("IS_PRODUCTION", "false");
 
-        let mock_client: Arc<dyn Interface> = Arc::new(mock_client);
+        let mock_data_client: Arc<dyn DataInterface> = Arc::new(mock_data_client);
 
-        let mock_client = web::Data::new(mock_client);
+        let mock_data_client = web::Data::new(mock_data_client);
+
+        let mock_trade_client: Arc<dyn TradeInterface> = Arc::new(mock_trade_client);
+
+        let mock_trade_client = web::Data::new(mock_trade_client);
 
         let app = test::init_service(App::new()
-            .app_data(mock_client.clone())
+            .app_data(mock_data_client.clone())
+            .app_data(mock_trade_client.clone())
             .service(data_handler))
             .await;
 
-        let req = test::TestRequest::post()
+        let request = test::TestRequest::post()
             .uri("/data")
             .insert_header(ContentType::plaintext())
             .to_request();
 
-        let resp = test::call_service(&app, req).await;
+        let response = test::call_service(&app, request).await;
 
-        assert!(resp.status().is_success());
+        assert!(response.status().is_success());
     }
 
     #[actix_web::test]
     async fn test_predictions_handler() {
-        let mut mock_client = MockInterfaceMock::new();
+        let mut mock_client = MockDataInterfaceMock::new();
         
         mock_client.expect_write_predictions()
             .returning(|_| Ok(()));
 
-        let mock_client: Arc<dyn Interface> = Arc::new(mock_client);
+        let mock_client: Arc<dyn DataInterface> = Arc::new(mock_client);
 
         let mock_client = web::Data::new(mock_client);
 
@@ -257,14 +303,14 @@ mod tests {
             .service(predictions_handler))
             .await;
 
-        let req = test::TestRequest::post()
+        let request = test::TestRequest::post()
             .uri("/predictions")
             .insert_header(ContentType::json())
             .set_payload(r#"{"predictions": []}"#)
             .to_request();
 
-        let resp = test::call_service(&app, req).await;
+        let response = test::call_service(&app, request).await;
 
-        assert!(resp.status().is_success());
+        assert!(response.status().is_success());
     }
 }

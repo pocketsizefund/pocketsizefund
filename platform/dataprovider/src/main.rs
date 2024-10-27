@@ -162,14 +162,14 @@ mod tests {
     async fn test_health_handler() {
         let app = test::init_service(App::new().service(health_handler)).await;
 
-        let req = test::TestRequest::post()
+        let request = test::TestRequest::post()
             .uri("/health")
             .insert_header(ContentType::plaintext())
             .to_request();
 
-        let resp = test::call_service(&app, req).await;
+        let response = test::call_service(&app, request).await;
 
-        assert!(resp.status().is_success());
+        assert!(response.status().is_success());
     }
 
     #[actix_web::test]
@@ -224,14 +224,14 @@ mod tests {
             }
         });
 
-        let req = test::TestRequest::post()
+        let request = test::TestRequest::post()
             .uri("/data")
             .set_json(&payload)
             .to_request();
 
-        let resp = test::call_service(&app, req).await;
+        let response = test::call_service(&app, request).await;
 
-        assert!(resp.status().is_success());
+        assert!(response.status().is_success());
     }
 
     #[actix_web::test]
@@ -279,13 +279,13 @@ mod tests {
             }
         });
 
-        let req = test::TestRequest::post()
+        let request = test::TestRequest::post()
             .uri("/predictions")
             .set_json(&payload)
             .to_request();
 
-        let resp = test::call_service(&app, req).await;
+        let response = test::call_service(&app, request).await;
 
-        assert!(resp.status().is_success());
+        assert!(response.status().is_success());
     }
 }

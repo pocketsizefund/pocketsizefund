@@ -8,4 +8,5 @@ members = [
     "platform/discord",
     "platform/datacollector", 
     "platform/dataprovider",
+    "platform/positionmanager",
 ]

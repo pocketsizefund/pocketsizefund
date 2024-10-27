@@ -20,6 +20,7 @@ data = [
   "dep:reqwest",
   "dep:flate2",
 ]
+trade = ["dep:reqwest", "dep:serde", "dep:serde_json"]
 web = ["dep:reqwest", "dep:tokio"]
 
 [dependencies]
@@ -52,6 +53,6 @@ apca = "0.29.0"
 mockall = "0.11"
 
 [dev-dependencies]
-tokio = { version = "1.38.1", features = ["test-util"] }
+tokio = { version = "1.38.1", features = ["full", "test-util"] }
 mockito = "1.4.0"
 regex = "1.9.3"
