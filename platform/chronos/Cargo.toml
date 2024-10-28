@@ -1,6 +1,6 @@
 [package]
 name = "chronos"
-version = "202409.3.0"
+version = "1.0.0"
 edition = "2021"
 license = "MIT"
 

@@ -1,6 +1,6 @@
 [project]
 name = "pricemodel"
-version = "20240903.0"
+version = "1.0.0"
 description = "PSF Price Model"
 requires-python = ">=3.9, <3.11"
 dependencies = [
