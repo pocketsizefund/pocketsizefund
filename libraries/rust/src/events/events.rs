@@ -1,5 +1,5 @@
-use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use chrono::Utc;
+use cloudevents::{Event, EventBuilder, EventBuilderV10};
 
 pub fn build_response_event(
     service_name: String,
@@ -17,25 +17,20 @@ pub fn build_response_event(
         .extension("timestamp", Utc::now().to_rfc3339().to_string());
 
     if let Some(payload) = json_payload {
-        event_builder = event_builder.data(
-            "application/cloudevents+json",
-            payload,
-        );
+        event_builder = event_builder.data("application/cloudevents+json", payload);
     };
 
-    event_builder
-        .build()
-        .unwrap_or_else(|e| {
-            tracing::error!("Failed to build event: {}", e);
-            Event::default()
-        })
+    event_builder.build().unwrap_or_else(|e| {
+        tracing::error!("Failed to build event: {}", e);
+        Event::default()
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloudevents::AttributesReader;
     use cloudevents::event::Data;
+    use cloudevents::AttributesReader;
 
     #[test]
     fn test_build_response_event() {
@@ -47,7 +42,10 @@ mod tests {
 
         assert_eq!(event.ty(), "psf.test.test.test");
         assert_eq!(event.source(), "platform:test");
-        assert_eq!(event.datacontenttype().unwrap(), "application/cloudevents+json");
+        assert_eq!(
+            event.datacontenttype().unwrap(),
+            "application/cloudevents+json"
+        );
         if let Some(Data::String(data)) = event.data() {
             assert_eq!(data, "test");
         } else {

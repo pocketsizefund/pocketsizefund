@@ -1,9 +1,8 @@
 use async_trait::async_trait;
 use reqwest::Client as HTTPClient;
-use serde::Deserialize;
 use reqwest::Url;
+use serde::Deserialize;
 use std::collections::HashMap;
-
 
 #[derive(Deserialize, Debug)]
 struct ConstituentItem {
@@ -57,7 +56,7 @@ impl Client {
         let darqube_base_url = "https://api.darqube.com".to_string();
 
         Client {
-            alpaca_base_url: alpaca_base_url,
+            alpaca_base_url,
             alpaca_api_key_id,
             alpaca_api_secret_key,
             darqube_base_url,
@@ -74,7 +73,8 @@ impl Interface for Client {
         // "DJI" is the Dow Jones Industrial Average
         let darqube_url_path = "data-api/fundamentals/indexes/index_constituents/GSPC";
 
-        let darqube_index_constituents_url = Url::parse(&self.darqube_base_url)?.join(&darqube_url_path)?;
+        let darqube_index_constituents_url =
+            Url::parse(&self.darqube_base_url)?.join(darqube_url_path)?;
 
         let response = self
             .http_client
@@ -90,8 +90,9 @@ impl Interface for Client {
         }
 
         let darqube_response: DarqubeIndexConstituentsResponse = response.json().await?;
-    
-        let constituents = darqube_response.items
+
+        let constituents = darqube_response
+            .items
             .values()
             .map(|item| item.code.clone())
             .collect::<Vec<String>>();
@@ -109,9 +110,7 @@ impl Interface for Client {
             .await?;
 
         if !response.status().is_success() {
-            return Err(
-                format!("Alpaca request failed with status: {}", response.status()).into(),
-            );
+            return Err(format!("Alpaca request failed with status: {}", response.status()).into());
         }
 
         let alpaca_response: Vec<AlpacaAsset> = response.json().await?;
@@ -153,9 +152,11 @@ impl Interface for Client {
             .await?;
 
         if !alpaca_order_response.status().is_success() {
-            return Err(
-                format!("Alpaca request failed with status: {}", alpaca_order_response.status()).into(),
-            );
+            return Err(format!(
+                "Alpaca request failed with status: {}",
+                alpaca_order_response.status()
+            )
+            .into());
         }
 
         Ok(())
@@ -165,8 +166,8 @@ impl Interface for Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
     use mockito;
+    use serde_json::json;
 
     #[test]
     fn test_new() {
@@ -174,13 +175,22 @@ mod tests {
             "alpaca_api_key_id".to_string(),
             "alpaca_api_secret_key".to_string(),
             "darqube_api_key".to_string(),
-            false, 
+            false,
         );
 
-        assert_eq!(client.alpaca_base_url, "https://paper-api.alpaca.markets".to_string());
+        assert_eq!(
+            client.alpaca_base_url,
+            "https://paper-api.alpaca.markets".to_string()
+        );
         assert_eq!(client.alpaca_api_key_id, "alpaca_api_key_id".to_string());
-        assert_eq!(client.alpaca_api_secret_key, "alpaca_api_secret_key".to_string());
-        assert_eq!(client.darqube_base_url, "https://api.darqube.com".to_string());
+        assert_eq!(
+            client.alpaca_api_secret_key,
+            "alpaca_api_secret_key".to_string()
+        );
+        assert_eq!(
+            client.darqube_base_url,
+            "https://api.darqube.com".to_string()
+        );
         assert_eq!(client.darqube_api_key, "darqube_api_key".to_string());
     }
 
@@ -214,9 +224,10 @@ mod tests {
                 "GET",
                 "/data-api/fundamentals/indexes/index_constituents/GSPC",
             )
-            .match_query(mockito::Matcher::AllOf(vec![
-                mockito::Matcher::UrlEncoded("token".into(), "darqube_api_key".into())
-            ]))
+            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded(
+                "token".into(),
+                "darqube_api_key".into(),
+            )]))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_darqube_response.to_string())
@@ -234,16 +245,13 @@ mod tests {
         );
 
         mock_server
-            .mock(
-                "GET",
-                "/v2/assets",
-            )
+            .mock("GET", "/v2/assets")
             .match_header("APCA-API-KEY-ID", "alpaca_api_key_id")
             .match_header("APCA-API-SECRET-KEY", "alpaca_api_secret_key")
             .match_header("accept", "application/json")
             .match_query(mockito::Matcher::AllOf(vec![
                 mockito::Matcher::UrlEncoded("status".into(), "ACTIVE".into()),
-                mockito::Matcher::UrlEncoded("asset_class".into(), "US_EQUITY".into())
+                mockito::Matcher::UrlEncoded("asset_class".into(), "US_EQUITY".into()),
             ]))
             .with_status(200)
             .with_body(mock_alpaca_response.to_string())
@@ -277,12 +285,9 @@ mod tests {
         };
 
         mock_server
-            .mock(
-                "POST",
-                "/v2/orders",
-            )
+            .mock("POST", "/v2/orders")
             .match_header("APCA-API-KEY-ID", "alpaca_api_key_id")
-            .match_header("APCA-API-SECRET-KEY",     "alpaca_api_secret_key")
+            .match_header("APCA-API-SECRET-KEY", "alpaca_api_secret_key")
             .match_header("accept", "application/json")
             .match_header("content-type", "application/json")
             .match_body(mockito::Matcher::Json(json!({

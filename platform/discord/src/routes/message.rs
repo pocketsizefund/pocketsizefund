@@ -1,9 +1,9 @@
 use crate::config::DiscordWebhook;
 use actix_web::{post, web};
 use cloudevents::Event;
+use pocketsizefund::events::build_response_event;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use pocketsizefund::events::build_response_event;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct WebhookPayload {
@@ -56,22 +56,28 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
                 tracing::info!("Message successfully sent");
                 build_response_event(
                     "discord".to_string(),
-                    vec!("message".to_string(), "sent".to_string()),
-                    Some(json!({
-                        "message": "Message send success".to_string(),
-                        "status": WebhookStatus::Success,
-                    }).to_string()),
+                    vec!["message".to_string(), "sent".to_string()],
+                    Some(
+                        json!({
+                            "message": "Message send success".to_string(),
+                            "status": WebhookStatus::Success,
+                        })
+                        .to_string(),
+                    ),
                 )
             }
             _ => {
                 tracing::error!("Message failed to send: {:#?}", response);
                 build_response_event(
                     "discord".to_string(),
-                    vec!("message".to_string(), "failed".to_string()),
-                    Some(json!({
-                        "message": "Message send failure".to_string(),
-                        "status": WebhookStatus::Failed,
-                    }).to_string()),
+                    vec!["message".to_string(), "failed".to_string()],
+                    Some(
+                        json!({
+                            "message": "Message send failure".to_string(),
+                            "status": WebhookStatus::Failed,
+                        })
+                        .to_string(),
+                    ),
                 )
             }
         },
@@ -79,11 +85,14 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
             tracing::error!("Message failed to send: {:#?}", response);
             build_response_event(
                 "discord".to_string(),
-                vec!("message".to_string(), "failed".to_string()),
-                Some(json!({
-                    "message": "Message send failure".to_string(),
-                    "status": WebhookStatus::Failed,
-                }).to_string()),
+                vec!["message".to_string(), "failed".to_string()],
+                Some(
+                    json!({
+                        "message": "Message send failure".to_string(),
+                        "status": WebhookStatus::Failed,
+                    })
+                    .to_string(),
+                ),
             )
         }
     }
