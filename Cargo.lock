@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "broker"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "apca",
  "tokio",
@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "chronos"
-version = "202409.3.0"
+version = "1.0.0"
 dependencies = [
  "actix-web",
  "cargo-machete",
@@ -1129,7 +1129,7 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 
 [[package]]
 name = "datacollector"
-version = "202409.11.0"
+version = "1.0.0"
 dependencies = [
  "actix-web",
  "async-trait",
@@ -1146,7 +1146,7 @@ dependencies = [
 
 [[package]]
 name = "dataprovider"
-version = "202409.11.0"
+version = "1.0.0"
 dependencies = [
  "actix-web",
  "async-trait",
@@ -1221,7 +1221,7 @@ dependencies = [
 
 [[package]]
 name = "discord"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "actix-web",
  "cloudevents-sdk",
@@ -2474,7 +2474,7 @@ checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 
 [[package]]
 name = "pocketsizefund"
-version = "0.1.6"
+version = "1.0.0"
 dependencies = [
  "apca",
  "async-trait",
