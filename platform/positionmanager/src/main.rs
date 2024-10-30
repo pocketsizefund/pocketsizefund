@@ -215,7 +215,7 @@ mod tests {
                 "type": "baseline",
                 "source": "positionmanager",
                 "id": "1234",
-                "time": "2021-08-12T20:00:00Z",
+                "time": "1997-05-25T20:00:00Z",
                 "data": {
                     "written_at": "1997-05-25T20:00:00Z"
                 }

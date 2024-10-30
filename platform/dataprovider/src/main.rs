@@ -252,7 +252,7 @@ mod tests {
                 "type": "baseline",
                 "source": "pricemodel",
                 "id": "1234",
-                "time": "2021-08-12T20:00:00Z",
+                "time": "1997-05-25T20:00:00Z",
                 "data": {
                     "start_at": "1977-05-24T00:00:00Z",
                     "end_at": "1977-05-25T00:00:00Z",
@@ -314,7 +314,7 @@ mod tests {
                 "type": "baseline",
                 "source": "positionmanager",
                 "id": "1234",
-                "time": "2021-08-12T20:00:00Z",
+                "time": "1997-05-25T20:00:00Z",
                 "data": {
                     "start_at": "1977-05-24T00:00:00Z",
                     "end_at": "1977-05-25T00:00:00Z",
