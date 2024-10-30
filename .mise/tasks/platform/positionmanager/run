@@ -3,5 +3,6 @@
 # mise description="run position manager in docker compose"
 # mise tools=["docker"]
 
-cd platform/positionmanager
-docker compose up --build
+cd $root/platform/positionmanager
+
+docker compose up --build 
