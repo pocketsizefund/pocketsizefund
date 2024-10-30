@@ -16,7 +16,7 @@ apca = "0.29.0"
 cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-web", "http-binding", "http-body", "reqwest"] }
 actix-web = "4.9.0"
 tokio = { version = "1.39.3", features = ["full"] }
-pocketsizefund = { version = "0.1.2", features = ["events", "web"] }
+pocketsizefund = { path = "../../libraries/rust", features = ["events", "web"] }
 
 [dev-dependencies]
 cargo-machete = "0.6.2"

@@ -6,6 +6,6 @@ frontend:
     build:
       commands: []
   artifacts:
-    baseDirectory: platform/frontend
+    baseDirectory: website
     files:
       - '**/*'

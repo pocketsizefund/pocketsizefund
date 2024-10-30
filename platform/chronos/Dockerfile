@@ -1,34 +1,56 @@
-ARG RUST_VERSION=1.80.1
-ARG APP_NAME=discord
+FROM lukemathwalker/cargo-chef:latest-rust-1.59.0 AS chef
 
-FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
-ARG APP_NAME
-WORKDIR /app
+RUN rustup toolchain install nightly
+
+RUN rustup default nightly
+
+WORKDIR app/
 
 FROM chef AS planner
-COPY . .
 
-RUN cargo chef prepare  --recipe-path recipe.json
+COPY libraries/rust/ libraries/rust/
+
+COPY platform/chronos/ platform/chronos/
+
+COPY Cargo.toml Cargo.toml
+
+RUN echo '[workspace]\n\
+resolver = "2"\n\
+members = [\n\
+    "libraries/rust",\n\
+    "platform/chronos",\n\ 
+]\n\
+' > Cargo.toml
+
+COPY Cargo.lock Cargo.lock
+
+RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
+
 COPY --from=planner /app/recipe.json recipe.json
 
 RUN cargo chef cook --release --recipe-path recipe.json
-COPY . .
 
-ENV SQLX_OFFLINE=true
-ENV APP_NAME=${APP_NAME}
+COPY libraries/rust/src libraries/rust/src
+
+COPY platform/chronos/src platform/chronos/src
 
 RUN cargo build --release --bin chronos
 
-FROM debian:bookworm-slim AS final
-WORKDIR /app
-RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
-    && apt-get autoremove -y \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/*
+FROM debian:bullseye-slim AS runtime
 
-COPY --from=builder /app/target/release/chronos chronos
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates openssl && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["./chronos"]
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+ENV SSL_CERT_DIR=/etc/ssl/certs
+
+WORKDIR app
+
+COPY --from=builder /app/target/release/chronos /usr/local/bin
+
+ENTRYPOINT ["/usr/local/bin/chronos"]
