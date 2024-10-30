@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use aws_credential_types::Credentials;
 use aws_sdk_s3::client::Client as S3Client;
 use aws_sdk_s3::primitives::ByteStream;
@@ -7,17 +8,16 @@ use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use mockall::automock;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use reqwest::Client as HTTPClient;
 use reqwest::Url;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
-use mockall::automock;
-use async_trait::async_trait;
-use serde::de::DeserializeOwned;
 
 #[derive(Deserialize)]
 struct BarsResponse {
@@ -170,7 +170,7 @@ impl Client {
                 .append_pair("sort", "asc");
 
             if let Some(token) = page_token {
-                query_pairs.append_pair("page_token", &token);
+                query_pairs.append_pair("page_token", token);
             }
         }
 
@@ -251,33 +251,36 @@ impl Interface for Client {
         equities_bars: Vec<Bar>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut combined_equities_bars: HashSet<Bar> = HashSet::new();
-        
+
         let original_equities_bars: Vec<Bar> = load_objects(
-            &self.s3_client, 
-            self.s3_data_bucket_name.clone(), 
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
             EQUITY_BARS_PATH.to_string(),
-        ).await?;
-    
+        )
+        .await?;
+
         combined_equities_bars.extend(original_equities_bars.into_iter());
 
         combined_equities_bars.extend(equities_bars.into_iter());
 
         let result = write_objects(
-            &self.s3_client, 
-            self.s3_data_bucket_name.clone(), 
-            EQUITY_BARS_PATH.to_string(), 
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
+            EQUITY_BARS_PATH.to_string(),
             &combined_equities_bars,
-        ).await?;
+        )
+        .await?;
 
         Ok(result)
     }
 
     async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
         let equities_bars = load_objects(
-            &self.s3_client, 
-            self.s3_data_bucket_name.clone(), 
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
             EQUITY_BARS_PATH.to_string(),
-        ).await?;
+        )
+        .await?;
 
         Ok(equities_bars)
     }
@@ -287,33 +290,36 @@ impl Interface for Client {
         predictions: Vec<Prediction>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut combined_predictions: HashSet<Prediction> = HashSet::new();
-        
+
         let original_predictions: Vec<Prediction> = load_objects(
-            &self.s3_client, 
-            self.s3_data_bucket_name.clone(), 
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
             PREDICTIONS_PATH.to_string(),
-        ).await?;
-    
+        )
+        .await?;
+
         combined_predictions.extend(original_predictions.into_iter());
 
         combined_predictions.extend(predictions.into_iter());
 
         let result = write_objects(
-            &self.s3_client, 
-            self.s3_data_bucket_name.clone(), 
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
             PREDICTIONS_PATH.to_string(),
             &combined_predictions,
-        ).await?;
+        )
+        .await?;
 
         Ok(result)
     }
 
     async fn load_predictions(&self) -> Result<Vec<Prediction>, Box<dyn std::error::Error>> {
         let predictions = load_objects(
-            &self.s3_client, 
-            self.s3_data_bucket_name.clone(), 
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
             PREDICTIONS_PATH.to_string(),
-        ).await?;
+        )
+        .await?;
 
         Ok(predictions)
     }
