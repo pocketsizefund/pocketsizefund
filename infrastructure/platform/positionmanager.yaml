@@ -31,11 +31,6 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: DARQUBE_API_KEY
-            - name: DARQUBE_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: DARQUBE_API_KEY
             - name: IS_PRODUCTION
               valueFrom:
                 secretKeyRef:

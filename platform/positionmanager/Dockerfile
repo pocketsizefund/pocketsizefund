@@ -53,4 +53,4 @@ WORKDIR app
 
 COPY --from=builder /app/target/release/positionmanager /usr/local/bin
 
-ENTRYPOINT ["/usr/local/bin/dataprovider"]
+ENTRYPOINT ["/usr/local/bin/positionmanager"]
