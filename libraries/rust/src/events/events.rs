@@ -6,7 +6,7 @@ pub fn build_response_event(
     metadata: Vec<String>,
     json_payload: Option<String>,
 ) -> Event {
-    let tag = "psf.".to_string() + &service_name + "." + &metadata.join(".");
+    let tag = "pocketsizefund.".to_string() + &service_name + "." + &metadata.join(".");
 
     let source = "platform:".to_string() + &service_name;
 
@@ -40,7 +40,7 @@ mod tests {
 
         let event = build_response_event(service_name, metadata, json_payload);
 
-        assert_eq!(event.ty(), "psf.test.test.test");
+        assert_eq!(event.ty(), "pocketsizefund.test.test.test");
         assert_eq!(event.source(), "platform:test");
         assert_eq!(
             event.datacontenttype().unwrap(),

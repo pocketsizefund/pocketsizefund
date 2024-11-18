@@ -60,7 +60,7 @@ async fn data_handler(
         Ok(_) => {
             info!("New bars written successfully");
             Ok(build_response_event(
-                "dataprovider".to_string(),
+                "datapcollector".to_string(),
                 vec![
                     "equities".to_string(),
                     "bars".to_string(),
@@ -110,7 +110,7 @@ async fn predictions_handler(
             vec![
                 "equities".to_string(),
                 "predictions".to_string(),
-                "write".to_string(),
+                "updated".to_string(),
             ],
             Some(
                 json!({
@@ -333,7 +333,7 @@ mod tests {
             .insert_header(ContentType::json())
             .set_json(&json!({
                 "specversion": "1.0",
-                "type": "baseline",
+                "type": "equities.predictions.generated",
                 "source": "pricemodel",
                 "id": "1234",
                 "time": "1997-05-25T20:00:00Z",

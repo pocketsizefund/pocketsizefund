@@ -42,12 +42,13 @@ spec:
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: metricsreportertrigger
+  name: dashboardtrigger
 spec:
   broker: default
   filter:
     attributes:
-      type: psf.metrics.read
+      source: pocketsizefund.dashboard
+      type: metrics.get
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
