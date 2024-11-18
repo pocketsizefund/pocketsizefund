@@ -51,5 +51,3 @@ spec:
                   key: S3_DATA_BUCKET_NAME
             - name: SERVER_PORT
               value: "8080"
-            - name: RUST_BACKTRACE # TEMP
-              value: "1" # TEMP

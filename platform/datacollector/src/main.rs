@@ -6,7 +6,7 @@ use log::info;
 use mockall::mock;
 use pocketsizefund::data::{Bar, Client as DataClient, Interface as DataInterface, Prediction};
 use pocketsizefund::events::build_response_event;
-use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface};
+use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface, Portfolio};
 use serde::Deserialize;
 use serde_json::json;
 use std::env;
@@ -208,6 +208,7 @@ mock! {
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
         async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
+        async fn get_portfolio(&self, current_time: DateTime<Utc>) -> Result<Portfolio, Box<dyn std::error::Error>>;
     }
 }
 

@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: positionmanager
+  name: metricsreporter
   labels:
     layer: portfolio
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: positionmanager
+      app: metricsreporter
   template:
     metadata:
       labels:
-        app: positionmanager
+        app: metricsreporter
     spec:
       containers:
-        - name: positionmanager
-          image: pocketsizefund/positionmanager:1.0.0
+        - name: metricsreporter
+          image: pocketsizefund/metricsreporter:1.0.0
           env:
             - name: ALPACA_API_KEY
               valueFrom:
@@ -42,14 +42,14 @@ spec:
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: positionmanagertrigger
+  name: metricsreportertrigger
 spec:
   broker: default
   filter:
     attributes:
-      type: psf.predictions.equities.write
+      type: psf.metrics.read
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: positionmanager
+      name: metricsreporter

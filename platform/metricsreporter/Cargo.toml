@@ -1,12 +1,10 @@
 [package]
-name = "positionmanager"
-version = "1.0.0"
+name = "metricsreporter"
+version = "0.1.0"
 edition = "2021"
-license = "MIT"
 
 [dependencies]
 actix-web = "4.9.0"
-env_logger = "0.11.5"
 cloudevents-sdk = { version = "0.7.0", features = [
     "actix",
     "actix-http",
@@ -15,17 +13,18 @@ cloudevents-sdk = { version = "0.7.0", features = [
     "http-body",
     "reqwest",
 ] }
+env_logger = "0.11.5"
 pocketsizefund = { path = "../../libraries/rust", features = [
     "trade",
     "events",
     "data",
 ] }
-reqwest = { version = "0.12.7", features = ["json"] }
 url = "2.5.2"
-serde_json = "1.0.117"
 chrono = { version = "0.4.38", features = ["serde"] }
 serde = { version = "1.0.204", features = ["derive"] }
-rand = "0.8.5"
+reqwest = { version = "0.12.7", features = ["json"] }
+statrs = "0.17.1"
+serde_json = { version = "1.0.120" }
 mockall = "0.11"
 async-trait = "0.1.82"
 

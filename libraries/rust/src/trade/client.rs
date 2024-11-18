@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use reqwest::Client as HTTPClient;
 use reqwest::Url;
 use serde::Deserialize;
@@ -24,10 +25,28 @@ struct AlpacaAsset {
     symbol: String,
 }
 
+#[derive(Deserialize, Debug)]
+struct AlpacaPortfolio {
+    #[serde(rename = "timestamp")]
+    timestamps: Vec<i64>,
+    #[serde(rename = "equity")]
+    equity_values: Vec<f64>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Portfolio {
+    pub timestamps: Vec<DateTime<Utc>>,
+    pub equity_values: Vec<f64>,
+}
+
 #[async_trait]
 pub trait Interface: Send + Sync {
     async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
     async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
+    async fn get_portfolio(
+        &self,
+        end_at: DateTime<Utc>,
+    ) -> Result<Portfolio, Box<dyn std::error::Error>>;
 }
 
 #[derive(Clone)]
@@ -160,6 +179,56 @@ impl Interface for Client {
         }
 
         Ok(())
+    }
+
+    async fn get_portfolio(
+        &self,
+        end_at: DateTime<Utc>,
+    ) -> Result<Portfolio, Box<dyn std::error::Error>> {
+        let mut alpaca_portfolio_url =
+            Url::parse(&self.alpaca_base_url)?.join("v2/account/portfolio/history")?;
+
+        alpaca_portfolio_url
+            .query_pairs_mut()
+            .append_pair("period", "1Y")
+            .append_pair("timeframe", "1D")
+            .append_pair("intraday_reporting", "market_hours")
+            .append_pair("pnl_reset", "per_day")
+            .append_pair("end", end_at.to_rfc3339().as_str());
+
+        let alpaca_portfolio_response = self
+            .http_client
+            .get(alpaca_portfolio_url)
+            .header("APCA-API-KEY-ID", &self.alpaca_api_key_id)
+            .header("APCA-API-SECRET-KEY", &self.alpaca_api_secret_key)
+            .header("accept", "application/json")
+            .header("content-type", "application/json")
+            .send()
+            .await?;
+
+        let alpaca_portfolio: AlpacaPortfolio = alpaca_portfolio_response.json().await?;
+
+        let timestamps: Vec<DateTime<Utc>> = alpaca_portfolio
+            .timestamps
+            .iter()
+            .map(|timestamp| DateTime::from_timestamp(*timestamp, 0).expect("Invalid timestamp"))
+            .collect();
+
+        let mut combined_values: Vec<(DateTime<Utc>, f64)> = timestamps
+            .into_iter()
+            .zip(alpaca_portfolio.equity_values.into_iter())
+            .collect();
+
+        combined_values.sort_by(|a, b| b.0.cmp(&a.0));
+
+        let (timestamps, equity_values): (Vec<_>, Vec<_>) = combined_values.into_iter().unzip();
+
+        let portfolio = Portfolio {
+            timestamps,
+            equity_values,
+        };
+
+        Ok(portfolio)
     }
 }
 
@@ -303,6 +372,71 @@ mod tests {
         match client.execute_baseline_buy("AAPL".to_string()).await {
             Ok(_) => {
                 assert_eq!(true, true);
+            }
+            Err(e) => {
+                panic!("Error: {:?}", e);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_portfolio() {
+        let mut mock_server = tokio::task::spawn_blocking(|| mockito::Server::new())
+            .await
+            .unwrap();
+
+        let base_url = mock_server.url().to_string();
+
+        let client = Client {
+            alpaca_base_url: base_url.clone(),
+            alpaca_api_key_id: "alpaca_api_key_id".to_string(),
+            alpaca_api_secret_key: "alpaca_api_secret_key".to_string(),
+            darqube_base_url: base_url.clone(),
+            darqube_api_key: "darqube_api_key".to_string(),
+            http_client: HTTPClient::new(),
+        };
+
+        let mock_alpaca_response = json!(
+            {
+                "timestamp": [1614556800],
+                "equity": [1000.0]
+            }
+        );
+
+        mock_server
+            .mock("GET", "/v2/account/portfolio/history")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("period".into(), "1Y".into()),
+                mockito::Matcher::UrlEncoded("timeframe".into(), "1D".into()),
+                mockito::Matcher::UrlEncoded("intraday_reporting".into(), "market_hours".into()),
+                mockito::Matcher::UrlEncoded("pnl_reset".into(), "per_day".into()),
+                mockito::Matcher::UrlEncoded(
+                    "end".into(),
+                    DateTime::from_timestamp(1614556800, 0)
+                        .expect("Invalid timestamp")
+                        .to_rfc3339(),
+                ),
+            ]))
+            .match_header("APCA-API-KEY-ID", "alpaca_api_key_id")
+            .match_header("APCA-API-SECRET-KEY", "alpaca_api_secret_key")
+            .match_header("accept", "application/json")
+            .match_header("content-type", "application/json")
+            .with_status(200)
+            .with_body(mock_alpaca_response.to_string())
+            .create();
+
+        match client
+            .get_portfolio(DateTime::from_timestamp(1614556800, 0).unwrap())
+            .await
+        {
+            Ok(result) => {
+                assert_eq!(result.timestamps.len(), 1);
+                assert_eq!(result.equity_values.len(), 1);
+                assert_eq!(
+                    result.timestamps[0],
+                    DateTime::from_timestamp(1614556800, 0).unwrap()
+                );
+                assert_eq!(result.equity_values[0], 1000.0);
             }
             Err(e) => {
                 panic!("Error: {:?}", e);

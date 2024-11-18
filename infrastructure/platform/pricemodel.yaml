@@ -2,6 +2,8 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: price-model
+  labels:
+    layer: prediction
 spec:
   template:
     metadata:
