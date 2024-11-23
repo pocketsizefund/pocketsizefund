@@ -1,5 +1,19 @@
 #!/usr/bin/env sh
 
-# mise description="unit tests for the pocketsizefund python code"
-# mise tools=["python@3.10", "poetry"]
-# mise depends=["libraries:python:test"]
+# mise description="unit tests for the python code"
+
+PYTHONPATH=libraries/python uv run coverage run \
+    --parallel-mode \
+    --omit '*/__init__.py,**/test_*.py' \
+    --data-file .python_coverage.output \
+    --module pytest
+
+uv run coverage combine \
+    --data-file .python_coverage.output
+
+uv run coverage report \
+    --data-file .python_coverage.output
+
+uv run coverage xml \
+    --data-file .python_coverage.output \
+    -o .python_coverage.xml

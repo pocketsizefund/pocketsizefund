@@ -1,4 +1,4 @@
-"""All project-level configuration."""
+"""Project-level configurations."""
 
 import datetime
 

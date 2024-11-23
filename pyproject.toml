@@ -1,170 +1,43 @@
 [project]
 name = "pocketsizefund"
-version = "20240831.0"
-description = "Open source quantitative trading"
-authors = [
-  {name="forstmeier", email="john.forstmeier@gmail.com"},
-  {name="chrisaddy", email="chris.william.addy@gmail.com"},
-]
-readme = "README.md"
-homepage = "https://www.pocketsize.fund/"
-repository = "https://github.com/pocketsizefund/pocketsizefund"
-requires-python = ">=3.9, <3.11"
-dependencies = [
-    "loguru>=0.7.2",
-    "requests>=2.32.3",
-    "wandb>=0.17.8",
-    "boto3>=1.35.10",
-    "pandas>=2.2.2",
-    "alpaca-py>=0.30.1",
-    "bs4>=0.0.2",
-]
-license = {text = "MIT"}
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+version = "1.0.0"
 
 [tool.uv]
 dev-dependencies = [
     "coverage>=7.6.1",
     "pytest>=8.3.2",
     "vulture>=2.11",
+    "ruff>=0.8.0",
 ]
 
-[tool.uv.sources]
-pocketsizefund = { workspace = true }
+[tool.uv.packages]
+library = "libraries/python"
 
-[uv.tool.vulture]
-make_whitelist = true
-min_confidence = 80
-paths = ["."]
-sort_by_size = true
-verbose = false
-exclude = [
-  "platform/discord/",
-  "platform/newsfeed",
-  "platform/datacollector",
-  "platform/dataprovider",
-  "libraries/rust",
-]
-
-[uv.tool.ruff]
-exclude = [
-  ".bzr",
-  ".git",
-  ".ipynb_checkpoints",
-  ".mypy_cache",
-  ".pyenv",
-  ".pytest_cache",
-  ".pytype",
-  ".ruff_cache",
-  ".venv",
-  ".vscode",
-  "build",
-  "dist",
-  "node_modules",
-  "site-packages",
-  "venv",
-]
-
+[tool.ruff]
 line-length = 100
 indent-width = 4
-target-version = "py312"
-
-[tool.ruff.format]
-quote-style = "double"            # black-compatible
-indent-style = "space"            # black-compatible
-skip-magic-trailing-comma = false # black-compatible
-line-ending = "auto"              # black-compatible
-
-docstring-code-line-length = "dynamic"
+exclude = [
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+]
 
 [tool.ruff.lint]
-# for details see:
-# https://docs.astral.sh/ruff/rules/
 select = [
-  "F",     # pyflakes: various checks for potential errors and suspicious constructs
-  "E",     # pycodestyle errors: checks for violations of the Python style guide
-  "W",     # pycodestyle warnings: checks for potential issues and style violations
-  "C90",   # mccabe complexity: checks the cyclomatic complexity of functions and methods
-  "I",     # isort: checks for proper ordering and formatting of imports
-  "N",     # pep8-naming: checks for conformance with Python naming conventions
-  "D",     # pydocstyle: checks docstring conventions and styles
-  "UP",    # pyupgrade: detects deprecated syntax and suggests modern alternatives
-  "YTT",   # flake8-2020: checks for constructs that are outdated or no longer recommended in Python 3.10+
-  "ANN",   # flake8-annotations: checks for presence and correctness of type annotations
-  "ASYNC", # flake8-async: checks for common issues and best practices in asynchronous code
-  "S",     # flake8-bandit: checks for common security issues and vulnerabilities
-  "BLE",   # flake8-blind-except: checks for blind except statements that catch all exceptions
-  "FBT",   # flake8-boolean-trap: checks for potential boolean traps and confusing boolean expressions
-  "B",     # flake8-bugbear: checks for various bug and design issues
-  "A",     # flake8-builtins: checks for shadowing of built-in functions and types
-  "COM",   # flake8-commas: checks for consistent comma usage and placement
-  "C4",    # flake8-comprehensions: checks for unnecessary or overly complex comprehensions
-  "DTZ",   # flake8-datetimez: checks for proper usage of datetime and timezone handling
-  "T10",   # flake8-debugger: checks for the presence of debugging statements
-  "EM",    # flake8-errmsg: checks for consistent and informative exception messages
-  "EXE",   # flake8-executable: checks for the presence of executable permissions on non-executable files
-  "FA",    # flake8-future-annotations: checks for proper usage of future annotations
-  "ISC",   # flake8-implicit-str-concat: checks for implicitly concatenated string literals
-  "ICN",   # flake8-import-conventions: checks for consistent import conventions and styles
-  "LOG",   # flake8-logging: checks for common logging issues and best practices
-  "G",     # flake8-logging-format: checks for consistent logging format strings
-  "INP",   # flake8-no-pep420: checks for the presence of `__init__.py` in namespace packages
-  "PIE",   # flake8-pie: checks for various style and best practice issues
-  "T20",   # flake8-print: checks for the presence of print statements
-  "PYI",   # flake8-pyi: checks for issues and inconsistencies in type hinting stub files
-  "PT",    # flake8-pytest-style: checks for consistent and idiomatic usage of pytest
-  "Q",     # flake8-quotes: checks for consistent usage of quotes (single vs. double)
-  "RSE",   # flake8-raise: checks for proper raising and handling of exceptions
-  "RET",   # flake8-return: checks for consistent and explicit return statements
-  "SLF",   # flake8-self: checks for consistent usage of self in instance methods
-  "SLOT",  # flake8-slots: checks for the presence of __slots__ in appropriate classes
-  "SIM",   # flake8-simplify: checks for opportunities to simplify code
-  "TID",   # flake8-tidy-imports: checks for consistent import formatting and ordering
-  "TCH",   # flake8-type-checking: checks for type checking related issues and best practices
-  "INT",   # flake8-gettext: checks for proper usage of gettext for internationalization
-  "ARG",   # flake8-unused-arguments: checks for unused function and method arguments
-  "PTH",   # flake8-use-pathlib: encourages the use of pathlib for file path handling
-  "TD",    # flake8-todos: checks for the presence and format of TODO comments
-  "FIX",   # flake8-fixme: checks for the presence of FIXME comments indicating unresolved issues
-  "ERA",   # eradicate: detects commented out code
-  "PD",    # pandas-vet: checks for common issues and best practices in pandas code
-  "PGH",   # pygrep-hooks: allows custom grep-based checks and rules
-  "PLC",   # Pylint convention: checks for programming conventions and standards
-  "PLE",   # Pylint errors: checks for probable bugs and potential errors
-  "PLW",   # Pylint warnings: checks for stylistic problems and potential issues
-  "PLR",   # Pylint refactoring: identifies opportunities for code refactoring and improvements
-  "TRY",   # tryceratops: checks for common anti-patterns and improvements in exception handling
-  "FLY",   # flynt: checks for string formatting improvements and suggests f-strings
-  "NPY",   # NumPy-specific rules: checks for common issues and best practices in NumPy code
-  "PERF",  # Perflint: identifies performance issues and suggests optimizations
-  # "FURB",  # refurb: detects and suggests idiomatic and modern Python code
-  "RUF",   # Ruff-specific rules: additional checks and rules specific to the Ruff linter
+    "E501",
 ]
+ignore = []
 
-ignore = [
-  "ANN101", # don't need to type annotate `self`
-  "PT006",  # Wrong type passed to first argument of `@pytest.mark.parametrize` --> unnecessary
-  "D406", # the D4** conflict with other linting rules, prefer Google Style Docstrings
-  "D406",
-  "D407",
-  "D409",
-  "D413",
-  "D101",
-  "D203",
-  "D213",
-  "S113", # requests timeout
-  "UP035",
-  "COM812",
-  "ISC001",
-]
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
-[tool.ruff.lint.per-file-ignores]
-"libraries/python/src/pocketsizefund/model.py" = ["I001"]
-"libraries/python/tests/*.py" = ["RUF100", "S101", "PLR2004", "D", "SLF001", "PT011", "ARG001", "ARG002"]
-"**/*__init__.py" = ["D"]
-"pipelines/filings/*" = ["E501"]
-"infrastructure/__main__.py" = ["INP001", "D100", "ANN201", "D103", "ANN001"]
-"libraries/python/pocketsizefund/config/config.py" = ["ANN401"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["libraries/python"]

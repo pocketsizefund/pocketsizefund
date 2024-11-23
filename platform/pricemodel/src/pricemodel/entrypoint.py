@@ -107,13 +107,9 @@ def invocations() -> Predictions:
 
     equity_bars_raw_data = pd.DataFrame(json_data)
 
-    filtered_equity_bars_raw_data = equity_bars_raw_data["ticker"].isin(
-        available_tickers
-    )
+    filtered_equity_bars_raw_data = equity_bars_raw_data["ticker"].isin(available_tickers)
 
-    equity_bars_raw_data_grouped_by_ticker = filtered_equity_bars_raw_data.groupby(
-        "ticker"
-    )
+    equity_bars_raw_data_grouped_by_ticker = filtered_equity_bars_raw_data.groupby("ticker")
 
     predictions: dict[str, list[float]] = {}
     for ticker, ticker_bars_raw_data in equity_bars_raw_data_grouped_by_ticker:

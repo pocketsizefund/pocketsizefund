@@ -1,8 +1,16 @@
 #!/usr/bin/env sh
 
-# mise description="run python linter across the monorepo"
-# mise tools = ["ruff", "python", "poetry"]
+# mise description="run python code quality checks across the full repository"
 
-cd $root
-uv tool install ruff
-ruff check --output-format=github --config pyproject.toml .
+uv run ruff check \
+    --output-format=github \
+    --config pyproject.toml \
+    .
+
+# cannot be configured in pyproject.toml
+uv run vulture \
+    --min-confidence 80 \
+    --exclude '.venv,target' \
+    .
+
+uv run ruff format

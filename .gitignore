@@ -1,10 +1,10 @@
 __pycache__/
 *.py[cod]
 .vscode/
+.venv/
 etc/
 .DS_Store
-.coverage*
-coverage.xml
+.python_coverage*
 lightning_logs/
 .python-version
 .envrc
@@ -12,3 +12,4 @@ lightning_logs/
 .ruff_cache/
 platform/*/Cargo.lock
 **/target*/
+python_coverage/

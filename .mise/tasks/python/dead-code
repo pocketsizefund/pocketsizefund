@@ -1,9 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="check for dead python code"
-# mise depends=["python:lint"]
-# mise tools = ["pipx:vulture"]
-
-cd $root
-uv tool install vulture
-vulture --min-confidence 80 --exclude "*/target/*,*/.venv/*" .
