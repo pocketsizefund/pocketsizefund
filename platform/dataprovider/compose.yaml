@@ -14,5 +14,5 @@ services:
     ports:
       - 8080:8080
     volumes:
-      - ./platform/datacollector:/app/platform/datacollector
+      - ./platform/dataprovider:/app/platform/dataprovider
       - ./libraries/rust:/app/libraries/rust
