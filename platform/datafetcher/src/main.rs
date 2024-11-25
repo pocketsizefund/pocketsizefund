@@ -1,116 +1,75 @@
-use actix_web::middleware::Logger;
 use actix_web::{post, web, App, HttpResponse, HttpServer};
-use chrono::{DateTime, Utc};
-use cloudevents::{Data, Event};
+use cloudevents::Event;
 use log::info;
-use mockall::mock;
-use pocketsizefund::data::{Bar, Client as DataClient, Interface as DataInterface, Prediction};
+use std::sync::Arc;
+use pocketsizefund::data::{Client as DataClient, Interface as DataInterface, Bar, Prediction};
 use pocketsizefund::events::build_response_event;
 use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface, Portfolio};
-use serde::Deserialize;
+use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use std::env;
-use std::io;
 use std::num::ParseIntError;
-use std::sync::Arc;
+use std::io;
+use actix_web::middleware::Logger;
+use mockall::mock;
 
 #[post("/health")]
 async fn health_handler() -> HttpResponse {
     HttpResponse::Ok().body("OK")
 }
 
-#[derive(Deserialize)]
-struct EquitiesBarsPayload {
-    equities_bars: Vec<Bar>,
-}
-
 #[post("/data")]
 async fn data_handler(
-    event: web::Json<Event>,
     data_client: web::Data<Arc<dyn DataInterface>>,
+    trade_client: web::Data<Arc<dyn TradeInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
-    let mut equities_bars: Vec<Bar> = Vec::new();
+    let old_bars = data_client.load_equities_bars().await.unwrap_or_else(|e| {
+        info!("Failed to load old bars: {}", e);
+        Vec::new()
+    });
 
-    if let Some(Data::Json(json)) = event.data() {
-        let payload: EquitiesBarsPayload = match serde_json::from_value(json.clone()) {
-            Ok(val) => val,
-            Err(error) => {
-                return Err(error.into());
-            }
-        };
+    let most_recent_datetime = old_bars
+        .iter()
+        .max_by_key(|bar| bar.timestamp)
+        .map(|bar| bar.timestamp)
+        .unwrap_or_else(|| {
+            info!("No maximum timestamp found in old bars, using fallback value.");
+            Utc::now() - Duration::days(365 * 10)
+        });
 
-        equities_bars = payload.equities_bars;
-    }
+    let current_datetime = chrono::Utc::now();
 
-    match data_client.write_equities_bars(equities_bars).await {
-        Ok(_) => {
-            info!("New bars written successfully");
-            Ok(build_response_event(
-                "datapcollector".to_string(),
-                vec![
-                    "equities".to_string(),
-                    "bars".to_string(),
-                    "updated".to_string(),
-                ],
-                Some(
-                    json!({
-                        "status": "success".to_string(),
-                    })
-                    .to_string(),
-                ),
-            ))
-        }
-        Err(e) => {
-            info!("Failed to write new bars: {}", e);
-            Err(e)
-        }
-    }
-}
+    let available_tickers = trade_client
+        .get_available_tickers()
+        .await
+        .unwrap_or_else(|e| {
+            info!("Failed to get available tickers: {}", e);
+            Vec::new()
+        });
 
-#[derive(Deserialize)]
-struct PredictionsPayload {
-    predictions: Vec<Prediction>,
-}
+    let new_bars = data_client
+        .fetch_equities_bars(available_tickers, most_recent_datetime, current_datetime)
+        .await
+        .unwrap_or_else(|e| {
+            info!("Failed to fetch new bars: {}", e);
+            Vec::new()
+        });
 
-#[post("/predictions")]
-async fn predictions_handler(
-    event: web::Json<Event>,
-    data_client: web::Data<Arc<dyn DataInterface>>,
-) -> Result<Event, Box<dyn std::error::Error>> {
-    let mut predictions: Vec<Prediction> = Vec::new();
-
-    if let Some(Data::Json(json)) = event.data() {
-        let payload: PredictionsPayload = match serde_json::from_value(json.clone()) {
-            Ok(val) => val,
-            Err(error) => {
-                return Err(error.into());
-            }
-        };
-
-        predictions = payload.predictions;
-    }
-
-    match data_client.write_predictions(predictions).await {
-        Ok(_) => Ok(build_response_event(
-            "datacollector".to_string(),
-            vec![
-                "equities".to_string(),
-                "predictions".to_string(),
-                "updated".to_string(),
-            ],
-            Some(
-                json!({
-                    "status": "success".to_string(),
-                    "written_at": Utc::now().to_rfc3339().to_string(),
-                })
-                .to_string(),
-            ),
-        )),
-        Err(e) => {
-            info!("Failed to write predictions: {}", e);
-            Err(e)
-        }
-    }
+    Ok(build_response_event(
+        "datafetcher".to_string(),
+        vec![
+            "equities".to_string(),
+            "bars".to_string(),
+            "new".to_string(),
+        ],
+        Some(
+            json!({
+                "status": "success".to_string(),
+                "equities_bars": new_bars,
+            })
+            .to_string(),
+        ),
+    ))
 }
 
 #[actix_web::main]
@@ -156,7 +115,6 @@ async fn main() -> std::io::Result<()> {
             .app_data(trade_client.clone())
             .service(health_handler)
             .service(data_handler)
-            .service(predictions_handler)
     })
     .bind(("0.0.0.0", server_port))?
     .run()
@@ -202,6 +160,7 @@ mock! {
 mod tests {
     use super::*;
     use actix_web::{http::header::ContentType, test, App};
+    use chrono::{TimeZone, Utc};
 
     #[actix_web::test]
     async fn test_health_handler() {
@@ -221,7 +180,35 @@ mod tests {
     async fn test_data_handler() {
         let mut mock_data_client: MockDataInterfaceMock = MockDataInterfaceMock::new();
 
-        mock_data_client.expect_write_predictions().returning(|_| Ok(()));
+        mock_data_client.expect_load_equities_bars().returning(|| {
+            Ok(vec![Bar {
+                ticker: Some("AAPL".to_string()),
+                timestamp: Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
+                open: 150.0,
+                high: 152.5,
+                low: 149.5,
+                close: 151.5,
+                volume: 1_000_000,
+                number_of_trades: 5_000,
+                volume_weighted_average_price: 151.2,
+            }])
+        });
+
+        mock_data_client
+            .expect_fetch_equities_bars()
+            .returning(|_, _, _| {
+                Ok(vec![Bar {
+                    ticker: Some("AAPL".to_string()),
+                    timestamp: Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
+                    open: 150.5,
+                    high: 152.3,
+                    low: 149.8,
+                    close: 151.0,
+                    volume: 1_200_000,
+                    number_of_trades: 5_000,
+                    volume_weighted_average_price: 150.9,
+                }])
+            });
 
         mock_data_client
             .expect_write_equities_bars()
@@ -237,63 +224,21 @@ mod tests {
 
         let mock_data_client = web::Data::new(mock_data_client);
 
+        let mock_trade_client: Arc<dyn TradeInterface> = Arc::new(mock_trade_client);
+
+        let mock_trade_client = web::Data::new(mock_trade_client);
+
         let app = test::init_service(
             App::new()
                 .app_data(mock_data_client.clone())
+                .app_data(mock_trade_client.clone())
                 .service(data_handler),
         )
         .await;
 
         let request = test::TestRequest::post()
             .uri("/data")
-            .insert_header(ContentType::json())
-            .set_json(&json!({
-                "specversion": "1.0",
-                "type": "equities.bars.new",
-                "source": "datafetcher",
-                "id": "1234",
-                "time": "1997-05-25T20:00:00Z",
-                "data": {
-                    "equities_bars": []
-                }
-            }))
-            .to_request();
-
-        let response = test::call_service(&app, request).await;
-
-        assert!(response.status().is_success());
-    }
-
-    #[actix_web::test]
-    async fn test_predictions_handler() {
-        let mut mock_data_client = MockDataInterfaceMock::new();
-
-        mock_data_client.expect_write_predictions().returning(|_| Ok(()));
-
-        let mock_data_client: Arc<dyn DataInterface> = Arc::new(mock_data_client);
-
-        let mock_data_client = web::Data::new(mock_data_client);
-
-        let app = test::init_service(
-            App::new()
-                .app_data(mock_data_client.clone())
-                .service(predictions_handler),
-        )
-        .await;
-
-        let request = test::TestRequest::post()
-            .uri("/predictions")
-            .insert_header(ContentType::json())
-            .set_json(&json!({
-                "specversion": "1.0",
-                "type": "equities.predictions.generated",
-                "source": "pricemodel",
-                "id": "1234",
-                "time": "1997-05-25T20:00:00Z",
-                "data": {
-                    "predictions": []
-                }
-            }))
+            .insert_header(ContentType::plaintext())
             .to_request();
 
         let response = test::call_service(&app, request).await;
