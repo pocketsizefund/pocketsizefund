@@ -204,8 +204,8 @@ impl Interface for Client {
         );
 
         for ticker in tickers {
+            let mut page_token: Option<String> = None;
             loop {
-                let mut page_token: Option<String> = None;
 
                 let alpaca_url =
                     self._build_equities_bars_url(&ticker, start, end, page_token.as_deref())?;

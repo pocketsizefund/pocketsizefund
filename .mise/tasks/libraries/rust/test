@@ -1,7 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="run unit tests against the pocketsizefund rust package"
-# mise tools=["rust"]
-
-cd $root/libraries/rust
-cargo test --all-features
