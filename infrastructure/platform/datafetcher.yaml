@@ -2,7 +2,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: datacollector
+  name: datafetcher
   labels:
     layer: data
 spec:
@@ -12,8 +12,8 @@ spec:
         autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-        - name: datacollector
-          image: pocketsizefund/datacollector:202409.11.0
+        - name: datafetcher
+          image: pocketsizefund/datafetcher:1.0.0
           ports:
             - containerPort: 8080
           resources:
@@ -52,18 +52,15 @@ spec:
             - name: SERVER_PORT
               value: "8080"
 ---
-apiVersion: eventing.knative.dev/v1
-kind: Trigger
+apiVersion: sources.knative.dev/v1
+kind: PingSource
 metadata:
-  name: pricemodeltrigger
+  name: morning-ping
 spec:
-  broker: default
-  filter:
-    attributes:
-      source: pocketsizefund.pricemodel
-      type: equities.predictions.generated
-  subscriber:
+  schedule: "0 18 * * 1-5"
+  sink:
     ref:
-      apiVersion: serving.knative.dev/v1
+      apiVersion: eventing.knative.dev/v1
       kind: Service
-      name: datacollector
+      name: datacfetcher
+    uri: /data

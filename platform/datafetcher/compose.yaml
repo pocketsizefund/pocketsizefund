@@ -1,0 +1,18 @@
+services:
+  datafetcher:
+    build:
+      context: ../..
+      dockerfile: platform/datafetcher/Dockerfile
+    platform: linux/amd64
+    environment:
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - S3_DATA_BUCKET_NAME
+      - SERVER_PORT=8080
+    ports:
+      - 8080:8080
+    volumes:
+      - ./platform/datafetcher:/app/platform/datafetcher
+      - ./libraries/rust:/app/libraries/rust

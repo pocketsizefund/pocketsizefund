@@ -10,4 +10,5 @@ members = [
     "platform/dataprovider",
     "platform/positionmanager",
     "platform/metricsreporter",
+    "platform/datafetcher",
 ]

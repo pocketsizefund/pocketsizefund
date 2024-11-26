@@ -22,8 +22,7 @@ use std::io::{Read, Write};
 #[derive(Deserialize)]
 struct BarsResponse {
     bars: Vec<Bar>,
-    #[serde(rename = "next_page_token")]
-    next_token: Option<String>,
+    next_page_token: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -178,7 +177,7 @@ impl Client {
     }
 }
 
-const EQUITY_BARS_PATH: &str = "equity/bar/all.gz";
+const EQUITIES_BARS_PATH: &str = "equities/bar/all.gz";
 
 const PREDICTIONS_PATH: &str = "predictions/all.gz";
 
@@ -206,7 +205,6 @@ impl Interface for Client {
         for ticker in tickers {
             let mut page_token: Option<String> = None;
             loop {
-
                 let alpaca_url =
                     self._build_equities_bars_url(&ticker, start, end, page_token.as_deref())?;
 
@@ -236,7 +234,7 @@ impl Interface for Client {
 
                 equities_bars.extend(bars_with_ticker);
 
-                match bar_response.next_token {
+                match bar_response.next_page_token {
                     Some(token) => page_token = Some(token),
                     None => break,
                 }
@@ -255,7 +253,7 @@ impl Interface for Client {
         let original_equities_bars: Vec<Bar> = load_objects(
             &self.s3_client,
             self.s3_data_bucket_name.clone(),
-            EQUITY_BARS_PATH.to_string(),
+            EQUITIES_BARS_PATH.to_string(),
         )
         .await?;
 
@@ -266,7 +264,7 @@ impl Interface for Client {
         let result = write_objects(
             &self.s3_client,
             self.s3_data_bucket_name.clone(),
-            EQUITY_BARS_PATH.to_string(),
+            EQUITIES_BARS_PATH.to_string(),
             &combined_equities_bars,
         )
         .await?;
@@ -278,7 +276,7 @@ impl Interface for Client {
         let equities_bars = load_objects(
             &self.s3_client,
             self.s3_data_bucket_name.clone(),
-            EQUITY_BARS_PATH.to_string(),
+            EQUITIES_BARS_PATH.to_string(),
         )
         .await?;
 
