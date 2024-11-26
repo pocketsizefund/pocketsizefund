@@ -42,12 +42,13 @@ spec:
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: positionmanagertrigger
+  name: datacollectortrigger
 spec:
   broker: default
   filter:
     attributes:
-      type: psf.predictions.equities.write
+      source: pocketsizefund.datacollector
+      type: equities.predictions.updated
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1

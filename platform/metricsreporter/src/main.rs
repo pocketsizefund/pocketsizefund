@@ -108,7 +108,7 @@ async fn metrics_handler(
 
     let event = build_response_event(
         "metricsreporter".to_string(),
-        vec!["new".to_string(), "metrics".to_string()],
+        vec!["metrics".to_string(), "generated".to_string()],
         Some(
             json!({
                 "portfolio_metrics": portfolio_metrics,
@@ -292,8 +292,8 @@ mod tests {
             .insert_header(ContentType::json())
             .set_json(&json!({
                 "specversion": "1.0",
-                "type": "baseline",
-                "source": "metricsreporter",
+                "type": "metrics.get",
+                "source": "pocketsizefund.dashboard",
                 "id": "1234",
                 "time": "1997-05-25T20:00:00Z",
                 "data": {

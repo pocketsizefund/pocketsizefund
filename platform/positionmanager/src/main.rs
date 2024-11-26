@@ -67,7 +67,7 @@ async fn trade_handler(
 
     let event = build_response_event(
         "positionmanager".to_string(),
-        vec!["baseline".to_string(), "buy".to_string()],
+        vec!["baselinebuy".to_string(), "executed".to_string()],
         Some(
             json!({
                 "ticker": prediction.ticker,
@@ -213,8 +213,8 @@ mod tests {
             .insert_header(ContentType::json())
             .set_json(&json!({
                 "specversion": "1.0",
-                "type": "baseline",
-                "source": "positionmanager",
+                "type": "equities.predictions.updated",
+                "source": "pocketiszefund.datacollector",
                 "id": "1234",
                 "time": "1997-05-25T20:00:00Z",
                 "data": {

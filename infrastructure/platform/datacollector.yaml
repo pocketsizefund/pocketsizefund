@@ -64,3 +64,19 @@ spec:
       kind: Service
       name: datacollector
     uri: /data
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: pricemodeltrigger
+spec:
+  broker: default
+  filter:
+    attributes:
+      source: pocketsizefund.pricemodel
+      type: equities.predictions.generated
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: datacollector

@@ -51,3 +51,19 @@ spec:
                   key: S3_DATA_BUCKET_NAME
             - name: SERVER_PORT
               value: "8080"
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: pricemodeltrigger
+spec:
+  broker: default
+  filter:
+    attributes:
+      source: pocketsizefund.pricemodel
+      type: equities.bars.get
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: dataprovider

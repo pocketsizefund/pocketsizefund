@@ -249,8 +249,8 @@ mod tests {
             .uri("/data")
             .set_json(&json!({
                 "specversion": "1.0",
-                "type": "baseline",
-                "source": "pricemodel",
+                "type": "equities.bars.get",
+                "source": "pocketsizefund.pricemodel",
                 "id": "1234",
                 "time": "1997-05-25T20:00:00Z",
                 "data": {
