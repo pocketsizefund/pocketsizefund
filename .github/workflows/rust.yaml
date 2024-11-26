@@ -1,9 +1,7 @@
 name: Rust lint
 
 on:
-  pull_request:
-    branches:
-      - master
+  push:
 
 env:
   CARGO_TERM_COLOR: always

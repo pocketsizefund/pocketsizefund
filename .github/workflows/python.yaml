@@ -1,9 +1,7 @@
 name: Python lint
 
 on:
-  pull_request:
-    branches:
-      - master
+  push:
 
 jobs:
   run_lint:
