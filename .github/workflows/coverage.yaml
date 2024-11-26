@@ -1,9 +1,7 @@
 name: Python and Rust tests
 
 on:
-  pull_request:
-    branches:
-      - master
+  push
 
 jobs:
   python_test_and_coverage:
