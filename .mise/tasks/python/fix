@@ -1,7 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="run python linter with fix option across the monorepo"
-# mise tools = ["ruff", "python", "poetry"]
-
-cd $root
-ruff check --output-format=github --config pyproject.toml . --fix

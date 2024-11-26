@@ -1,12 +1,12 @@
 use actix_web::middleware::Logger;
 use actix_web::{post, web, App, HttpResponse, HttpServer};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use cloudevents::{Data, Event};
 use log::info;
 use mockall::mock;
 use pocketsizefund::data::{Bar, Client as DataClient, Interface as DataInterface, Prediction};
 use pocketsizefund::events::build_response_event;
-use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface};
+use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface, Portfolio};
 use serde::Deserialize;
 use serde_json::json;
 use std::env;
@@ -19,48 +19,34 @@ async fn health_handler() -> HttpResponse {
     HttpResponse::Ok().body("OK")
 }
 
+#[derive(Deserialize)]
+struct EquitiesBarsPayload {
+    equities_bars: Vec<Bar>,
+}
+
 #[post("/data")]
 async fn data_handler(
+    event: web::Json<Event>,
     data_client: web::Data<Arc<dyn DataInterface>>,
-    trade_client: web::Data<Arc<dyn TradeInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
-    let old_bars = data_client.load_equities_bars().await.unwrap_or_else(|e| {
-        info!("Failed to load old bars: {}", e);
-        Vec::new()
-    });
+    let mut equities_bars: Vec<Bar> = Vec::new();
 
-    let most_recent_datetime = old_bars
-        .iter()
-        .max_by_key(|bar| bar.timestamp)
-        .map(|bar| bar.timestamp)
-        .unwrap_or_else(|| {
-            info!("No maximum timestamp found in old bars, using fallback value.");
-            Utc::now() - Duration::days(365 * 10)
-        });
+    if let Some(Data::Json(json)) = event.data() {
+        let payload: EquitiesBarsPayload = match serde_json::from_value(json.clone()) {
+            Ok(val) => val,
+            Err(error) => {
+                return Err(error.into());
+            }
+        };
 
-    let current_datetime = chrono::Utc::now();
+        equities_bars = payload.equities_bars;
+    }
 
-    let available_tickers = trade_client
-        .get_available_tickers()
-        .await
-        .unwrap_or_else(|e| {
-            info!("Failed to get available tickers: {}", e);
-            Vec::new()
-        });
-
-    let new_bars = data_client
-        .fetch_equities_bars(available_tickers, most_recent_datetime, current_datetime)
-        .await
-        .unwrap_or_else(|e| {
-            info!("Failed to fetch new bars: {}", e);
-            Vec::new()
-        });
-
-    match data_client.write_equities_bars(new_bars).await {
+    match data_client.write_equities_bars(equities_bars).await {
         Ok(_) => {
             info!("New bars written successfully");
             Ok(build_response_event(
-                "dataprovider".to_string(),
+                "datapcollector".to_string(),
                 vec![
                     "equities".to_string(),
                     "bars".to_string(),
@@ -82,7 +68,7 @@ async fn data_handler(
 }
 
 #[derive(Deserialize)]
-struct Payload {
+struct PredictionsPayload {
     predictions: Vec<Prediction>,
 }
 
@@ -94,7 +80,7 @@ async fn predictions_handler(
     let mut predictions: Vec<Prediction> = Vec::new();
 
     if let Some(Data::Json(json)) = event.data() {
-        let payload: Payload = match serde_json::from_value(json.clone()) {
+        let payload: PredictionsPayload = match serde_json::from_value(json.clone()) {
             Ok(val) => val,
             Err(error) => {
                 return Err(error.into());
@@ -110,7 +96,7 @@ async fn predictions_handler(
             vec![
                 "equities".to_string(),
                 "predictions".to_string(),
-                "write".to_string(),
+                "updated".to_string(),
             ],
             Some(
                 json!({
@@ -208,6 +194,7 @@ mock! {
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
         async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
+        async fn get_portfolio(&self, current_time: DateTime<Utc>) -> Result<Portfolio, Box<dyn std::error::Error>>;
     }
 }
 
@@ -215,8 +202,6 @@ mock! {
 mod tests {
     use super::*;
     use actix_web::{http::header::ContentType, test, App};
-    use chrono::{TimeZone, Utc};
-    use pocketsizefund::data::Bar;
 
     #[actix_web::test]
     async fn test_health_handler() {
@@ -236,35 +221,7 @@ mod tests {
     async fn test_data_handler() {
         let mut mock_data_client: MockDataInterfaceMock = MockDataInterfaceMock::new();
 
-        mock_data_client.expect_load_equities_bars().returning(|| {
-            Ok(vec![Bar {
-                ticker: Some("AAPL".to_string()),
-                timestamp: Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
-                open: 150.0,
-                high: 152.5,
-                low: 149.5,
-                close: 151.5,
-                volume: 1_000_000,
-                number_of_trades: 5_000,
-                volume_weighted_average_price: 151.2,
-            }])
-        });
-
-        mock_data_client
-            .expect_fetch_equities_bars()
-            .returning(|_, _, _| {
-                Ok(vec![Bar {
-                    ticker: Some("AAPL".to_string()),
-                    timestamp: Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
-                    open: 150.5,
-                    high: 152.3,
-                    low: 149.8,
-                    close: 151.0,
-                    volume: 1_200_000,
-                    number_of_trades: 5_000,
-                    volume_weighted_average_price: 150.9,
-                }])
-            });
+        mock_data_client.expect_write_predictions().returning(|_| Ok(()));
 
         mock_data_client
             .expect_write_equities_bars()
@@ -276,33 +233,30 @@ mod tests {
             .expect_get_available_tickers()
             .returning(|| Ok(vec!["AAPL".to_string()]));
 
-        env::set_var("ALPACA_API_KEY", "VALUE");
-        env::set_var("ALPACA_API_SECRET", "VALUE");
-        env::set_var("AWS_ACCESS_KEY_ID", "VALUE");
-        env::set_var("AWS_SECRET_ACCESS_KEY", "VALUE");
-        env::set_var("S3_DATA_BUCKET_NAME", "VALUE");
-        env::set_var("DARQUBE_API_KEY", "VALUE");
-        env::set_var("IS_PRODUCTION", "false");
-
         let mock_data_client: Arc<dyn DataInterface> = Arc::new(mock_data_client);
 
         let mock_data_client = web::Data::new(mock_data_client);
 
-        let mock_trade_client: Arc<dyn TradeInterface> = Arc::new(mock_trade_client);
-
-        let mock_trade_client = web::Data::new(mock_trade_client);
-
         let app = test::init_service(
             App::new()
                 .app_data(mock_data_client.clone())
-                .app_data(mock_trade_client.clone())
                 .service(data_handler),
         )
         .await;
 
         let request = test::TestRequest::post()
             .uri("/data")
-            .insert_header(ContentType::plaintext())
+            .insert_header(ContentType::json())
+            .set_json(&json!({
+                "specversion": "1.0",
+                "type": "equities.bars.new",
+                "source": "datafetcher",
+                "id": "1234",
+                "time": "1997-05-25T20:00:00Z",
+                "data": {
+                    "equities_bars": []
+                }
+            }))
             .to_request();
 
         let response = test::call_service(&app, request).await;
@@ -312,17 +266,17 @@ mod tests {
 
     #[actix_web::test]
     async fn test_predictions_handler() {
-        let mut mock_client = MockDataInterfaceMock::new();
+        let mut mock_data_client = MockDataInterfaceMock::new();
 
-        mock_client.expect_write_predictions().returning(|_| Ok(()));
+        mock_data_client.expect_write_predictions().returning(|_| Ok(()));
 
-        let mock_client: Arc<dyn DataInterface> = Arc::new(mock_client);
+        let mock_data_client: Arc<dyn DataInterface> = Arc::new(mock_data_client);
 
-        let mock_client = web::Data::new(mock_client);
+        let mock_data_client = web::Data::new(mock_data_client);
 
         let app = test::init_service(
             App::new()
-                .app_data(mock_client.clone())
+                .app_data(mock_data_client.clone())
                 .service(predictions_handler),
         )
         .await;
@@ -332,7 +286,7 @@ mod tests {
             .insert_header(ContentType::json())
             .set_json(&json!({
                 "specversion": "1.0",
-                "type": "baseline",
+                "type": "equities.predictions.generated",
                 "source": "pricemodel",
                 "id": "1234",
                 "time": "1997-05-25T20:00:00Z",

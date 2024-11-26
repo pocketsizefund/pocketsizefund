@@ -1,6 +1,5 @@
 #!/usr/bin/env sh
 
-# mise description="format rust cargos"
-# mise tools=["cargo", "rust"]
+# mise description="unit tests for the rust code"
 
 cargo test --all-features

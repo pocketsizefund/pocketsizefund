@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+# mise description="remove metrics reporter from cluster"
+# mise tools=["kubectl"]
+
+cd $root/platform/metricsreporter
+kubectl destroy -f manifest.yaml --namespace development
+kubectl destroy -f manifest.yaml --namespace paper 
+kubectl destroy -f manifest.yaml --namespace live

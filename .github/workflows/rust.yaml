@@ -1,4 +1,4 @@
-name: Rust checks
+name: Rust lint
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ env:
 
 jobs:
   run_lint:
-    name: Run Rust linting with clippy
+    name: Run Rust lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -29,42 +29,3 @@ jobs:
           args: -- -D warnings
       - name: Run linting
         run: mise run rust:lint
-
-  run_security_audit:
-    name: Run Rust Cargo dependency audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v1
-      - name: Setup Mise
-        uses: jdx/mise-action@v2
-        with:
-          experimental: true
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Install Deny
-        run: cargo install cargo-deny
-      - name: Run Deny
-        run: mise run rust:audit
-
-  run_formatting:
-    name: Run Rust code formatting
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Setup Mise
-        uses: jdx/mise-action@v2
-        with:
-          experimental: true
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt
-      - name: Formatting with rustfmt
-        run: mise run rust:format

@@ -1,0 +1,20 @@
+services:
+  metricsreporter:
+    build:
+      context: ../..
+      dockerfile: platform/metricsreporter/Dockerfile
+    platform: linux/amd64
+    environment:
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
+      - DARQUBE_API_KEY
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - IS_PRODUCTION=false
+      - ENVIRONMENT=development
+      - SERVER_PORT=8080
+    ports:
+      - 8080:8080
+    volumes:
+      - ./platform/metricsreporter:/app/platform/metricsreporter
+      - ./libraries/rust:/app/libraries/rust

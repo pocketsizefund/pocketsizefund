@@ -52,15 +52,18 @@ spec:
             - name: SERVER_PORT
               value: "8080"
 ---
-apiVersion: sources.knative.dev/v1
-kind: PingSource
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
 metadata:
-  name: morning-ping
+  name: pricemodeltrigger
 spec:
-  schedule: "0 18 * * 1-5"
-  sink:
+  broker: default
+  filter:
+    attributes:
+      source: pocketsizefund.pricemodel
+      type: equities.predictions.generated
+  subscriber:
     ref:
-      apiVersion: eventing.knative.dev/v1
+      apiVersion: serving.knative.dev/v1
       kind: Service
       name: datacollector
-    uri: /data

@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+# mise description="test metrics reporter service"
+# mise tools=["cargo"]
+
+cd $root/platform/metricsreporter
+
+cargo test

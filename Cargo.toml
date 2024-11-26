@@ -6,7 +6,9 @@ members = [
     "platform/broker",
     "platform/chronos",
     "platform/discord",
-    "platform/datacollector", 
+    "platform/datacollector",
     "platform/dataprovider",
     "platform/positionmanager",
+    "platform/metricsreporter",
+    "platform/datafetcher",
 ]

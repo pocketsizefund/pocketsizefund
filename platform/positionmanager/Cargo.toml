@@ -14,7 +14,6 @@ cloudevents-sdk = { version = "0.7.0", features = [
     "http-binding",
     "http-body",
     "reqwest",
-    # "json",
 ] }
 pocketsizefund = { path = "../../libraries/rust", features = [
     "trade",

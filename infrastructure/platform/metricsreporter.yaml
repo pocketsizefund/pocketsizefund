@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metricsreporter
+  labels:
+    layer: portfolio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metricsreporter
+  template:
+    metadata:
+      labels:
+        app: metricsreporter
+    spec:
+      containers:
+        - name: metricsreporter
+          image: pocketsizefund/metricsreporter:1.0.0
+          env:
+            - name: ALPACA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPACA_API_KEY
+            - name: ALPACA_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: ALPACA_API_SECRET
+            - name: DARQUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: DARQUBE_API_KEY
+            - name: IS_PRODUCTION
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: IS_PRODUCTION
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: dashboardtrigger
+spec:
+  broker: default
+  filter:
+    attributes:
+      source: pocketsizefund.dashboard
+      type: metrics.get
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: metricsreporter

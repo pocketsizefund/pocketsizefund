@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+# mise description="test data fetcher service"
+# mise tools=["rust", "cargo"]
+
+cd $root/platform/datafetcher
+
+cargo test

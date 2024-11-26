@@ -6,7 +6,7 @@ use cloudevents::Event;
 use mockall::mock;
 use pocketsizefund::data::Prediction;
 use pocketsizefund::events::build_response_event;
-use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface};
+use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface, Portfolio};
 use rand::seq::SliceRandom;
 use reqwest::{Client as HTTPClient, Response};
 use serde::Deserialize;
@@ -67,7 +67,7 @@ async fn trade_handler(
 
     let event = build_response_event(
         "positionmanager".to_string(),
-        vec!["baseline".to_string(), "buy".to_string()],
+        vec!["baselinebuy".to_string(), "executed".to_string()],
         Some(
             json!({
                 "ticker": prediction.ticker,
@@ -90,9 +90,9 @@ async fn main() -> std::io::Result<()> {
         .map_err(|e: ParseIntError| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let trade_client = TradeClient::new(
-        env::var("ALPACA_API_KEY").expect("Alpaca API key not found"),
-        env::var("ALPACA_API_SECRET").expect("Alpaca API secret not found"),
-        env::var("DARQUBE_API_KEY").expect("Darqube API key not found"),
+        env::var("ALPACA_API_KEY").expect("Alpaca API key"),
+        env::var("ALPACA_API_SECRET").expect("Alpaca API secret"),
+        env::var("DARQUBE_API_KEY").expect("Darqube API key"),
         env::var("IS_PRODUCTION")
             .expect("Production flag not found")
             .parse()
@@ -133,6 +133,7 @@ mock! {
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
         async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
+        async fn get_portfolio(&self, current_time: DateTime<Utc>) -> Result<Portfolio, Box<dyn std::error::Error>>;
     }
 }
 
@@ -212,8 +213,8 @@ mod tests {
             .insert_header(ContentType::json())
             .set_json(&json!({
                 "specversion": "1.0",
-                "type": "baseline",
-                "source": "positionmanager",
+                "type": "equities.predictions.updated",
+                "source": "pocketiszefund.datacollector",
                 "id": "1234",
                 "time": "1997-05-25T20:00:00Z",
                 "data": {

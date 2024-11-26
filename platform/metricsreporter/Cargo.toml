@@ -1,0 +1,33 @@
+[package]
+name = "metricsreporter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.9.0"
+cloudevents-sdk = { version = "0.7.0", features = [
+    "actix",
+    "actix-http",
+    "actix-web",
+    "http-binding",
+    "http-body",
+    "reqwest",
+] }
+env_logger = "0.11.5"
+pocketsizefund = { path = "../../libraries/rust", features = [
+    "trade",
+    "events",
+    "data",
+] }
+url = "2.5.2"
+chrono = { version = "0.4.38", features = ["serde"] }
+serde = { version = "1.0.204", features = ["derive"] }
+reqwest = { version = "0.12.7", features = ["json"] }
+statrs = "0.17.1"
+serde_json = { version = "1.0.120" }
+mockall = "0.11"
+async-trait = "0.1.82"
+
+[dev-dependencies]
+tokio = { version = "1.38.1", features = ["full", "test-util"] }
+mockito = "1.4.0"

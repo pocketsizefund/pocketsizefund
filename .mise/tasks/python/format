@@ -1,7 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="run python formatter across the monorepo"
-# mise tools = ["ruff", "python", "poetry"]
-
-cd $root
-ruff format

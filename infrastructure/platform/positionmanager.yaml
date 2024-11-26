@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: positionmanager
+  labels:
+    layer: portfolio
 spec:
   replicas: 1
   selector:
@@ -40,12 +42,13 @@ spec:
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: positionmanagertrigger
+  name: datacollectortrigger
 spec:
   broker: default
   filter:
     attributes:
-      type: psf.predictions.equities.write
+      source: pocketsizefund.datacollector
+      type: equities.predictions.updated
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1

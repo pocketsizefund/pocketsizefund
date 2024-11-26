@@ -120,13 +120,13 @@ async fn test_cloud_event_response() -> Result<(), Box<dyn std::error::Error>> {
         response_headers
             .get("ce-source")
             .ok_or("ce-source header not found")?,
-        "psf.platform.chronos"
+        "platform.chronos"
     );
     assert_eq!(
         response_headers
             .get("ce-type")
             .ok_or("ce-type header not found")?,
-        "market.status.updated"
+        "pocketsizefund.chronos.market.status.updated"
     );
 
     let body_text = response.text().await?;
