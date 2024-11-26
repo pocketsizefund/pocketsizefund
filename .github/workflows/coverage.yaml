@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  python_coverage:
+  python_test_and_coverage:
     name: Run Python tests
     runs-on: ubuntu-latest
     steps:
@@ -35,7 +35,7 @@ jobs:
           flag-name: python
           parallel: true
 
-  rust_coverage:
+  rust_test_and_coverage:
     name: Run Rust tests
     runs-on: ubuntu-latest
     steps:
@@ -71,12 +71,12 @@ jobs:
           flag-name: rust
           parallel: true
 
-  finish:
-    name: Finish combined test coverage
-    needs: [python_coverage, rust_coverage]
+  upload_coverage:
+    name: Upload combined test coverage
+    needs: [python_test_and_coverage, rust_test_and_coverage]
     runs-on: ubuntu-latest
     steps:
-      - name: Coveralls Finished
+      - name: Upload to Coveralls
         uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

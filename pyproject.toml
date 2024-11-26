@@ -11,7 +11,10 @@ dev-dependencies = [
 ]
 
 [tool.uv.source]
-library = "libraries/python"
+library = { workspace = true }
+
+[tool.uv.workspace]
+members = ["libraries/python/"]
 
 [tool.ruff]
 line-length = 100
