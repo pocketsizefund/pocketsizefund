@@ -10,7 +10,7 @@ dev-dependencies = [
     "ruff>=0.8.0",
 ]
 
-[tool.uv.packages]
+[tool.uv.source]
 library = "libraries/python"
 
 [tool.ruff]
