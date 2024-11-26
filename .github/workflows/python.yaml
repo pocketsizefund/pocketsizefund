@@ -1,7 +1,7 @@
 name: Python lint
 
 on:
-  push:
+  push
 
 jobs:
   run_lint:

@@ -1,7 +1,7 @@
 name: Python and Rust tests
 
 on:
-  push:
+  push
 
 jobs:
   python_test_and_coverage:

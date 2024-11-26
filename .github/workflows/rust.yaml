@@ -1,7 +1,7 @@
 name: Rust lint
 
 on:
-  push:
+  push
 
 env:
   CARGO_TERM_COLOR: always
