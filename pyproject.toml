@@ -10,10 +10,10 @@ dev-dependencies = [
     "ruff>=0.8.0",
 ]
 
-[uv.tool.source]
+[tool.uv.source]
 library = { workspace = true }
 
-[uv.tool.workspace]
+[tool.uv.workspace]
 members = ["libraries/python/"]
 
 [tool.ruff]
