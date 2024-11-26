@@ -1,6 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="format rust cargos"
-# mise tools=["cargo"]
-
-cargo fmt --all

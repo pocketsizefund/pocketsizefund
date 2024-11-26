@@ -1,11 +1,8 @@
 use apca::api::v2::clock::Get;
 use apca::{ApiInfo, Client};
 use chrono::{DateTime, Utc};
-use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use tracing::error;
-use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -52,15 +49,10 @@ impl ToString for Status {
 #[derive(Debug)]
 pub struct Market {
     client: Client,
-    /// The time the market status was last checked.
     pub updated_at: Option<DateTime<Utc>>,
-    /// The current market status.
     pub status: Status,
-    /// The current market timestamp.
     pub current: Option<DateTime<Utc>>,
-    /// The next market open timestamp.
     pub next_open: Option<DateTime<Utc>>,
-    /// The next market close timestamp.
     pub next_close: Option<DateTime<Utc>>,
 }
 
@@ -105,38 +97,11 @@ impl Market {
             }
         };
     }
-
-    pub async fn to_event(&self) -> Event {
-        let updated_at = match self.updated_at {
-            Some(updated_at) => updated_at.to_rfc3339(),
-            None => Utc::now().to_rfc3339(),
-        };
-
-        EventBuilderV10::new()
-            .id(Uuid::new_v4().to_string())
-            .ty("market.status.updated")
-            .source("psf.platform.chronos")
-            .data(
-                "application/cloudevents+json",
-                json!({
-                "status": self.status.to_string(),
-                "next_open": Some(self.next_open),
-                "next_close": Some(self.next_close),
-                }),
-            )
-            .extension("timestamp", updated_at.to_string())
-            .build()
-            .unwrap_or_else(|e| {
-                tracing::error!("Failed to build event: {}", e);
-                Event::default()
-            })
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloudevents::AttributesReader;
 
     #[test]
     fn test_closed_reason_to_string() {
@@ -156,31 +121,6 @@ mod tests {
             "closed_after_hours"
         );
         assert_eq!(Status::Unknown.to_string(), "unknown");
-    }
-
-    #[tokio::test]
-    async fn test_to_event() {
-        let market = Market {
-            client: Client::new(
-                ApiInfo::from_parts(
-                    "https://paper-api.alpaca.markets".to_string(),
-                    "test_key_id".to_string(),
-                    "test_secret".to_string(),
-                )
-                .unwrap(),
-            ),
-            updated_at: Some(Utc::now()),
-            status: Status::Open,
-            current: None,
-            next_open: None,
-            next_close: None,
-        };
-
-        let event: Event = market.to_event().await;
-        assert_eq!(event.ty(), "market.status.updated");
-        assert_eq!(event.source(), "psf.platform.chronos");
-        assert!(event.extension("timestamp").is_some());
-        assert!(event.extension("timestamp").is_some());
     }
 
     #[test]
@@ -253,28 +193,6 @@ mod tests {
         assert_ne!(ClosedReason::AfterHours, ClosedReason::BeforeHours);
         assert_eq!(ClosedReason::Weekend, ClosedReason::Weekend);
         assert_ne!(ClosedReason::Weekend, ClosedReason::Holiday);
-    }
-
-    #[tokio::test]
-    async fn test_to_event_with_no_updated_at() {
-        let market = Market {
-            client: Client::new(
-                ApiInfo::from_parts(
-                    "https://paper-api.alpaca.markets".to_string(),
-                    "test_key_id".to_string(),
-                    "test_secret".to_string(),
-                )
-                .unwrap(),
-            ),
-            updated_at: None,
-            status: Status::Open,
-            current: None,
-            next_open: None,
-            next_close: None,
-        };
-
-        let event = market.to_event().await;
-        assert!(event.extension("timestamp").is_some());
     }
 
     #[test]
