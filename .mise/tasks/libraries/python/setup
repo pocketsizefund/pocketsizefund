@@ -1,8 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="setup virtualenv for pocketsizefund python package"
-# mise tools=["poetry", "python@3.10"]
-
-cd $root/libraries/python
-mise use python@3.10
-poetry install 

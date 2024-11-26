@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+# mise description="build the full repository rust package"
+
+cargo build --all-features

@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+# mise description="run data fetcher in docker compose"
+# mise tools=["docker"]
+
+cd $root/platform/datafetcher
+
+docker compose up --build
