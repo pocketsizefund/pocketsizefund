@@ -10,7 +10,7 @@ dev-dependencies = [
     "ruff>=0.8.0",
 ]
 
-[tool.uv.source]
+[tool.uv.sources]
 library = { workspace = true }
 
 [tool.uv.workspace]
