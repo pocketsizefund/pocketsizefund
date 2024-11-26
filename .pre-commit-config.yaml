@@ -2,31 +2,16 @@ repos:
   - repo: local
     hooks:
     - id: lint
-      name: Lint
+      name: Python lint
       entry: |
         mise run python:lint
       pass_filenames: false
       types: [file, python]
       language: system
-    - id: dead-code
-      name: Dead code
+    - id: lint
+      name: Rust lint
       entry: |
-        mise run python:dead-code
-      pass_filenames: false
-      types: [file, python]
-      language: system
-    - id: rust-formatting
-      name: Rust formatting
-      description: Run cargo fmt on files included in the commit. rustfmt should be installed before-hand.
-      entry: |
-          mise run rust:format
-      types: [file, rust]
-      language: system
-    - id: rust-linting
-      name: Rust linting with clippy
-      description: Run cargo clippy on files included in the commit. clippy should be installed before-hand.
-      entry: |
-          mise run rust:lint
+        mise run rust:lint
       pass_filenames: false
       types: [file, rust]
       language: system
