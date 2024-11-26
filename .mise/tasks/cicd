@@ -1,4 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="run cicd tasks"
-# mise depends=["python:test", "python:lint", "python:dead-code", "rust:lint", "rust:audit", "rust:format", "rust:test"]
