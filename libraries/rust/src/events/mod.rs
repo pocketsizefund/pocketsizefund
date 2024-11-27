@@ -1,3 +1,4 @@
 #[cfg(feature = "events")]
-pub mod events;
-pub use events::build_response_event;
+pub mod builder;
+
+pub use builder::build_response_event;

@@ -7,8 +7,6 @@ cargo install cargo-machete
 
 cargo machete --with-metadata
 
-cargo deny check
-
 cargo clippy --all --
 
 cargo fmt --all

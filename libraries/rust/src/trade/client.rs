@@ -1,7 +1,8 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use reqwest::Client as HTTPClient;
 use reqwest::Url;
+use reqwest::{RequestBuilder, Response};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -34,19 +35,61 @@ struct AlpacaPortfolio {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Portfolio {
+pub struct PortfolioPerformance {
     pub timestamps: Vec<DateTime<Utc>>,
     pub equity_values: Vec<f64>,
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Side {
+    Long,
+    Short,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct PortfolioPosition {
+    #[serde(rename = "symbol")]
+    pub ticker: String,
+    pub side: Side,
+    #[serde(rename = "qty")]
+    pub quantity: f64,
+}
+
+pub struct Order {
+    pub ticker: String,
+    pub side: Side,
+    pub quantity: f64,
+}
+
+#[derive(Deserialize, Debug)]
+struct AlpacaOrder {
+    #[serde(rename = "symbol")]
+    ticker: String,
+    position_intent: String,
+}
+
+pub struct PatternDayTraderCheck {
+    pub ticker: String,
+    pub is_pdt_violated: bool,
 }
 
 #[async_trait]
 pub trait Interface: Send + Sync {
     async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
     async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
-    async fn get_portfolio(
+    async fn get_portfolio_performance(
         &self,
         end_at: DateTime<Utc>,
-    ) -> Result<Portfolio, Box<dyn std::error::Error>>;
+    ) -> Result<PortfolioPerformance, Box<dyn std::error::Error>>;
+    async fn get_portfolio_positions(
+        &self,
+    ) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>>;
+    async fn check_orders_pattern_day_trade_restrictions(
+        &self,
+        orders: Vec<Order>,
+    ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>>;
+    async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 #[derive(Clone)]
@@ -83,6 +126,49 @@ impl Client {
             http_client: HTTPClient::new(),
         }
     }
+
+    async fn send_alpaca_api_request(
+        &self,
+        url_path: &str,
+        query_parameters: Option<HashMap<&str, &str>>,
+        json_body: Option<serde_json::Value>,
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let mut alpaca_url = Url::parse(&self.alpaca_base_url)?.join(url_path)?;
+
+        match query_parameters {
+            Some(query_parameters) => {
+                for (key, value) in query_parameters.iter() {
+                    alpaca_url.query_pairs_mut().append_pair(key, value);
+                }
+            }
+            None => {}
+        }
+
+        let mut request_builder: RequestBuilder;
+        match json_body {
+            Some(json_body) => {
+                request_builder = self.http_client.post(alpaca_url);
+                request_builder = request_builder.json(&json_body);
+                request_builder = request_builder.header("content-type", "application/json");
+            }
+            None => {
+                request_builder = self.http_client.get(alpaca_url);
+            }
+        }
+
+        let response = request_builder
+            .header("APCA-API-KEY-ID", &self.alpaca_api_key_id)
+            .header("APCA-API-SECRET-KEY", &self.alpaca_api_secret_key)
+            .header("accept", "application/json")
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(format!("Alpaca request failed with status: {}", response.status()).into());
+        }
+
+        Ok(response)
+    }
 }
 
 #[async_trait]
@@ -116,21 +202,18 @@ impl Interface for Client {
             .map(|item| item.code.clone())
             .collect::<Vec<String>>();
 
-        let alpaca_assets_url = Url::parse(&self.alpaca_base_url)?.join("v2/assets")?;
-
         let response = self
-            .http_client
-            .get(alpaca_assets_url)
-            .header("APCA-API-KEY-ID", &self.alpaca_api_key_id)
-            .header("APCA-API-SECRET-KEY", &self.alpaca_api_secret_key)
-            .header("accept", "application/json")
-            .query(&[("status", "ACTIVE"), ("asset_class", "US_EQUITY")])
-            .send()
+            .send_alpaca_api_request(
+                "v2/assets",
+                Some(
+                    [("status", "ACTIVE"), ("asset_class", "US_EQUITY")]
+                        .iter()
+                        .cloned()
+                        .collect(),
+                ),
+                None,
+            )
             .await?;
-
-        if !response.status().is_success() {
-            return Err(format!("Alpaca request failed with status: {}", response.status()).into());
-        }
 
         let alpaca_response: Vec<AlpacaAsset> = response.json().await?;
 
@@ -151,59 +234,43 @@ impl Interface for Client {
     }
 
     async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>> {
-        let alpaca_order_url = Url::parse(&self.alpaca_base_url)?.join("v2/orders")?;
-
-        let alpaca_order_response = self
-            .http_client
-            .post(alpaca_order_url)
-            .header("APCA-API-KEY-ID", &self.alpaca_api_key_id)
-            .header("APCA-API-SECRET-KEY", &self.alpaca_api_secret_key)
-            .header("accept", "application/json")
-            .header("content-type", "application/json")
-            .json(&serde_json::json!({
+        self.send_alpaca_api_request(
+            "v2/orders",
+            None,
+            Some(serde_json::json!({
                 "symbol": ticker,
                 "side": "buy",
                 "type": "market",
                 "time_in_force": "day",
                 "notional": "1"
-            }))
-            .send()
-            .await?;
-
-        if !alpaca_order_response.status().is_success() {
-            return Err(format!(
-                "Alpaca request failed with status: {}",
-                alpaca_order_response.status()
-            )
-            .into());
-        }
+            })),
+        )
+        .await?;
 
         Ok(())
     }
 
-    async fn get_portfolio(
+    async fn get_portfolio_performance(
         &self,
         end_at: DateTime<Utc>,
-    ) -> Result<Portfolio, Box<dyn std::error::Error>> {
-        let mut alpaca_portfolio_url =
-            Url::parse(&self.alpaca_base_url)?.join("v2/account/portfolio/history")?;
-
-        alpaca_portfolio_url
-            .query_pairs_mut()
-            .append_pair("period", "1Y")
-            .append_pair("timeframe", "1D")
-            .append_pair("intraday_reporting", "market_hours")
-            .append_pair("pnl_reset", "per_day")
-            .append_pair("end", end_at.to_rfc3339().as_str());
-
+    ) -> Result<PortfolioPerformance, Box<dyn std::error::Error>> {
         let alpaca_portfolio_response = self
-            .http_client
-            .get(alpaca_portfolio_url)
-            .header("APCA-API-KEY-ID", &self.alpaca_api_key_id)
-            .header("APCA-API-SECRET-KEY", &self.alpaca_api_secret_key)
-            .header("accept", "application/json")
-            .header("content-type", "application/json")
-            .send()
+            .send_alpaca_api_request(
+                "v2/account/portfolio/history",
+                Some(
+                    [
+                        ("period", "1Y"),
+                        ("timeframe", "1D"),
+                        ("intraday_reporting", "market_hours"),
+                        ("pnl_reset", "per_day"),
+                        ("end", end_at.to_rfc3339().as_str()),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                ),
+                None,
+            )
             .await?;
 
         let alpaca_portfolio: AlpacaPortfolio = alpaca_portfolio_response.json().await?;
@@ -223,12 +290,100 @@ impl Interface for Client {
 
         let (timestamps, equity_values): (Vec<_>, Vec<_>) = combined_values.into_iter().unzip();
 
-        let portfolio = Portfolio {
+        let portfolio = PortfolioPerformance {
             timestamps,
             equity_values,
         };
 
         Ok(portfolio)
+    }
+
+    async fn get_portfolio_positions(
+        &self,
+    ) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>> {
+        let alpaca_portfolio_response = self
+            .send_alpaca_api_request("v2/positions", None, None)
+            .await?;
+
+        let portfolio_positions: Vec<PortfolioPosition> = alpaca_portfolio_response.json().await?;
+
+        Ok(portfolio_positions)
+    }
+
+    async fn check_orders_pattern_day_trade_restrictions(
+        &self,
+        orders: Vec<Order>,
+    ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>> {
+        let after_timestamp = Utc::now() - Duration::hours(24);
+
+        let symbols: Vec<String> = orders.iter().map(|order| order.ticker.clone()).collect();
+
+        let alpaca_orders_response = self
+            .send_alpaca_api_request(
+                "v2/orders",
+                Some(
+                    [
+                        ("status", "closed"),
+                        ("after", after_timestamp.to_rfc3339().as_str()),
+                        ("direction", "desc"),
+                        ("symbols", symbols.join(",").as_str()),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                ),
+                None,
+            )
+            .await?;
+
+        let prior_orders: Vec<AlpacaOrder> = alpaca_orders_response.json().await?;
+
+        let mut results: Vec<PatternDayTraderCheck> = Vec::new();
+
+        for order in orders {
+            let mut is_pdt_violated = false;
+
+            for prior_order in prior_orders.iter() {
+                if prior_order.ticker == order.ticker {
+                    if prior_order.position_intent == "buy_to_open" && order.side == Side::Short {
+                        is_pdt_violated = true;
+                    } else if prior_order.position_intent == "sell_to_open"
+                        && order.side == Side::Long
+                    {
+                        is_pdt_violated = true;
+                    }
+                }
+            }
+
+            results.push(PatternDayTraderCheck {
+                ticker: order.ticker.clone(),
+                is_pdt_violated,
+            });
+        }
+
+        Ok(results)
+    }
+
+    async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>> {
+        for order in orders {
+            self.send_alpaca_api_request(
+                "v2/orders",
+                None,
+                Some(serde_json::json!({
+                    "symbol": order.ticker,
+                    "side": match order.side {
+                        Side::Long => "buy",
+                        Side::Short => "sell",
+                    },
+                    "type": "market",
+                    "time_in_force": "day",
+                    "qty": order.quantity
+                })),
+            )
+            .await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -380,7 +535,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_portfolio() {
+    async fn test_get_portfolio_performance() {
         let mut mock_server = tokio::task::spawn_blocking(|| mockito::Server::new())
             .await
             .unwrap();
@@ -420,13 +575,12 @@ mod tests {
             .match_header("APCA-API-KEY-ID", "alpaca_api_key_id")
             .match_header("APCA-API-SECRET-KEY", "alpaca_api_secret_key")
             .match_header("accept", "application/json")
-            .match_header("content-type", "application/json")
             .with_status(200)
             .with_body(mock_alpaca_response.to_string())
             .create();
 
         match client
-            .get_portfolio(DateTime::from_timestamp(1614556800, 0).unwrap())
+            .get_portfolio_performance(DateTime::from_timestamp(1614556800, 0).unwrap())
             .await
         {
             Ok(result) => {
@@ -437,6 +591,165 @@ mod tests {
                     DateTime::from_timestamp(1614556800, 0).unwrap()
                 );
                 assert_eq!(result.equity_values[0], 1000.0);
+            }
+            Err(e) => {
+                panic!("Error: {:?}", e);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_portfolio_positions() {
+        let mut mock_server = tokio::task::spawn_blocking(|| mockito::Server::new())
+            .await
+            .unwrap();
+
+        let base_url = mock_server.url().to_string();
+
+        let client = Client {
+            alpaca_base_url: base_url.clone(),
+            alpaca_api_key_id: "alpaca_api_key_id".to_string(),
+            alpaca_api_secret_key: "alpaca_api_secret_key".to_string(),
+            darqube_base_url: base_url.clone(),
+            darqube_api_key: "darqube_api_key".to_string(),
+            http_client: HTTPClient::new(),
+        };
+
+        let mock_alpaca_response = json!(
+            [
+                {
+                    "symbol": "AAPL",
+                    "side": "long",
+                    "qty": 1.0
+                }
+            ]
+        );
+
+        mock_server
+            .mock("GET", "/v2/positions")
+            .match_header("APCA-API-KEY-ID", "alpaca_api_key_id")
+            .match_header("APCA-API-SECRET-KEY", "alpaca_api_secret_key")
+            .match_header("accept", "application/json")
+            .with_status(200)
+            .with_body(mock_alpaca_response.to_string())
+            .create();
+
+        match client.get_portfolio_positions().await {
+            Ok(result) => {
+                assert_eq!(result.len(), 1);
+                assert_eq!(result[0].ticker, "AAPL".to_string());
+                assert_eq!(result[0].side, Side::Long);
+                assert_eq!(result[0].quantity, 1.0);
+            }
+            Err(e) => {
+                panic!("Error: {:?}", e);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_check_orders_pattern_day_trade_restrictions() {
+        let mut mock_server = tokio::task::spawn_blocking(|| mockito::Server::new())
+            .await
+            .unwrap();
+
+        let base_url = mock_server.url().to_string();
+
+        let client = Client {
+            alpaca_base_url: base_url.clone(),
+            alpaca_api_key_id: "alpaca_api_key_id".to_string(),
+            alpaca_api_secret_key: "alpaca_api_secret_key".to_string(),
+            darqube_base_url: base_url.clone(),
+            darqube_api_key: "darqube_api_key".to_string(),
+            http_client: HTTPClient::new(),
+        };
+
+        let mock_alpaca_response = json!(
+            [
+                {
+                    "symbol": "AAPL",
+                    "position_intent": "buy_to_open"
+                }
+            ]
+        );
+
+        mock_server
+            .mock("GET", "/v2/orders")
+            .match_header("APCA-API-KEY-ID", "alpaca_api_key_id")
+            .match_header("APCA-API-SECRET-KEY", "alpaca_api_secret_key")
+            .match_header("accept", "application/json")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("status".into(), "closed".into()),
+                mockito::Matcher::UrlEncoded("direction".into(), "desc".into()),
+                mockito::Matcher::UrlEncoded("symbols".into(), "AAPL".into()),
+            ]))
+            .with_status(200)
+            .with_body(mock_alpaca_response.to_string())
+            .create();
+
+        let orders = vec![Order {
+            ticker: "AAPL".to_string(),
+            side: Side::Short,
+            quantity: 1.0,
+        }];
+
+        match client
+            .check_orders_pattern_day_trade_restrictions(orders)
+            .await
+        {
+            Ok(result) => {
+                assert_eq!(result.len(), 1);
+                assert_eq!(result[0].ticker, "AAPL".to_string());
+                assert_eq!(result[0].is_pdt_violated, true);
+            }
+            Err(e) => {
+                panic!("Error: {:?}", e);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_orders() {
+        let mut mock_server = tokio::task::spawn_blocking(|| mockito::Server::new())
+            .await
+            .unwrap();
+
+        let base_url = mock_server.url().to_string();
+
+        let client = Client {
+            alpaca_base_url: base_url.clone(),
+            alpaca_api_key_id: "alpaca_api_key_id".to_string(),
+            alpaca_api_secret_key: "alpaca_api_secret_key".to_string(),
+            darqube_base_url: base_url.clone(),
+            darqube_api_key: "darqube_api_key".to_string(),
+            http_client: HTTPClient::new(),
+        };
+
+        mock_server
+            .mock("POST", "/v2/orders")
+            .match_header("APCA-API-KEY-ID", "alpaca_api_key_id")
+            .match_header("APCA-API-SECRET-KEY", "alpaca_api_secret_key")
+            .match_header("accept", "application/json")
+            .match_header("content-type", "application/json")
+            .match_body(mockito::Matcher::Json(json!({
+                "symbol": "AAPL",
+                "side": "buy",
+                "type": "market",
+                "time_in_force": "day",
+                "qty": 1.0
+            })))
+            .with_status(200)
+            .create();
+
+        let orders = vec![Order {
+            ticker: "AAPL".to_string(),
+            side: Side::Long,
+            quantity: 1.0,
+        }];
+
+        match client.execute_orders(orders).await {
+            Ok(_) => {
+                assert_eq!(true, true);
             }
             Err(e) => {
                 panic!("Error: {:?}", e);

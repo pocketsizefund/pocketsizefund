@@ -1,17 +1,20 @@
+use actix_web::middleware::Logger;
 use actix_web::{post, web, App, HttpResponse, HttpServer};
+use chrono::{DateTime, Duration, Utc};
 use cloudevents::Event;
 use log::info;
-use std::sync::Arc;
-use pocketsizefund::data::{Client as DataClient, Interface as DataInterface, Bar, Prediction};
+use mockall::mock;
+use pocketsizefund::data::{Bar, Client as DataClient, Interface as DataInterface, Prediction};
 use pocketsizefund::events::build_response_event;
-use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface, Portfolio};
-use chrono::{DateTime, Duration, Utc};
+use pocketsizefund::trade::{
+    Client as TradeClient, Interface as TradeInterface, Order, PatternDayTraderCheck,
+    PortfolioPerformance, PortfolioPosition,
+};
 use serde_json::json;
 use std::env;
-use std::num::ParseIntError;
 use std::io;
-use actix_web::middleware::Logger;
-use mockall::mock;
+use std::num::ParseIntError;
+use std::sync::Arc;
 
 #[post("/health")]
 async fn health_handler() -> HttpResponse {
@@ -152,7 +155,13 @@ mock! {
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
         async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
-        async fn get_portfolio(&self, current_time: DateTime<Utc>) -> Result<Portfolio, Box<dyn std::error::Error>>;
+        async fn get_portfolio_performance(&self, current_time: DateTime<Utc>) -> Result<PortfolioPerformance, Box<dyn std::error::Error>>;
+        async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>>;
+        async fn check_orders_pattern_day_trade_restrictions(
+            &self,
+            orders: Vec<Order>,
+        ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>>;
+        async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>>;
     }
 }
 

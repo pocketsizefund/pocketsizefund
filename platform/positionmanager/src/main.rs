@@ -6,7 +6,10 @@ use cloudevents::Event;
 use mockall::mock;
 use pocketsizefund::data::Prediction;
 use pocketsizefund::events::build_response_event;
-use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface, Portfolio};
+use pocketsizefund::trade::{
+    Client as TradeClient, Interface as TradeInterface, Order, PatternDayTraderCheck,
+    PortfolioPerformance, PortfolioPosition,
+};
 use rand::seq::SliceRandom;
 use reqwest::{Client as HTTPClient, Response};
 use serde::Deserialize;
@@ -133,7 +136,13 @@ mock! {
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
         async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
-        async fn get_portfolio(&self, current_time: DateTime<Utc>) -> Result<Portfolio, Box<dyn std::error::Error>>;
+        async fn get_portfolio_performance(&self, current_time: DateTime<Utc>) -> Result<PortfolioPerformance, Box<dyn std::error::Error>>;
+        async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>>;
+        async fn check_orders_pattern_day_trade_restrictions(
+            &self,
+            orders: Vec<Order>,
+        ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>>;
+        async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>>;
     }
 }
 

@@ -6,7 +6,10 @@ use log::info;
 use mockall::mock;
 use pocketsizefund::data::{Bar, Client as DataClient, Interface as DataInterface, Prediction};
 use pocketsizefund::events::build_response_event;
-use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface, Portfolio};
+use pocketsizefund::trade::{
+    Client as TradeClient, Interface as TradeInterface, Order, PatternDayTraderCheck,
+    PortfolioPerformance, PortfolioPosition,
+};
 use serde::Deserialize;
 use serde_json::json;
 use std::env;
@@ -194,7 +197,13 @@ mock! {
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
         async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
-        async fn get_portfolio(&self, current_time: DateTime<Utc>) -> Result<Portfolio, Box<dyn std::error::Error>>;
+        async fn get_portfolio_performance(&self, current_time: DateTime<Utc>) -> Result<PortfolioPerformance, Box<dyn std::error::Error>>;
+        async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>>;
+        async fn check_orders_pattern_day_trade_restrictions(
+            &self,
+            orders: Vec<Order>,
+        ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>>;
+        async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>>;
     }
 }
 
@@ -221,7 +230,9 @@ mod tests {
     async fn test_data_handler() {
         let mut mock_data_client: MockDataInterfaceMock = MockDataInterfaceMock::new();
 
-        mock_data_client.expect_write_predictions().returning(|_| Ok(()));
+        mock_data_client
+            .expect_write_predictions()
+            .returning(|_| Ok(()));
 
         mock_data_client
             .expect_write_equities_bars()
@@ -268,7 +279,9 @@ mod tests {
     async fn test_predictions_handler() {
         let mut mock_data_client = MockDataInterfaceMock::new();
 
-        mock_data_client.expect_write_predictions().returning(|_| Ok(()));
+        mock_data_client
+            .expect_write_predictions()
+            .returning(|_| Ok(()));
 
         let mock_data_client: Arc<dyn DataInterface> = Arc::new(mock_data_client);
 
