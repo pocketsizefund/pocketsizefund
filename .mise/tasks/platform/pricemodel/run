@@ -1,8 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="run price model in docker compose"
-# mise tools=["docker"]
-# mise depends=["platform:pricemodel:build"]
-
-cd $root/platform/pricemodel
-docker compose up --build

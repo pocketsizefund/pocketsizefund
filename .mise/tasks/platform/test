@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+# mise description="test service"
+# mise tools=["rust", "cargo"]
+
+service_name=$1
+
+cd $root/platform/${service_name}
+
+if [ "$service_name" = "pricemodel" ]; then
+    exit 0
+else
+    cargo test
+fi

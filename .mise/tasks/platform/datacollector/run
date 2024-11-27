@@ -1,8 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="run data collector in docker compose"
-# mise tools=["docker"]
-
-cd $root/platform/datacollector
-
-docker compose up --build 

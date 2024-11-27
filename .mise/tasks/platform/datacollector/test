@@ -1,8 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="test data collector service"
-# mise tools=["rust", "cargo"]
-
-cd $root/platform/datacollector
-
-cargo test
