@@ -24,19 +24,16 @@ fi
 kubectl create namespace monitoring
 
 SECRETS=$(aws secretsmanager get-secret-value --secret-id platform | jq -r .SecretString | jq)
-APCA_API_KEY_ID=$(jq -r .APCA_API_KEY_ID <<< $SECRETS)
+ALPACA_API_KEY=$(jq -r .ALPACA_API_KEY <<< $SECRETS)
 ALPACA_API_SECRET=$(jq -r .ALPACA_API_SECRET <<< $SECRETS)
-APCA_API_SECRET_KEY=$(jq -r .APCA_API_SECRET_KEY <<< $SECRETS)
 ALPHA_VANTAGE_API_KEY=$(jq -r .ALPHA_VANTAGE_API_KEY <<< $SECRETS)
 EDGAR_USER_AGENT=$(jq -r .EDGAR_USER_AGENT <<< $SECRETS)
 DARQUBE_API_KEY=$(jq -r .DARQUBE_API_KEY <<< $SECRETS)
 DISCORD_WEBHOOK_URL=$(jq -r .DISCORD_WEBHOOK_URL <<< $SECRETS)
 
 kubectl create secret generic platform \
-    --from-literal="ALPACA_API_KEY=$ALPACA_API_SECRET" \
+    --from-literal="ALPACA_API_KEY=$ALPACA_API_KEY" \
     --from-literal="ALPACA_API_SECRET=$ALPACA_API_SECRET" \
-    --from-literal="APCA_API_KEY_ID=$APCA_API_KEY_ID" \
-    --from-literal="APCA_API_SECRET_KEY=$APCA_API_SECRET_KEY" \
     --from-literal="ALPHA_VANTAGE_API_KEY=$ALPHA_VANTAGE_API_KEY" \
     --from-literal="EDGAR_USER_AGENT=$EDGAR_USER_AGENT" \
     --from-literal="DARQUBE_API_KEY=$DARQUBE_API_KEY" \
