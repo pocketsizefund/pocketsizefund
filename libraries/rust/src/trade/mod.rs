@@ -3,6 +3,7 @@ pub mod client;
 pub mod market;
 
 pub use client::Client;
+pub use client::Error;
 pub use client::Interface;
 pub use client::Order;
 pub use client::PatternDayTraderCheck;

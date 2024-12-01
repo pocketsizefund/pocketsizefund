@@ -15,6 +15,3 @@ pocketsizefund = { path = "../../libraries/rust", features = ["data", "events", 
 env_logger = "0.11.5"
 log = "0.4"
 serde = { version = "1.0.204", features = ["derive"] }
-
-[dev-dependencies]
-cargo-machete = "0.6.2"

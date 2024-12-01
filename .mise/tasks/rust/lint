@@ -7,6 +7,10 @@ cargo install cargo-machete
 
 cargo machete --with-metadata
 
+rustup component add clippy
+
 cargo clippy --all --
+
+rustup component add rustfmt
 
 cargo fmt --all

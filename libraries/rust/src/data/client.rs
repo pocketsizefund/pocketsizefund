@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use aws_credential_types::Credentials;
 use aws_sdk_s3::client::Client as S3Client;
-use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::error::SdkError;
+use aws_sdk_s3::operation::get_object::GetObjectError;
+use aws_sdk_s3::primitives::{ByteStream, ByteStreamError};
 use aws_sdk_s3::Config;
 use aws_types::region::Region;
 use chrono::{DateTime, Utc};
@@ -9,15 +11,17 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use mockall::automock;
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
-use reqwest::Client as HTTPClient;
-use reqwest::Url;
+use reqwest::header::{HeaderMap, HeaderValue, InvalidHeaderValue, ACCEPT};
+use reqwest::{Client as HTTPClient, Error as ReqwestError, Url};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use serde_json::Error as SerdeError;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write};
+use std::io::{Error as IOError, Read, Write};
+use thiserror::Error as ThisError;
+use url::ParseError;
 
 #[derive(Deserialize)]
 struct BarsResponse {
@@ -84,6 +88,26 @@ impl Hash for Prediction {
     }
 }
 
+#[derive(ThisError, Debug)]
+pub enum Error {
+    #[error("Parse URL error: {0}")]
+    ParseURLError(#[from] ParseError),
+    #[error("Invalid header value: {0}")]
+    InvalidHeaderValueError(#[from] InvalidHeaderValue),
+    #[error("Request error: {0}")]
+    ReqwestError(#[from] ReqwestError),
+    #[error("IO error: {0}")]
+    IOError(#[from] IOError),
+    #[error("JSON error: {0}")]
+    SerdeError(#[from] SerdeError),
+    #[error("Byte stream error: {0}")]
+    ByteStreamError(#[from] ByteStreamError),
+    #[error("Get S3 object error: {0}")]
+    SDKError(#[from] SdkError<GetObjectError>),
+    #[error("Other error: {0}")]
+    OtherError(String),
+}
+
 #[automock]
 #[async_trait]
 pub trait Interface: Send + Sync {
@@ -92,17 +116,11 @@ pub trait Interface: Send + Sync {
         tickers: Vec<String>,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
-    ) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
-    async fn write_equities_bars(
-        &self,
-        equities_bars: Vec<Bar>,
-    ) -> Result<(), Box<dyn std::error::Error>>;
-    async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
-    async fn write_predictions(
-        &self,
-        predictions: Vec<Prediction>,
-    ) -> Result<(), Box<dyn std::error::Error>>;
-    async fn load_predictions(&self) -> Result<Vec<Prediction>, Box<dyn std::error::Error>>;
+    ) -> Result<Vec<Bar>, Error>;
+    async fn write_equities_bars(&self, equities_bars: Vec<Bar>) -> Result<(), Error>;
+    async fn load_equities_bars(&self) -> Result<Vec<Bar>, Error>;
+    async fn write_predictions(&self, predictions: Vec<Prediction>) -> Result<(), Error>;
+    async fn load_predictions(&self) -> Result<Vec<Prediction>, Error>;
 }
 
 #[derive(Clone)]
@@ -148,7 +166,7 @@ impl Client {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
         page_token: Option<&str>,
-    ) -> Result<Url, Box<dyn std::error::Error>> {
+    ) -> Result<Url, Error> {
         let path = format!("v2/stocks/{}/bars", ticker);
 
         let start_str = start.format("%Y-%m-%dT%H:%M:%SZ").to_string();
@@ -188,7 +206,7 @@ impl Interface for Client {
         tickers: Vec<String>,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
-    ) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<Bar>, Error> {
         let mut equities_bars: Vec<Bar> = Vec::new();
 
         let mut headers = HeaderMap::new();
@@ -216,9 +234,10 @@ impl Interface for Client {
                     .await?;
 
                 if !response.status().is_success() {
-                    return Err(
-                        format!("api request failed with status: {}", response.status()).into(),
-                    );
+                    return Err(Error::OtherError(format!(
+                        "Alpaca API request failed with status: {}",
+                        response.status()
+                    )));
                 }
 
                 let bar_response: BarsResponse = response.json().await?;
@@ -244,10 +263,7 @@ impl Interface for Client {
         Ok(equities_bars)
     }
 
-    async fn write_equities_bars(
-        &self,
-        equities_bars: Vec<Bar>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn write_equities_bars(&self, equities_bars: Vec<Bar>) -> Result<(), Error> {
         let mut combined_equities_bars: HashSet<Bar> = HashSet::new();
 
         let original_equities_bars: Vec<Bar> = load_objects(
@@ -272,7 +288,7 @@ impl Interface for Client {
         Ok(result)
     }
 
-    async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>> {
+    async fn load_equities_bars(&self) -> Result<Vec<Bar>, Error> {
         let equities_bars = load_objects(
             &self.s3_client,
             self.s3_data_bucket_name.clone(),
@@ -283,10 +299,7 @@ impl Interface for Client {
         Ok(equities_bars)
     }
 
-    async fn write_predictions(
-        &self,
-        predictions: Vec<Prediction>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn write_predictions(&self, predictions: Vec<Prediction>) -> Result<(), Error> {
         let mut combined_predictions: HashSet<Prediction> = HashSet::new();
 
         let original_predictions: Vec<Prediction> = load_objects(
@@ -311,7 +324,7 @@ impl Interface for Client {
         Ok(result)
     }
 
-    async fn load_predictions(&self) -> Result<Vec<Prediction>, Box<dyn std::error::Error>> {
+    async fn load_predictions(&self) -> Result<Vec<Prediction>, Error> {
         let predictions = load_objects(
             &self.s3_client,
             self.s3_data_bucket_name.clone(),
@@ -328,7 +341,7 @@ async fn write_objects<T: Serialize>(
     bucket: String,
     key: String,
     object: &T,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Error> {
     let objects_json = serde_json::to_vec(&object).unwrap();
 
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -350,7 +363,7 @@ async fn write_objects<T: Serialize>(
 
     match result {
         Ok(_) => Ok(()),
-        Err(e) => Err(Box::new(e) as Box<dyn std::error::Error>),
+        Err(e) => Err(Error::OtherError(format!("Error writing objects: {e}"))),
     }
 }
 
@@ -358,7 +371,7 @@ async fn load_objects<T: DeserializeOwned>(
     s3_client: &S3Client,
     bucket: String,
     key: String,
-) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+) -> Result<Vec<T>, Error> {
     let get_object_response = s3_client
         .get_object()
         .bucket(bucket)

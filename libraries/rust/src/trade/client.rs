@@ -2,9 +2,11 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use reqwest::Client as HTTPClient;
 use reqwest::Url;
-use reqwest::{RequestBuilder, Response};
+use reqwest::{Error as ReqwestError, RequestBuilder, Response};
 use serde::Deserialize;
 use std::collections::HashMap;
+use thiserror::Error as ThisError;
+use url::ParseError;
 
 #[derive(Deserialize, Debug)]
 struct ConstituentItem {
@@ -74,22 +76,30 @@ pub struct PatternDayTraderCheck {
     pub is_pdt_violated: bool,
 }
 
+#[derive(ThisError, Debug)]
+pub enum Error {
+    #[error("Parse URL error: {0}")]
+    ParseURLError(#[from] ParseError),
+    #[error("Request error: {0}")]
+    ReqwestError(#[from] ReqwestError),
+    #[error("Other error: {0}")]
+    OtherError(String),
+}
+
 #[async_trait]
 pub trait Interface: Send + Sync {
-    async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
-    async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
+    async fn get_available_tickers(&self) -> Result<Vec<String>, Error>;
+    async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Error>;
     async fn get_portfolio_performance(
         &self,
         end_at: DateTime<Utc>,
-    ) -> Result<PortfolioPerformance, Box<dyn std::error::Error>>;
-    async fn get_portfolio_positions(
-        &self,
-    ) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>>;
+    ) -> Result<PortfolioPerformance, Error>;
+    async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, Error>;
     async fn check_orders_pattern_day_trade_restrictions(
         &self,
         orders: Vec<Order>,
-    ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>>;
-    async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>>;
+    ) -> Result<Vec<PatternDayTraderCheck>, Error>;
+    async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Error>;
 }
 
 #[derive(Clone)]
@@ -132,7 +142,7 @@ impl Client {
         url_path: &str,
         query_parameters: Option<HashMap<&str, &str>>,
         json_body: Option<serde_json::Value>,
-    ) -> Result<Response, Box<dyn std::error::Error>> {
+    ) -> Result<Response, Error> {
         let mut alpaca_url = Url::parse(&self.alpaca_base_url)?.join(url_path)?;
 
         match query_parameters {
@@ -164,7 +174,10 @@ impl Client {
             .await?;
 
         if !response.status().is_success() {
-            return Err(format!("Alpaca request failed with status: {}", response.status()).into());
+            return Err(Error::OtherError(format!(
+                "Alpaca API request failed with status: {}",
+                response.status()
+            )));
         }
 
         Ok(response)
@@ -173,7 +186,7 @@ impl Client {
 
 #[async_trait]
 impl Interface for Client {
-    async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    async fn get_available_tickers(&self) -> Result<Vec<String>, Error> {
         // "GSPC" is the S&P 500 Index
         // "DJI" is the Dow Jones Industrial Average
         let darqube_url_path = "data-api/fundamentals/indexes/index_constituents/GSPC";
@@ -189,9 +202,10 @@ impl Interface for Client {
             .await?;
 
         if !response.status().is_success() {
-            return Err(
-                format!("Darqube request failed with status: {}", response.status()).into(),
-            );
+            return Err(Error::OtherError(format!(
+                "Alpaca API request failed with status: {}",
+                response.status()
+            )));
         }
 
         let darqube_response: DarqubeIndexConstituentsResponse = response.json().await?;
@@ -233,7 +247,7 @@ impl Interface for Client {
         Ok(tickers)
     }
 
-    async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>> {
+    async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Error> {
         self.send_alpaca_api_request(
             "v2/orders",
             None,
@@ -253,7 +267,7 @@ impl Interface for Client {
     async fn get_portfolio_performance(
         &self,
         end_at: DateTime<Utc>,
-    ) -> Result<PortfolioPerformance, Box<dyn std::error::Error>> {
+    ) -> Result<PortfolioPerformance, Error> {
         let alpaca_portfolio_response = self
             .send_alpaca_api_request(
                 "v2/account/portfolio/history",
@@ -298,9 +312,7 @@ impl Interface for Client {
         Ok(portfolio)
     }
 
-    async fn get_portfolio_positions(
-        &self,
-    ) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>> {
+    async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, Error> {
         let alpaca_portfolio_response = self
             .send_alpaca_api_request("v2/positions", None, None)
             .await?;
@@ -313,7 +325,7 @@ impl Interface for Client {
     async fn check_orders_pattern_day_trade_restrictions(
         &self,
         orders: Vec<Order>,
-    ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<PatternDayTraderCheck>, Error> {
         let after_timestamp = Utc::now() - Duration::hours(24);
 
         let symbols: Vec<String> = orders.iter().map(|order| order.ticker.clone()).collect();
@@ -364,7 +376,7 @@ impl Interface for Client {
         Ok(results)
     }
 
-    async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>> {
+    async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Error> {
         for order in orders {
             self.send_alpaca_api_request(
                 "v2/orders",

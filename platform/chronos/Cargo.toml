@@ -14,6 +14,5 @@ tokio = { version = "1.39.3", features = ["full"] }
 pocketsizefund = { path = "../../libraries/rust", features = ["events", "web"] }
 
 [dev-dependencies]
-cargo-machete = "0.6.2"
 lazy_static = "1.5.0"
 reqwest = "0.12.7"
