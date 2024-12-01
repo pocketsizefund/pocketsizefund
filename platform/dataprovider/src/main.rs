@@ -3,7 +3,7 @@ use actix_web::{post, web, App, HttpResponse, HttpServer};
 use chrono::{DateTime, Utc};
 use cloudevents::{Data, Event};
 use mockall::mock;
-use pocketsizefund::data::{Bar, Client as DataClient, Interface, Prediction};
+use pocketsizefund::data::{Bar, Client as DataClient, Error, Interface, Prediction};
 use pocketsizefund::events::build_response_event;
 use serde::Deserialize;
 use serde_json::json;
@@ -160,17 +160,17 @@ mock! {
             tickers: Vec<String>,
             start: DateTime<Utc>,
             end: DateTime<Utc>,
-        ) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
+        ) -> Result<Vec<Bar>, Error>;
         async fn write_equities_bars(
             &self,
             equities_bars: Vec<Bar>,
-        ) -> Result<(), Box<dyn std::error::Error>>;
-        async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
+        ) -> Result<(), Error>;
+        async fn load_equities_bars(&self) -> Result<Vec<Bar>, Error>;
         async fn write_predictions(
             &self,
             predictions: Vec<Prediction>,
-        ) -> Result<(), Box<dyn std::error::Error>>;
-        async fn load_predictions(&self) -> Result<Vec<Prediction>, Box<dyn std::error::Error>>;
+        ) -> Result<(), Error>;
+        async fn load_predictions(&self) -> Result<Vec<Prediction>, Error>;
     }
 }
 
