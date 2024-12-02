@@ -1,7 +1,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: price-model
+  name: pricemodelservice
   labels:
     layer: prediction
 spec:
@@ -11,8 +11,8 @@ spec:
         autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-        - name: price-model
-          image: pocketsizefund/price-model:20240903.0
+        - name: pricemodelservice
+          image: pocketsizefund/pricemodel:latest
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -64,15 +64,14 @@ spec:
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: price-model-trigger
+  name: pricemodeltrigger
 spec:
   broker: default
   filter:
     attributes:
-      type: psf.market.status.check.success
+      type: ocketsizefund.market.status.check.success
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: price-model
-
+      name: pricemodelservice

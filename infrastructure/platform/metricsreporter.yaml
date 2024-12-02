@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: metricsreporter
+  name: metricsreporterservice
   labels:
     layer: portfolio
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: metricsreporter
+      app: metricsreporterservice
   template:
     metadata:
       labels:
-        app: metricsreporter
+        app: metricsreporterservice
     spec:
       containers:
-        - name: metricsreporter
-          image: pocketsizefund/metricsreporter:1.0.0
+        - name: metricsreporterservice
+          image: pocketsizefund/metricsreporter:latest
           env:
             - name: ALPACA_API_KEY
               valueFrom:
@@ -53,4 +53,4 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: metricsreporter
+      name: metricsreporterservice
