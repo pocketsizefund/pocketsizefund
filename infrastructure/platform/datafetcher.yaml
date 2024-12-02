@@ -2,7 +2,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: datafetcher
+  name: datafetcherservice
   labels:
     layer: data
 spec:
@@ -12,8 +12,8 @@ spec:
         autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-        - name: datafetcher
-          image: pocketsizefund/datafetcher:1.0.0
+        - name: datafetcherservice
+          image: pocketsizefund/datafetcher:latest
           ports:
             - containerPort: 8080
           resources:
@@ -55,12 +55,12 @@ spec:
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
-  name: morning-ping
+  name: morningpingsource
 spec:
   schedule: "0 18 * * 1-5"
   sink:
     ref:
       apiVersion: eventing.knative.dev/v1
       kind: Service
-      name: datacfetcher
+      name: datafetcherservice
     uri: /data

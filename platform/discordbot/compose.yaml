@@ -1,5 +1,5 @@
 services:
-  discord:
+  discordbot:
     build:
       context: .
       target: final

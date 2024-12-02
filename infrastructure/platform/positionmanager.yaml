@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: positionmanager
+  name: positionmanagerservice
   labels:
     layer: portfolio
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: positionmanager
+      app: positionmanagerservice
   template:
     metadata:
       labels:
-        app: positionmanager
+        app: positionmanagerservice
     spec:
       containers:
-        - name: positionmanager
-          image: pocketsizefund/positionmanager:1.0.0
+        - name: positionmanagerservice
+          image: pocketsizefund/positionmanager:latest
           env:
             - name: ALPACA_API_KEY
               valueFrom:
@@ -53,4 +53,4 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: positionmanager
+      name: positionmanagerservice

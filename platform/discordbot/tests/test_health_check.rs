@@ -20,6 +20,6 @@ fn spawn_app() {
     env::set_var("DISCORD_WEBHOOK_URL", "http://discord/.com/test");
 
     let listener = std::net::TcpListener::bind("127.0.0.1:8080").unwrap();
-    let server = discord::run(listener).unwrap();
+    let server = discordbot::run(listener).unwrap();
     let _ = tokio::spawn(server);
 }

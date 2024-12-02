@@ -1,12 +1,14 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: discordbot-service
+  name: discordbotservice
+  labels:
+    layer: portfolio
 spec:
   template:
     spec:
       containers:
-        - image: pocketsizefund/discord:latest
+        - image: pocketsizefund/discordbot:latest
           ports:
             - containerPort: 8080
           env:
@@ -19,19 +21,19 @@ spec:
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: discordbot-trigger
+  name: discordbottrigger
 spec:
   broker: default
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: discordbot-service
+      name: discordbotservice
 ---
 apiVersion: sources.knative.dev/v1
 kind: PingSource
 metadata:
-  name: morning-ping
+  name: morningpingsource
 spec:
   schedule: "15 9 * * *"
   data: '{"message": "Good morning!"}'

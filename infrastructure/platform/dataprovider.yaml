@@ -2,7 +2,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: dataprovider
+  name: dataproviderservice
   labels:
     layer: data
 spec:
@@ -12,8 +12,8 @@ spec:
         autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-        - name: dataprovider
-          image: pocketsizefund/dataprovider:202409.11.0
+        - name: dataproviderservice
+          image: pocketsizefund/dataprovider:latest
           ports:
             - containerPort: 8080
           resources:
@@ -66,4 +66,4 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: dataprovider
+      name: dataproviderservice
