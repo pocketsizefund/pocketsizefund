@@ -5,13 +5,13 @@
 
 service_name=$1
 
-IMAGE=pocketsizefund/${service_name}
+image=pocketsizefund/${service_name}
 
-VERSION=1.0.0
+version=1.0.0
 
 docker build \
     --file platform/${service_name}/Dockerfile \
-    --tag $IMAGE:latest \
-    --tag $IMAGE:$VERSION \
+    --tag $image:latest \
+    --tag $image:$version \
     --platform $PLATFORM \
     .

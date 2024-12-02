@@ -5,12 +5,10 @@
 
 service_name=$1
 
-cd $root/platform/${service_name}
+image=pocketsizefund/${service_name}
 
-IMAGE=pocketsizefund/${service_name}
+version=1.0.0
 
-VERSION=$(cargo pkgid | awk -F# '{print $NF}')
+docker push $image:latest
 
-docker push $IMAGE:latest
-
-docker push $IMAGE:$VERSION
+docker push $image:$version

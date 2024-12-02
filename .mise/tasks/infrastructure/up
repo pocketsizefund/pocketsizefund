@@ -2,6 +2,10 @@
 
 # mise description="create infrastructure"
 
+# usage requires administrator privileges
+
+set -e
+
 cd $root/infrastructure
 CLUSTER_NAME=$(grep 'name:' aws/cluster-config.yaml | awk '{print $2}')
 AWS_REGION=$(grep 'region:' aws/cluster-config.yaml | awk '{print $2}')
@@ -14,8 +18,8 @@ aws s3 mb s3://$FUND_DATA_BUCKET --region $AWS_REGION
 aws s3 mb s3://$FUND_ARTIFACTS_BUCKET --region $AWS_REGION
 
  if eksctl get cluster --name=$CLUSTER_NAME 2>/dev/null; then
-   echo "Cluster $CLUSTER_NAME already exists. Updating..."
-   eksctl update cluster -f aws/cluster-config.yaml
+  echo "Cluster $CLUSTER_NAME already exists. Updating..."
+  eksctl update cluster -f aws/cluster-config.yaml
 else
   echo "Creating new cluster $CLUSTER_NAME..."
   eksctl create cluster -f aws/cluster-config.yaml
@@ -50,6 +54,7 @@ kubectl patch configmap/config-network \
   --namespace knative-serving \
   --type merge \
   --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
+
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 helm install prometheus prometheus-community/kube-prometheus-stack \
@@ -62,8 +67,6 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 for file in platform/*.yaml; do
   kubectl apply -f "$file"
 done
-
-
 
 kubectl get pods -n knative-serving
 kubectl get pods -n knative-eventing
