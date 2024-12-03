@@ -1,0 +1,45 @@
+name: Launch or teardown infrastructure
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: '0 14,22 * * 1,2,3,4,5' # 9:00AM and 5:00PM UTC
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Action to perform
+        required: true
+        default: launch
+        type: choice
+        options:
+          - launch
+          - teardown
+      confirmation:
+        description: Confirm the action
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  launch_or_teardown_infrastructure:
+    name: Launch or teardown infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          install_args: "-y"
+          experimental: true
+      - name: Launch infrastructure
+        if: (github.event.schedule == '0 14 * * 1,2,3,4,5' && github.event_name == 'schedule') || github.event_name == 'push' || (inputs.action == 'launch' && inputs.confirmation == true)
+        run: |
+          mise run infrastructure:up
+      - name: Teardown infrastructure
+        if: (github.event.schedule == '0 22 * * 1,2,3,4,5' && github.event_name == 'schedule') || (inputs.action == 'teardown' && inputs.confirmation == true)
+        run: |
+          mise run infrastructure:down
