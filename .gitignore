@@ -13,3 +13,4 @@ lightning_logs/
 platform/*/Cargo.lock
 **/target*/
 python_coverage/
+wandb/

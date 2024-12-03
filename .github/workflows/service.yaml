@@ -1,0 +1,69 @@
+name: Test and publish services
+
+on:
+  pull_request:
+    paths:
+      - platform/**
+      - .github/workflows/service.yaml
+
+jobs:
+  extract_changes:
+    name: Extract file changes
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set_matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Get list of updated services
+        id: set_matrix
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }} ${{ github.head_ref }}
+          changed_files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}..HEAD)
+          platform_directories=$(echo "$changed_files" | awk -F'/' '/^platform\// {print $2}' | sort -u)
+          matrix=$(echo "$platform_directories" | jq -R 'split(" ") | map(select(. != "")) | {platform_services: .}' | jq -c '.')
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+
+  build_and_test_services:
+    name: Build and test services
+    needs: extract_changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.extract_changes.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          install_args: "-y"
+          experimental: true
+      - name: Build service
+        run: |
+          mise run platform:build ${{ matrix.platform_services }}
+      - name: Run service
+        run: |
+          mise run platform:run ${{ matrix.platform_services }}
+      - name: Ping service
+        run: |
+          mise run platform:ping ${{ matrix.platform_services }}
+
+  publish_service_images:
+    name: Publish service images
+    needs: build_and_test_services
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          install_args: "-y"
+          experimental: true
+      - name: Publish service images
+        run: |
+          for platform_service in ${{ needs.extract_changes.outputs.matrix.platform_services }}; do
+            mise run platform:publish $platform_service
+          done
