@@ -23,7 +23,7 @@ We're never done and that's a good thing.
 ```sh
 curl https://mise.run | sh
 mise install -y
-mise tasks ls
+uv pip install .
 ```
 
 ### Principles
