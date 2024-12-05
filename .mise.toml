@@ -1,5 +1,11 @@
 [tools]
 python = "3.10"
-rust = "latest"
-uv = "latest"
-pre-commit = "latest"
+rust = "1.80.0"
+uv = "0.5.4"
+pre-commit = "4.0.1"
+helm = "latest"
+docker-slim = "latest"
+kubectl = "latest"
+
+[env]
+PLATFORM = "linux/amd64"
