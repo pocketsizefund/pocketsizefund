@@ -342,7 +342,7 @@ async fn write_objects<T: Serialize>(
     key: String,
     object: &T,
 ) -> Result<(), Error> {
-    let objects_json = serde_json::to_vec(&object).unwrap();
+    let objects_json = serde_json::to_vec(&object)?;
 
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
 

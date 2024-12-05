@@ -62,7 +62,9 @@ async fn trade_handler(
 
     let predictions: Vec<Prediction> = data_provider_response.json().await?;
 
-    let prediction = predictions.choose(&mut rand::thread_rng()).unwrap();
+    let prediction = predictions
+        .choose(&mut rand::thread_rng())
+        .expect("No predictions found");
 
     trade_client
         .execute_baseline_buy(prediction.ticker.clone())
@@ -107,7 +109,7 @@ async fn main() -> std::io::Result<()> {
     let trade_client = web::Data::new(trade_client);
 
     let data_provider_url = format!(
-        "http://data-provider.{}.svc.cluster.local:8080/predictions",
+        "http://dataprovider.{}.svc.cluster.local:8080/predictions",
         env::var("ENVIRONMENT").expect("Environment not found"),
     );
 
