@@ -5,6 +5,11 @@
 
 service_name=$1
 
-cd $root/platform/${service_name}
-
-docker compose up --build 
+docker compose \
+    --file $root/platform/${service_name}/compose.yaml \
+    --env-file $root/etc/.env.development \
+    up \
+    --build
+    # --build \
+    # --watch \
+    # --wait
