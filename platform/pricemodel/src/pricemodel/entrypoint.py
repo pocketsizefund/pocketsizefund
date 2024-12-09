@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 
 ENVIRONMENT = os.getenv("ENVIRONMENT")
-DATA_PROVIDER_URL = f"http://data-provider.{ENVIRONMENT}.svc.cluster.local:8080"
+DATA_PROVIDER_URL = f"http://dataprovider.{ENVIRONMENT}.svc.cluster.local:8080"
 
 
 sentry_loguru = LoguruIntegration(
