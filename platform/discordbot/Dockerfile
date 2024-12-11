@@ -1,5 +1,5 @@
 ARG RUST_VERSION=1.79.0
-ARG APP_NAME=discord
+ARG APP_NAME=discordbot
 
 FROM rust:${RUST_VERSION}-alpine AS build
 ARG APP_NAME

@@ -55,7 +55,7 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
             204 => {
                 tracing::info!("Message successfully sent");
                 build_response_event(
-                    "discord".to_string(),
+                    "discordbot".to_string(),
                     vec!["message".to_string(), "sent".to_string()],
                     Some(
                         json!({
@@ -69,7 +69,7 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
             _ => {
                 tracing::error!("Message failed to send: {:#?}", response);
                 build_response_event(
-                    "discord".to_string(),
+                    "discordbot".to_string(),
                     vec!["message".to_string(), "failed".to_string()],
                     Some(
                         json!({
@@ -84,7 +84,7 @@ async fn event_handler(event: Event, webhook: web::Data<DiscordWebhook>) -> Even
         Err(response) => {
             tracing::error!("Message failed to send: {:#?}", response);
             build_response_event(
-                "discord".to_string(),
+                "discordbot".to_string(),
                 vec!["message".to_string(), "failed".to_string()],
                 Some(
                     json!({
