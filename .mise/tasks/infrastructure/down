@@ -2,5 +2,10 @@
 
 # mise description="destroy infrastructure"
 
+# usage requires administrator privileges
+
+set -e
+
 cd $root/infrastructure
+
 eksctl delete cluster -f eks/cluster-config.yaml
