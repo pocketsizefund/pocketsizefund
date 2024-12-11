@@ -9,7 +9,10 @@ use cloudevents::Event;
 use mockall::mock;
 use pocketsizefund::data::Bar;
 use pocketsizefund::events::build_response_event;
-use pocketsizefund::trade::{Client as TradeClient, Interface as TradeInterface, Portfolio};
+use pocketsizefund::trade::{
+    Client as TradeClient, Interface as TradeInterface, Order, PatternDayTraderCheck,
+    PortfolioPerformance, PortfolioPosition,
+};
 use reqwest::{Client as HTTPClient, Response};
 use serde::Deserialize;
 use serde_json::json;
@@ -51,7 +54,8 @@ async fn metrics_handler(
         .checked_sub_signed(chrono::Duration::days(365))
         .expect("Failed to calculate start at");
 
-    let portfolio: Portfolio = trade_client.get_portfolio(end_at).await?;
+    let portfolio_performance: PortfolioPerformance =
+        trade_client.get_portfolio_performance(end_at).await?;
 
     let client = HTTPClient::new();
     let data_provider_response: Response = client
@@ -74,7 +78,7 @@ async fn metrics_handler(
         .clone()
         .sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
 
-    let portfolio_oldest = portfolio
+    let portfolio_oldest = portfolio_performance
         .timestamps
         .first()
         .expect("Portfolio timestamps are empty");
@@ -90,8 +94,8 @@ async fn metrics_handler(
     };
 
     let portfolio_metrics = calculate_metrics(
-        portfolio.timestamps,
-        portfolio.equity_values,
+        portfolio_performance.timestamps,
+        portfolio_performance.equity_values,
         oldest_timestamp,
     );
 
@@ -176,7 +180,13 @@ mock! {
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
         async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
-        async fn get_portfolio(&self, end_at: DateTime<Utc>) -> Result<Portfolio, Box<dyn std::error::Error>>;
+        async fn get_portfolio_performance(&self, end_at: DateTime<Utc>) -> Result<PortfolioPerformance, Box<dyn std::error::Error>>;
+        async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>>;
+        async fn check_orders_pattern_day_trade_restrictions(
+            &self,
+            orders: Vec<Order>,
+        ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>>;
+        async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>>;
     }
 }
 
@@ -205,16 +215,18 @@ mod tests {
     async fn test_metrics_handler() {
         let mut mock_trade_client: MockTradeInterfaceMock = MockTradeInterfaceMock::new();
 
-        mock_trade_client.expect_get_portfolio().returning(|_| {
-            Ok(Portfolio {
-                timestamps: vec![
-                    Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
-                    Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
-                    Utc.with_ymd_and_hms(1977, 5, 27, 0, 0, 0).unwrap(),
-                ],
-                equity_values: vec![100.0, 150.0, 200.0],
-            })
-        });
+        mock_trade_client
+            .expect_get_portfolio_performance()
+            .returning(|_| {
+                Ok(PortfolioPerformance {
+                    timestamps: vec![
+                        Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
+                        Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
+                        Utc.with_ymd_and_hms(1977, 5, 27, 0, 0, 0).unwrap(),
+                    ],
+                    equity_values: vec![100.0, 150.0, 200.0],
+                })
+            });
 
         let mock_trade_client: Arc<dyn TradeInterface> = Arc::new(mock_trade_client);
 

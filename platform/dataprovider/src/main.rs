@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use cloudevents::{Data, Event};
 use mockall::mock;
 use pocketsizefund::data::{Bar, Client as DataClient, Interface, Prediction};
-use pocketsizefund::events::events::build_response_event;
+use pocketsizefund::events::build_response_event;
 use serde::Deserialize;
 use serde_json::json;
 use std::env;
