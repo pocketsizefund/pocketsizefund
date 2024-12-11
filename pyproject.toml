@@ -1,6 +1,7 @@
 [project]
 name = "pocketsizefund"
 version = "1.0.0"
+requires-python = ">=3.10"
 
 [tool.uv]
 dev-dependencies = [
@@ -8,6 +9,7 @@ dev-dependencies = [
     "pytest>=8.3.2",
     "vulture>=2.11",
     "ruff>=0.8.0",
+    "tinygrad>=0.10.0",
 ]
 
 [tool.uv.sources]
