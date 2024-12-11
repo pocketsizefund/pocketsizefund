@@ -1,9 +1,13 @@
 services:
   discordbot:
     build:
-      context: .
-      target: final
+      context: ../..
+      dockerfile: platform/discordbot/Dockerfile
+    platform: linux/amd64
     ports:
       - 8080:8080
     environment:
-      - DISCORD_TOKEN
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+    volumes:
+      - ./platform/discordbot:/app/platform/discordbot
+      - ./libraries/rust:/app/libraries/rust

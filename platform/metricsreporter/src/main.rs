@@ -151,7 +151,7 @@ async fn main() -> std::io::Result<()> {
     let trade_client = web::Data::new(trade_client);
 
     let data_provider_url = format!(
-        "http://data-provider.{}.svc.cluster.local:8080/data",
+        "http://dataprovider.{}.svc.cluster.local:8080/data",
         env::var("ENVIRONMENT").expect("Environment not found"),
     );
 

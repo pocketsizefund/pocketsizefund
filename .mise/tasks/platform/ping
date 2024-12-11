@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 
 # mise description="ping the service"
-# mise tools=["httpie"]
+
+set -e
 
 service_name=$1
 
@@ -10,23 +11,29 @@ if [ "$service_name" = "" ]; then
     exit 1
 fi
 
-endpoint=$2
+endpoint=""
+if [ "$service_name" = "positionmanager" ]; then
+    endpoint="predictions"
+fi
 
-if [ "$endpoint" = "" ]; then
-    echo "endpoint is required"
-    echo ""
-    echo "options:"
-    echo "market-open-check"
-    exit 1
+data=""
+if [ "$service_name" = "positionmanager" ]; then
+    data='{
+        "symbol":"AAPL",
+        "timestamp": "1977-05-25T00:00:00Z",
+        "timestamps": ["1977-05-25T00:00:00Z"],
+        "price": 100.0
+    }'
 fi
 
 cd $root/platform/${service_name}
 
-http POST http://127.0.0.1:8080/${endpoint} \
-    Content-Type:application/cloudevents+json \
-    ce-specversion:1.0 \
-    message="Good morning" \
-    specversion="1.0" \
-    id="1" \
-    type="dev.knative.example" \
-    source="localhost:1000"
+curl -X POST "http://127.0.0.1:8080/${endpoint}" \
+    --header "Content-Type: application/cloudevents+json" \
+    --data '{
+        "specversion": "1.0",
+        "id": "1",
+        "type": "dev.knative.example",
+        "source": "localhost:8080",
+        "data": '${data}'
+    }'

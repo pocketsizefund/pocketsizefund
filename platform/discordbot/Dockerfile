@@ -1,36 +1,56 @@
-ARG RUST_VERSION=1.79.0
-ARG APP_NAME=discordbot
+FROM lukemathwalker/cargo-chef:latest-rust-1.59.0 AS chef
 
-FROM rust:${RUST_VERSION}-alpine AS build
-ARG APP_NAME
-WORKDIR /app
+RUN rustup toolchain install nightly
 
-RUN apk add --no-cache clang lld musl-dev git
+RUN rustup default nightly
 
-RUN --mount=type=bind,source=src,target=src \
-    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
-    --mount=type=cache,target=/app/target/ \
-    --mount=type=cache,target=/usr/local/cargo/git/db \
-    --mount=type=cache,target=/usr/local/cargo/registry/ \
-cargo build --locked --release && \
-cp ./target/release/$APP_NAME /bin/server
+WORKDIR app/
 
-FROM alpine:3.18 AS final
+FROM chef AS planner
 
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
-USER appuser
+COPY libraries/rust/ libraries/rust/
 
-COPY --from=build /bin/server /bin/
+COPY platform/discordbot/ platform/discordbot/
 
-EXPOSE 8080
+COPY Cargo.toml Cargo.toml
 
-CMD ["/bin/server"]
+RUN echo '[workspace]\n\
+resolver = "2"\n\
+members = [\n\
+    "libraries/rust",\n\
+    "platform/discordbot",\n\ 
+]\n\
+' > Cargo.toml
+
+COPY Cargo.lock Cargo.lock
+
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+
+COPY --from=planner /app/recipe.json recipe.json
+
+RUN cargo chef cook --release --recipe-path recipe.json
+
+COPY libraries/rust/src libraries/rust/src
+
+COPY platform/discordbot/src platform/discordbot/src
+
+RUN cargo build --release --bin discordbot
+
+FROM debian:bullseye-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates openssl && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+ENV SSL_CERT_DIR=/etc/ssl/certs
+
+WORKDIR app
+
+COPY --from=builder /app/target/release/discordbot /usr/local/bin
+
+ENTRYPOINT ["/usr/local/bin/discordbot"]
