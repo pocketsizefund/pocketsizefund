@@ -9,6 +9,8 @@ github-cli = "latest"
 istioctl = "latest"
 shellcheck = "latest"
 shfmt = "latest"
+kubectl = "latest"
+pre-commit = "latest"
 
 [env]
 PLATFORM = "linux/amd64"
