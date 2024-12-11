@@ -51,6 +51,7 @@ cloudevents-sdk = { version = "0.7.0", features = [
 ], optional = true }
 apca = "0.29.0"
 mockall = "0.11"
+thiserror = "2.0.3"
 
 [dev-dependencies]
 tokio = { version = "1.38.1", features = ["full", "test-util"] }

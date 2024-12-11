@@ -4,11 +4,13 @@ use chrono::{DateTime, Utc};
 use cloudevents::{Data, Event};
 use log::info;
 use mockall::mock;
-use pocketsizefund::data::{Bar, Client as DataClient, Interface as DataInterface, Prediction};
+use pocketsizefund::data::{
+    Bar, Client as DataClient, Error as DataError, Interface as DataInterface, Prediction,
+};
 use pocketsizefund::events::build_response_event;
 use pocketsizefund::trade::{
-    Client as TradeClient, Interface as TradeInterface, Order, PatternDayTraderCheck,
-    PortfolioPerformance, PortfolioPosition,
+    Client as TradeClient, Error as TradeError, Interface as TradeInterface, Order,
+    PatternDayTraderCheck, PortfolioPerformance, PortfolioPosition,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -64,8 +66,8 @@ async fn data_handler(
             ))
         }
         Err(e) => {
-            info!("Failed to write new bars: {}", e);
-            Err(e)
+            info!("Failed to write new bars: {e}");
+            Err(Box::new(e))
         }
     }
 }
@@ -111,7 +113,7 @@ async fn predictions_handler(
         )),
         Err(e) => {
             info!("Failed to write predictions: {}", e);
-            Err(e)
+            Err(Box::new(e))
         }
     }
 }
@@ -176,17 +178,17 @@ mock! {
             tickers: Vec<String>,
             start: DateTime<Utc>,
             end: DateTime<Utc>,
-        ) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
+        ) -> Result<Vec<Bar>, DataError>;
         async fn write_equities_bars(
             &self,
             equities_bars: Vec<Bar>,
-        ) -> Result<(), Box<dyn std::error::Error>>;
-        async fn load_equities_bars(&self) -> Result<Vec<Bar>, Box<dyn std::error::Error>>;
+        ) -> Result<(), DataError>;
+        async fn load_equities_bars(&self) -> Result<Vec<Bar>, DataError>;
         async fn write_predictions(
             &self,
             predictions: Vec<Prediction>,
-        ) -> Result<(), Box<dyn std::error::Error>>;
-        async fn load_predictions(&self) -> Result<Vec<Prediction>, Box<dyn std::error::Error>>;
+        ) -> Result<(), DataError>;
+        async fn load_predictions(&self) -> Result<Vec<Prediction>, DataError>;
     }
 }
 
@@ -195,15 +197,15 @@ mock! {
 
     #[async_trait::async_trait]
     impl TradeInterface for TradeInterfaceMock {
-        async fn get_available_tickers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
-        async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Box<dyn std::error::Error>>;
-        async fn get_portfolio_performance(&self, current_time: DateTime<Utc>) -> Result<PortfolioPerformance, Box<dyn std::error::Error>>;
-        async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, Box<dyn std::error::Error>>;
+        async fn get_available_tickers(&self) -> Result<Vec<String>, TradeError>;
+        async fn execute_baseline_buy(&self, ticker: String) -> Result<(), TradeError>;
+        async fn get_portfolio_performance(&self, current_time: DateTime<Utc>) -> Result<PortfolioPerformance, TradeError>;
+        async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, TradeError>;
         async fn check_orders_pattern_day_trade_restrictions(
             &self,
             orders: Vec<Order>,
-        ) -> Result<Vec<PatternDayTraderCheck>, Box<dyn std::error::Error>>;
-        async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), Box<dyn std::error::Error>>;
+        ) -> Result<Vec<PatternDayTraderCheck>, TradeError>;
+        async fn execute_orders(&self, orders: Vec<Order>) -> Result<(), TradeError>;
     }
 }
 
