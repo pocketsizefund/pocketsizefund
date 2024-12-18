@@ -1,0 +1,10 @@
+[ ] what is layer norm
+[ ] what is liner
+[ ] what is tensor
+[ ] what is gated residual network
+[ ] what is gated linear unit
+[ ] what is variable selection network
+[ ] what is fc1
+[ ] what is fc2
+[ ] what is gate add norm
+[ ] what is add norm
