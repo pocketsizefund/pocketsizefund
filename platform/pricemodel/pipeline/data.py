@@ -13,6 +13,7 @@ pretty.install()
 
 MIN_OBSERVATIONS_PER_TICKER = 100
 FRESHNESS_DATE = '2013-12-31'
+TRAINING_CUTOFF = "2022-04-01"
 
 def load_data(file):
     return pl.read_csv(file).sort(["ticker", "timestamp"])
@@ -207,7 +208,7 @@ def split_data(data: pl.DataFrame) -> tuple:
         pl.col("timestamp").cast(pl.Date)
     ])
     
-    training_cutoff = datetime.strptime("2024-04-01", "%Y-%m-%d")
+    training_cutoff = datetime.strptime(TRAINING_CUTOFF, "%Y-%m-%d")
     
     training_data = data.filter(pl.col("timestamp") < training_cutoff)
     validation_data = data.filter(pl.col("timestamp") >= training_cutoff)
@@ -216,6 +217,7 @@ def split_data(data: pl.DataFrame) -> tuple:
     validation_dates = set(validation_data.select("timestamp").unique()["timestamp"].to_list())
     
     assert len(training_dates.intersection(validation_dates)) == 0, "Training and validation sets have overlapping dates."
+    assert validation_data.shape[0] > 0, "Missing validation data"
     
     console.print("Data splitting completed successfully.", style="cyan")
 
