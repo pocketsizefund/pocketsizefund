@@ -10,10 +10,6 @@ from rich.progress import (
 )
 from rich.console import Group
 from rich.live import Live
-# import mlflow
-# from mlflow import MlflowClient
-# from tempfile import TemporaryDirectory
-# from pathlib import Path
 
 
 class TrainLossColumn(TextColumn):
@@ -200,47 +196,3 @@ class Trainer:
                     run_status="[bold green]finished"
             )
 
-
-
-class SimpleModel:
-    def __init__(self, input_size: int, hidden_size: int = 1):
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.fc = nn.Linear(self.input_size, self.hidden_size)
-
-    def __call__(self, x: Tensor) -> Tensor:
-        return self.fc(x)
-
-
-
-def load_data():
-    return pl.read_csv("consolidated_data.csv").select(["open_price", "close_price"])
-
-
-def process_data(data):
-    return Tensor(data.to_numpy(), dtype=dtypes.float)
-
-
-def train_val_split(data):
-    return data, data
-
-if __name__ == "__main__":
-    data = load_data()
-    print(data)
-    data = process_data(data)
-
-    print(data)
-
-    train, val = train_val_split(data)
-
-    trainer = Trainer(
-        model = SimpleModel,
-        hyperparameters = {"input_size": 2, "hidden_size": 1},
-        optimizer = nn.optim.Adam,
-        max_epochs = 5,
-        batch_size = 32,
-        train = train,
-        validation = val,
-        )
-
-    trainer()
