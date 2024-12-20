@@ -10,11 +10,6 @@ if __name__ == "__main__":
 
     train, val = split_data(data)
 
-    print(train.numpy())
-    print(train.shape)
-    print(val.shape)
-
-
     trainer = Trainer(
         model = SimpleModel,
         hyperparameters = {"input_size": 6, "hidden_size": 6},
