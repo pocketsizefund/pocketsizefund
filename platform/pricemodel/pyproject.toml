@@ -2,3 +2,9 @@
 name = "pricemodel"
 version = "0.1.0"
 requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.2.0",
+    "polars>=1.17.1",
+    "rich>=13.9.4",
+    "tinygrad>=0.10.0",
+]
