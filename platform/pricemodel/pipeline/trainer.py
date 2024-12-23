@@ -1,13 +1,7 @@
 import sys
 import polars as pl
 from tinygrad import nn, dtypes, Tensor, TinyJit, GlobalCounters
-from rich.progress import (
-    Progress,
-    TextColumn,
-    BarColumn,
-    TimeRemainingColumn,
-    TimeElapsedColumn
-)
+from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 from rich.console import Group
 from rich.live import Live
 
@@ -27,6 +21,7 @@ class ValLossColumn(TextColumn):
             return rf"loss\[ val ]={loss:.4f}"
         return "loss[val]=NA"
 
+
 class StatusColumn(TextColumn):
     def render(self, task):
         run_status = task.fields.get("run_status", None)
@@ -36,16 +31,17 @@ class StatusColumn(TextColumn):
 
 
 class Trainer:
-    def __init__(self,
-                 *,
-                 model,
-                 hyperparameters,
-                 optimizer,
-                 train: Tensor,
-                 validation: Tensor,
-                 max_epochs: int,
-                 batch_size: int,
-                 ):
+    def __init__(
+        self,
+        *,
+        model,
+        hyperparameters,
+        optimizer,
+        train: Tensor,
+        validation: Tensor,
+        max_epochs: int,
+        batch_size: int,
+    ):
         self.hyperparameters = hyperparameters
         self.model = model(**self.hyperparameters)
         self.optimizer = optimizer(nn.state.get_parameters(self.model))
@@ -62,7 +58,6 @@ class Trainer:
             path = Path(tmp, f"tft={epoch}.safetensors")
             nn.state.safe_save(state_dict, path)
             # flow.log_artifact(path)
-
 
     @TinyJit
     @Tensor.train()
@@ -82,7 +77,6 @@ class Trainer:
         x_test, y_test = self.validation, self.validation
         return self.model(x_test).sub(y_test).square().mean().sqrt()
 
-
     def __call__(self):
         # TODO put in environment
         # mlflow_client = MlflowClient(tracking_uri=tracking_uri)
@@ -100,15 +94,14 @@ class Trainer:
         # mlflow.log_input(self.train, "training")
         # mlflow.log_input(self.validation, "validation")
 
-
         # current_run = mlflow.active_run().info
-# <RunInfo: artifact_uri='mlflow-artifacts:/0/2a39335b9a8b4b7a92f2b6aeec07ea8d/artifacts',
-# end_time=None,
-# experiment_id='0',
-# lifecycle_stage='active',
-# run_id='2a39335b9a8b4b7a92f2b6aeec07ea8d',
-# start_time=1727284585291,
-# status='RUNNING',
+        # <RunInfo: artifact_uri='mlflow-artifacts:/0/2a39335b9a8b4b7a92f2b6aeec07ea8d/artifacts',
+        # end_time=None,
+        # experiment_id='0',
+        # lifecycle_stage='active',
+        # run_id='2a39335b9a8b4b7a92f2b6aeec07ea8d',
+        # start_time=1727284585291,
+        # status='RUNNING',
 
         header = Progress(
             TextColumn("status"),
@@ -128,7 +121,6 @@ class Trainer:
             # TimeElapsedColumn(),
             # "<",
             # TimeRemainingColumn(),
-
         )
 
         step_progress = Progress(
@@ -151,25 +143,19 @@ class Trainer:
             refresh_per_second=1,
         )
 
-        progress_group = Group(header,
-                               run_info_progress,
-                               epoch_progress,
-                               step_progress)
+        progress_group = Group(header, run_info_progress, epoch_progress, step_progress)
 
         with Live(progress_group, refresh_per_second=20):
-
             header.add_task("Header")
-            run_info_task = run_info_progress.add_task("run status",
-                    run_status="[bold yellow]training")
+            run_info_task = run_info_progress.add_task(
+                "run status", run_status="[bold yellow]training"
+            )
 
-
-            epoch_task = epoch_progress.add_task("Epochs",
-                                            total=self.max_epochs)
+            epoch_task = epoch_progress.add_task("Epochs", total=self.max_epochs)
             for epoch in range(1, self.max_epochs + 1):
                 GlobalCounters.reset()
                 step_task = step_progress.add_task(
-                    f"Epoch {epoch} Steps",
-                    total=self.steps_per_epoch
+                    f"Epoch {epoch} Steps", total=self.steps_per_epoch
                 )
 
                 for _ in range(self.steps_per_epoch):
@@ -177,22 +163,12 @@ class Trainer:
                     loss = self.step()
                     loss_value = loss.numpy().item()
                     # mlflow.log_metric("rmse.loss.train", loss_value)
-                    step_progress.update(
-                        step_task,
-                        advance=1,
-                        loss=loss_value)
+                    step_progress.update(step_task, advance=1, loss=loss_value)
                 if epoch != self.max_epochs:
                     step_progress.remove_task(step_task)
 
                 # self.save_checkpoint(mlflow, epoch)
                 validation_loss = self.val_loss().numpy().item()
                 # mlflow.log_metric("rmse.loss.validation", validation_loss)
-                epoch_progress.update(epoch_task,
-                                      advance=1,
-                                      val_loss=validation_loss
-                                      )
-            run_info_progress.update(
-                    run_info_task,
-                    run_status="[bold green]finished"
-            )
-
+                epoch_progress.update(epoch_task, advance=1, val_loss=validation_loss)
+            run_info_progress.update(run_info_task, run_status="[bold green]finished")

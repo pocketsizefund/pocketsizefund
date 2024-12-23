@@ -11,13 +11,13 @@ if __name__ == "__main__":
     train, val = split_data(data)
 
     trainer = Trainer(
-        model = SimpleModel,
-        hyperparameters = {"input_size": 6, "hidden_size": 6},
-        optimizer = nn.optim.Adam,
-        max_epochs = 5,
-        batch_size = 32,
-        train = train,
-        validation = val,
-        )
+        model=SimpleModel,
+        hyperparameters={"input_size": 6, "hidden_size": 6},
+        optimizer=nn.optim.Adam,
+        max_epochs=5,
+        batch_size=32,
+        train=train,
+        validation=val,
+    )
 
     trainer()
