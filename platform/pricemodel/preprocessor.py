@@ -1,5 +1,7 @@
 import polars as pl
 import json
+from tinygrad import Tensor
+from typing import Iterable
 
 
 class Preprocessor:
@@ -58,7 +60,7 @@ class DataLoader:
         self.batch_size = batch_size
         self.n_samples = len(data)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[Tensor]:
         for i in range(0, self.n_samples, self.batch_size):
             batch = self.data.slice(i, i + self.batch_size)
-            yield batch
+            yield Tensor(batch.to_numpy())
