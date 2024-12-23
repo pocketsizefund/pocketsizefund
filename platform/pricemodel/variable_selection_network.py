@@ -4,6 +4,7 @@ from tinygrad.nn import Linear
 from copy import deepcopy
 from resample import ResampleNorm
 from gated_residual_network import GatedResidualNetwork
+from typing import Optional, Tuple
 
 
 class VariableSelectionNetwork:
@@ -71,7 +72,7 @@ class VariableSelectionNetwork:
         self,
         x: Dict[str, Tensor],
         context: Tensor = None,
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Tensor]:
         if self.inputs_count > 1:
             outputs = []
             weight_inputs = []

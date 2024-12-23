@@ -4,6 +4,7 @@ from variable_selection_network import VariableSelectionNetwork
 from gated_residual_network import GatedResidualNetwork, GatedLinearUnit, AddNorm, GateAddNorm
 from lstm import LSTM
 from attention import InterpretableMultiHeadAttention
+from tinygrad import Tensor
 from tinygrad.nn import Linear
 from tinygrad.nn.state import safe_save, safe_load, get_state_dict, load_state_dict
 
@@ -25,7 +26,7 @@ class TemporalFusionTransformer:
         categorical_groups: Optional[Union[Dict, List[str]]] = {},
         time_varying_reals_encoder: Optional[List[str]] = [],
         time_varying_reals_decoder: Optional[List[str]] = [],
-        #     x_reals: Optional[List[str]] = [],
+        x_reals: Optional[List[str]] = [],
         x_categoricals: Optional[List[str]] = [],
         hidden_continuous_size: int = 8,
         hidden_continuous_sizes: Optional[Dict[str, int]] = {},
@@ -39,14 +40,20 @@ class TemporalFusionTransformer:
         #     reduce_on_plateau_patience: int = 1000,
         #     monotone_constaints: Optional[Dict[str, int]] = {},
         share_single_variable_networks: bool = False,
-        #     causal_attention: bool = True,
+        causal_attention: bool = True,
         #     logging_metrics: nn.ModuleList = [],
         #     **kwargs,
         reals: List[str] = [],  # NOTE: potentially taken from input data
         target_count: int = 1,  # NOTE: potentially taken from input data
+        static_variables: List[str] = [],  # NOTE: potentially taken from input data
     ) -> None:
+        self.hidden_size = hidden_size
         self.reals = reals
+        self.x_reals = x_reals
+        self.static_variables = static_variables
         self.target_count = target_count
+        self.lstm_layers = lstm_layers
+        self.causal_attention = causal_attention
 
         self.input_embeddings = MultiEmbedding(
             embedding_sizes=embedding_sizes,
@@ -175,7 +182,7 @@ class TemporalFusionTransformer:
         self.lstm_encoder = LSTM(
             input_size=hidden_size,
             hidden_size=hidden_size,
-            num_layers=lstm_layers,
+            layer_count=lstm_layers,
             dropout_rate=dropout_rate if lstm_layers > 1 else 0,
             batch_first=True,
         )
@@ -183,7 +190,7 @@ class TemporalFusionTransformer:
         self.lstm_decoder = LSTM(
             input_size=hidden_size,
             hidden_size=hidden_size,
-            num_layers=lstm_layers,
+            layer_count=lstm_layers,
             dropout_rate=dropout_rate if lstm_layers > 1 else 0,
             batch_first=True,
         )
@@ -233,10 +240,189 @@ class TemporalFusionTransformer:
         else:
             self.output_layer = Linear(hidden_size, output_size)
 
-    def train(
+    def forward(
         self,
-    ) -> None:  # NOTE: NEEDS TYPE
+        x: Dict[str, Tensor],
+    ) -> Dict[str, Tensor]:
+        encoder_lengths = x["encoder_lengths"]
+        decoder_lengths = x["decoder_lengths"]
+        x_cat = x["encoder_cat"].cat(x["decoder_cat"], dim=1)
+        x_cont = x["encoder_cont"].cat(x["decoder_cont"], dim=1)
+        timesteps = x_cont.size(1)
+        max_encoder_length = int(encoder_lengths.max())
+        input_vectors = self.input_embeddings(x_cat)
+        input_vectors.update(
+            {
+                name: x_cont[..., idx].unsqueeze(-1)
+                for idx, name in enumerate(self.x_reals)
+                if name in self.reals
+            }
+        )
+
+        if len(self.static_variables) > 0:
+            static_embedding = {name: input_vectors[name][:, 0] for name in self.static_variables}
+            static_embedding, static_variable_selection = self.static_variable_selection(
+                static_embedding
+            )
+        else:
+            static_embedding = Tensor.zeros(
+                (x_cont.size(0), self.hidden_size), dtype=self.dtype, device=self.device
+            )
+            static_variable_selection = Tensor.zeros(
+                (x_cont.size(0), 0), dtype=self.dtype, device=self.device
+            )
+
+        static_context_variable_selection = self.expand_static_context(
+            self.static_context_variable_selection(static_embedding), timesteps
+        )
+
+        # NOTE: fix encoder_variables reference
+        embeddings_varying_encoder = {
+            name: input_vectors[name][:, :max_encoder_length] for name in self.encoder_variables
+        }
+
+        embeddings_varying_encoder, encoder_sparse_weights = self.encoder_variable_selection(
+            embeddings_varying_encoder,
+            static_context_variable_selection[:, :max_encoder_length],
+        )
+
+        # NOTE: fix decoder_variables reference
+        embeddings_varying_decoder = {
+            name: input_vectors[name][:, max_encoder_length:] for name in self.decoder_variables
+        }
+
+        embeddings_varying_decoder, decoder_sparse_weights = self.decoder_variable_selection(
+            embeddings_varying_decoder,
+            static_context_variable_selection[:, max_encoder_length:],
+        )
+
+        input_hidden = self.static_context_initial_hidden_lstm(static_embedding).expand(
+            self.lstm_layers, -1, -1
+        )
+
+        input_cell = self.static_context_initial_cell_lstm(static_embedding).expand(
+            self.lstm_layers, -1, -1
+        )
+
+        encoder_output, (hidden, cell) = self.lstm_encoder(
+            x=embeddings_varying_encoder,
+            hidden_state=input_hidden,
+            # (input_hidden, input_cell),
+            # lengths=encoder_lengths,
+            # enforce_sorted=False,
+        )
+
+        decoder_output, _ = self.lstm_decoder(
+            x=embeddings_varying_decoder,
+            hidden_state=hidden,
+            # (hidden, cell),
+            # lengths=decoder_lengths,
+            # enforce_sorted=False,
+        )
+
+        lstm_output_encoder = self.post_lstm_gate_encoder(encoder_output)
+        lstm_output_encoder = self.post_lstm_add_norm_encoder(
+            lstm_output_encoder, embeddings_varying_encoder
+        )
+
+        lstm_output_decoder = self.post_lstm_gate_decoder(decoder_output)
+        lstm_output_decoder = self.post_lstm_add_norm_decoder(
+            lstm_output_decoder, embeddings_varying_decoder
+        )
+
+        lstm_output = Tensor.empty(lstm_output_decoder.shape)
+        lstm_output = lstm_output.cat([lstm_output_encoder, lstm_output_decoder], dim=1)
+
+        static_context_enrichment = self.static_context_enrichment(static_embedding)
+        attn_input = self.static_enrichment(
+            lstm_output, self.expand_static_context(static_context_enrichment, timesteps)
+        )
+
+        attn_output, attn_output_weights = self.multihead_attn(
+            q=attn_input[:, max_encoder_length:],
+            k=attn_input,
+            v=attn_input,
+            mask=self.get_attention_mask(
+                encoder_lengths=encoder_lengths,
+                decoder_lengths=decoder_lengths,
+            ),
+        )
+
+        attn_output = self.post_attn_gate_norm(attn_output, attn_input[:, max_encoder_length:])
+
+        output = self.pos_wise_ff(attn_output)
+
+        output = self.pre_output_gate_norm(output, lstm_output[:, max_encoder_length:])
+        if self.target_count > 1:
+            output = [output_layer(output) for output_layer in self.output_layer]
+        else:
+            output = self.output_layer(output)
+
+        # return self.to_network_output(
+        #     prediction=self.transform_output(output, target_scale=x["target_scale"]),
+        #     encoder_attention=attn_output_weights[..., :max_encoder_length],
+        #     decoder_attention=attn_output_weights[..., max_encoder_length:],
+        #     static_variables=static_variable_selection,
+        #     encoder_variables=encoder_sparse_weights,
+        #     decoder_variables=decoder_sparse_weights,
+        #     decoder_lengths=decoder_lengths,
+        #     encoder_lengths=encoder_lengths,
+        # )
+
         pass  # TEMP
+
+    def expand_static_context(
+        self,
+        context: Tensor,
+        timesteps: int,
+    ) -> Tensor:
+        return context[:, None].expand(-1, timesteps, -1)
+
+    def get_attention_mask(
+        self,
+        encoder_lengths: Tensor,
+        decoder_lengths: Tensor,
+    ):
+        decoder_length = decoder_lengths.max()
+        if self.causal_attention:
+            attend_step = Tensor.arange(decoder_length, device=self.device)
+            predict_step = Tensor.arange(0, decoder_length, device=self.device)[:, None]
+            decoder_mask = (
+                (attend_step >= predict_step).unsqueeze(0).expand(encoder_lengths.size(0), -1, -1)
+            )
+        else:
+            decoder_mask = (
+                self.create_mask(decoder_length, decoder_lengths)
+                .unsqueeze(1)
+                .expand(-1, decoder_length, -1)
+            )
+
+        encoder_mask = (
+            self.create_mask(encoder_lengths.max(), encoder_lengths)
+            .unsqueeze(1)
+            .expand(-1, decoder_length, -1)
+        )
+
+        mask = Tensor.empty(encoder_mask.shape)
+        mask = mask.cat(
+            (
+                encoder_mask,
+                decoder_mask,
+            ),
+            dim=2,
+        )
+        return mask
+
+    def create_mask(
+        self,
+        size: int,
+        lengths: Tensor,
+        inverse: bool = False,
+    ) -> Tensor:
+        if inverse:
+            return Tensor.arange(size, device=lengths.device).unsqueeze(0) < lengths.unsqueeze(-1)
+        else:
+            return Tensor.arange(size, device=lengths.device).unsqueeze(0) >= lengths.unsqueeze(-1)
 
     def save(self) -> None:
         self.file_name = "temporal_fusion_transformer_model.safetensors"
@@ -250,8 +436,3 @@ class TemporalFusionTransformer:
         model_state = safe_load(self.file_name)
 
         load_state_dict(self, model_state)
-
-    def predict(
-        self,
-    ) -> any:  # NOTE: NEEDS TYPE
-        pass  # TEMP
