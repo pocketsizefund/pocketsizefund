@@ -12,9 +12,9 @@ class TimeDistributedInterpolation:
         self,
         x: Tensor,
     ) -> Tensor:
+        x = x.unsqueeze(1)
         upsampled = x.interpolate(
-            x.unsqueeze(1),
-            self.output_size,
+            (self.output_size,),
             mode="linear",
             align_corners=True,
         ).squeeze(1)

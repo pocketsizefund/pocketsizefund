@@ -14,37 +14,33 @@ class MultiEmbedding:
             for name, size in embedding_sizes.items()
         }
 
-        self.categorical_groups = categorical_groups
         self.x_categoricals = x_categoricals
+        self.categorical_groups = categorical_groups
 
         self.embeddings = {}
         for name in self.embedding_sizes.keys():
             embedding_size = self.embedding_sizes[name][1]
-            if self.maximum_embedding_size is not None:
-                embedding_size = min(embedding_size, self.maximum_embedding_size)
-
-            self.embedding_sizes[name] = list(self.embedding_sizes[name])
-            self.embedding_sizes[name][1] = embedding_size
 
             if name in self.categorical_groups:
                 self.embeddings[name] = TimeDistributedEmbeddingBag(
-                    self.embedding_sizes[name][0], embedding_size, mode="sum", batch_first=True
+                    feature_count=self.embedding_sizes[name][0],
+                    embedding_dimension=embedding_size,
                 )
             else:
-                self.embeddings[name] = MultiEmbedding(
-                    self.embedding_sizes[name][0],
-                    embedding_size,
+                self.embeddings[name] = Embedding(
+                    feature_count=self.embedding_sizes[name][0],
+                    embedding_dimension=embedding_size,
                 )
 
     def forward(
         self,
         x: Tensor,
     ) -> Dict[str, Tensor]:
-        input_vectors = {}
+        input_vectors: Dict[str, Tensor] = {}
 
         for name, embedding in self.embeddings.items():
             if name in self.categorical_groups:
-                input_vectors[name] = embedding(
+                input_vectors[name] = embedding.forward(
                     x[
                         ...,
                         [
@@ -55,7 +51,7 @@ class MultiEmbedding:
                 )
 
             else:
-                input_vectors[name] = embedding(x[..., self.x_categoricals.index(name)])
+                input_vectors[name] = embedding.forward(x[..., self.x_categoricals.index(name)])
 
         return input_vectors
 
@@ -73,18 +69,46 @@ class TimeDistributedEmbeddingBag:
         feature_count: int,
         embedding_dimension: int,
     ) -> None:
-        self.embeddings = Tensor.uniform(feature_count, embedding_dimension)
+        self.embedding_table = Tensor.uniform(
+            (feature_count, embedding_dimension),
+            low=-0.1,
+            high=0.1,
+        )
 
     def forward(
         self,
         x: Tensor,
     ) -> Tensor:
+        if len(x.shape) == 2:
+            x = x.unsqueeze(0)  # add batch dimension if 2D
+
         _, sequence_length, _ = x.shape
-        outputs = []
+
+        output = Tensor.empty(x.shape[0], self.embedding_table.shape[1])
 
         for t in range(sequence_length):
             features = x[:, t, :]
-            embeddings = features @ self.embeddings
-            outputs.append(embeddings)
+            embeddings = features @ self.embedding_table
 
-        return outputs[0].stack(outputs, dim=1) if len(outputs) > 1 else outputs[0]
+            output.stack(embeddings)
+
+        return output
+
+
+class Embedding:
+    def __init__(
+        self,
+        feature_count: int,
+        embedding_dimension: int,
+    ) -> None:
+        self.embedding_table = Tensor.uniform(
+            (feature_count, embedding_dimension),
+            low=-0.1,
+            high=0.1,
+        )
+
+    def forward(
+        self,
+        x: Tensor,
+    ) -> Tensor:
+        return self.embedding_table[x]
