@@ -1,6 +1,7 @@
 from tinygrad import Tensor
 from tinygrad.nn import Linear
-from typing import Tuple
+from tinygrad.dtype import DType, dtypes
+from typing import Tuple, List
 
 
 class InterpretableMultiHeadAttention:
@@ -13,6 +14,8 @@ class InterpretableMultiHeadAttention:
         self.heads_count = heads_count
         self.models_count = models_count
         self.dropout_rate = dropout_rate
+
+        # TODO: add divisible check on models_count and heads_count
 
         self.keys_dimensions = self.queries_dimensions = self.values_dimensions = (
             self.models_count // self.heads_count
@@ -41,8 +44,10 @@ class InterpretableMultiHeadAttention:
         v: Tensor,
         mask: Tensor = None,
     ) -> Tuple[Tensor, Tensor]:
-        heads = []
-        attentions = []
+        heads: List[Tensor] = []
+        attentions: List[Tensor] = []
+
+        # TODO: add check on mask shape match
 
         vs = self.values_layer(v)
 
@@ -50,16 +55,16 @@ class InterpretableMultiHeadAttention:
             qs = self.queries_layers[i](q)
             ks = self.keys_layers[i](k)
 
-            head, attention = self.attention(qs, ks, vs)
+            head, attention = self.attention.forward(qs, ks, vs, mask)
 
             head_droput = head.dropout(self.dropout_rate)
             heads.append(head_droput)
 
             attentions.append(attention)
 
-        head = heads[0].stack(heads[1:], axis=2) if len(heads) > 1 else heads[0]
+        head = heads[0].stack(*heads[1:], dim=2) if len(heads) > 1 else heads[0]
         attention = (
-            attentions[0].stack(attentions[1:], axis=2) if len(attentions) > 1 else attentions[0]
+            attentions[0].stack(*attentions[1:], dim=2) if len(attentions) > 1 else attentions[0]
         )
 
         outputs = head.mean(axis=2) if len(heads) > 1 else head
@@ -110,10 +115,10 @@ def masked_fill(
     return tensor * (1 - mask_tensor) + Tensor(value) * mask_tensor
 
 
-def tensor_astype(tensor: Tensor, dtype: str) -> Tensor:
-    if dtype.startswith("float") or dtype == "float32":
+def tensor_astype(tensor: Tensor, dtype: DType) -> Tensor:
+    if dtypes.is_float(dtype):
         return tensor * 1.0
-    elif dtype.startswith("int"):
-        return (tensor * 1).astype("int32")
+    elif dtypes.is_int(dtype):
+        return tensor * 1
     else:
         raise ValueError(f"Unsupported dtype: {dtype}")

@@ -12,6 +12,8 @@ dev-dependencies = [
     "tinygrad>=0.10.0",
     "polars>=0.18.0",
     "numpy>=1.26.4",
+    "category-encoders>=2.6.4",
+    "pyarrow>=18.1.0",
 ]
 
 [tool.uv.sources]

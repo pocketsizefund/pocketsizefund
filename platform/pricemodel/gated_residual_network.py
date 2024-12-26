@@ -45,7 +45,7 @@ class GatedResidualNetwork:
 
         x = x.elu(x)
         x = self.fc2(x)
-        x = self.gate_norm(x, residual)
+        x = self.gate_norm.forward(x, residual)
 
         return x
 
@@ -77,8 +77,8 @@ class GateAddNorm:
         x: Tensor,
         skip: Tensor,
     ) -> Tensor:
-        x = self.glu(x)
-        x = self.add_norm(x, skip)
+        x = self.glu.forward(x)
+        x = self.add_norm.forward(x, skip)
         return x
 
 
@@ -107,7 +107,7 @@ class GatedLinearUnit:
         split_dimension = -1
 
         split_size = x.shape[split_dimension] // 2
-        x1, x2 = input.split(split_size, axis=split_dimension)
+        x1, x2 = x.split(split_size, dim=split_dimension)
 
         gate = x2.sigmoid()
 
@@ -134,6 +134,6 @@ class AddNorm:
         skip: Tensor,
     ) -> Tensor:
         if self.input_size != self.skip_size:
-            skip = self.resample(skip)
+            skip = self.resample.forward(skip)
 
         return self.norm(x + skip)
