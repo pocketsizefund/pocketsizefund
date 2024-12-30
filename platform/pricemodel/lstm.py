@@ -23,7 +23,7 @@ class LSTM:
     def forward(
         self,
         x: Tensor,
-        hidden_state=None,
+        hidden_state: Tuple[Tensor, Tensor] = None,
     ) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
         batch_size, sequence_length, _ = x.shape
         if hidden_state is None:
@@ -79,7 +79,7 @@ class Layer:
     def forward(
         self,
         x: Tensor,
-        hidden_state: Tensor,  # NOTE: change type to tuple (?)
+        hidden_state: Tuple[Tensor, Tensor],
     ) -> Tuple[Tensor, Tensor]:
         hidden_previous_state, cell_previous_state = hidden_state
 

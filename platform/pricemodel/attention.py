@@ -15,8 +15,6 @@ class InterpretableMultiHeadAttention:
         self.models_count = models_count
         self.dropout_rate = dropout_rate
 
-        # TODO: add divisible check on models_count and heads_count
-
         self.keys_dimensions = self.queries_dimensions = self.values_dimensions = (
             self.models_count // self.heads_count
         )
@@ -46,8 +44,6 @@ class InterpretableMultiHeadAttention:
     ) -> Tuple[Tensor, Tensor]:
         heads: List[Tensor] = []
         attentions: List[Tensor] = []
-
-        # TODO: add check on mask shape match
 
         vs = self.values_layer(v)
 

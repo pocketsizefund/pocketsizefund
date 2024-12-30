@@ -9,6 +9,14 @@ class MultiEmbedding:
         x_categoricals: List[str] = None,
         categorical_groups: Optional[Dict[str, List[str]]] = {},
     ) -> None:
+        """
+        Embedding layer for categorical variables including groups of categorical variables.
+
+        embedding_sizes values are tuples of variable count (e.g. 10 unique variables) and
+        embedding dimensions (e.g. 3).
+        x_categoricals is a list of input variable names.
+        categorical_groups is a dictionary of groups of categorical variables.
+        """
         self.embedding_sizes = {
             name: (size, get_embedding_size(size)) if isinstance(size, int) else size
             for name, size in embedding_sizes.items()
@@ -19,16 +27,17 @@ class MultiEmbedding:
 
         self.embeddings = {}
         for name in self.embedding_sizes.keys():
+            unique_variable_count = self.embedding_sizes[name][0]
             embedding_size = self.embedding_sizes[name][1]
 
             if name in self.categorical_groups:
                 self.embeddings[name] = TimeDistributedEmbeddingBag(
-                    feature_count=self.embedding_sizes[name][0],
+                    feature_count=unique_variable_count,
                     embedding_dimension=embedding_size,
                 )
             else:
                 self.embeddings[name] = Embedding(
-                    feature_count=self.embedding_sizes[name][0],
+                    feature_count=unique_variable_count,
                     embedding_dimension=embedding_size,
                 )
 
@@ -60,6 +69,7 @@ class MultiEmbedding:
         return input_vectors
 
 
+# NOTE: this can likely be removed
 def get_embedding_size(class_count: int, max_size: int = 100) -> int:
     if class_count > 2:
         return min(round(1.6 * class_count**0.56), max_size)
