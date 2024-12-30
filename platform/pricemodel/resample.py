@@ -19,6 +19,6 @@ class ResampleNorm:
 
     def forward(self, x: Tensor) -> Tensor:
         if self.input_size != self.output_size:
-            x = self.resample(x)
+            x = self.resample.forward(x)
 
         return self.norm(x)

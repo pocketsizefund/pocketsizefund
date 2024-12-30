@@ -15,12 +15,11 @@ class VariableSelectionNetwork:
         input_embedding_flags: Dict[str, bool] = None,
         dropout_rate: float = 0.1,
         context_size: int = None,
-        single_variable_grns: Dict[str, GatedResidualNetwork] = {},  # NOTE: CHANGE TYPE (?)
+        single_variable_grns: Dict[str, GatedResidualNetwork] = {},
         prescalers: Dict[str, Linear] = {},
     ) -> None:
         self.input_sizes = input_sizes
         self.hidden_size = hidden_size
-        self.input_size_total = sum(input_sizes.values())
         self.input_embedding_flags = input_embedding_flags
         self._input_embedding_flags = (
             {} if input_embedding_flags is None else deepcopy(input_embedding_flags)
@@ -31,28 +30,24 @@ class VariableSelectionNetwork:
         self.single_variable_grns = single_variable_grns
         self.prescalers = prescalers
 
-        if self.input_size_total > 1:
+        if self.input_count > 1:
             if self.context_size is not None:
                 self.flattened_grn = GatedResidualNetwork(
-                    self.input_size_total,  # NOTE: FIX
-                    min(self.hidden_size, self.input_size_total),
                     self.input_size_total,
+                    min(self.hidden_size, self.input_count),
+                    self.input_count,
                     self.dropout_rate,
                     self.context_size,
                 )
             else:
                 self.flattened_grn = GatedResidualNetwork(
-                    self.input_size_total,  # NOTE: FIX
-                    min(self.hidden_size, self.input_size_total),
                     self.input_size_total,
+                    (self.hidden_size, self.input_count),
+                    self.input_count,
                     self.dropout_rate,
                 )
 
         for name, input_size in input_sizes.items():
-            print(
-                f"Initializing prescaler for '{name}': input_size={input_size}, hidden_size={self.hidden_size}"
-            )
-
             if name in single_variable_grns:
                 self.single_variable_grns[name] = single_variable_grns[name]
 
@@ -62,7 +57,7 @@ class VariableSelectionNetwork:
             else:
                 self.single_variable_grns[name] = GatedResidualNetwork(
                     input_size=input_size,
-                    hidden_size=min(self.input_size_total, self.hidden_size),
+                    hidden_size=min(self.input_count, self.hidden_size),
                     output_size=self.hidden_size,
                     dropout_rate=self.dropout_rate,
                 )
@@ -74,27 +69,30 @@ class VariableSelectionNetwork:
             else:
                 self.prescalers[name] = Linear(input_size, self.hidden_size)
 
+    @property
+    def input_size_total(self):
+        return sum(
+            size if name in self._input_embedding_flags else size
+            for name, size in self.input_sizes.items()
+        )
+
+    @property
+    def input_count(self):
+        return len(self.input_sizes)
+
     def forward(
         self,
         x: Dict[str, Tensor],
         context: Tensor = None,
     ) -> Tuple[Tensor, Tensor]:
-        if self.input_size_total > 1:
+        if self.input_count > 1:
             outputs = []
             weight_inputs = []
             for name in self.input_sizes.keys():
                 variable_embedding = x[name]
-                print(
-                    f"Forward processing '{name}': variable_embedding shape={variable_embedding.shape}"
-                )
 
                 if name in self.prescalers:
-                    print(
-                        f"Applying prescaler to '{name}': prescaler={self.prescalers[name]}, variable_embedding shape={variable_embedding.shape}"
-                    )
-
                     variable_embedding = self.prescalers[name](variable_embedding)
-                    # variable_embedding = variable_embedding.view(variable_embedding.size(0), -1)
 
                 weight_inputs.append(variable_embedding)
                 outputs.append(self.single_variable_grns[name].forward(variable_embedding))
@@ -122,7 +120,7 @@ class VariableSelectionNetwork:
             if name in self.prescalers:
                 variable_embedding = self.prescalers[name](variable_embedding)
 
-            outputs = self.single_variable_grns[name](variable_embedding)
+            outputs = self.single_variable_grns[name].forward(variable_embedding)
             if outputs.ndim == 3:
                 sparse_weights = Tensor.ones(
                     outputs.size(0),

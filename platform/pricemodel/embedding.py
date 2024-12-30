@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from tinygrad import Tensor
 
 
@@ -31,6 +31,10 @@ class MultiEmbedding:
                     feature_count=self.embedding_sizes[name][0],
                     embedding_dimension=embedding_size,
                 )
+
+    @property
+    def output_size(self) -> Union[Dict[str, int], int]:
+        return {name: s[1] for name, s in self.embedding_sizes.items()}
 
     def forward(
         self,
