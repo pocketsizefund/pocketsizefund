@@ -1,10 +1,9 @@
-from typing import Dict
+from typing import Dict, Tuple
 from tinygrad import Tensor
 from tinygrad.nn import Linear
 from copy import deepcopy
-from resample import ResampleNorm
-from gated_residual_network import GatedResidualNetwork
-from typing import Tuple
+from pricemodel.resample import ResampleNorm
+from pricemodel.gated_residual_network import GatedResidualNetwork
 
 
 class VariableSelectionNetwork:

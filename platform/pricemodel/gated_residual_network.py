@@ -1,6 +1,6 @@
 from tinygrad import Tensor
 from tinygrad.nn import Linear, LayerNorm
-from interpolation import TimeDistributedInterpolation
+from pricemodel.interpolation import TimeDistributedInterpolation
 
 
 class GatedResidualNetwork:
@@ -61,7 +61,7 @@ class GateAddNorm:
         hidden_size = hidden_size or input_size
         skip_size = skip_size or hidden_size
 
-        self.glu = GatedLinearUnit(
+        self.gated_linear_unit = GatedLinearUnit(
             input_size=input_size,
             hidden_size=hidden_size,
             dropout_rate=dropout_rate,
@@ -77,7 +77,7 @@ class GateAddNorm:
         x: Tensor,
         skip: Tensor,
     ) -> Tensor:
-        x = self.glu.forward(x)
+        x = self.gated_linear_unit.forward(x)
         x = self.add_norm.forward(x, skip)
         return x
 
@@ -124,9 +124,9 @@ class AddNorm:
         self.skip_size = skip_size or input_size
 
         if self.input_size != self.skip_size:
-            self.resample = TimeDistributedInterpolation(self.input_size)
+            self.resampler = TimeDistributedInterpolation(self.input_size)
 
-        self.norm = LayerNorm(self.input_size)
+        self.normalizer = LayerNorm(self.input_size)
 
     def forward(
         self,
@@ -134,6 +134,6 @@ class AddNorm:
         skip: Tensor,
     ) -> Tensor:
         if self.input_size != self.skip_size:
-            skip = self.resample.forward(skip)
+            skip = self.resampler.forward(skip)
 
-        return self.norm(x + skip)
+        return self.normalizer(x + skip)

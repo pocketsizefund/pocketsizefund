@@ -5,10 +5,9 @@
 
 service_name=$1
 
-cd $root/platform/${service_name}
-
 if [ "$service_name" = "pricemodel" ]; then
-    exit 0
+    uv run pytest $root/platform/${service_name}/
 else
+    cd $root/platform/${service_name}
     cargo test
 fi
