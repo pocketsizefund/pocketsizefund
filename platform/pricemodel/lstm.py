@@ -58,8 +58,8 @@ class LSTM:
             if self.dropout_rate > 0 and layer_idx < self.layer_count - 1:
                 x = x.dropout(self.dropout_rate)
 
-            hidden_state_layers.append(hidden_state_layer.unsqueeze(0))
-            cell_state_layers.append(cell_state_layer.unsqueeze(0))
+            hidden_state_layers.append(hidden_state_layer)
+            cell_state_layers.append(cell_state_layer)
 
         hidden_state_output = hidden_state_layers[0].stack(*hidden_state_layers[1:], dim=0)
         cell_state_output = cell_state_layers[0].stack(*cell_state_layers[1:], dim=0)

@@ -2,7 +2,7 @@
 
 # mise description="unit tests for the python code"
 
-PYTHONPATH=libraries/python uv run coverage run \
+uv run coverage run \
     --parallel-mode \
     --omit '*/__init__.py,**/test_*.py' \
     --data-file .python_coverage.output \
