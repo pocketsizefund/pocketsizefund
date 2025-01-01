@@ -53,18 +53,17 @@ class InterpretableMultiHeadAttention:
 
             head, attention = self.attention.forward(qs, ks, vs, mask)
 
-            head_droput = head.dropout(self.dropout_rate)
-            heads.append(head_droput)
+            head = head.dropout(self.dropout_rate)
+            heads.append(head)
 
             attentions.append(attention)
 
-        head = heads[0].stack(*heads[1:], dim=2) if len(heads) > 1 else heads[0]
-        attention = (
-            attentions[0].stack(*attentions[1:], dim=2) if len(attentions) > 1 else attentions[0]
-        )
+        head = Tensor.empty(heads[0].shape)
 
-        outputs = head.mean(axis=2) if len(heads) > 1 else head
+        head.stack(*heads, dim=0)
+        attention.stack(*attentions, dim=0)
 
+        outputs = head.transpose(1, 2).reshape(q.shape[0], q.shape[1], -1)
         outputs = self.head_weight(outputs)
         outputs = outputs.dropout(self.dropout_rate)
 
