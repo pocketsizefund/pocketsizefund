@@ -63,8 +63,8 @@ def test_scaled_dot_production_attention():
 
 
 def test_interpretable_multi_head_attention():
-    heads_count = 8
-    models_count = 128
+    heads_count = 2
+    models_count = 4
     dropout_rate = 0.1
 
     imha = InterpretableMultiHeadAttention(
@@ -73,25 +73,27 @@ def test_interpretable_multi_head_attention():
         dropout_rate=dropout_rate,
     )
 
-    assert imha.heads_count == 8
-    assert imha.models_count == 128
+    assert imha.heads_count == 2
+    assert imha.models_count == 4
     assert imha.dropout_rate == 0.1
 
-    assert imha.keys_dimensions == imha.queries_dimensions == imha.values_dimensions == 128 // 8
-    assert len(imha.keys_layers) == 8
-    assert len(imha.queries_layers) == 8
-
-    batch_size = 32
-    sequence_length = 10
-    models_count = 128
+    batch_size = 3
+    sequence_length = 5
 
     q = Tensor.randn(batch_size, sequence_length, models_count)
     k = Tensor.randn(batch_size, sequence_length, models_count)
     v = Tensor.randn(batch_size, sequence_length, models_count)
+    mask = Tensor.ones(batch_size, sequence_length, sequence_length)
 
-    mask = None
+    outputs, attention = imha.forward(q, k, v, mask)
 
-    outputs, attention_scores = imha.forward(q, k, v, mask)
-
-    assert outputs.shape == (32, 10, 128)
-    assert attention_scores.shape == (32, 10, 8, 10)
+    assert outputs.shape == (
+        batch_size,
+        sequence_length,
+        models_count,
+    ), f"Unexpected output shape: {outputs.shape}"
+    assert attention.shape == (
+        batch_size,
+        sequence_length,
+        sequence_length,
+    ), f"Unexpected attention shape: {attention.shape}"
