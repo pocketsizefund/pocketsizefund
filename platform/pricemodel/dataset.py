@@ -1,12 +1,23 @@
 import polars as pl
-import json
-from tinygrad import Tensor
-from typing import Iterable
 import category_encoders as ce
+from tinygrad import Tensor
+from typing import Iterable, Dict, Union
 
 
-class Preprocessor:
-    def __init__(self, data: pl.DataFrame) -> None:
+class DataSet:
+    def __init__(
+        self,
+        batch_size: int,
+        sample_count: int,
+        means: int = None,
+        standard_deviations: int = None,
+    ) -> None:
+        self.batch_size = batch_size
+        self.sample_count = sample_count
+        self.means = means
+        self.standard_deviations = standard_deviations
+
+    def set_scalers(self, data: pl.DataFrame) -> None:
         self.skipped_columns = ["ticker", "timestamp"]
 
         filtered_data = data.drop(self.skipped_columns)
@@ -19,25 +30,9 @@ class Preprocessor:
             [pl.col(c).std().alias(c) for c in filtered_data.columns]
         )
 
-    def save_parameters(self) -> None:
-        output = {
-            "means": self.means.to_dict(),
-            "standard_deviations": self.standard_deviations.to_dict(),
-        }
-
-        with open("normalization_parameters.json", "w") as json_file:
-            json.dump(output, json_file, indent=4)
-
-    def load_parameters(self) -> None:
-        with open("normalization_parameters.json", "r") as json_file:
-            input = json.load(json_file)
-
-            self.means = pl.DataFrame(input["means"])
-            self.standard_deviations = pl.DataFrame(input["standard_deviations"])
-
-    def normalize(self, data: pl.DataFrame) -> pl.DataFrame:
+    def set_data(self, data: pl.DataFrame) -> None:
         if self.means is None or self.standard_deviations is None:
-            raise ValueError("Normalization parameters have not been set")
+            raise ValueError("Scaler parameters have not been set")
 
         filtered_data = data.drop(self.skipped_columns)
 
@@ -70,14 +65,17 @@ class Preprocessor:
 
         normalized_data = pl.concat([textual_data, temporal_data], how="horizontal")
 
-        return normalized_data
+        self.data = normalized_data
 
-
-class DataLoader:
-    def __init__(self, data: pl.DataFrame, batch_size: int = 64) -> None:
-        self.data = data
-        self.batch_size = batch_size
-        self.sample_count = data.shape[0]
+    def get_information(self) -> Dict[str, Union[str, int]]:
+        return {
+            "means": self.means,  # NOTE: make Tensor (?)
+            "standard_deviations": self.standard_deviations,  # NOTE: make Tensor (?)
+            # "encoder_lengths": [],  # TEMP
+            # "decoder_lengths": [],  # TEMP
+            # "encoder_categories": Tensor,
+            # "decoder_categories": Tensor,
+        }
 
     def __iter__(self) -> Iterable[Tensor]:
         for i in range(0, self.sample_count, self.batch_size):
