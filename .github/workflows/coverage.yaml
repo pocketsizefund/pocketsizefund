@@ -24,7 +24,7 @@ jobs:
           experimental: true
       - name: Run unit tests with coverage
         run: |
-          mise run python:test
+          mise run libraries:python:test
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
@@ -59,7 +59,7 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          mise run rust:test
+          mise run libraries:rust:test
           cargo tarpaulin --out Lcov --output-dir ./coverage
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2

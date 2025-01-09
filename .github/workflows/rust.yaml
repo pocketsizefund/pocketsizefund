@@ -47,4 +47,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: -- -D warnings
       - name: Run linting
-        run: mise run rust:lint
+        run: mise run libraries:rust:lint
