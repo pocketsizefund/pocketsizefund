@@ -30,8 +30,8 @@ class TemporalFusionTransformer:
         attention_head_size: int = 4,
         static_categoricals: Optional[List[str]] = ["ticker"],
         # static_reals: Optional[List[str]] = [],  # TODO: remove if unused
-        # time_varying_categoricals_encoder: Optional[List[str]] = [],  # TODO: remove if unused
-        # time_varying_categoricals_decoder: Optional[List[str]] = [],  # TODO: remove if unused
+        time_varying_categoricals_encoder: Optional[List[str]] = ["day_of_week"],
+        time_varying_categoricals_decoder: Optional[List[str]] = ["day_of_week"],
         # categorical_groups: Optional[Union[Dict, List[str]]] = {},  # TODO: remove if unused
         time_varying_reals_encoder: Optional[List[str]] = [
             "open",
@@ -54,7 +54,7 @@ class TemporalFusionTransformer:
             "close",
             "volume",
         ],
-        x_categoricals: Optional[List[str]] = ["ticker"],
+        x_categoricals: Optional[List[str]] = ["ticker", "day_of_week"],
         hidden_continuous_size: int = 8,
         hidden_continuous_sizes: Optional[Dict[str, int]] = {},  # TODO: remove if unused
         embedding_sizes: Optional[
@@ -77,10 +77,10 @@ class TemporalFusionTransformer:
         self.reals = list(dict.fromkeys(time_varying_reals_encoder + time_varying_reals_decoder))
         # self.static_variables = static_categoricals + static_reals
         self.static_variables = static_categoricals
-        # self.encoder_variables = time_varying_categoricals_encoder + time_varying_reals_encoder
-        self.encoder_variables = time_varying_reals_encoder
-        # self.decoder_variables = time_varying_categoricals_decoder + time_varying_reals_decoder
-        self.decoder_variables = time_varying_reals_decoder
+        self.encoder_variables = time_varying_categoricals_encoder + time_varying_reals_encoder
+        # self.encoder_variables = time_varying_reals_encoder
+        self.decoder_variables = time_varying_categoricals_decoder + time_varying_reals_decoder
+        # self.decoder_variables = time_varying_reals_decoder
         self.causal_attention = causal_attention
 
         # processing inputs embeddings
@@ -118,10 +118,10 @@ class TemporalFusionTransformer:
         )
 
         # variable selection for encoder and decoder
-        # encoder_input_sizes = {
-        #     name: self.input_embeddings.output_size[name]
-        #     for name in time_varying_categoricals_encoder
-        # }
+        encoder_input_sizes = {
+            name: self.input_embeddings.output_size[name]
+            for name in time_varying_categoricals_encoder
+        }
         # encoder_input_sizes.update(
         #     {
         #         name: hidden_continuous_sizes.get(name, hidden_continuous_size)
@@ -129,10 +129,10 @@ class TemporalFusionTransformer:
         #     }
         # )
 
-        # decoder_input_sizes = {
-        #     name: self.input_embeddings.output_size[name]
-        #     for name in time_varying_categoricals_decoder
-        # }
+        decoder_input_sizes = {
+            name: self.input_embeddings.output_size[name]
+            for name in time_varying_categoricals_decoder
+        }
         # decoder_input_sizes.update(
         #     {
         #         name: hidden_continuous_sizes.get(name, hidden_continuous_size)
@@ -159,29 +159,29 @@ class TemporalFusionTransformer:
         #             dropout_rate=dropout_rate,
         #         )
 
-        # self.encoder_variable_selection = VariableSelectionNetwork(
-        #     input_sizes=encoder_input_sizes,
-        #     hidden_size=hidden_size,
-        #     input_embedding_flags={name: True for name in time_varying_categoricals_encoder},
-        #     dropout_rate=dropout_rate,
-        #     context_size=hidden_size,
-        #     prescalers=self.prescalers,
-        #     single_variable_grns=(
-        #         {} if not share_single_variable_networks else self.shared_single_variable_grns
-        #     ),
-        # )
+        self.encoder_variable_selection = VariableSelectionNetwork(
+            input_sizes=encoder_input_sizes,
+            hidden_size=hidden_size,
+            input_embedding_flags={name: True for name in time_varying_categoricals_encoder},
+            dropout_rate=dropout_rate,
+            context_size=hidden_size,
+            prescalers=self.prescalers,
+            # single_variable_grns=(
+            #     {} if not share_single_variable_networks else self.shared_single_variable_grns
+            # ),
+        )
 
-        # self.decoder_variable_selection = VariableSelectionNetwork(
-        #     input_sizes=decoder_input_sizes,
-        #     hidden_size=hidden_size,
-        #     input_embedding_flags={name: True for name in time_varying_categoricals_decoder},
-        #     dropout_rate=dropout_rate,
-        #     context_size=hidden_size,
-        #     prescalers=self.prescalers,
-        #     single_variable_grns=(
-        #         {} if not share_single_variable_networks else self.shared_single_variable_grns
-        #     ),
-        # )
+        self.decoder_variable_selection = VariableSelectionNetwork(
+            input_sizes=decoder_input_sizes,
+            hidden_size=hidden_size,
+            input_embedding_flags={name: True for name in time_varying_categoricals_decoder},
+            dropout_rate=dropout_rate,
+            context_size=hidden_size,
+            prescalers=self.prescalers,
+            # single_variable_grns=(
+            #     {} if not share_single_variable_networks else self.shared_single_variable_grns
+            # ),
+        )
 
         # static encoders for variable selection
         self.static_context_variable_selection = GatedResidualNetwork(
@@ -290,12 +290,12 @@ class TemporalFusionTransformer:
     def forward(self, x: Dict[str, Tensor]) -> Dict[str, Tensor]:
         encoder_lengths = x["encoder_lengths"]
         decoder_lengths = x["decoder_lengths"]
-        x_cat = Tensor.empty(x["encoder_cat"].shape)  # TODO: rename variable
+        x_cat = Tensor.empty(x["encoder_categories"].shape)  # TODO: rename variable
         x_cat = x_cat.cat(
             x["encoder_categories"], x["decoder_categories"], dim=1
         )  # concatenate in time dimension
 
-        x_cont = Tensor.empty(x["encoder_cont"].shape)  # TODO: rename variable
+        x_cont = Tensor.empty(x["encoder_continous_variables"].shape)  # TODO: rename variable
         x_cont = x_cont.cat(
             x["encoder_continous_variables"], x["decoder_continous_variables"], dim=1
         )  # concatenate in time dimension
@@ -328,33 +328,33 @@ class TemporalFusionTransformer:
                 (x_cont.size(0), 0), dtype=self.dtype, device=self.device
             )
 
-        # static_context_variable_selection = self.expand_static_context(
-        #     self.static_context_variable_selection.forward(static_embedding),
-        #     timesteps,
-        # )
+        static_context_variable_selection = self.expand_static_context(
+            self.static_context_variable_selection.forward(static_embedding),
+            timesteps,
+        )
 
         embeddings_varying_encoder = {
             name: input_vectors[name][:, :max_encoder_length] for name in self.encoder_variables
         }
 
-        # embeddings_varying_encoder, encoder_sparse_weights = (
-        #     self.encoder_variable_selection.forward(
-        #         embeddings_varying_encoder,
-        #         static_context_variable_selection[:, :max_encoder_length],
-        #     )
-        # )
+        embeddings_varying_encoder, encoder_sparse_weights = (
+            self.encoder_variable_selection.forward(
+                embeddings_varying_encoder,
+                static_context_variable_selection[:, :max_encoder_length],
+            )
+        )
 
         embeddings_varying_decoder = {
             name: input_vectors[name][:, max_encoder_length:]
             for name in self.decoder_variables  # select decoder
         }
 
-        # embeddings_varying_decoder, decoder_sparse_weights = (
-        #     self.decoder_variable_selection.forward(
-        #         embeddings_varying_decoder,
-        #         static_context_variable_selection[:, max_encoder_length:],
-        #     )
-        # )
+        embeddings_varying_decoder, decoder_sparse_weights = (
+            self.decoder_variable_selection.forward(
+                embeddings_varying_decoder,
+                static_context_variable_selection[:, max_encoder_length:],
+            )
+        )
 
         # LSTM calculate initial state
         input_hidden = self.static_context_initial_hidden_lstm.forward(static_embedding).expand(
