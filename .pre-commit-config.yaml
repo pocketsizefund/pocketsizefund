@@ -4,14 +4,14 @@ repos:
     - id: lint
       name: Python lint
       entry: |
-        mise run python:lint
+        mise run libraries:python:lint
       pass_filenames: false
       types: [file, python]
       language: system
     - id: lint
       name: Rust lint
       entry: |
-        mise run rust:lint
+        mise run libraries:rust:lint
       pass_filenames: false
       types: [file, rust]
       language: system

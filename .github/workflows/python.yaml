@@ -23,4 +23,4 @@ jobs:
         with:
           experimental: true
       - name: Run lint
-        run: mise run python:lint
+        run: mise run libraries:python:lint
