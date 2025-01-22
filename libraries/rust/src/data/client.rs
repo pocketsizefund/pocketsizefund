@@ -88,6 +88,30 @@ impl Hash for Prediction {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Portfolio {
+    pub timestamp: DateTime<Utc>,
+    pub ticker: String,
+    pub predicted_mean: f64,
+    pub allocation: f64,
+    pub investment_amount: f64,
+}
+
+impl Eq for Portfolio {}
+
+impl PartialEq for Portfolio {
+    fn eq(&self, other: &Self) -> bool {
+        self.ticker == other.ticker && self.timestamp == other.timestamp
+    }
+}
+
+impl Hash for Portfolio {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.timestamp.hash(state);
+        self.ticker.hash(state);
+    }
+}
+
 #[derive(ThisError, Debug)]
 pub enum Error {
     #[error("Parse URL error: {0}")]
@@ -121,6 +145,8 @@ pub trait Interface: Send + Sync {
     async fn load_equities_bars(&self) -> Result<Vec<Bar>, Error>;
     async fn write_predictions(&self, predictions: Vec<Prediction>) -> Result<(), Error>;
     async fn load_predictions(&self) -> Result<Vec<Prediction>, Error>;
+    async fn write_portfolios(&self, portfolio: Vec<Portfolio>) -> Result<(), Error>;
+    async fn load_portfolios(&self) -> Result<Vec<Portfolio>, Error>;
 }
 
 #[derive(Clone)]
@@ -198,6 +224,8 @@ impl Client {
 const EQUITIES_BARS_PATH: &str = "equities/bar/all.gz";
 
 const PREDICTIONS_PATH: &str = "predictions/all.gz";
+
+const PORTFOLIOS_PATH: &str = "portfolio/all.gz";
 
 #[async_trait]
 impl Interface for Client {
@@ -333,6 +361,42 @@ impl Interface for Client {
         .await?;
 
         Ok(predictions)
+    }
+
+    async fn write_portfolios(&self, portfolio: Vec<Portfolio>) -> Result<(), Error> {
+        let mut combined_portfolios: HashSet<Portfolio> = HashSet::new();
+
+        let original_portfolios: Vec<Portfolio> = load_objects(
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
+            PORTFOLIOS_PATH.to_string(),
+        )
+        .await?;
+
+        combined_portfolios.extend(original_portfolios.into_iter());
+
+        combined_portfolios.extend(portfolio.into_iter());
+
+        let result = write_objects(
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
+            PORTFOLIOS_PATH.to_string(),
+            &combined_portfolios,
+        )
+        .await?;
+
+        Ok(result)
+    }
+
+    async fn load_portfolios(&self) -> Result<Vec<Portfolio>, Error> {
+        let portfolios = load_objects(
+            &self.s3_client,
+            self.s3_data_bucket_name.clone(),
+            PREDICTIONS_PATH.to_string(),
+        )
+        .await?;
+
+        Ok(portfolios)
     }
 }
 

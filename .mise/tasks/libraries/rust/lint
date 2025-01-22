@@ -9,7 +9,7 @@ cargo machete --with-metadata
 
 rustup component add clippy
 
-cargo clippy --all --
+cargo clippy --workspace --
 
 rustup component add rustfmt
 

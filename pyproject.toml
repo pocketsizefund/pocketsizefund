@@ -23,6 +23,7 @@ library = { workspace = true }
 members = [
     "libraries/python/",
     "platform/pricemodel/",
+    "platform/positionmanager/",
 ]
 
 [tool.ruff]
@@ -55,4 +56,5 @@ build-backend = "hatchling.build"
 packages = [
     "libraries/python",
     "platform/pricemodel",
+    "platform/positionmanager",
 ]

@@ -2,6 +2,8 @@
 
 # mise description="unit tests for the python code"
 
+uv pip install -e libraries/python
+
 uv run coverage run \
     --parallel-mode \
     --omit '*/__init__.py,**/test_*.py' \

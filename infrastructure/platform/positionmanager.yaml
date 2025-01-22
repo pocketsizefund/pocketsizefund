@@ -28,16 +28,11 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: ALPACA_API_SECRET
-            - name: DARQUBE_API_KEY
+            - name: ENVIRONMENT
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: DARQUBE_API_KEY
-            - name: IS_PRODUCTION
-              valueFrom:
-                secretKeyRef:
-                  name: platform
-                  key: IS_PRODUCTION
+                  key: ENVIRONMENT
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger

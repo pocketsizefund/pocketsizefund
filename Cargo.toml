@@ -8,7 +8,7 @@ members = [
     "platform/discordbot",
     "platform/datacollector",
     "platform/dataprovider",
-    "platform/positionmanager",
     "platform/metricsreporter",
     "platform/datafetcher",
+    "platform/tradeexecutor",
 ]

@@ -1,87 +1,86 @@
 use actix_web::middleware::Logger;
 use actix_web::{post, web, App, HttpResponse, HttpServer};
 use chrono::{DateTime, Utc};
-use cloudevents::event::Data;
-use cloudevents::Event;
+use cloudevents::{Data, Event};
 use mockall::mock;
-use pocketsizefund::data::Prediction;
 use pocketsizefund::events::build_response_event;
 use pocketsizefund::trade::{
     Client as TradeClient, Error as TradeError, Interface as TradeInterface, Order,
     PatternDayTraderCheck, PortfolioPerformance, PortfolioPosition,
+    Side::{Long, Short},
 };
-use rand::seq::SliceRandom;
-use reqwest::{Client as HTTPClient, Response};
 use serde::Deserialize;
-use serde_json::json;
 use std::env;
 use std::io;
 use std::num::ParseIntError;
 use std::sync::Arc;
-use url::Url;
+
+#[derive(Deserialize)]
+struct Position {
+    ticker: String,
+    investment_amount: f64,
+}
+
+#[derive(Deserialize)]
+struct PositionPayload {
+    positions: Vec<Position>,
+}
 
 #[post("/health")]
 async fn health_handler() -> HttpResponse {
     HttpResponse::Ok().body("OK")
 }
 
-#[derive(Deserialize)]
-struct Payload {
-    written_at: DateTime<Utc>,
-}
-
 #[post("/trade")]
 async fn trade_handler(
     event: web::Json<Event>,
     trade_client: web::Data<Arc<dyn TradeInterface>>,
-    data_provider_url: web::Data<Arc<Url>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
-    let mut start_at = Utc::now().to_rfc3339();
+    let mut new_positions: Vec<Position> = Vec::new();
+
     if let Some(Data::Json(json)) = event.data() {
-        let payload: Payload = match serde_json::from_value(json.clone()) {
+        let payload: PositionPayload = match serde_json::from_value(json.clone()) {
             Ok(val) => val,
             Err(error) => {
                 return Err(error.into());
             }
         };
 
-        start_at = payload.written_at.to_rfc3339();
+        new_positions = payload.positions;
     }
 
-    let end_at = Utc::now().to_rfc3339();
+    let mut closing_orders: Vec<Order> = Vec::new();
+    let old_positions = trade_client.get_portfolio_positions().await?;
+    for old_position in old_positions {
+        let closing_order = Order {
+            ticker: old_position.ticker,
+            quantity: old_position.quantity,
+            side: Short, // assumes long positions only
+        };
 
-    let client = HTTPClient::new();
-    let data_provider_response: Response = client
-        .post(data_provider_url.as_ref().to_string())
-        .json(&json!({
-            "start_at": start_at,
-            "end_at": end_at
-        }))
-        .send()
-        .await?;
+        closing_orders.push(closing_order);
+    }
 
-    let predictions: Vec<Prediction> = data_provider_response.json().await?;
+    let total_investment_amount: f64 = new_positions.iter().map(|p| p.investment_amount).sum();
 
-    let prediction = predictions
-        .choose(&mut rand::thread_rng())
-        .expect("No predictions found");
+    let mut opening_orders: Vec<Order> = Vec::new();
+    for new_position in new_positions {
+        let opening_order = Order {
+            ticker: new_position.ticker,
+            quantity: (new_position.investment_amount / total_investment_amount).floor(),
+            side: Long, // assumes long positions only
+        };
 
-    trade_client
-        .execute_baseline_buy(prediction.ticker.clone())
-        .await?;
+        opening_orders.push(opening_order);
+    }
 
-    let event = build_response_event(
-        "positionmanager".to_string(),
-        vec!["baselinebuy".to_string(), "executed".to_string()],
-        Some(
-            json!({
-                "ticker": prediction.ticker,
-            })
-            .to_string(),
-        ),
-    );
+    trade_client.execute_orders(opening_orders).await?;
 
-    Ok(event)
+    Ok(build_response_event(
+        "tradeexecutor".to_string(),
+        vec!["trades".to_string(), "completed".to_string()],
+        None,
+    ))
 }
 
 #[actix_web::main]
@@ -98,31 +97,19 @@ async fn main() -> std::io::Result<()> {
         env::var("ALPACA_API_KEY").expect("Alpaca API key"),
         env::var("ALPACA_API_SECRET").expect("Alpaca API secret"),
         env::var("DARQUBE_API_KEY").expect("Darqube API key"),
-        env::var("IS_PRODUCTION")
-            .expect("Production flag not found")
-            .parse()
-            .expect("Production flag not a boolean"),
+        env::var("ENVIRONMENT")
+            .expect("Environment")
+            .eq("production"),
     );
 
-    let trade_client = Arc::new(trade_client);
+    let trade_client: Arc<dyn TradeInterface> = Arc::new(trade_client);
 
     let trade_client = web::Data::new(trade_client);
-
-    let data_provider_url = format!(
-        "http://dataprovider.{}.svc.cluster.local:8080/predictions",
-        env::var("ENVIRONMENT").expect("Environment not found"),
-    );
-
-    let data_provider_url =
-        Arc::new(Url::parse(&data_provider_url).expect("Data provider URL is invalid"));
-
-    let data_provider_url = web::Data::new(data_provider_url);
 
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
             .app_data(trade_client.clone())
-            .app_data(data_provider_url.clone())
             .service(health_handler)
             .service(trade_handler)
     })
@@ -138,7 +125,7 @@ mock! {
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, TradeError>;
         async fn execute_baseline_buy(&self, ticker: String) -> Result<(), TradeError>;
-        async fn get_portfolio_performance(&self, current_time: DateTime<Utc>) -> Result<PortfolioPerformance, TradeError>;
+        async fn get_portfolio_performance(&self, end_at: DateTime<Utc>) -> Result<PortfolioPerformance, TradeError>;
         async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, TradeError>;
         async fn check_orders_pattern_day_trade_restrictions(
             &self,
@@ -152,7 +139,7 @@ mock! {
 mod tests {
     use super::*;
     use actix_web::{http::header::ContentType, test, App};
-    use chrono::TimeZone;
+    use serde_json::json;
 
     #[actix_web::test]
     async fn test_health_handler() {
@@ -173,50 +160,43 @@ mod tests {
         let mut mock_trade_client: MockTradeInterfaceMock = MockTradeInterfaceMock::new();
 
         mock_trade_client
-            .expect_execute_baseline_buy()
-            .times(1)
-            .returning(|_| Ok(()));
+            .expect_get_portfolio_positions()
+            .returning(|| {
+                Ok(vec![
+                    PortfolioPosition {
+                        ticker: "AAPL".to_string(),
+                        side: Long,
+                        quantity: 10.0,
+                    },
+                    PortfolioPosition {
+                        ticker: "GOOGL".to_string(),
+                        side: Long,
+                        quantity: 20.0,
+                    },
+                ])
+            });
+
+        mock_trade_client
+            .expect_execute_orders()
+            .returning(|orders| {
+                assert_eq!(orders.len(), 2);
+                Ok(())
+            });
 
         let mock_trade_client: Arc<dyn TradeInterface> = Arc::new(mock_trade_client);
 
         let mock_trade_client = web::Data::new(mock_trade_client);
 
-        let mut mock_server = tokio::task::spawn_blocking(|| mockito::Server::new())
-            .await
-            .unwrap();
-
-        mock_server
-            .mock("POST", "/predictions")
-            .with_body(
-                json!(vec![Prediction {
-                    ticker: "AAPL".to_string(),
-                    timestamp: Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
-                    timestamps: vec![Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap()],
-                    prices: vec![100.0],
-                },])
-                .to_string(),
-            )
-            .with_status(200)
-            .create();
-
-        let base_url = mock_server.url().to_string() + "/predictions";
-
-        let base_url = Arc::new(Url::parse(&base_url).unwrap());
-
-        let base_url = web::Data::new(base_url);
-
         let app = test::init_service(
             App::new()
                 .service(trade_handler)
-                .app_data(mock_trade_client.clone())
-                .app_data(base_url),
+                .app_data(mock_trade_client.clone()),
         )
         .await;
 
         env::set_var("ALPACA_API_KEY", "VALUE");
         env::set_var("ALPACA_API_SECRET", "VALUE");
         env::set_var("DARQUBE_API_KEY", "VALUE");
-        env::set_var("IS_PRODUCTION", "false");
         env::set_var("ENVIRONMENT", "development");
 
         let request = test::TestRequest::post()
@@ -224,12 +204,21 @@ mod tests {
             .insert_header(ContentType::json())
             .set_json(&json!({
                 "specversion": "1.0",
-                "type": "equities.predictions.updated",
-                "source": "pocketiszefund.datacollector",
+                "type": "metrics.get",
+                "source": "pocketsizefund.positionmanager",
                 "id": "1234",
                 "time": "1997-05-25T20:00:00Z",
                 "data": {
-                    "written_at": "1997-05-25T20:00:00Z"
+                    "positions": [
+                        {
+                            "ticker": "AAPL",
+                            "investment_amount": 100.0
+                        },
+                        {
+                            "ticker": "GOOGL",
+                            "investment_amount": 200.0
+                        }
+                    ]
                 }
             }))
             .to_request();

@@ -5,7 +5,8 @@ use cloudevents::{Data, Event};
 use log::info;
 use mockall::mock;
 use pocketsizefund::data::{
-    Bar, Client as DataClient, Error as DataError, Interface as DataInterface, Prediction,
+    Bar, Client as DataClient, Error as DataError, Interface as DataInterface, Portfolio,
+    Prediction,
 };
 use pocketsizefund::events::build_response_event;
 use pocketsizefund::trade::{
@@ -118,6 +119,52 @@ async fn predictions_handler(
     }
 }
 
+#[derive(Deserialize)]
+struct PortfolioPayload {
+    portfolio: Portfolio,
+}
+
+#[post("/portfolio")]
+async fn portfolio_handler(
+    event: web::Json<Event>,
+    data_client: web::Data<Arc<dyn DataInterface>>,
+) -> Result<Event, Box<dyn std::error::Error>> {
+    let mut portfolio: Vec<Portfolio> = Vec::new();
+
+    if let Some(Data::Json(json)) = event.data() {
+        let payload: PortfolioPayload = match serde_json::from_value(json.clone()) {
+            Ok(val) => val,
+            Err(error) => {
+                return Err(error.into());
+            }
+        };
+
+        portfolio = vec![payload.portfolio];
+    }
+
+    match data_client.write_portfolios(portfolio).await {
+        Ok(_) => Ok(build_response_event(
+            "datacollector".to_string(),
+            vec![
+                "equities".to_string(),
+                "portfolio".to_string(),
+                "updated".to_string(),
+            ],
+            Some(
+                json!({
+                    "status": "success".to_string(),
+                    "written_at": Utc::now().to_rfc3339().to_string(),
+                })
+                .to_string(),
+            ),
+        )),
+        Err(e) => {
+            info!("Failed to write portfolio: {}", e);
+            Err(Box::new(e))
+        }
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
@@ -144,10 +191,9 @@ async fn main() -> std::io::Result<()> {
         env::var("ALPACA_API_KEY").expect("Alpaca API key"),
         env::var("ALPACA_API_SECRET").expect("Alpaca API secret"),
         env::var("DARQUBE_API_KEY").expect("Darqube API key"),
-        env::var("IS_PRODUCTION")
-            .expect("Production flag not found")
-            .parse()
-            .expect("Production flag not a boolean"),
+        env::var("ENVIRONMENT")
+            .expect("Environment")
+            .eq("production"),
     );
 
     let trade_client: Arc<dyn TradeInterface> = Arc::new(trade_client);
@@ -162,6 +208,7 @@ async fn main() -> std::io::Result<()> {
             .service(health_handler)
             .service(data_handler)
             .service(predictions_handler)
+            .service(portfolio_handler)
     })
     .bind(("0.0.0.0", server_port))?
     .run()
@@ -189,6 +236,11 @@ mock! {
             predictions: Vec<Prediction>,
         ) -> Result<(), DataError>;
         async fn load_predictions(&self) -> Result<Vec<Prediction>, DataError>;
+        async fn write_portfolios(
+            &self,
+            portfolio_performance: Vec<Portfolio>,
+        ) -> Result<(), DataError>;
+        async fn load_portfolios(&self) -> Result<Vec<Portfolio>, DataError>;
     }
 }
 

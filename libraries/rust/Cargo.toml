@@ -20,7 +20,7 @@ data = [
   "dep:reqwest",
   "dep:flate2",
 ]
-trade = ["dep:reqwest", "dep:serde", "dep:serde_json"]
+trade = ["dep:reqwest", "dep:serde", "dep:serde_json", "dep:url"]
 web = ["dep:reqwest", "dep:tokio"]
 
 [dependencies]

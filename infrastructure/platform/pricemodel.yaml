@@ -69,7 +69,7 @@ spec:
   broker: default
   filter:
     attributes:
-      type: ocketsizefund.market.status.check.success
+      type: pocketsizefund.market.status.check.success
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
