@@ -5,8 +5,7 @@ use cloudevents::{Data, Event};
 use log::info;
 use mockall::mock;
 use pocketsizefund::data::{
-    Bar, Client as DataClient, Error as DataError, Interface as DataInterface, Portfolio,
-    Prediction,
+    Client as DataClient, Error as DataError, Interface as DataInterface, Object, Type as DataType,
 };
 use pocketsizefund::events::build_response_event;
 use pocketsizefund::trade::{
@@ -27,7 +26,7 @@ async fn health_handler() -> HttpResponse {
 
 #[derive(Deserialize)]
 struct EquitiesBarsPayload {
-    equities_bars: Vec<Bar>,
+    equities_bars: Vec<Object>,
 }
 
 #[post("/data")]
@@ -35,7 +34,7 @@ async fn data_handler(
     event: web::Json<Event>,
     data_client: web::Data<Arc<dyn DataInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
-    let mut equities_bars: Vec<Bar> = Vec::new();
+    let mut equities_bars: Vec<Object> = Vec::new();
 
     if let Some(Data::Json(json)) = event.data() {
         let payload: EquitiesBarsPayload = match serde_json::from_value(json.clone()) {
@@ -48,7 +47,7 @@ async fn data_handler(
         equities_bars = payload.equities_bars;
     }
 
-    match data_client.write_equities_bars(equities_bars).await {
+    match data_client.store(equities_bars).await {
         Ok(_) => {
             info!("New bars written successfully");
             Ok(build_response_event(
@@ -75,7 +74,7 @@ async fn data_handler(
 
 #[derive(Deserialize)]
 struct PredictionsPayload {
-    predictions: Vec<Prediction>,
+    predictions: Vec<Object>,
 }
 
 #[post("/predictions")]
@@ -83,7 +82,7 @@ async fn predictions_handler(
     event: web::Json<Event>,
     data_client: web::Data<Arc<dyn DataInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
-    let mut predictions: Vec<Prediction> = Vec::new();
+    let mut predictions: Vec<Object> = Vec::new();
 
     if let Some(Data::Json(json)) = event.data() {
         let payload: PredictionsPayload = match serde_json::from_value(json.clone()) {
@@ -96,7 +95,7 @@ async fn predictions_handler(
         predictions = payload.predictions;
     }
 
-    match data_client.write_predictions(predictions).await {
+    match data_client.store(predictions).await {
         Ok(_) => Ok(build_response_event(
             "datacollector".to_string(),
             vec![
@@ -121,7 +120,7 @@ async fn predictions_handler(
 
 #[derive(Deserialize)]
 struct PortfolioPayload {
-    portfolio: Portfolio,
+    portfolio: Object,
 }
 
 #[post("/portfolio")]
@@ -129,7 +128,7 @@ async fn portfolio_handler(
     event: web::Json<Event>,
     data_client: web::Data<Arc<dyn DataInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
-    let mut portfolio: Vec<Portfolio> = Vec::new();
+    let mut portfolio: Vec<Object> = Vec::new();
 
     if let Some(Data::Json(json)) = event.data() {
         let payload: PortfolioPayload = match serde_json::from_value(json.clone()) {
@@ -142,7 +141,7 @@ async fn portfolio_handler(
         portfolio = vec![payload.portfolio];
     }
 
-    match data_client.write_portfolios(portfolio).await {
+    match data_client.store(portfolio).await {
         Ok(_) => Ok(build_response_event(
             "datacollector".to_string(),
             vec![
@@ -176,8 +175,6 @@ async fn main() -> std::io::Result<()> {
         .map_err(|e: ParseIntError| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let data_client = DataClient::new(
-        env::var("ALPACA_API_KEY").expect("Alpaca API key"),
-        env::var("ALPACA_API_SECRET").expect("Alpaca API secret"),
         env::var("AWS_ACCESS_KEY_ID").expect("AWS access key ID"),
         env::var("AWS_SECRET_ACCESS_KEY").expect("AWS secret access key"),
         env::var("S3_DATA_BUCKET_NAME").expect("S3 data bucket name"),
@@ -220,27 +217,8 @@ mock! {
 
     #[async_trait::async_trait]
     impl DataInterface for DataInterfaceMock {
-        async fn fetch_equities_bars(
-            &self,
-            tickers: Vec<String>,
-            start: DateTime<Utc>,
-            end: DateTime<Utc>,
-        ) -> Result<Vec<Bar>, DataError>;
-        async fn write_equities_bars(
-            &self,
-            equities_bars: Vec<Bar>,
-        ) -> Result<(), DataError>;
-        async fn load_equities_bars(&self) -> Result<Vec<Bar>, DataError>;
-        async fn write_predictions(
-            &self,
-            predictions: Vec<Prediction>,
-        ) -> Result<(), DataError>;
-        async fn load_predictions(&self) -> Result<Vec<Prediction>, DataError>;
-        async fn write_portfolios(
-            &self,
-            portfolio_performance: Vec<Portfolio>,
-        ) -> Result<(), DataError>;
-        async fn load_portfolios(&self) -> Result<Vec<Portfolio>, DataError>;
+        async fn store(&self, objects: Vec<Object>) -> Result<(), DataError>;
+        async fn load(&self, object_type: DataType) -> Result<Vec<Object>, DataError>;
     }
 }
 
@@ -284,13 +262,9 @@ mod tests {
     async fn test_data_handler() {
         let mut mock_data_client: MockDataInterfaceMock = MockDataInterfaceMock::new();
 
-        mock_data_client
-            .expect_write_predictions()
-            .returning(|_| Ok(()));
+        mock_data_client.expect_store().returning(|_| Ok(()));
 
-        mock_data_client
-            .expect_write_equities_bars()
-            .returning(|_| Ok(()));
+        mock_data_client.expect_load().returning(|_| Ok(vec![]));
 
         let mut mock_trade_client: MockTradeInterfaceMock = MockTradeInterfaceMock::new();
 
@@ -333,9 +307,7 @@ mod tests {
     async fn test_predictions_handler() {
         let mut mock_data_client = MockDataInterfaceMock::new();
 
-        mock_data_client
-            .expect_write_predictions()
-            .returning(|_| Ok(()));
+        mock_data_client.expect_store().returning(|_| Ok(()));
 
         let mock_data_client: Arc<dyn DataInterface> = Arc::new(mock_data_client);
 

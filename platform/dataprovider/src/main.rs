@@ -3,7 +3,10 @@ use actix_web::{post, web, App, HttpResponse, HttpServer};
 use chrono::{DateTime, Utc};
 use cloudevents::{Data, Event};
 use mockall::mock;
-use pocketsizefund::data::{Bar, Client as DataClient, Error, Interface, Portfolio, Prediction};
+use pocketsizefund::data::{
+    Bar, Client as DataClient, Error as DataError, Interface as DataInterface, Object, Portfolio,
+    Prediction, Type as DataType,
+};
 use pocketsizefund::events::build_response_event;
 use serde::Deserialize;
 use serde_json::json;
@@ -26,7 +29,7 @@ struct Payload {
 #[post("/data")]
 async fn data_handler(
     event: web::Json<Event>,
-    data_client: web::Data<Arc<dyn Interface>>,
+    data_client: web::Data<Arc<dyn DataInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
     let mut filtered_bars: Vec<Bar> = Vec::new();
 
@@ -38,10 +41,12 @@ async fn data_handler(
             }
         };
 
-        let old_bars = data_client.load_equities_bars().await.unwrap_or_else(|e| {
+        let old_objects = data_client.load(DataType::Bar).await.unwrap_or_else(|e| {
             tracing::error!("Failed to load old bars: {}", e);
             Vec::new()
         });
+
+        let old_bars = extract_bars(old_objects);
 
         filtered_bars = old_bars
             .into_iter()
@@ -68,10 +73,23 @@ async fn data_handler(
     Ok(event)
 }
 
+fn extract_bars(objects: Vec<Object>) -> Vec<Bar> {
+    objects
+        .into_iter()
+        .filter_map(|obj| {
+            if let Object::Bar(bar) = obj {
+                Some(bar)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[post("/predictions")]
 async fn predictions_handler(
     event: web::Json<Event>,
-    data_client: web::Data<Arc<dyn Interface>>,
+    data_client: web::Data<Arc<dyn DataInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
     let mut filtered_predictions: Vec<Prediction> = Vec::new();
 
@@ -83,10 +101,15 @@ async fn predictions_handler(
             }
         };
 
-        let old_predictions = data_client.load_predictions().await.unwrap_or_else(|e| {
-            tracing::error!("Failed to load old predictions: {}", e);
-            Vec::new()
-        });
+        let old_objects = data_client
+            .load(DataType::Prediction)
+            .await
+            .unwrap_or_else(|e| {
+                tracing::error!("Failed to load old predictions: {}", e);
+                Vec::new()
+            });
+
+        let old_predictions = extract_predictions(old_objects);
 
         filtered_predictions = old_predictions
             .into_iter()
@@ -115,10 +138,23 @@ async fn predictions_handler(
     Ok(event)
 }
 
+fn extract_predictions(objects: Vec<Object>) -> Vec<Prediction> {
+    objects
+        .into_iter()
+        .filter_map(|obj| {
+            if let Object::Prediction(prediction) = obj {
+                Some(prediction)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[post("/portfolio")]
 async fn portfolio_handler(
     event: web::Json<Event>,
-    data_client: web::Data<Arc<dyn Interface>>,
+    data_client: web::Data<Arc<dyn DataInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
     let mut filtered_portfolios: Vec<Portfolio> = Vec::new();
 
@@ -130,10 +166,15 @@ async fn portfolio_handler(
             }
         };
 
-        let old_portfolios = data_client.load_portfolios().await.unwrap_or_else(|e| {
-            tracing::error!("Failed to load old portfolios: {}", e);
-            Vec::new()
-        });
+        let old_objects = data_client
+            .load(DataType::Portfolio)
+            .await
+            .unwrap_or_else(|e| {
+                tracing::error!("Failed to load old portfolios: {}", e);
+                Vec::new()
+            });
+
+        let old_portfolios = extract_portfolios(old_objects);
 
         filtered_portfolios = old_portfolios
             .into_iter()
@@ -162,6 +203,19 @@ async fn portfolio_handler(
     Ok(event)
 }
 
+fn extract_portfolios(objects: Vec<Object>) -> Vec<Portfolio> {
+    objects
+        .into_iter()
+        .filter_map(|obj| {
+            if let Object::Portfolio(portfolio) = obj {
+                Some(portfolio)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
@@ -173,21 +227,30 @@ async fn main() -> std::io::Result<()> {
         .map_err(|e: ParseIntError| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let data_client = DataClient::new(
-        env::var("ALPACA_API_KEY").expect("Alpaca API key not found"),
-        env::var("ALPACA_API_SECRET").expect("Alpaca API secret not found"),
         env::var("AWS_ACCESS_KEY_ID").expect("AWS access key ID not found"),
         env::var("AWS_SECRET_ACCESS_KEY").expect("AWS secret access key not found"),
         env::var("S3_DATA_BUCKET_NAME").expect("S3 data bucket name not found"),
     );
 
-    let data_client: Arc<dyn Interface> = Arc::new(data_client);
+    let data_client: Arc<dyn DataInterface> = Arc::new(data_client);
 
     let data_client = web::Data::new(data_client);
+
+    let new_client = DataClient::new(
+        env::var("AWS_ACCESS_KEY_ID").expect("AWS access key ID not found"),
+        env::var("AWS_SECRET_ACCESS_KEY").expect("AWS secret access key not found"),
+        env::var("S3_DATA_BUCKET_NAME").expect("S3 data bucket name not found"),
+    );
+
+    let new_client: Arc<dyn DataInterface> = Arc::new(new_client);
+
+    let new_client = web::Data::new(new_client);
 
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
             .app_data(data_client.clone())
+            .app_data(new_client.clone())
             .service(health_handler)
             .service(data_handler)
             .service(predictions_handler)
@@ -198,31 +261,12 @@ async fn main() -> std::io::Result<()> {
 }
 
 mock! {
-    pub InterfaceMock {}
+    pub DataInterfaceMock {}
 
     #[async_trait::async_trait]
-    impl Interface for InterfaceMock {
-        async fn fetch_equities_bars(
-            &self,
-            tickers: Vec<String>,
-            start: DateTime<Utc>,
-            end: DateTime<Utc>,
-        ) -> Result<Vec<Bar>, Error>;
-        async fn write_equities_bars(
-            &self,
-            equities_bars: Vec<Bar>,
-        ) -> Result<(), Error>;
-        async fn load_equities_bars(&self) -> Result<Vec<Bar>, Error>;
-        async fn write_predictions(
-            &self,
-            predictions: Vec<Prediction>,
-        ) -> Result<(), Error>;
-        async fn load_predictions(&self) -> Result<Vec<Prediction>, Error>;
-        async fn write_portfolios(
-            &self,
-            portfolio_performance: Vec<Portfolio>,
-        ) -> Result<(), Error>;
-        async fn load_portfolios(&self) -> Result<Vec<Portfolio>, Error>;
+    impl DataInterface for DataInterfaceMock {
+        async fn store(&self, objects: Vec<Object>) -> Result<(), DataError>;
+        async fn load(&self, object_type: DataType) -> Result<Vec<Object>, DataError>;
     }
 }
 
@@ -249,10 +293,10 @@ mod tests {
 
     #[actix_web::test]
     async fn test_data_handler() {
-        let mut mock_client = MockInterfaceMock::new();
+        let mut mock_data_client: MockDataInterfaceMock = MockDataInterfaceMock::new();
 
         let mock_output = vec![
-            Bar {
+            Object::Bar(Bar {
                 ticker: Some("AAPL".to_string()),
                 timestamp: Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
                 open: 150.0,
@@ -262,8 +306,8 @@ mod tests {
                 volume: 1_000_000,
                 number_of_trades: 5_000,
                 volume_weighted_average_price: 151.2,
-            },
-            Bar {
+            }),
+            Object::Bar(Bar {
                 ticker: Some("AAPL".to_string()),
                 timestamp: Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
                 open: 150.5,
@@ -273,12 +317,12 @@ mod tests {
                 volume: 1_200_000,
                 number_of_trades: 5_000,
                 volume_weighted_average_price: 150.9,
-            },
+            }),
         ];
 
-        mock_client
-            .expect_load_equities_bars()
-            .returning(move || Ok(mock_output.clone()));
+        mock_data_client
+            .expect_load()
+            .returning(move |_| Ok(mock_output.clone()));
 
         env::set_var("ALPACA_API_KEY", "VALUE");
         env::set_var("ALPACA_API_SECRET", "VALUE");
@@ -286,7 +330,7 @@ mod tests {
         env::set_var("AWS_SECRET_ACCESS_KEY", "VALUE");
         env::set_var("S3_DATA_BUCKET_NAME", "VALUE");
 
-        let mock_client: Arc<dyn Interface> = Arc::new(mock_client);
+        let mock_client: Arc<dyn DataInterface> = Arc::new(mock_data_client);
 
         let mock_client = web::Data::new(mock_client);
 
@@ -319,28 +363,28 @@ mod tests {
 
     #[actix_web::test]
     async fn test_predictions_handler() {
-        let mut mock_client = MockInterfaceMock::new();
+        let mut mock_client = MockDataInterfaceMock::new();
 
         let mock_output = vec![
-            Prediction {
+            Object::Prediction(Prediction {
                 ticker: "AAPL".to_string(),
                 timestamp: Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
                 timestamps: vec![Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap()],
                 prices: vec![150.0],
-            },
-            Prediction {
+            }),
+            Object::Prediction(Prediction {
                 ticker: "AAPL".to_string(),
                 timestamp: Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
                 timestamps: vec![Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap()],
                 prices: vec![150.5],
-            },
+            }),
         ];
 
         mock_client
-            .expect_load_predictions()
-            .returning(move || Ok(mock_output.clone()));
+            .expect_load()
+            .returning(move |_| Ok(mock_output.clone()));
 
-        mock_client.expect_write_predictions().returning(|_| Ok(()));
+        mock_client.expect_store().returning(|_| Ok(()));
 
         env::set_var("ALPACA_API_KEY", "VALUE");
         env::set_var("ALPACA_API_SECRET", "VALUE");
@@ -348,7 +392,7 @@ mod tests {
         env::set_var("AWS_SECRET_ACCESS_KEY", "VALUE");
         env::set_var("S3_DATA_BUCKET_NAME", "VALUE");
 
-        let mock_client: Arc<dyn Interface> = Arc::new(mock_client);
+        let mock_client: Arc<dyn DataInterface> = Arc::new(mock_client);
 
         let mock_client = web::Data::new(mock_client);
 
