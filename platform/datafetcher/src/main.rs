@@ -175,14 +175,10 @@ async fn data_handler(
     data_client: web::Data<Arc<dyn DataInterface>>,
     trade_client: web::Data<Arc<dyn TradeInterface>>,
 ) -> Result<Event, Box<dyn std::error::Error>> {
-    println!("REACHING A");
-
     let old_objects = data_client.load(DataType::Bar).await.unwrap_or_else(|e| {
         info!("Failed to load old bars: {}", e);
         Vec::new()
     });
-
-    println!("REACHING B");
 
     let old_bars = extract_bars(old_objects);
 
@@ -197,8 +193,6 @@ async fn data_handler(
 
     let current_datetime = chrono::Utc::now();
 
-    println!("REACHING C");
-
     let available_tickers = trade_client
         .get_available_tickers()
         .await
@@ -207,8 +201,6 @@ async fn data_handler(
             Vec::new()
         });
 
-    println!("REACHING D");
-
     let new_bars = fetch_client
         .fetch_equities_bars(available_tickers, most_recent_datetime, current_datetime)
         .await
@@ -216,8 +208,6 @@ async fn data_handler(
             info!("Failed to fetch new bars: {}", e);
             Vec::new()
         });
-
-    println!("REACHING E");
 
     Ok(build_response_event(
         "datafetcher".to_string(),
@@ -339,7 +329,6 @@ mock! {
     #[async_trait::async_trait]
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, TradeError>;
-        async fn execute_baseline_buy(&self, ticker: String) -> Result<(), TradeError>;
         async fn get_portfolio_performance(&self, current_time: DateTime<Utc>) -> Result<PortfolioPerformance, TradeError>;
         async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, TradeError>;
         async fn check_orders_pattern_day_trade_restrictions(

@@ -178,7 +178,6 @@ mock! {
     #[async_trait::async_trait]
     impl TradeInterface for TradeInterfaceMock {
         async fn get_available_tickers(&self) -> Result<Vec<String>, TradeError>;
-        async fn execute_baseline_buy(&self, ticker: String) -> Result<(), TradeError>;
         async fn get_portfolio_performance(&self, end_at: DateTime<Utc>) -> Result<PortfolioPerformance, TradeError>;
         async fn get_portfolio_positions(&self) -> Result<Vec<PortfolioPosition>, TradeError>;
         async fn check_orders_pattern_day_trade_restrictions(
