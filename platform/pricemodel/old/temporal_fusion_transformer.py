@@ -1,15 +1,15 @@
 from typing import Dict, List, Optional, Tuple, Union, Any
-from pricemodel.embedding import MultiEmbedding
-from pricemodel.variable_selection_network import VariableSelectionNetwork
-from pricemodel.gated_residual_network import (
+from pricemodel.old.embedding import MultiEmbedding
+from pricemodel.old.variable_selection_network import VariableSelectionNetwork
+from pricemodel.old.gated_residual_network import (
     GatedResidualNetwork,
     GatedLinearUnit,
     GateAddNorm,
     AddNorm,
 )
-from pricemodel.metrics import smape, mape, mae, rmse, quantile_loss
-from pricemodel.lstm import LSTM
-from pricemodel.attention import InterpretableMultiHeadAttention
+from pricemodel.old.metrics import smape, mape, mae, rmse, quantile_loss
+from pricemodel.old.lstm import LSTM
+from pricemodel.old.attention import InterpretableMultiHeadAttention
 from pricemodel.dataset import DataSet
 from tinygrad.nn import Linear
 from tinygrad import Tensor
