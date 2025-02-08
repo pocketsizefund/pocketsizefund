@@ -8,19 +8,9 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock /app
 
-ARG MODEL_FILE_NAME
-
-ENV PYTHONDONTWRITEBYTECODE=1
-
-COPY src /app/src
+COPY main.py /app/main.py
 
 RUN uv sync
-
-RUN mkdir /app/lightning_logs && chmod 777 /app/lightning_logs
-
-COPY price-model.ckpt ./
-
-ENV MPLCONFIGDIR=/tmp
 
 EXPOSE 8080
 

@@ -1,10 +1,10 @@
 [tools]
-python = "3.10"
+python = "3.10.14"
 rust = "1.80.0"
 uv = "0.5.4"
 pre-commit = "4.0.1"
 helm = "latest"
-docker-slim = "latest"
+# docker-slim = "latest"
 kubectl = "latest"
 
 [env]

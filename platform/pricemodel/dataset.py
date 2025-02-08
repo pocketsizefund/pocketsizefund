@@ -1,10 +1,10 @@
-import polars as pl
-import category_encoders as ce
+from typing import Dict, List, Iterable
 from tinygrad import Tensor
-from typing import Iterable, Dict, List
-import warnings
+import polars as pl
+from category_encoders import OrdinalEncoder
+import numpy as np
+from typing import Tuple
 
-warnings.filterwarnings("ignore", category=FutureWarning, message=".*_get_tags.*")
 
 continuous_variable_columns = [
     "open_price",
@@ -20,18 +20,20 @@ class DataSet:
     def __init__(
         self,
         batch_size: int,
+        sequence_length: int,
         sample_count: int,
-        scalers: Dict[str, Dict[str, Tensor]] = None,
+        scalers: Dict[str, Dict[str, Tensor]] = {},
     ) -> None:
         self.batch_size = batch_size
+        self.sequence_length = sequence_length
         self.sample_count = sample_count
         self.scalers = scalers
-        self.ticker_encoder = None
+        self.preprocessors = {}
 
-    def set_data(self, data: pl.DataFrame) -> None:
+    def load_data(self, data: pl.DataFrame) -> None:
         data = data.with_columns(
             [
-                pl.col("timestamp").str.strptime(pl.Datetime).cast(pl.Date),  # , "%Y-%m-%d"),
+                pl.col("timestamp").str.strptime(pl.Datetime).cast(pl.Date),
                 pl.col("open_price").cast(pl.Float64).alias("open_price"),
                 pl.col("high_price").cast(pl.Float64).alias("high_price"),
                 pl.col("low_price").cast(pl.Float64).alias("low_price"),
@@ -42,17 +44,19 @@ class DataSet:
             ]
         )
 
+        self.preprocessors["indices"] = {col: idx for idx, col in enumerate(data.columns)}
+
         data = data.unique(subset=["ticker", "timestamp"])
 
         tickers = data.select("ticker").unique()
-        min_date = data.select(pl.col("timestamp").min())[0, 0]
-        max_date = data.select(pl.col("timestamp").max())[0, 0]
+        minimum_date = data.select(pl.col("timestamp").min())[0, 0]
+        maximum_date = data.select(pl.col("timestamp").max())[0, 0]
 
         full_dates = pl.DataFrame(
             {
                 "timestamp": pl.date_range(
-                    start=min_date,
-                    end=max_date,
+                    start=minimum_date,
+                    end=maximum_date,
                     interval="1d",
                     closed="both",
                     eager=True,
@@ -60,17 +64,15 @@ class DataSet:
             }
         )
 
-        full_df = tickers.join(full_dates, how="cross")
+        full_tickers_and_dates = tickers.join(full_dates, how="cross")
 
-        full_df = full_df.with_columns(
-            [pl.col("timestamp").rank(method="dense").cast(pl.Int32).alias("time_idx") - 1]
+        full_tickers_and_dates = full_tickers_and_dates.with_columns(
+            [pl.col("timestamp").rank(method="dense").cast(pl.Int32).alias("time_index") - 1]
         )
 
-        data = full_df.join(data, on=["ticker", "timestamp"], how="left")
+        data = full_tickers_and_dates.join(data, on=["ticker", "timestamp"], how="left")
 
         data = data.sort(["ticker", "timestamp"])
-
-        data = data.with_columns(pl.col("timestamp").dt.weekday().alias("day_of_week"))
 
         data = data.group_by("ticker").map_groups(
             lambda df: df.sort("timestamp").with_columns(
@@ -79,23 +81,23 @@ class DataSet:
                     .interpolate()
                     .fill_null(strategy="forward")
                     .fill_null(strategy="backward")
-                    for col in (continuous_variable_columns + ["day_of_week"])
+                    for col in (continuous_variable_columns)
                 ]
             )
         )
 
         ticker_series = data["ticker"].to_pandas()
-        ticker_encoder = ce.OrdinalEncoder(
+        ticker_encoder = OrdinalEncoder(
             cols=["ticker"],
             handle_unknown="use_encoded_value",
             handle_missing="use_encoded_value",
         )
-        self.ticker_encoder = ticker_encoder
+        self.preprocessors["ticker_encoder"] = ticker_encoder
         encoded_tickers = ticker_encoder.fit_transform(ticker_series)
 
         data = data.with_columns(pl.Series("ticker", encoded_tickers["ticker"]))
 
-        if self.scalers is None:
+        if self.scalers is None or len(self.scalers) == 0:
             self.scalers: Dict[str, Dict[str, Tensor]] = {}
             for ticker, group in data.group_by("ticker"):
                 means = group[continuous_variable_columns].mean()
@@ -120,14 +122,11 @@ class DataSet:
         output_data = Tensor.empty(groups[0].shape)
         output_data = output_data.cat(*groups, dim=0)
 
-        self.data = output_data.numpy()  # FIX
+        self.data = output_data
 
-    def get_information(self) -> Dict[str, Tensor]:
-        if self.scalers is None:
-            raise ValueError("Scalers attribute has not been set")
-
-        if self.data is None:
-            raise ValueError("Data attribute has not been set")
+    def get_preprocessors(self):
+        if self.preprocessors is None or len(self.preprocessors) == 0:
+            raise ValueError("Preprocessors attribute has not been set")
 
         means_by_ticker = ({ticker: values["means"] for ticker, values in self.scalers.items()},)
         standard_deviations_by_ticker = (
@@ -137,37 +136,32 @@ class DataSet:
         return {
             "means_by_ticker": means_by_ticker,
             "standard_deviations_by_ticker": standard_deviations_by_ticker,
-            "encoder_lengths": Tensor([30] * len(self.data)),
-            "decoder_lengths": Tensor([5] * len(self.data)),
-            "encoder_categories": Tensor(self.data[["ticker"]].values[:30]),
-            "decoder_categories": Tensor(self.data[["ticker"]].values[-5:]),
-            "encoder_continous_variables": Tensor(
-                self.data[continuous_variable_columns].values[:30]
-            ),
-            "decoder_continous_variables": Tensor(
-                self.data[continuous_variable_columns].values[-7:]
-            ),
+            "ticker_encoder": self.preprocessors["ticker_encoder"],
+            "indices": self.preprocessors["indices"],
         }
 
-    def __iter__(self) -> Iterable[Tensor]:
+    def __iter__(self) -> Iterable[Tuple[Tensor, Tensor, Tensor]]:
+        close_price_idx = self.preprocessors["indices"]["close_price"]
+
         for i in range(0, self.sample_count, self.batch_size):
-            batch = self.data[i : i + self.batch_size]
-            if batch.shape[0] < self.batch_size:
-                padding = Tensor.zeros((self.batch_size - batch.shape[0], *batch.shape[1:]))
-                # batch = Tensor(data=batch.to_numpy())
-                batch = batch.stack(padding, dim=0)
+            batch_data = self.data[i : i + self.batch_size + self.sequence_length]
 
-            yield Tensor(data=batch.to_numpy())
+            if batch_data.shape[0] < self.batch_size + self.sequence_length:
+                padding = Tensor.zeros(
+                    (
+                        self.batch_size + self.sequence_length - batch_data.shape[0],
+                        *batch_data.shape[1:],
+                    )
+                )
+                batch_data = Tensor(batch_data).stack(padding, dim=0)
 
+            tickers = batch_data[: self.batch_size, 0]
 
-# NOTE: testing
+            historical_features = Tensor.stack(
+                *[batch_data[i : i + self.sequence_length, 1:] for i in range(self.batch_size)],
+                dim=0,
+            )
 
-dataset = DataSet(batch_size=32, sample_count=1000)
+            targets = batch_data[: self.batch_size, close_price_idx].reshape(self.batch_size, 1)
 
-dataframe = pl.read_csv("platform/pricemodel/consolidated_data.csv")
-
-dataset.set_data(dataframe)
-
-information = dataset.get_information()
-
-print(information)
+            yield tickers, historical_features, targets
