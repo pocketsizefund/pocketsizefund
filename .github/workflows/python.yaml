@@ -17,10 +17,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
       - name: Setup Mise
-        uses: jdx/mise-action@v2
-        env:
-          MISE_VERBOSE: 1
-        with:
-          experimental: true
+        run: |
+          curl https://mise.run | sh
+          mise install -y      # - name: Setup Mise
       - name: Run lint
         run: mise run libraries:python:lint

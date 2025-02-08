@@ -30,11 +30,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Setup Mise
-        uses: jdx/mise-action@v2
-        with:
-          install: true
-          install_args: "-y"
-          experimental: true
+        run: |
+          curl https://mise.run | sh
+          mise install -y
       - name: Launch infrastructure
         if: (github.event.schedule == '0 14 * * 1,2,3,4,5' && github.event_name == 'schedule') || github.event_name == 'push' || (inputs.action == 'launch' && inputs.confirmation == true)
         run: |

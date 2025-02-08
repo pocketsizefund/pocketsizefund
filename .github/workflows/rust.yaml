@@ -35,9 +35,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-target-
       - name: Setup Mise
-        uses: jdx/mise-action@v2
-        with:
-          experimental: true
+        run: |
+          curl https://mise.run | sh
+          mise install -y      # - name: Setup Mise
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:

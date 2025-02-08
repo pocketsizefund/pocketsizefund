@@ -1,7 +1,8 @@
 name: Python and Rust tests
 
 on:
-  push
+  workflow_run:
+    workflows: ["Python lint", "Rust lint"]
 
 jobs:
   python_test_and_coverage:
@@ -17,11 +18,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
       - name: Setup Mise
-        uses: jdx/mise-action@v2
-        with:
-          install: true
-          install_args: "-y"
-          experimental: true
+        run: |
+          curl https://mise.run | sh
+          mise install -y
       - name: Run unit tests with coverage
         run: |
           mise run libraries:python:test
@@ -40,9 +39,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Setup Mise
-        uses: jdx/mise-action@v2
-        with:
-          experimental: true
+        run: |
+          curl https://mise.run | sh
+          mise install -y
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
