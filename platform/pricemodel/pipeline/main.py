@@ -5,7 +5,7 @@ from tinygrad import nn
 
 
 if __name__ == "__main__":
-    data = load_data("../consolidated_data.csv")
+    data = load_data("consolidated_data.csv")
     data, static_features, encoder = prepare_data(data)
 
     train, val = split_data(data)

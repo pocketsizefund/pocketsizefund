@@ -89,7 +89,6 @@ pub enum Error {
 #[async_trait]
 pub trait Interface: Send + Sync {
     async fn get_available_tickers(&self) -> Result<Vec<String>, Error>;
-    async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Error>;
     async fn get_portfolio_performance(
         &self,
         end_at: DateTime<Utc>,
@@ -245,23 +244,6 @@ impl Interface for Client {
         }
 
         Ok(tickers)
-    }
-
-    async fn execute_baseline_buy(&self, ticker: String) -> Result<(), Error> {
-        self.send_alpaca_api_request(
-            "v2/orders",
-            None,
-            Some(serde_json::json!({
-                "symbol": ticker,
-                "side": "buy",
-                "type": "market",
-                "time_in_force": "day",
-                "notional": "1"
-            })),
-        )
-        .await?;
-
-        Ok(())
     }
 
     async fn get_portfolio_performance(
@@ -496,49 +478,6 @@ mod tests {
         match client.get_available_tickers().await {
             Ok(result) => {
                 assert_eq!(result, vec!["AAPL".to_string()]);
-            }
-            Err(e) => {
-                panic!("Error: {:?}", e);
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn test_execute_baseline_buy() {
-        let mut mock_server = tokio::task::spawn_blocking(|| mockito::Server::new())
-            .await
-            .unwrap();
-
-        let base_url = mock_server.url().to_string();
-
-        let client = Client {
-            alpaca_base_url: base_url.clone(),
-            alpaca_api_key_id: "alpaca_api_key_id".to_string(),
-            alpaca_api_secret_key: "alpaca_api_secret_key".to_string(),
-            darqube_base_url: base_url.clone(),
-            darqube_api_key: "darqube_api_key".to_string(),
-            http_client: HTTPClient::new(),
-        };
-
-        mock_server
-            .mock("POST", "/v2/orders")
-            .match_header("APCA-API-KEY-ID", "alpaca_api_key_id")
-            .match_header("APCA-API-SECRET-KEY", "alpaca_api_secret_key")
-            .match_header("accept", "application/json")
-            .match_header("content-type", "application/json")
-            .match_body(mockito::Matcher::Json(json!({
-                "symbol": "AAPL",
-                "side": "buy",
-                "type": "market",
-                "time_in_force": "day",
-                "notional": "1"
-            })))
-            .with_status(200)
-            .create();
-
-        match client.execute_baseline_buy("AAPL".to_string()).await {
-            Ok(_) => {
-                assert_eq!(true, true);
             }
             Err(e) => {
                 panic!("Error: {:?}", e);

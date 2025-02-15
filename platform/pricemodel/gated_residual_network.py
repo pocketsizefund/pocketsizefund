@@ -1,6 +1,5 @@
 from tinygrad import Tensor
 from tinygrad.nn import Linear, LayerNorm
-from pricemodel.interpolation import TimeDistributedInterpolation
 
 
 class GatedResidualNetwork:
@@ -9,131 +8,22 @@ class GatedResidualNetwork:
         input_size: int,
         hidden_size: int,
         output_size: int,
-        dropout_rate: float = 0.1,
-        context_size: int = None,
     ) -> None:
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.dropout_rate = dropout_rate
-        self.context_size = context_size
+        output_size = output_size if output_size is not None else input_size
 
-        self.fc1 = Linear(self.input_size, self.hidden_size)
-
-        if self.context_size is not None:
-            self.context = Linear(self.context_size, self.hidden_size, bias=False)
-
-        self.fc2 = Linear(self.hidden_size, self.hidden_size)
-
-        self.gate_norm = GateAddNorm(
-            input_size=self.hidden_size,
-            skip_size=self.output_size,
-            hidden_size=self.output_size,
-            dropout_rate=self.dropout_rate,
-        )
+        self.dense_input = Linear(in_features=input_size, out_features=hidden_size)
+        self.dense_output = Linear(in_features=hidden_size, out_features=output_size)
+        self.gate = Linear(in_features=hidden_size, out_features=output_size)
+        self.layer_normalizer = LayerNorm(normalized_shape=output_size)
 
     def forward(
         self,
-        x: Tensor,
-        context: Tensor = None,
+        input: Tensor,
     ) -> Tensor:
-        residual = x
+        hidden_state = self.dense_input(input).relu()
 
-        x = self.fc1(x)
-        if context is not None:
-            x += self.context(context)
+        output_state = self.dense_output(hidden_state)
 
-        x = x.elu(x)
-        x = self.fc2(x)
-        x = self.gate_norm.forward(x, residual)
+        gate_state = self.gate(hidden_state).sigmoid()
 
-        return x
-
-
-class GateAddNorm:
-    def __init__(
-        self,
-        input_size: int,
-        hidden_size: int = None,
-        skip_size: int = None,
-        dropout_rate: float = None,
-    ) -> None:
-        hidden_size = hidden_size or input_size
-        skip_size = skip_size or hidden_size
-
-        self.gated_linear_unit = GatedLinearUnit(
-            input_size=input_size,
-            hidden_size=hidden_size,
-            dropout_rate=dropout_rate,
-        )
-
-        self.add_norm = AddNorm(
-            input_size=hidden_size,
-            skip_size=skip_size,
-        )
-
-    def forward(
-        self,
-        x: Tensor,
-        skip: Tensor,
-    ) -> Tensor:
-        x = self.gated_linear_unit.forward(x)
-        x = self.add_norm.forward(x, skip)
-        return x
-
-
-class GatedLinearUnit:
-    def __init__(
-        self,
-        input_size: int,
-        hidden_size: int = None,
-        dropout_rate: float = None,
-    ) -> None:
-        self.dropout_rate = dropout_rate
-
-        hidden_size = hidden_size or input_size
-
-        self.fc = Linear(input_size, hidden_size * 2)
-
-    def forward(
-        self,
-        x: Tensor,
-    ) -> Tensor:
-        if self.dropout_rate is not None:
-            x = x.dropout(self.dropout_rate)
-
-        x = self.fc(x)
-
-        split_dimension = -1
-
-        split_size = x.shape[split_dimension] // 2
-        x1, x2 = x.split(split_size, dim=split_dimension)
-
-        gate = x2.sigmoid()
-
-        return x1 * gate
-
-
-class AddNorm:
-    def __init__(
-        self,
-        input_size: int,
-        skip_size: int = None,
-    ) -> None:
-        self.input_size = input_size
-        self.skip_size = skip_size or input_size
-
-        if self.input_size != self.skip_size:
-            self.resampler = TimeDistributedInterpolation(self.input_size)
-
-        self.normalizer = LayerNorm(self.input_size)
-
-    def forward(
-        self,
-        x: Tensor,
-        skip: Tensor,
-    ) -> Tensor:
-        if self.input_size != self.skip_size:
-            skip = self.resampler.forward(skip)
-
-        return self.normalizer(x + skip)
+        return self.layer_normalizer(gate_state * output_state + input)

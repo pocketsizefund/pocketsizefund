@@ -1,0 +1,15 @@
+[package]
+name = "tradeexecutor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.9.0"
+env_logger = "0.11.5"
+pocketsizefund = { path = "../../libraries/rust", features = ["events", "trade"] }
+serde = { version = "1.0.204", features = ["derive"] }
+cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-http", "actix-web", "http-binding", "http-body", "reqwest"] }
+serde_json = { version = "1.0.120" }
+mockall = "0.11"
+async-trait = "0.1.82"
+chrono = { version = "0.4.38", features = ["serde"] }

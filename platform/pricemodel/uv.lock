@@ -1,0 +1,12 @@
+version = 1
+requires-python = ">=3.10"
+
+[[package]]
+name = "pricemodel"
+version = "1.0.0"
+source = { editable = "." }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = []

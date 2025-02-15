@@ -15,7 +15,6 @@ from tinygrad.nn import Linear
 from tinygrad import Tensor
 
 
-# TODO: remove in-line comments
 # TODO: consolidate duplicate parameters
 # TODO: add back required parameters if new features are added (e.g. "day of month")
 class TemporalFusionTransformer:

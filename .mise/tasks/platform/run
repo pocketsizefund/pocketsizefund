@@ -5,6 +5,11 @@
 
 service_name=$1
 
+if [ "$service_name" = "pricemodel" ]; then
+    echo "temporarily skipping"
+    exit 0
+fi
+
 cat $root/etc/.env.development > $root/etc/.env
 
 docker compose \

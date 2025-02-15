@@ -14,3 +14,7 @@ serde_json = { version = "1.0.120" }
 env_logger = "0.11.5"
 mockall = "0.11"
 async-trait = "0.1.82"
+reqwest = { version = "0.12.5", features = ["json", "default-tls"] }
+serde = { version = "1.0.204", features = ["derive"] }
+thiserror = "2.0.3"
+url = "2.2.2" 

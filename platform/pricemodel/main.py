@@ -1,8 +1,22 @@
 # outline:
-# [ ] create fast api
-# [ ] add "/health" endpoint
-# [ ] add "/inference" endpoint
-# [ ] load model artifacts
-# [ ] process request
-# [ ] invoke model w/ request inputs
-# [ ] return model outputs
+# [x] dataset
+# [x] lstm
+# [x] grn
+# [x] mhsan
+# [x] qf
+# [ ] output formatter
+# [ ] mini-tft
+# - [ ] initialize
+# - [ ] train
+# - [ ] save
+# - [ ] load
+# - [ ] validate
+# - [ ] predict
+# [ ] server
+# [ ] tests
+# - [ ] lstm
+# - [ ] grn
+# - [ ] mhsan
+# - [ ] qf
+# - [ ] dataset
+# - [ ] output formatter

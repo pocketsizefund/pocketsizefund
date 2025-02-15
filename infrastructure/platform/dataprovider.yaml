@@ -67,3 +67,19 @@ spec:
       apiVersion: serving.knative.dev/v1
       kind: Service
       name: dataproviderservice
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: tradeexecutortrigger
+spec:
+  broker: default
+  filter:
+    attributes:
+      source: pocketsizefund.tradeexecutor
+      type: equities.portfolio.get
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: dataproviderservice

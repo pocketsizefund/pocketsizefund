@@ -11,7 +11,7 @@ tracing = { version = "0.1.40", features = ["async-await"] }
 cloudevents-sdk = { version = "0.7.0", features = ["actix", "actix-web", "http-binding", "http-body", "reqwest"] }
 actix-web = "4.9.0"
 tokio = { version = "1.39.3", features = ["full"] }
-pocketsizefund = { path = "../../libraries/rust", features = ["events", "web"] }
+pocketsizefund = { path = "../../libraries/rust", features = ["events", "web", "trade"] }
 
 [dev-dependencies]
 lazy_static = "1.5.0"

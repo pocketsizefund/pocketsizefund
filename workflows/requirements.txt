@@ -1,0 +1,4 @@
+polygon-api-client
+polars
+pandera[polars]
+flytekitplugins-pandera

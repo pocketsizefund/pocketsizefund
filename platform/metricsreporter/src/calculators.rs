@@ -78,7 +78,7 @@ pub fn calculate_metrics(
         one_week_returns: one_week_returns?,
         one_month_returns: one_month_returns?,
         one_year_returns: one_year_returns?,
-        annualized_returns: annualized_returns,
+        annualized_returns,
         maximum_drawdown,
         daily_sharpe_ratio,
         daily_sortino_ratio,
