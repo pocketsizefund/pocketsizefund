@@ -2,6 +2,13 @@
 name = "pocketsizefund"
 version = "1.0.0"
 requires-python = ">=3.10"
+dependencies = [
+    "flytekitplugins-pandera>=1.14.6",
+    "pandera[polars]>=0.22.1",
+    "polygon-api-client>=1.14.3",
+    "s3fs>=2025.2.0",
+    "union>=0.1.142",
+]
 
 [tool.uv]
 dev-dependencies = [
