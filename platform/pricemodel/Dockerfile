@@ -1,24 +1,27 @@
 ARG PYTHON_VERSION=3.10.14
+
 FROM python:${PYTHON_VERSION} AS base
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-WORKDIR /app
+# COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-COPY pyproject.toml uv.lock /app
+# WORKDIR /app
 
-ARG MODEL_FILE_NAME
+# COPY pyproject.toml uv.lock /app
 
-ENV PYTHONDONTWRITEBYTECODE=1
+# ARG MODEL_FILE_NAME
 
-COPY src /app/src
+# ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN uv sync
-RUN mkdir /app/lightning_logs && chmod 777 /app/lightning_logs
+# COPY . /app/
 
-COPY price-model.ckpt ./
+# RUN uv sync
 
-ENV MPLCONFIGDIR=/tmp
+# RUN mkdir /app/lightning_logs && chmod 777 /app/lightning_logs
 
-EXPOSE 8080
+# COPY price-model.ckpt ./
 
-ENTRYPOINT ["uv", "run", "uvicorn", "pricemodel.entrypoint:app", "--host", "0.0.0.0", "--port", "8080"]
+# ENV MPLCONFIGDIR=/tmp
+
+# EXPOSE 8080
+
+# ENTRYPOINT ["uv", "run", "uvicorn", "pricemodel.entrypoint:app", "--host", "0.0.0.0", "--port", "8080"]

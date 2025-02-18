@@ -10,13 +10,20 @@ dev-dependencies = [
     "vulture>=2.11",
     "ruff>=0.8.0",
     "tinygrad>=0.10.0",
+    "polars>=0.18.0",
+    "numpy>=1.26.4",
+    "category-encoders>=2.6.4",
+    "pyarrow>=18.1.0",
 ]
 
 [tool.uv.sources]
 library = { workspace = true }
 
 [tool.uv.workspace]
-members = ["libraries/python/"]
+members = [
+    "libraries/python/",
+    "platform/pricemodel/",
+]
 
 [tool.ruff]
 line-length = 100
@@ -45,4 +52,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["libraries/python"]
+packages = [
+    "libraries/python",
+    "platform/pricemodel",
+]
