@@ -1028,7 +1028,11 @@ dependencies = [
  "log",
  "mockall",
  "pocketsizefund",
+ "reqwest 0.12.9",
+ "serde",
  "serde_json",
+ "thiserror 2.0.6",
+ "url",
 ]
 
 [[package]]
