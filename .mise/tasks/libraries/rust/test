@@ -2,4 +2,4 @@
 
 # mise description="unit tests for the rust code"
 
-cargo test --all-features
+RUST_LOG=off cargo test --all-features
