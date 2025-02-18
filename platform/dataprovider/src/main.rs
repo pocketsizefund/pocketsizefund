@@ -3,7 +3,7 @@ use actix_web::{post, web, App, HttpResponse, HttpServer};
 use chrono::{DateTime, Utc};
 use cloudevents::{Data, Event};
 use mockall::mock;
-use pocketsizefund::data::{Bar, Client as DataClient, Error, Interface, Prediction};
+use pocketsizefund::data::{Bar, Client as DataClient, Error, Interface, Portfolio, Prediction};
 use pocketsizefund::events::build_response_event;
 use serde::Deserialize;
 use serde_json::json;
@@ -115,6 +115,53 @@ async fn predictions_handler(
     Ok(event)
 }
 
+#[post("/portfolio")]
+async fn portfolio_handler(
+    event: web::Json<Event>,
+    data_client: web::Data<Arc<dyn Interface>>,
+) -> Result<Event, Box<dyn std::error::Error>> {
+    let mut filtered_portfolios: Vec<Portfolio> = Vec::new();
+
+    if let Some(Data::Json(json)) = event.data() {
+        let payload: Payload = match serde_json::from_value(json.clone()) {
+            Ok(val) => val,
+            Err(error) => {
+                return Err(error.into());
+            }
+        };
+
+        let old_portfolios = data_client.load_portfolios().await.unwrap_or_else(|e| {
+            tracing::error!("Failed to load old portfolios: {}", e);
+            Vec::new()
+        });
+
+        filtered_portfolios = old_portfolios
+            .into_iter()
+            .filter(|portfolio| {
+                portfolio.timestamp >= payload.start_at && portfolio.timestamp <= payload.end_at
+            })
+            .collect();
+    }
+
+    let event = build_response_event(
+        "dataprovider".to_string(),
+        vec![
+            "equities".to_string(),
+            "portfolios".to_string(),
+            "read".to_string(),
+        ],
+        Some(
+            json!({
+                "status": "success".to_string(),
+                "data": filtered_portfolios,
+            })
+            .to_string(),
+        ),
+    );
+
+    Ok(event)
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
@@ -171,6 +218,11 @@ mock! {
             predictions: Vec<Prediction>,
         ) -> Result<(), Error>;
         async fn load_predictions(&self) -> Result<Vec<Prediction>, Error>;
+        async fn write_portfolios(
+            &self,
+            portfolio_performance: Vec<Portfolio>,
+        ) -> Result<(), Error>;
+        async fn load_portfolios(&self) -> Result<Vec<Portfolio>, Error>;
     }
 }
 

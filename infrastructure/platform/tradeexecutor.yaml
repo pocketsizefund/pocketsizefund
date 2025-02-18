@@ -2,7 +2,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: dataproviderservice
+  name: tradeexecutorservice
   labels:
     layer: data
 spec:
@@ -12,8 +12,8 @@ spec:
         autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-        - name: dataproviderservice
-          image: pocketsizefund/dataprovider:latest
+        - name: tradeexecutorservice
+          image: pocketsizefund/tradeexecutor:latest
           ports:
             - containerPort: 8080
           resources:
@@ -34,6 +34,11 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: ALPACA_API_SECRET
+            - name: DARQUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: platform
+                  key: DARQUBE_API_KEY
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -44,42 +49,26 @@ spec:
                 secretKeyRef:
                   name: platform
                   key: AWS_SECRET_ACCESS_KEY
-            - name: S3_DATA_BUCKET_NAME
+            - name: SERVER_PORT
+              value: "8080"
+            - name: ENVIRONMENT
               valueFrom:
                 secretKeyRef:
                   name: platform
-                  key: S3_DATA_BUCKET_NAME
-            - name: SERVER_PORT
-              value: "8080"
+                  key: ENVIRONMENT
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
-  name: pricemodeltrigger
+  name: datacollectortrigger
 spec:
   broker: default
   filter:
     attributes:
-      source: pocketsizefund.pricemodel
-      type: equities.bars.get
+      source: pocketsizefund.datacollector
+      type: equities.portfolio.updated
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: dataproviderservice
----
-apiVersion: eventing.knative.dev/v1
-kind: Trigger
-metadata:
-  name: tradeexecutortrigger
-spec:
-  broker: default
-  filter:
-    attributes:
-      source: pocketsizefund.tradeexecutor
-      type: equities.portfolio.get
-  subscriber:
-    ref:
-      apiVersion: serving.knative.dev/v1
-      kind: Service
-      name: dataproviderservice
+      name: tradeexecutorservice

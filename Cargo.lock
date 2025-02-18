@@ -2458,26 +2458,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "positionmanager"
-version = "1.0.0"
-dependencies = [
- "actix-web",
- "async-trait",
- "chrono",
- "cloudevents-sdk",
- "env_logger",
- "mockall",
- "mockito",
- "pocketsizefund",
- "rand",
- "reqwest 0.12.9",
- "serde",
- "serde_json",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "powerfmt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3461,6 +3441,21 @@ checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
 dependencies = [
  "pin-project",
  "tracing",
+]
+
+[[package]]
+name = "tradeexecutor"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "async-trait",
+ "chrono",
+ "cloudevents-sdk",
+ "env_logger",
+ "mockall",
+ "pocketsizefund",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

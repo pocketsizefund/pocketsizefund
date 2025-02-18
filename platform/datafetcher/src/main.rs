@@ -5,7 +5,8 @@ use cloudevents::Event;
 use log::info;
 use mockall::mock;
 use pocketsizefund::data::{
-    Bar, Client as DataClient, Error as DataError, Interface as DataInterface, Prediction,
+    Bar, Client as DataClient, Error as DataError, Interface as DataInterface, Portfolio,
+    Prediction,
 };
 use pocketsizefund::events::build_response_event;
 use pocketsizefund::trade::{
@@ -103,10 +104,9 @@ async fn main() -> std::io::Result<()> {
         env::var("ALPACA_API_KEY").expect("Alpaca API key"),
         env::var("ALPACA_API_SECRET").expect("Alpaca API secret"),
         env::var("DARQUBE_API_KEY").expect("Darqube API key"),
-        env::var("IS_PRODUCTION")
-            .expect("Production flag not found")
-            .parse()
-            .expect("Production flag not a boolean"),
+        env::var("ENVIRONMENT")
+            .expect("Environment")
+            .eq("production"),
     );
 
     let trade_client: Arc<dyn TradeInterface> = Arc::new(trade_client);
@@ -147,6 +147,11 @@ mock! {
             predictions: Vec<Prediction>,
         ) -> Result<(), DataError>;
         async fn load_predictions(&self) -> Result<Vec<Prediction>, DataError>;
+        async fn write_portfolios(
+            &self,
+            portfolio: Vec<Portfolio>,
+        ) -> Result<(), DataError>;
+        async fn load_portfolios(&self) -> Result<Vec<Portfolio>, DataError>;
     }
 }
 

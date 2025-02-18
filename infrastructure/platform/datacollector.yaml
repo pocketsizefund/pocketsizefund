@@ -67,3 +67,19 @@ spec:
       apiVersion: serving.knative.dev/v1
       kind: Service
       name: datacollectorservice
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: positionmanagertrigger
+spec:
+  broker: default
+  filter:
+    attributes:
+      source: pocketsizefund.positionmanager
+      type: equities.portfolio.updated
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: datacollectorservice

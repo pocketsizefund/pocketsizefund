@@ -9,4 +9,5 @@ pub use client::Order;
 pub use client::PatternDayTraderCheck;
 pub use client::PortfolioPerformance;
 pub use client::PortfolioPosition;
+pub use client::Side;
 pub use market::Market;

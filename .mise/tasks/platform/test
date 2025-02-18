@@ -10,5 +10,5 @@ if [ "$service_name" = "pricemodel" ]; then
     exit 0
 else
     cd $root/platform/${service_name}
-    cargo test
+    cargo test -- --nocapture
 fi

@@ -140,10 +140,9 @@ async fn main() -> std::io::Result<()> {
         env::var("ALPACA_API_KEY").expect("Alpaca API key"),
         env::var("ALPACA_API_SECRET").expect("Alpaca API secret"),
         env::var("DARQUBE_API_KEY").expect("Darqube API key"),
-        env::var("IS_PRODUCTION")
-            .expect("Production flag not found")
-            .parse()
-            .expect("Production flag not a boolean"),
+        env::var("ENVIRONMENT")
+            .expect("Environment")
+            .eq("production"),
     );
 
     let trade_client: Arc<dyn TradeInterface> = Arc::new(trade_client);
@@ -296,7 +295,6 @@ mod tests {
         env::set_var("ALPACA_API_KEY", "VALUE");
         env::set_var("ALPACA_API_SECRET", "VALUE");
         env::set_var("DARQUBE_API_KEY", "VALUE");
-        env::set_var("IS_PRODUCTION", "false");
         env::set_var("ENVIRONMENT", "development");
 
         let request = test::TestRequest::post()
