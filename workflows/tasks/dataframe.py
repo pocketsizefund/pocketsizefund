@@ -1,3 +1,5 @@
+from flytekit import task
+
 import polars as pl
 import numpy as np
 from datetime import datetime, timedelta, timezone
