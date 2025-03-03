@@ -1,5 +1,6 @@
 from tinygrad import Tensor
 from tinygrad.nn import Linear, LayerNorm
+from interpolation import TimeDistributedInterpolation
 
 
 class GatedResidualNetwork:

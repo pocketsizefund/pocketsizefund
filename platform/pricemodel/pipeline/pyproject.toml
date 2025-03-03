@@ -1,0 +1,14 @@
+[project]
+name = "pipeline"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "category-encoders>=2.7.0",
+    "numpy>=2.2.1",
+    "polars>=1.19.0",
+    "pyarrow>=18.1.0",
+    "rich>=13.9.4",
+    "tinygrad>=0.10.0",
+]

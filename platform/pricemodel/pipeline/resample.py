@@ -1,6 +1,6 @@
 from tinygrad import Tensor
 from tinygrad.nn import LayerNorm
-from pricemodel.interpolation import TimeDistributedInterpolation
+from interpolation import TimeDistributedInterpolation
 
 
 class ResampleNorm:
