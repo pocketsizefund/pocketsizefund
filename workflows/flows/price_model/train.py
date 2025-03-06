@@ -56,7 +56,7 @@ def filter_tickers_by_minimum_observations(
     valid_tickers = ticker_counts.filter(pl.col("count") >= minimum_observations_per_ticker).select(
         "ticker"
     )
-    data = data.filter(pl.col("ticker").is_in(valid_tickers))
+    return data.filter(pl.col("ticker").is_in(valid_tickers))
 
 
 @task(container_image=dataframes)
@@ -68,9 +68,7 @@ def filter_out_stale_tickers(bars: Bars, freshness_date: date) -> Bars:
 
 
 @workflow
-def create_tft_training_data(
-    freshness_date: date = "2013-12-31", minimum_observations_per_ticker: int = 100
-) -> Bars:
+def main(freshness_date: date = "2013-12-31", minimum_observations_per_ticker: int = 100) -> Bars:
     bars = read_bars()
     bars = process_bars(bars)
     bars = filter_out_stale_tickers(bars, freshness_date)

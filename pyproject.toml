@@ -3,6 +3,7 @@ name = "pocketsizefund"
 version = "1.0.0"
 requires-python = ">=3.10"
 dependencies = [
+    "flytekit>=1.15.0",
     "flytekitplugins-pandera>=1.14.6",
     "pandera[polars]>=0.22.1",
     "polygon-api-client>=1.14.3",
@@ -18,7 +19,6 @@ dev-dependencies = [
     "ruff>=0.8.0",
     "tinygrad>=0.10.0",
     "polars>=0.21.0",
-    "numpy>=1.26.4",
     "category-encoders>=2.6.4",
     "pyarrow>=18.1.0",
 ]
