@@ -26,9 +26,12 @@ class LongShortTermMemory:
     ) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
         batch_size, sequence_length, _ = input.shape
 
-        hidden_state = Tensor.zeros(self.layer_count, batch_size, self.hidden_size).contiguous()
-        cell_state = Tensor.zeros(self.layer_count, batch_size, self.hidden_size).contiguous()
+        hidden_states = [
+            Tensor.zeros(batch_size, self.hidden_size) for _ in range(self.layer_count)
+        ]
+        cell_states = [Tensor.zeros(batch_size, self.hidden_size) for _ in range(self.layer_count)]
 
+        output_states: List[Tensor] = []
         for t in range(sequence_length):
             layer_input = input[:, t]
 
@@ -36,18 +39,28 @@ class LongShortTermMemory:
                 layer_hidden_state, layer_cell_state = layer(
                     x=layer_input,
                     hc=(
-                        hidden_state[index],
-                        cell_state[index],
+                        hidden_states[index],
+                        cell_states[index],
                     ),
                 )
 
-                hidden_state[index] = layer_hidden_state
-                cell_state[index] = layer_cell_state
+                layer_hidden_state = layer_hidden_state.realize()  # keep realize
+                layer_cell_state = layer_cell_state.realize()  # keep realize
 
                 if self.dropout_rate > 0.0 and index < self.layer_count - 1:
-                    hidden_state[index].train()
-                    hidden_state[index] = hidden_state[index].dropout(self.dropout_rate)
+                    layer_hidden_state.train()
+                    layer_hidden_state = layer_hidden_state.dropout(self.dropout_rate)
+
+                hidden_states[index] = layer_hidden_state
+                cell_states[index] = layer_cell_state
 
                 layer_input = layer_hidden_state
 
-        return hidden_state[-1], (hidden_state, cell_state)
+            output_states.append(layer_hidden_state)
+
+        output_state = output_states[0].stack(*output_states[1:], dim=1).realize()  # keep realize
+
+        last_hidden_state = hidden_states[-1].realize()  # keep realize
+        last_cell_state = cell_states[-1].realize()  # keep realize
+
+        return output_state, (last_hidden_state, last_cell_state)

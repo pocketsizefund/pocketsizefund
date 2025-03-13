@@ -10,6 +10,8 @@ COPY pyproject.toml uv.lock /app
 
 COPY *.py /app/
 
+COPY miniature_temporal_fusion_transformer.safetensor /app/
+
 RUN uv sync
 
 EXPOSE 8080

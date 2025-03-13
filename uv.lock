@@ -342,10 +342,15 @@ name = "pricemodel"
 version = "1.0.0"
 source = { editable = "platform/pricemodel" }
 
+[package.dev-dependencies]
+dev = [
+    { name = "fastapi" },
+]
+
 [package.metadata]
 
 [package.metadata.requires-dev]
-dev = []
+dev = [{ name = "fastapi", specifier = ">=0.115.6" }]
 
 [[package]]
 name = "pyarrow"

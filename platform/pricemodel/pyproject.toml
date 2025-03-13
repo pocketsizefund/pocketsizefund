@@ -1,13 +1,15 @@
 [project]
 name = "pricemodel"
 version = "1.0.0"
-requires-python = ">=3.10"
+requires-python = ">=3.9, <3.11"
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.uv]
-dev-dependencies = []
+dev-dependencies = [
+    "fastapi>=0.115.6",
+]
 
 [tool.uv.sources]
 

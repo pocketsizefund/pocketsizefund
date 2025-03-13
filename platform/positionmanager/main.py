@@ -92,16 +92,16 @@ def parse_response(
             [pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S")]
         )
 
-        actual_prices = prediction.select(["ticker", "timestamp", "actual_price"])
+        actual_prices = prediction.select(["ticker", "timestamp", "mean_prices"])
         calibration_data.append(actual_prices)
 
         model_prediction = prediction.select(
             [
                 "ticker",
                 "timestamp",
-                "predicted_mean",
-                "lower_bound",
-                "upper_bound",
+                "mean_prices",
+                "lower_prices",
+                "upper_prices",
             ]
         )
         model_predictions.append(model_prediction)

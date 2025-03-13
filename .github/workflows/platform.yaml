@@ -45,12 +45,6 @@ jobs:
           mkdir etc
           echo "${{ secrets.ENVIRONMENT_VARIABLES_FILE }}" > etc/.env.development
           chmod 600 etc/.env.development
-      # - name: Run service
-      #   run: |
-      #     mise run platform:run ${{ matrix.platform_services }}
-      # - name: Ping service
-      #   run: |
-      #     mise run platform:ping ${{ matrix.platform_services }}
 
   publish_service_images:
     name: Publish service images
@@ -63,9 +57,4 @@ jobs:
         run: |
           curl https://mise.run | sh
           mise install -y
-      # - name: Publish service images
-      #   run: |
-      #     for platform_service in ${{ needs.extract_changes.outputs.matrix.platform_services }}; do
-      #       mise run platform:build $platform_service
-      #       mise run platform:publish $platform_service
-      #     done
+

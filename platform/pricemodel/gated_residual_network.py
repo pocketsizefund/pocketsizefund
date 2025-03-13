@@ -20,10 +20,12 @@ class GatedResidualNetwork:
         self,
         input: Tensor,
     ) -> Tensor:
-        hidden_state = self.dense_input(input).relu()
+        hidden_state = self.dense_input(input).relu().realize()  # keep realize
 
-        output_state = self.dense_output(hidden_state)
+        output_state = self.dense_output(hidden_state).realize()  # keep realize
 
-        gate_state = self.gate(hidden_state).sigmoid()
+        gate_state = self.gate(hidden_state).sigmoid().realize()  # keep realize
 
-        return self.layer_normalizer(gate_state * output_state + input)
+        output = self.layer_normalizer(gate_state * output_state + input).realize()  # keep realize
+
+        return output

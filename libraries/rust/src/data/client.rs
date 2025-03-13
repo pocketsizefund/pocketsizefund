@@ -44,13 +44,13 @@ pub struct Bar {
     #[serde(rename = "t")]
     pub timestamp: DateTime<Utc>,
     #[serde(rename = "o")]
-    pub open: f32,
+    pub open_price: f32,
     #[serde(rename = "h")]
-    pub high: f32,
+    pub high_price: f32,
     #[serde(rename = "l")]
-    pub low: f32,
+    pub low_price: f32,
     #[serde(rename = "c")]
-    pub close: f32,
+    pub close_price: f32,
     #[serde(rename = "v")]
     pub volume: u32,
     #[serde(rename = "n")]
@@ -64,7 +64,9 @@ pub struct Prediction {
     pub ticker: String,
     pub timestamp: DateTime<Utc>,
     pub timestamps: Vec<DateTime<Utc>>,
-    pub prices: Vec<f32>,
+    pub upper_prices: Vec<f32>,
+    pub mean_prices: Vec<f32>,
+    pub lower_prices: Vec<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

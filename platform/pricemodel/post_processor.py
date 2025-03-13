@@ -2,7 +2,7 @@ from typing import Dict, Tuple
 from tinygrad import Tensor
 from category_encoders import OrdinalEncoder
 import numpy as np
-import polars as pl
+import polars as pl  # NOTE: remove
 
 
 class PostProcessor:
@@ -16,28 +16,50 @@ class PostProcessor:
         self.standard_deviations_by_ticker = standard_deviations_by_ticker
         self.ticker_encoder = ticker_encoder
 
-    def post_process_predictions(
+    def process_predictions(
         self,
-        encoded_tickers: np.ndarray,
-        predictions: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        decoded_tickers = self.ticker_encoder.inverse_transform(
-            pl.DataFrame(
-                {
-                    "ticker": encoded_tickers,
-                }
-            ).to_pandas()
-        )["ticker"].to_numpy()
+        tickers: Tensor,
+        predictions: Tensor,
+    ) -> Tensor:
+        predictions = predictions.realize()  # TEMP (remove)
 
-        rescaled_predictions = np.empty_like(predictions)
+        print("postprocessor - predictions.shape:", predictions.shape)  # TEMP
 
-        for i, ticker in enumerate(decoded_tickers):
-            mean = self.means_by_ticker[ticker].numpy()
-            standard_deviation = self.standard_deviations_by_ticker[ticker].numpy()
-            rescaled_predictions[i, :] = predictions[i, :] * standard_deviation + mean
+        batch_size, sequence_length, quantiles = predictions.shape
 
-        percentile_25 = np.percentile(rescaled_predictions, 25, axis=-1)
-        percentile_50 = np.percentile(rescaled_predictions, 50, axis=-1)
-        percentile_75 = np.percentile(rescaled_predictions, 75, axis=-1)
+        print(
+            "postprocessor - batch_size:", batch_size, "sequence_length:", sequence_length
+        )  # TEMP
 
-        return percentile_25, percentile_50, percentile_75
+        means = Tensor.stack(
+            *[self.means_by_ticker[int(t)] for t in tickers.tolist()],
+            dim=0,
+        ).realize()  # (30, 6) NOTE: rename (keep realize)
+
+        stds = Tensor.stack(
+            *[self.standard_deviations_by_ticker[int(t)] for t in tickers.tolist()],
+            dim=0,
+        ).realize()  # NOTE: rename (keeep realize)
+
+        print("postprocessor - means.shape:", means.shape, "stds.shape:", stds.shape)  # TEMP
+
+        close_idx = 3  # NOTE: confirm this or pass it in somehow
+
+        # NOTE: rename all of these variables
+        means_close = (
+            means[:, close_idx].reshape(batch_size, 1, 1).realize()  # remove realize
+        )  # Broadcastable to (30, 5, 3)
+        stds_close = (
+            stds[:, close_idx].reshape(batch_size, 1, 1).realize()
+        )  # NOTE: rename (remove realize)
+        rescaled = predictions * stds_close + means_close  # (30, 5, 3) NOTE: rename
+
+        print(
+            f"Post-processor rescaled shape: {rescaled.shape}, requires_grad: {rescaled.requires_grad}"
+        )  # TEMP
+
+        print("postprocessor - rescaled.shape:", rescaled.shape)  # TEMP
+
+        rescaled = rescaled.realize()
+
+        return rescaled

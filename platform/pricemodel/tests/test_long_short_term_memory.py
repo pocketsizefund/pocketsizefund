@@ -3,10 +3,14 @@ from tinygrad import Tensor
 
 
 def test_long_short_term_memory():
-    input_size = 9
-    hidden_size = 16
+    input_size = 20
+    hidden_size = 64 + 15
     layer_count = 3
-    dropout_rate = 0.1
+    dropout_rate = 0.10
+    # input_size = 9  # NOTE: change to match trainer script
+    # hidden_size = 16  # NOTE: change to match trainer script
+    # layer_count = 3  # NOTE: change to match trainer script
+    # dropout_rate = 0.1  # NOTE: change to match trainer script
 
     long_short_term_memory = LongShortTermMemory(
         input_size=input_size,

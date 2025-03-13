@@ -4,13 +4,16 @@ from tinygrad.dtype import dtypes
 from typing import Tuple
 
 
+# NOTE: the last parameter in here produces a shape "()" which is
+#       why in the model definition there's a hack parameter override
+#       to make it a shape "(1,)" instead - whatever the issue is should
+#       be fixed here and the parameter hack should be removed
 class MultiHeadSelfAttention:
     def __init__(
         self,
         heads_count: int,
         embedding_size: int,
     ) -> None:
-        print("check:", embedding_size % heads_count)
         if embedding_size % heads_count != 0:
             raise ValueError("Embedding dimension must be divisible by heads count")
 
@@ -24,7 +27,11 @@ class MultiHeadSelfAttention:
 
         self.fully_connected_out = Linear(self.embedding_size, self.embedding_size)
 
-        self.scale = Tensor(self.heads_dimension**0.5, dtype=dtypes.float32)
+        self.scale = Tensor(
+            self.heads_dimension**0.5,
+            dtype=dtypes.float32,
+            requires_grad=False,  # NOTE: new fix
+        )
 
     def forward(
         self,
@@ -32,32 +39,44 @@ class MultiHeadSelfAttention:
     ) -> Tuple[Tensor, Tensor]:
         batch_size, sequence_length, _ = input.shape
 
-        query_weights = self.query_weight(input)
-        key_weights = self.key_weight(input)
-        value_weights = self.value_weight(input)
+        query_weights = self.query_weight(input).realize()  # TEMP (remove)
+        key_weights = self.key_weight(input).realize()  # TEMP (remove)
+        value_weights = self.value_weight(input).realize()  # TEMP (remove)
 
-        query_weights = query_weights.view(
-            batch_size,
-            sequence_length,
-            self.heads_count,
-            self.heads_dimension,
-        ).transpose(1, 2)
-        key_weights = key_weights.view(
-            batch_size,
-            sequence_length,
-            self.heads_count,
-            self.heads_dimension,
-        ).transpose(1, 2)
-        value_weights = value_weights.view(
-            batch_size,
-            sequence_length,
-            self.heads_count,
-            self.heads_dimension,
-        ).transpose(1, 2)
+        query_weights = (
+            query_weights.view(
+                batch_size,
+                sequence_length,
+                self.heads_count,
+                self.heads_dimension,
+            )
+            .transpose(1, 2)
+            .realize()  # TEMP (keep)
+        )
+        key_weights = (
+            key_weights.view(
+                batch_size,
+                sequence_length,
+                self.heads_count,
+                self.heads_dimension,
+            )
+            .transpose(1, 2)
+            .realize()  # TEMP (keep)
+        )
+        value_weights = (
+            value_weights.view(
+                batch_size,
+                sequence_length,
+                self.heads_count,
+                self.heads_dimension,
+            )
+            .transpose(1, 2)
+            .realize()  # TEMP (keep)
+        )
 
         attention_scores = query_weights.matmul(key_weights.transpose(-2, -1)) / self.scale
 
-        attention_weights: Tensor = attention_scores.softmax(axis=-1)
+        attention_weights: Tensor = attention_scores.softmax(axis=-1).realize()  # TEMP (keep)
 
         attention_output = attention_weights.matmul(value_weights)
 
@@ -65,6 +84,6 @@ class MultiHeadSelfAttention:
             batch_size, sequence_length, self.embedding_size
         )
 
-        output = self.fully_connected_out(attention_output)
+        output = self.fully_connected_out(attention_output).realize()  # TEMP (keep)
 
         return output, attention_weights

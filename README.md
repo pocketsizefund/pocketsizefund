@@ -37,6 +37,7 @@ An unordered and non-exhaustive list of principles we work towards:
 > Never write documentation  
 > Git is truth  
 > Communicate with issues and pull requests  
+> Own tasks completely  
 > Make everything liquid  
 
 ### Links

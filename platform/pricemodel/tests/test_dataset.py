@@ -26,11 +26,9 @@ def test_dataset():
     dataset = DataSet(
         batch_size=2,
         sequence_length=3,
-        sample_count=3,
     )
 
     assert dataset.batch_size == 2, "Batch size should be 2"
-    assert dataset.sample_count == 3, "Sample count should be 3"
 
     dataset.load_data(data)
 
@@ -42,4 +40,4 @@ def test_dataset():
     assert len(preprocessors) == 4, "There should be four preprocessors"
 
     for iteration in dataset:
-        assert len(iteration) == 3, "Each iteration should yield two items"
+        assert len(iteration) == 3, "Each iteration should yield three items"
