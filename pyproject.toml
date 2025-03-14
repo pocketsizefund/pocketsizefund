@@ -2,6 +2,9 @@
 name = "pocketsizefund"
 version = "1.0.0"
 requires-python = ">=3.10"
+dependencies = [
+    "union>=0.1.157",
+]
 
 [tool.uv]
 dev-dependencies = [
