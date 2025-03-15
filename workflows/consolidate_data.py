@@ -1,6 +1,9 @@
 from union import workflow, task, Secret, ImageSpec, current_context
 import s3fs
 import polars as pl
+from pandera.typing.polars import DataFrame
+
+from workflows.schema import RawBars
 
 s3_image = ImageSpec(
     name="pocketsizefund/s3",
@@ -44,7 +47,7 @@ def list_available_data(*, prefix: str = "", file_extension: str = "parquet") ->
         Secret(key="DATA_BUCKET"),
     ],
 )
-def load_bars(paths: list[str]) -> pl.LazyFrame:
+def load_bars(paths: list[str]) -> DataFrame[RawBars]:
     AWS_SECRET_ACCESS_KEY = current_context().secrets.get(key="AWS_SECRET_ACCESS_KEY")
     AWS_ACCESS_KEY_ID = current_context().secrets.get(key="AWS_ACCESS_KEY_ID")
 
