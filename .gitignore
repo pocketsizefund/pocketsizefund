@@ -14,3 +14,7 @@ platform/*/Cargo.lock
 **/target*/
 python_coverage/
 wandb/
+
+.flox/cache/
+.flox/run/
+.flox/log/
