@@ -10,7 +10,7 @@ ignored = ["sasl2_sys"]
 [dependencies]
 serde = "1.0.203"
 serde_json = "1.0.117"
-tokio = { version = "1.38.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.43.1", features = ["rt-multi-thread"] }
 tracing = { version = "0.1.40", features = ["async-await"] }
 env_logger = "0.11.5"
 actix-web = "4.9.0"
