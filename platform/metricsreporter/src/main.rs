@@ -105,7 +105,7 @@ async fn metrics_handler(
         .collect();
     let equity_closes: Vec<f64> = filtered_equity_bars
         .iter()
-        .map(|bar| bar.close as f64)
+        .map(|bar| bar.close_price as f64)
         .collect();
 
     let benchmark_metrics = calculate_metrics(equity_timestamps, equity_closes, oldest_timestamp);
@@ -241,10 +241,10 @@ mod tests {
                     Bar {
                         ticker: Some("SPY".to_string()),
                         timestamp: Utc.with_ymd_and_hms(1977, 5, 25, 0, 0, 0).unwrap(),
-                        open: 150.0,
-                        high: 152.5,
-                        low: 149.5,
-                        close: 151.5,
+                        open_price: 150.0,
+                        high_price: 152.5,
+                        low_price: 149.5,
+                        close_price: 151.5,
                         volume: 1_000_000,
                         number_of_trades: 5_000,
                         volume_weighted_average_price: 151.2,
@@ -252,10 +252,10 @@ mod tests {
                     Bar {
                         ticker: Some("SPY".to_string()),
                         timestamp: Utc.with_ymd_and_hms(1977, 5, 26, 0, 0, 0).unwrap(),
-                        open: 151.0,
-                        high: 155.5,
-                        low: 149.5,
-                        close: 152.5,
+                        open_price: 151.0,
+                        high_price: 155.5,
+                        low_price: 149.5,
+                        close_price: 152.5,
                         volume: 1_000_000,
                         number_of_trades: 5_000,
                         volume_weighted_average_price: 151.2,
@@ -263,10 +263,10 @@ mod tests {
                     Bar {
                         ticker: Some("SPY".to_string()),
                         timestamp: Utc.with_ymd_and_hms(1977, 5, 27, 0, 0, 0).unwrap(),
-                        open: 152.0,
-                        high: 159.5,
-                        low: 149.5,
-                        close: 151.5,
+                        open_price: 152.0,
+                        high_price: 159.5,
+                        low_price: 149.5,
+                        close_price: 151.5,
                         volume: 1_000_000,
                         number_of_trades: 5_000,
                         volume_weighted_average_price: 151.2,

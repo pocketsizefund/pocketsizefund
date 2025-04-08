@@ -16,16 +16,13 @@ class GatedResidualNetwork:
         self.gate = Linear(in_features=hidden_size, out_features=output_size)
         self.layer_normalizer = LayerNorm(normalized_shape=output_size)
 
-    def forward(
-        self,
-        input: Tensor,
-    ) -> Tensor:
-        hidden_state = self.dense_input(input).relu().realize()  # keep realize
+    def forward(self, input: Tensor) -> Tensor:
+        hidden_state = self.dense_input(input).relu()
 
-        output_state = self.dense_output(hidden_state).realize()  # keep realize
+        output_state = self.dense_output(hidden_state)
 
-        gate_state = self.gate(hidden_state).sigmoid().realize()  # keep realize
+        gate_state = self.gate(hidden_state).sigmoid()
 
-        output = self.layer_normalizer(gate_state * output_state + input).realize()  # keep realize
+        output = self.layer_normalizer(gate_state * output_state + input)
 
         return output

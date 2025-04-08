@@ -4,7 +4,6 @@ from tinygrad.dtype import dtypes
 import polars as pl
 from category_encoders import OrdinalEncoder
 from typing import Tuple
-import numpy as np  # NOTE: remove
 
 
 continuous_variable_columns = [
@@ -20,8 +19,9 @@ continuous_variable_columns = [
 class DataSet:
     def __init__(
         self,
-        batch_size: int,
-        sequence_length: int,
+        # TODO: remove "batch_size" parameter + calculate internally
+        batch_size: int,  # number of tickers (e.g. 20)
+        sequence_length: int,  # historic days (e.g. 30)
         scalers: Dict[str, Dict[str, Tensor]] = {},
     ) -> None:
         self.batch_size = batch_size
@@ -105,16 +105,13 @@ class DataSet:
                 ticker_key = ticker[0]
 
                 self.scalers[ticker_key] = {
-                    "means": Tensor(means.to_numpy().flatten(), requires_grad=False).cast(
+                    "means": Tensor(means.to_numpy().flatten()).cast(dtypes.float32),
+                    "standard_deviations": Tensor(standard_deviations.to_numpy().flatten()).cast(
                         dtypes.float32
                     ),
-                    "standard_deviations": Tensor(
-                        standard_deviations.to_numpy().flatten(), requires_grad=False
-                    ).cast(dtypes.float32),
                 }
 
-        groups = []
-        groups: List[Tensor] = []
+        self.data: Dict[str, Tensor] = {}
         for ticker, group in data.group_by("ticker"):
             ticker_key = ticker[0]
 
@@ -129,24 +126,11 @@ class DataSet:
 
             scaled_group = (group_data - means) / standard_deviations
 
-            num_rows = scaled_group.shape[0]
+            ticker_int = Tensor.full((scaled_group.shape[0], 1), ticker_key).cast(dtypes.float32)
 
-            ticker_int = Tensor.full((num_rows, 1), ticker_key).cast(dtypes.float32)
+            self.data[ticker_key] = scaled_group.cat(ticker_int, dim=1)
 
-            scaled_group_with_ticker = scaled_group.cat(ticker_int, dim=1)
-
-            groups.append(scaled_group_with_ticker)
-
-        # NOTE: handle cases w/ < 2 groups
-        output_data = Tensor.cat(*groups, dim=0).cast(dtypes.float32).realize()
-
-        print("dataset - output_data:", output_data.shape)  # TEMP
-
-        self.sample_count = output_data.shape[0]
-
-        self.data = output_data
-
-    def get_preprocessors(self):
+    def get_preprocessors(self) -> Dict[str, Dict[str, Tensor]]:
         if self.preprocessors is None or len(self.preprocessors) == 0:
             raise ValueError("Preprocessors attribute has not been set")
 
@@ -164,49 +148,34 @@ class DataSet:
 
     def __iter__(self) -> Iterable[Tuple[Tensor, Tensor, Tensor]]:
         close_price_index = self.preprocessors["indices"]["close_price"]
-        prediction_horizon = 5  # NOTE: change to dynamic reference
+        prediction_horizon = 5  # TODO: make parameter
+        ticker_keys = list(self.data.keys())
 
-        # NOTE: change "step" to variable here
-        # NOTE: clean this all up
-        for i in range(
-            0, self.sample_count - self.sequence_length - prediction_horizon + 1, self.batch_size
-        ):
-            batch_data = self.data[
-                i : i + self.batch_size + self.sequence_length + prediction_horizon
-            ]
-            if batch_data.shape[0] < self.batch_size + self.sequence_length + prediction_horizon:
-                padding = Tensor.zeros(
-                    (
-                        self.batch_size
-                        + self.sequence_length
-                        + prediction_horizon
-                        - batch_data.shape[0],
-                        *batch_data.shape[1:],
-                    )
-                ).realize()
-                batch_data = Tensor(batch_data).stack(padding, dim=0).realize()
+        min_length = self.sequence_length + prediction_horizon
+        valid_groups = {k: g for k, g in self.data.items() if g.shape[0] >= min_length}
 
-            tickers = batch_data[: self.batch_size, -1].cast(dtypes.int32).realize()
-            feature_indices = [
-                self.preprocessors["indices"][col] for col in continuous_variable_columns
-            ]
-            historical_features = Tensor.stack(
-                *[
-                    batch_data[i : i + self.sequence_length, feature_indices]
-                    for i in range(self.batch_size)
-                ],
-                dim=0,
-            ).realize()
+        if len(valid_groups) < self.batch_size:  # TODO: make into equals check
+            raise ValueError(
+                f"Not enough tickers with sufficient data: {len(valid_groups)} < {self.batch_size}"
+            )  # TODO: update error message
 
-            targets = Tensor.stack(
-                *[
-                    batch_data[
-                        i + self.sequence_length : i + self.sequence_length + prediction_horizon,
-                        close_price_index,
-                    ]
-                    for i in range(self.batch_size)
-                ],
-                dim=0,
-            ).realize()
+        tickers: Tensor = Tensor(ticker_keys, dtype=dtypes.int32).realize()
+        features: List[Tensor] = []
+        targets: List[Tensor] = []
 
-            yield tickers, historical_features, targets
+        # TODO: rename all variables
+        for ticker_key in ticker_keys:
+            group_data = self.data[ticker_key]
+
+            feat = group_data[-min_length:-prediction_horizon, :-1]  # exclude ticker column
+            features.append(feat)
+
+            targ = group_data[-prediction_horizon:, close_price_index]
+
+            targ_quantiles = Tensor.stack(*[targ * 0.9, targ, targ * 1.1], dim=-1)
+            targets.append(targ_quantiles)
+
+        historical_features = Tensor.stack(*features, dim=0).realize()  # [20, 30, 6]
+        targets = Tensor.stack(*targets, dim=0).realize()  # [20, 5, 3]
+
+        yield tickers, historical_features, targets

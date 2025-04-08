@@ -10,11 +10,9 @@ if [ "$service_name" = "pricemodel" ]; then
     exit 0
 fi
 
-cat $root/etc/.env.development > $root/etc/.env
-
 docker compose \
     --file $root/platform/${service_name}/compose.yaml \
-    --env-file $root/etc/.env \
+    --env-file $root/etc/.env.development \
     up \
     --build \
     --watch \
