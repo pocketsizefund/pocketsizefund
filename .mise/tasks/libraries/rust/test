@@ -1,5 +1,0 @@
-#!/usr/bin/env sh
-
-# mise description="unit tests for the rust code"
-
-RUST_LOG=off cargo test --all-features
