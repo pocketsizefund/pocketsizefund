@@ -1,9 +1,0 @@
-[package]
-name = "broker"
-version = "1.0.0"
-edition = "2021"
-license = "MIT"
-
-[dependencies]
-apca = "0.29.0"
-tokio = { version = "1.43.1", features = ["macros", "rt-multi-thread", "tokio-macros", "tracing"] }
