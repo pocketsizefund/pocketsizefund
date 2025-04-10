@@ -6,6 +6,8 @@ stack.pkg-path = "stack"
 uv.pkg-path = "uv"
 mise.pkg-path = "mise"
 pulumi.pkg-path = "pulumi"
+pulumi-language-python.pkg-path = "pulumiPackages.pulumi-language-python"
+pulumi-python.pkg-path = "pulumiPackages.pulumi-python"
 
 [vars]
 
