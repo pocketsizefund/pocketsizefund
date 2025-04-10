@@ -26,7 +26,10 @@ description="run python code quality checks across the full repository"
 
 [tasks."platform:run"]
 description = "run platform in docker compose"
-run = "cd platform && docker compose up"
+run = """
+cd platform
+docker compose up
+"""
 
 [tasks."platform:build"]
 description = "build platform image to dockerhub"
