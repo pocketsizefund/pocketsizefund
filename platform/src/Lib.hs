@@ -1,11 +1,12 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeOperators #-}
+
 module Lib
-    (
-    app
-    ) where
+  ( app,
+  )
+where
 
 import Data.Aeson
 import Data.Aeson.TH
@@ -15,13 +16,12 @@ import Network.Wai.Handler.Warp
 import Servant
 import System.Environment (getEnv)
 
-
-
 data User = User
-  { userId        :: Int
-  , userFirstName :: String
-  , userLastName  :: String
-  } deriving (Eq, Show)
+  { userId :: Int,
+    userFirstName :: String,
+    userLastName :: String
+  }
+  deriving (Eq, Show)
 
 $(deriveJSON defaultOptions ''User)
 
