@@ -33,7 +33,9 @@ description = "build platform image to dockerhub"
 run = """
 TIMESTAMP=$(date +%Y%m%d) 
 cd platform
-docker build -t pocketsizefund/platform:latest \
+docker build \
+    --platform linux/amd64 \
+    -t pocketsizefund/platform:latest \
     -t pocketsizefund/platform:${TIMESTAMP} \
     .
 """
