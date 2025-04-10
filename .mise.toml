@@ -24,5 +24,30 @@ run = "uvx ruff format"
 depends = ["python:check", "python:dead-code", "python:format"]
 description="run python code quality checks across the full repository"
 
+[tasks."platform:run"]
+description = "run platform in docker compose"
+run = "cd platform && docker compose up"
 
+[tasks."platform:build"]
+description = "build platform image to dockerhub"
+run = """
+TIMESTAMP=$(date +%Y%m%d) 
+cd platform
+docker build -t pocketsizefund/platform:latest \
+    -t pocketsizefund/platform:${TIMESTAMP} \
+    .
+"""
 
+[tasks."platform:push"]
+description = "push platform image to dockerhub"
+depends = ["platform:build"]
+run = """
+TIMESTAMP=$(date +%Y%m%d) 
+cd platform
+docker push pocketsizefund/platform:latest
+docker push pocketsizefund/platform:${TIMESTAMP}
+"""
+
+[tasks."infrastructure:up"]
+description = "launch infrastructure"
+run = "cd infrastructure && uv run pulumi up"
