@@ -1,0 +1,26 @@
+version = 1
+
+
+[install]
+stack.pkg-path = "stack"
+uv.pkg-path = "uv"
+mise.pkg-path = "mise"
+pulumi.pkg-path = "pulumi"
+
+[vars]
+
+[hook]
+
+[profile]
+
+[services]
+
+
+[options]
+
+systems = [
+  "aarch64-darwin",
+  "aarch64-linux",
+  "x86_64-darwin",
+  "x86_64-linux",
+]

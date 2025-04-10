@@ -1,0 +1,28 @@
+[tasks."python:check"]
+description="run python code quality checks across the full repository"
+run = """
+uvx ruff check \
+    --output-format=github \
+    .
+
+"""
+
+[tasks."python:dead-code"]
+description="check for dead python code"
+run = """
+uvx vulture \
+    --min-confidence 80 \
+    --exclude '.venv,target' \
+    .
+"""
+
+[tasks."python:format"]
+description="format python code"
+run = "uvx ruff format"
+
+[tasks."python:lint"]
+depends = ["python:check", "python:dead-code", "python:format"]
+description="run python code quality checks across the full repository"
+
+
+
