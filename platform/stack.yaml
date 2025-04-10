@@ -1,0 +1,8 @@
+snapshot:
+  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/23/18.yaml
+
+packages:
+- .
+
+
+notify-if-nix-on-path: false
