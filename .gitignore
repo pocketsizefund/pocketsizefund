@@ -1,4 +1,5 @@
 infrastructure/Pulumi.prod.yaml
+infrastructure/Pulumi.infrastructure.yaml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
