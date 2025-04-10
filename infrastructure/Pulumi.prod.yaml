@@ -1,0 +1,19 @@
+config:
+  gcp:project: fund-alpha
+  gcp:region: us-east1
+  infrastructure:APCA_API_KEY_ID:
+    secure: AAABAL4Pf1v0bFNaWB8npMFBxRUM5X5ADUDcuKlUd5KExEXo
+  infrastructure:APCA_API_SECRET_KEY:
+    secure: AAABAIzzpf1IyF7YqyYKI3NtAi603uYGbiTL0+Ou8dGiaVpI
+  infrastructure:chronos_sa_email:
+    secure: AAABAD6XqhuU4EDHYEkqYz+tQuXXIkDFhHkSw9PsdI6mek7jp+SyLkrAEWm0HoWL69PWZT8lRQDbsc21
+  infrastructure:DISCORD_WEBHOOK_URL:
+    secure: AAABAC6A1clbC8HYuadFIoFUPr4ASFHq1iF8h9Bs6EWveR0UhUCZTGUBwt7EychS+VryumayiImJp50s+UNDpyiCRTTD+9wVSf9riaNT7UPKUPtOX6hwRpfJIzHymtcF+zKa5NVqIT5zTIr5HBALV+J+H9H42F5HXyTgEUBU7lyFr2SQ1O5gSxLoCSQZ+tPyaciPyKWpOv27IG9b
+  infrastructure:ALPACA_API_KEY:
+    secure: AAABAKPT/AhVsvKumR5W6tttPBUoC83gOzttBJyuqhs39Nld3tyEKkhBSWWpK7yZXYeYRw==
+  infrastructure:ALPACA_API_SECRET:
+    secure: AAABAOsh0I7XOMQVgKBalZASyrXKIpVikadYcbBxCSzWZXvh/WYyItYJtUF7s6o1u5Zz2a+s3uXiSzIDBcdc6KId0bzLoQ8Q
+  infrastructure:DARQUBE_API_KEY:
+    secure: AAABACFsUUn2GR8jW/RsDK/IHzT+EFeUs/XvtheT49QNUl7V2NbKIpUFry7XWnhhfT49xJIhEol/GOQFPQemAw==
+  infrastructure:ENVIRONMENT:
+    secure: AAABAAsWTAV03APxmcX4ZeT4YA4OoSP3LGmAFWPpeDfs/Yxf
