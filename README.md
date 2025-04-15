@@ -32,7 +32,7 @@ An unordered and non-exhaustive list we work towards:
 > No code is good code  
 > Never write documentation  
 > Git is truth  
-> Communicate with issues and pull requests  
+> Communicate without speaking  
 > Make everything liquid  
 
 ### Links
