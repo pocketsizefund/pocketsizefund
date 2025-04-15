@@ -9,6 +9,12 @@
       "pulumi": {
         "pkg-path": "pulumi"
       },
+      "pulumi-language-python": {
+        "pkg-path": "pulumiPackages.pulumi-language-python"
+      },
+      "pulumi-python": {
+        "pkg-path": "pulumiPackages.pulumi-python"
+      },
       "stack": {
         "pkg-path": "stack"
       },
@@ -39,13 +45,13 @@
       "description": "Front-end to your dev env",
       "install_id": "mise",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "mise-2025.3.11",
       "pname": "mise",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:14:40.404019Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:10:57.660902Z",
       "stabilities": [
         "unstable"
       ],
@@ -68,13 +74,13 @@
       "description": "Front-end to your dev env",
       "install_id": "mise",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "mise-2025.3.11",
       "pname": "mise",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:35:37.992381Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:27:46.904416Z",
       "stabilities": [
         "unstable"
       ],
@@ -97,13 +103,13 @@
       "description": "Front-end to your dev env",
       "install_id": "mise",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "mise-2025.3.11",
       "pname": "mise",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:54:09.752917Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:43:06.796396Z",
       "stabilities": [
         "unstable"
       ],
@@ -126,13 +132,13 @@
       "description": "Front-end to your dev env",
       "install_id": "mise",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "mise-2025.3.11",
       "pname": "mise",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T02:16:26.468426Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T02:01:27.691760Z",
       "stabilities": [
         "unstable"
       ],
@@ -155,13 +161,13 @@
       "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
       "install_id": "pulumi",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "pulumi-3.156.0",
       "pname": "pulumi",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:14:46.698085Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:11:03.963221Z",
       "stabilities": [
         "unstable"
       ],
@@ -184,13 +190,13 @@
       "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
       "install_id": "pulumi",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "pulumi-3.156.0",
       "pname": "pulumi",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:35:50.048107Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:27:58.867334Z",
       "stabilities": [
         "unstable"
       ],
@@ -213,13 +219,13 @@
       "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
       "install_id": "pulumi",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "pulumi-3.156.0",
       "pname": "pulumi",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:54:16.116358Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:43:13.157620Z",
       "stabilities": [
         "unstable"
       ],
@@ -242,13 +248,13 @@
       "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
       "install_id": "pulumi",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "pulumi-3.156.0",
       "pname": "pulumi",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T02:16:39.507298Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T02:01:40.716123Z",
       "stabilities": [
         "unstable"
       ],
@@ -265,19 +271,251 @@
       "priority": 5
     },
     {
+      "attr_path": "pulumiPackages.pulumi-language-python",
+      "broken": false,
+      "derivation": "/nix/store/56rk3vvk8wx7nfww0r0xm3546zc3f4wg-pulumi-python-3.156.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-language-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "pulumi-python-3.156.0",
+      "pname": "pulumi-language-python",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:11:03.970604Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/lhj7hrxrarc3jricwhsbh0lbq7d7kj7w-pulumi-python-3.156.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-language-python",
+      "broken": false,
+      "derivation": "/nix/store/8fz1fjm951jdcm1bdij1b3bybsqql8vh-pulumi-python-3.156.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-language-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "pulumi-python-3.156.0",
+      "pname": "pulumi-language-python",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:27:58.878743Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/571fgbhc4qkv42xipf78r736b7nkg8m6-pulumi-python-3.156.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-language-python",
+      "broken": false,
+      "derivation": "/nix/store/a9x2v2zh3j5awg4x1sfciwmpjkcf1wv5-pulumi-python-3.156.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-language-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "pulumi-python-3.156.0",
+      "pname": "pulumi-language-python",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:43:13.165089Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ds72iyr177cfda94cfqnxabynrh1lrfl-pulumi-python-3.156.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-language-python",
+      "broken": false,
+      "derivation": "/nix/store/31sib2km9mgjmxciqxz67z0mis2s9dhf-pulumi-python-3.156.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-language-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "pulumi-python-3.156.0",
+      "pname": "pulumi-language-python",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T02:01:40.728310Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/wkxlrbjmpdcwyhiwx9q542yk2kyb0md9-pulumi-python-3.156.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/56rk3vvk8wx7nfww0r0xm3546zc3f4wg-pulumi-python-3.156.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "pulumi-python-3.156.0",
+      "pname": "pulumi-python",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:11:03.972083Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/lhj7hrxrarc3jricwhsbh0lbq7d7kj7w-pulumi-python-3.156.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/8fz1fjm951jdcm1bdij1b3bybsqql8vh-pulumi-python-3.156.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "pulumi-python-3.156.0",
+      "pname": "pulumi-python",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:27:58.881041Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/571fgbhc4qkv42xipf78r736b7nkg8m6-pulumi-python-3.156.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/a9x2v2zh3j5awg4x1sfciwmpjkcf1wv5-pulumi-python-3.156.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "pulumi-python-3.156.0",
+      "pname": "pulumi-python",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:43:13.166583Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ds72iyr177cfda94cfqnxabynrh1lrfl-pulumi-python-3.156.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/31sib2km9mgjmxciqxz67z0mis2s9dhf-pulumi-python-3.156.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "pulumi-python-3.156.0",
+      "pname": "pulumi-python",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T02:01:40.730748Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/wkxlrbjmpdcwyhiwx9q542yk2kyb0md9-pulumi-python-3.156.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
       "attr_path": "stack",
       "broken": false,
       "derivation": "/nix/store/s218qx46dqlad10ndi1z3n0f473sl51n-stack-3.1.1.drv",
       "description": "The Haskell Tool Stack",
       "install_id": "stack",
       "license": "BSD-3-Clause",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "stack-3.1.1",
       "pname": "stack",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:15:17.259563Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:11:34.508407Z",
       "stabilities": [
         "unstable"
       ],
@@ -301,13 +539,13 @@
       "description": "The Haskell Tool Stack",
       "install_id": "stack",
       "license": "BSD-3-Clause",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "stack-3.1.1",
       "pname": "stack",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:36:34.907738Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:28:43.273475Z",
       "stabilities": [
         "unstable"
       ],
@@ -330,13 +568,13 @@
       "description": "The Haskell Tool Stack",
       "install_id": "stack",
       "license": "BSD-3-Clause",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "stack-3.1.1",
       "pname": "stack",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:54:46.666003Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:43:43.747150Z",
       "stabilities": [
         "unstable"
       ],
@@ -359,13 +597,13 @@
       "description": "The Haskell Tool Stack",
       "install_id": "stack",
       "license": "BSD-3-Clause",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "stack-3.1.1",
       "pname": "stack",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T02:17:26.687913Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T02:02:27.830908Z",
       "stabilities": [
         "unstable"
       ],
@@ -388,13 +626,13 @@
       "description": "Extremely fast Python package installer and resolver, written in Rust",
       "install_id": "uv",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "uv-0.6.12",
       "pname": "uv",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:15:27.734186Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:11:44.987063Z",
       "stabilities": [
         "unstable"
       ],
@@ -417,13 +655,13 @@
       "description": "Extremely fast Python package installer and resolver, written in Rust",
       "install_id": "uv",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "uv-0.6.12",
       "pname": "uv",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:36:49.738441Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:28:57.932781Z",
       "stabilities": [
         "unstable"
       ],
@@ -446,13 +684,13 @@
       "description": "Extremely fast Python package installer and resolver, written in Rust",
       "install_id": "uv",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "uv-0.6.12",
       "pname": "uv",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T01:54:57.177922Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:43:54.280618Z",
       "stabilities": [
         "unstable"
       ],
@@ -475,13 +713,13 @@
       "description": "Extremely fast Python package installer and resolver, written in Rust",
       "install_id": "uv",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
       "name": "uv-0.6.12",
       "pname": "uv",
-      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
-      "rev_count": 780010,
-      "rev_date": "2025-04-06T18:34:07Z",
-      "scrape_date": "2025-04-08T02:17:42.244484Z",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T02:02:43.334041Z",
       "stabilities": [
         "unstable"
       ],
