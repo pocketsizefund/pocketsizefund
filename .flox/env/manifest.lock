@@ -1,0 +1,501 @@
+{
+  "lockfile-version": 1,
+  "manifest": {
+    "version": 1,
+    "install": {
+      "mise": {
+        "pkg-path": "mise"
+      },
+      "pulumi": {
+        "pkg-path": "pulumi"
+      },
+      "stack": {
+        "pkg-path": "stack"
+      },
+      "uv": {
+        "pkg-path": "uv"
+      }
+    },
+    "hook": {},
+    "profile": {},
+    "options": {
+      "systems": [
+        "aarch64-darwin",
+        "aarch64-linux",
+        "x86_64-darwin",
+        "x86_64-linux"
+      ],
+      "allow": {
+        "licenses": []
+      },
+      "semver": {}
+    }
+  },
+  "packages": [
+    {
+      "attr_path": "mise",
+      "broken": false,
+      "derivation": "/nix/store/dxjbhkh608ahxab7mxbad8ri0593gy2a-mise-2025.3.11.drv",
+      "description": "Front-end to your dev env",
+      "install_id": "mise",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "mise-2025.3.11",
+      "pname": "mise",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:14:40.404019Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2025.3.11",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/l1vy24ppp6m6pqhnm9rc75ycbfql6lmb-mise-2025.3.11"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "mise",
+      "broken": false,
+      "derivation": "/nix/store/8r1vms44kbv86wdk9kfw10aki3sadnf1-mise-2025.3.11.drv",
+      "description": "Front-end to your dev env",
+      "install_id": "mise",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "mise-2025.3.11",
+      "pname": "mise",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:35:37.992381Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2025.3.11",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/q409miky39pjwdv0zlcdsgnhwdzgzgjx-mise-2025.3.11"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "mise",
+      "broken": false,
+      "derivation": "/nix/store/81l8q1iai31jyawn03xin7idav0cd9c6-mise-2025.3.11.drv",
+      "description": "Front-end to your dev env",
+      "install_id": "mise",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "mise-2025.3.11",
+      "pname": "mise",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:54:09.752917Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2025.3.11",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/fkbj8nw4nqdimvm3zsgcvwvi4pnm97wd-mise-2025.3.11"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "mise",
+      "broken": false,
+      "derivation": "/nix/store/rnzyd3pc4d223nbj9n4clg2x4ljji2w7-mise-2025.3.11.drv",
+      "description": "Front-end to your dev env",
+      "install_id": "mise",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "mise-2025.3.11",
+      "pname": "mise",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T02:16:26.468426Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2025.3.11",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/li3ay94nvbvqyr4h4p4m5d3aan7nwrva-mise-2025.3.11"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/hsfmivxcysm6bfa6kn1jwkkibvjcw9ld-pulumi-3.156.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "pulumi-3.156.0",
+      "pname": "pulumi",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:14:46.698085Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/zl514cdixvz7hk86gi69qxdbz5xza88a-pulumi-3.156.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/0gpsz38ha33qrx03a42agjywahxzpy8y-pulumi-3.156.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "pulumi-3.156.0",
+      "pname": "pulumi",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:35:50.048107Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ynams86jyxd2r7d0jhkm7jbczgxzyqac-pulumi-3.156.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/ap7spxgiwzrpbjqg4bczbq7bzd70l4f8-pulumi-3.156.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "pulumi-3.156.0",
+      "pname": "pulumi",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:54:16.116358Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/2v7rgn02sn58nsgd5wadxvp5sncyk03r-pulumi-3.156.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/rpw73qz5mzdklrq2ik27akxh5lk2km9p-pulumi-3.156.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "pulumi-3.156.0",
+      "pname": "pulumi",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T02:16:39.507298Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.156.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/swq5bqjzxcd7iwfyhqyszxlwi16mmf0y-pulumi-3.156.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "stack",
+      "broken": false,
+      "derivation": "/nix/store/s218qx46dqlad10ndi1z3n0f473sl51n-stack-3.1.1.drv",
+      "description": "The Haskell Tool Stack",
+      "install_id": "stack",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "stack-3.1.1",
+      "pname": "stack",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:15:17.259563Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.1.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "doc": "/nix/store/i98lscxsvanlm53xcvp6kdljl4950gh2-stack-3.1.1-doc",
+        "out": "/nix/store/2jrnbdjzf6mfs97gz0srdjs9gi9fhzlz-stack-3.1.1"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "stack",
+      "broken": false,
+      "derivation": "/nix/store/w3dgp8k36n2qz4733ada5nigmfjl5wkz-stack-3.1.1.drv",
+      "description": "The Haskell Tool Stack",
+      "install_id": "stack",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "stack-3.1.1",
+      "pname": "stack",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:36:34.907738Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.1.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/gwjl4p1y9i6n4y44rlgj7aj4nm6rkn1n-stack-3.1.1"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "stack",
+      "broken": false,
+      "derivation": "/nix/store/hda5qxzgbpl64mclgfnkswabhy1r4p49-stack-3.1.1.drv",
+      "description": "The Haskell Tool Stack",
+      "install_id": "stack",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "stack-3.1.1",
+      "pname": "stack",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:54:46.666003Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.1.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ayf2750j4f497ycmg39bxcr8gai1q4r5-stack-3.1.1"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "stack",
+      "broken": false,
+      "derivation": "/nix/store/c1jfy3nzzwcg7j25khf99mk5wfg6zwjf-stack-3.1.1.drv",
+      "description": "The Haskell Tool Stack",
+      "install_id": "stack",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "stack-3.1.1",
+      "pname": "stack",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T02:17:26.687913Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.1.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/dlzfc2i4pv20zaq3cjwfap40s54a6xmy-stack-3.1.1"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "uv",
+      "broken": false,
+      "derivation": "/nix/store/5l4rlnyn4g3l8fykbif3c3ghkgbpzari-uv-0.6.12.drv",
+      "description": "Extremely fast Python package installer and resolver, written in Rust",
+      "install_id": "uv",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "uv-0.6.12",
+      "pname": "uv",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:15:27.734186Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.6.12",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/v6x22x2jd2m44g4sixpai9r19afacap2-uv-0.6.12"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "uv",
+      "broken": false,
+      "derivation": "/nix/store/jdzi9q9hbwgqsjkmgsra38ja4x5q5amw-uv-0.6.12.drv",
+      "description": "Extremely fast Python package installer and resolver, written in Rust",
+      "install_id": "uv",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "uv-0.6.12",
+      "pname": "uv",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:36:49.738441Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.6.12",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/dxc41c6kplaxgshwjjq0g0bmgb15zmq8-uv-0.6.12"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "uv",
+      "broken": false,
+      "derivation": "/nix/store/sjqky3xgid3kvl57i8lavx9d3z252wxx-uv-0.6.12.drv",
+      "description": "Extremely fast Python package installer and resolver, written in Rust",
+      "install_id": "uv",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "uv-0.6.12",
+      "pname": "uv",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T01:54:57.177922Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.6.12",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ygmsasxljbrh76gsgpvkn2vcq3yxp8yq-uv-0.6.12"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "uv",
+      "broken": false,
+      "derivation": "/nix/store/qbby6s0jxhgrmyjmm8wh8anzgxg3fn3j-uv-0.6.12.drv",
+      "description": "Extremely fast Python package installer and resolver, written in Rust",
+      "install_id": "uv",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "name": "uv-0.6.12",
+      "pname": "uv",
+      "rev": "063dece00c5a77e4a0ea24e5e5a5bd75232806f8",
+      "rev_count": 780010,
+      "rev_date": "2025-04-06T18:34:07Z",
+      "scrape_date": "2025-04-08T02:17:42.244484Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.6.12",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/6grrzagqydsbz7kxwdwsw98a6bcrp67k-uv-0.6.12"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    }
+  ]
+}
