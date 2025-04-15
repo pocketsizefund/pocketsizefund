@@ -12,7 +12,7 @@ description="check for dead python code"
 run = """
 uvx vulture \
     --min-confidence 80 \
-    --exclude '.venv,target' \
+    --exclude '.flox,.venv,target' \
     .
 """
 
@@ -23,6 +23,15 @@ run = "uvx ruff format"
 [tasks."python:lint"]
 depends = ["python:check", "python:dead-code", "python:format"]
 description="run python code quality checks across the full repository"
+
+[tasks."haskell:format"]
+description = "lint haskell code"
+run = "ormolu --mode inplace $(find . -name '*.hs')"
+
+[tasks."haskell:lint"]
+description = "lint haskell code"
+depends = ["haskell:format"]
+run = "hlint ."
 
 [tasks."platform:run"]
 description = "run platform in docker compose"
@@ -56,3 +65,16 @@ docker push pocketsizefund/platform:${TIMESTAMP}
 [tasks."infrastructure:up"]
 description = "launch infrastructure"
 run = "cd infrastructure && uv run pulumi up"
+
+[tasks."format"]
+description = "format entire codebase"
+depends = ["python:lint", "haskell:lint"]
+
+[tasks."lint"]
+description = "lint entire codebase"
+depends = ["format"]
+
+
+[tasks."test"]
+description = "run all tests"
+depends = ["python:test", "haskell:test"]
