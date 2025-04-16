@@ -29,6 +29,9 @@
       },
       "uv": {
         "pkg-path": "uv"
+      },
+      "vulture": {
+        "pkg-path": "python313Packages.vulture"
       }
     },
     "hook": {},
@@ -1131,6 +1134,130 @@
       ],
       "outputs": {
         "out": "/nix/store/6grrzagqydsbz7kxwdwsw98a6bcrp67k-uv-0.6.12"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "python313Packages.vulture",
+      "broken": false,
+      "derivation": "/nix/store/5nhhmhb3zc3sjyncj98js9r235sc7a11-python3.13-vulture-2.14.drv",
+      "description": "Finds unused code in Python programs",
+      "install_id": "vulture",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "python3.13-vulture-2.14",
+      "pname": "vulture",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:11:21.873348Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.14",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/snjkijzwb49dqp8basn9yx4cy6acbhnd-python3.13-vulture-2.14-dist",
+        "out": "/nix/store/3x3kf8slnv0pq9q1hzmv4f3bq9nsqli4-python3.13-vulture-2.14"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "python313Packages.vulture",
+      "broken": false,
+      "derivation": "/nix/store/l36mld8azl0lyisxrslppfimwjvxdrzs-python3.13-vulture-2.14.drv",
+      "description": "Finds unused code in Python programs",
+      "install_id": "vulture",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "python3.13-vulture-2.14",
+      "pname": "vulture",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:28:25.099577Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.14",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/k9mchys1gj33g6y571q110cgz6k84gb0-python3.13-vulture-2.14-dist",
+        "out": "/nix/store/1crzanxjz4fq91rwwj6j77vfzjvylmq8-python3.13-vulture-2.14"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "python313Packages.vulture",
+      "broken": false,
+      "derivation": "/nix/store/brgb70n2p70hjwgq2hj2khj274q6g8pd-python3.13-vulture-2.14.drv",
+      "description": "Finds unused code in Python programs",
+      "install_id": "vulture",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "python3.13-vulture-2.14",
+      "pname": "vulture",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:43:31.038776Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.14",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/liscpk0vdckwf7fix5x63nbv94q5v8g3-python3.13-vulture-2.14-dist",
+        "out": "/nix/store/fvjcfmm678b9xwmh5hd4yn5fjvsan1kh-python3.13-vulture-2.14"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "python313Packages.vulture",
+      "broken": false,
+      "derivation": "/nix/store/0f8szw1j8rcjf70q6dbj8sqvk39k7kgl-python3.13-vulture-2.14.drv",
+      "description": "Finds unused code in Python programs",
+      "install_id": "vulture",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "python3.13-vulture-2.14",
+      "pname": "vulture",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T02:02:08.518306Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.14",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/zz4wd205aaz77qjv4laligilydbhxdad-python3.13-vulture-2.14-dist",
+        "out": "/nix/store/47avpfjz1i567abwyrpzkndfhxgs58ya-python3.13-vulture-2.14"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

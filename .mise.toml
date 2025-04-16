@@ -9,7 +9,7 @@ ruff check \
 [tasks."python:dead-code"]
 description="check for dead python code"
 run = """
-uvx vulture \
+vulture \
     --min-confidence 80 \
     --exclude '.flox,.venv,target' \
     .
