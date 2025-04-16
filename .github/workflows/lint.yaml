@@ -1,4 +1,4 @@
-name: Format check
+name: Format and Lint Check
 
 on:
   pull_request
@@ -10,10 +10,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Flox
         uses: flox/install-flox-action@v2
-      - name: Run code linter
+      - name: Run code formatter and linter
         uses: flox/activate-action@v1
         with:
-          command: mise run lint
+          command: LD_PRELOAD= mise run lint
       - name: Check for changes
         run: |
           if [[ -n $(git status --porcelain) ]]; then
