@@ -8,6 +8,10 @@ mise.pkg-path = "mise"
 pulumi.pkg-path = "pulumi"
 pulumi-language-python.pkg-path = "pulumiPackages.pulumi-language-python"
 pulumi-python.pkg-path = "pulumiPackages.pulumi-python"
+ormolu.pkg-path = "ormolu"
+hlint.pkg-path = "hlint"
+ruff.pkg-path = "ruff"
+vulture.pkg-path = "python313Packages.vulture"
 
 [vars]
 

@@ -1,5 +1,5 @@
 name:                platform
-version:             2025041401
+version:             2025.4.15.1
 github:              "pocketsizefund/platform"
 license:             MIT
 author:              "pocketsizefund"
@@ -16,6 +16,9 @@ dependencies:
 - wai-logger
 - warp
 - text
+- wreq
+- lens
+- bytestring
 
 ghc-options:
 - -Wall
@@ -58,3 +61,4 @@ tests:
     - hspec-wai
     - hspec-wai-json
     - aeson
+    - raw-strings-qq

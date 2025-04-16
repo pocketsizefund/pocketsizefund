@@ -1,32 +1,45 @@
-[tasks."python:check"]
-description="run python code quality checks across the full repository"
-run = """
-uvx ruff check \
-    --output-format=github \
-    .
-
-"""
-
-[tasks."python:dead-code"]
-description="check for dead python code"
-run = """
-uvx vulture \
-    --min-confidence 80 \
-    --exclude '.venv,target' \
-    .
-"""
-
 [tasks."python:format"]
 description="format python code"
-run = "uvx ruff format"
+run = "ruff format"
+
+[tasks."python:dead-code"]
+depends = ["python:format"]
+description="check for dead python code"
+run = """
+vulture \
+    --min-confidence 80 \
+    --exclude '.flox,.venv,target' \
+    .
+"""
 
 [tasks."python:lint"]
-depends = ["python:check", "python:dead-code", "python:format"]
+depends = ["python:dead-code"]
 description="run python code quality checks across the full repository"
+run = """
+ruff check \
+    --output-format=github \
+    .
+"""
+
+[tasks."haskell:format"]
+description = "lint haskell code"
+run = "ormolu --mode inplace $(find . -name '*.hs')"
+
+[tasks."haskell:lint"]
+description = "lint haskell code"
+depends = ["haskell:format"]
+run = "hlint ."
+
+[tasks."haskell:test"]
+description = "run haskell tests"
+run = "cd platform && stack test"
 
 [tasks."platform:run"]
 description = "run platform in docker compose"
-run = "cd platform && docker compose up"
+run = """
+cd platform
+docker compose up
+"""
 
 [tasks."platform:build"]
 description = "build platform image to dockerhub"
@@ -53,3 +66,15 @@ docker push pocketsizefund/platform:${TIMESTAMP}
 [tasks."infrastructure:up"]
 description = "launch infrastructure"
 run = "cd infrastructure && uv run pulumi up"
+
+[tasks."format"]
+description = "format entire codebase"
+depends = ["python:lint", "haskell:lint"]
+
+[tasks."lint"]
+description = "lint entire codebase"
+depends = ["format"]
+
+[tasks."test"]
+description = "run all tests"
+depends = ["haskell:test"]
