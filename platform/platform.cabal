@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           platform
-version:        2025.4.14.1
+version:        2025.4.15.1
 description:    Please see the README on GitHub at <https://github.com/pocketsizefund#readme>
 homepage:       https://github.com/pocketsizefund/platform#readme
 bug-reports:    https://github.com/pocketsizefund/platform/issues

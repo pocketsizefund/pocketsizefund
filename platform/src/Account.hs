@@ -3,9 +3,11 @@
 
 module Account (Account (..)) where
 
+
+
+
 import Data.Aeson
 import GHC.Generics (Generic)
-import Text.Read (readMaybe)
 
 newtype AdminConfigurations = AdminConfigurations {allow_instant_ach :: Bool}
   deriving (Show, Generic, FromJSON, ToJSON)
