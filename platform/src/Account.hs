@@ -4,14 +4,8 @@
 module Account (Account (..)) where
 
 import Data.Aeson
-import Data.Fixed (Centi)
 import GHC.Generics (Generic)
 import Text.Read (readMaybe)
-
-type Money = Centi
-
-data Currency = USD
-  deriving (Show, Read, Eq, Generic, FromJSON, ToJSON)
 
 newtype AdminConfigurations = AdminConfigurations {allow_instant_ach :: Bool}
   deriving (Show, Generic, FromJSON, ToJSON)
