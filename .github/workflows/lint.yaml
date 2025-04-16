@@ -13,7 +13,7 @@ jobs:
       - name: Run code formatter and linter
         uses: flox/activate-action@v1
         with:
-          command: LD_PRELOAD= mise run lint
+          command: mise run lint
       - name: Check for changes
         run: |
           if [[ -n $(git status --porcelain) ]]; then
