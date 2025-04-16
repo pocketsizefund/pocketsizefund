@@ -67,6 +67,7 @@ docker push pocketsizefund/platform:${TIMESTAMP}
 description = "launch infrastructure"
 run = "cd infrastructure && uv run pulumi up"
 
+<<<<<<< Updated upstream
 [tasks."format"]
 description = "format entire codebase"
 depends = ["python:lint", "haskell:lint"]
@@ -78,3 +79,9 @@ depends = ["format"]
 [tasks."test"]
 description = "run all tests"
 depends = ["haskell:test"]
+=======
+
+[tasks."workflows:register"]
+description = "register flyte workflows with union"
+run = "uv run union register workflows"
+>>>>>>> Stashed changes

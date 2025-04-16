@@ -1,0 +1,11 @@
+from union import workflow, task
+
+
+@task
+def load_from_polygon() -> None:
+    return
+
+
+@workflow
+def daily() -> None:
+    return load_from_polygon()
