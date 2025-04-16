@@ -3,9 +3,6 @@
 
 module Account (Account (..)) where
 
-
-
-
 import Data.Aeson
 import GHC.Generics (Generic)
 
