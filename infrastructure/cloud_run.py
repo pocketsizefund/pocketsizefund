@@ -18,7 +18,6 @@ service_account = serviceaccount.Account(
 
 service = cloudrun.Service(
     "platformservice",
-    location="us-central1",
     template=cloudrun.ServiceTemplateArgs(
         spec=cloudrun.ServiceTemplateSpecArgs(
             service_account_name=service_account.email,
@@ -28,10 +27,10 @@ service = cloudrun.Service(
                     args=["--period=1"],
                     envs=[
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
-                            name="ALPACA_API_KEY_ID", value=api_key
+                            name="ALPACA_API_KEY_ID", value=alpaca_api_key
                         ),
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
-                            name="ALPACA_API_SECRET_KEY", value=api_secret
+                            name="ALPACA_API_SECRET_KEY", value=alpaca_api_secret
                         ),
                     ],
                 )
