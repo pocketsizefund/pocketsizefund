@@ -21,6 +21,9 @@
       "pulumi-python": {
         "pkg-path": "pulumiPackages.pulumi-python"
       },
+      "ruff": {
+        "pkg-path": "ruff"
+      },
       "stack": {
         "pkg-path": "stack"
       },
@@ -59,6 +62,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:10:55.991466Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -89,6 +93,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:27:39.376262Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -119,6 +124,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:43:05.087257Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -149,6 +155,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T02:01:18.635113Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -179,6 +186,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:10:57.660902Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -208,6 +216,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:27:46.904416Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -237,6 +246,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:43:06.796396Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -266,6 +276,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T02:01:27.691760Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -295,6 +306,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:10:58.907487Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -325,6 +337,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:27:49.620205Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -355,6 +368,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:43:08.047997Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -385,6 +399,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T02:01:30.731633Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -415,6 +430,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:11:03.963221Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -444,6 +460,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:27:58.867334Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -473,6 +490,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:43:13.157620Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -502,6 +520,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T02:01:40.716123Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -531,6 +550,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:11:03.970604Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -560,6 +580,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:27:58.878743Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -589,6 +610,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:43:13.165089Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -618,6 +640,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T02:01:40.728310Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -647,6 +670,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:11:03.972083Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -676,6 +700,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:27:58.881041Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -705,6 +730,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:43:13.166583Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -734,6 +760,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T02:01:40.730748Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -743,6 +770,126 @@
       ],
       "outputs": {
         "out": "/nix/store/wkxlrbjmpdcwyhiwx9q542yk2kyb0md9-pulumi-python-3.156.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "ruff",
+      "broken": false,
+      "derivation": "/nix/store/x7l0gxy28ps2w7kf1k9kryakp1n8n77k-ruff-0.11.4.drv",
+      "description": "Extremely fast Python linter and code formatter",
+      "install_id": "ruff",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "ruff-0.11.4",
+      "pname": "ruff",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:11:26.130526Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.11.4",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/mfhrfmq8770skpwxrx5hkx5wpm51xh53-ruff-0.11.4"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "ruff",
+      "broken": false,
+      "derivation": "/nix/store/7gm42n0p5ncwy2z9n33pmr1wiwr7ii2h-ruff-0.11.4.drv",
+      "description": "Extremely fast Python linter and code formatter",
+      "install_id": "ruff",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "ruff-0.11.4",
+      "pname": "ruff",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:28:31.703442Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.11.4",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/pgzwmlxfh8fkwzxgjf6sfxfb2077acm4-ruff-0.11.4"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "ruff",
+      "broken": false,
+      "derivation": "/nix/store/pywdya1p09fy19fdnvpxghalf58xn8mn-ruff-0.11.4.drv",
+      "description": "Extremely fast Python linter and code formatter",
+      "install_id": "ruff",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "ruff-0.11.4",
+      "pname": "ruff",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T01:43:35.317449Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.11.4",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/60k9zc274iy7iiy6akvgk6qx1wnxpg9h-ruff-0.11.4"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "ruff",
+      "broken": false,
+      "derivation": "/nix/store/w1arkqbhgrvwwx52jfx0ypp9830kifdr-ruff-0.11.4.drv",
+      "description": "Extremely fast Python linter and code formatter",
+      "install_id": "ruff",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "name": "ruff-0.11.4",
+      "pname": "ruff",
+      "rev": "c8cd81426f45942bb2906d5ed2fe21d2f19d95b7",
+      "rev_count": 780821,
+      "rev_date": "2025-04-08T07:41:42Z",
+      "scrape_date": "2025-04-10T02:02:15.558190Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.11.4",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/6vk3yddpa38q500sr6pv787snimyx0ch-ruff-0.11.4"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -763,6 +910,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:11:34.508407Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -793,6 +941,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:28:43.273475Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -822,6 +971,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:43:43.747150Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -851,6 +1001,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T02:02:27.830908Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -880,6 +1031,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:11:44.987063Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -909,6 +1061,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:28:57.932781Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -938,6 +1091,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T01:43:54.280618Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -967,6 +1121,7 @@
       "rev_date": "2025-04-08T07:41:42Z",
       "scrape_date": "2025-04-10T02:02:43.334041Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
