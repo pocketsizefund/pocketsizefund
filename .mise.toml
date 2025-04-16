@@ -1,12 +1,9 @@
-[tasks."python:check"]
-description="run python code quality checks across the full repository"
-run = """
-ruff check \
-    --output-format=github \
-    .
-"""
+[tasks."python:format"]
+description="format python code"
+run = "ruff format"
 
 [tasks."python:dead-code"]
+depends = ["python:format"]
 description="check for dead python code"
 run = """
 vulture \
@@ -15,13 +12,14 @@ vulture \
     .
 """
 
-[tasks."python:format"]
-description="format python code"
-run = "ruff format"
-
 [tasks."python:lint"]
-depends = ["python:check", "python:dead-code", "python:format"]
+depends = ["python:dead-code"]
 description="run python code quality checks across the full repository"
+run = """
+ruff check \
+    --output-format=github \
+    .
+"""
 
 [tasks."haskell:format"]
 description = "lint haskell code"
