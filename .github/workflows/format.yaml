@@ -8,12 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install mise
-        uses: jdx/mise-action@v2
-      - name: Run code formatter
-        run: mise run format
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
       - name: Run code linter
-        run: mise run lint
+        uses: flox/activate-action@v1
+        with:
+          command: mise run lint
       - name: Check for changes
         run: |
           if [[ -n $(git status --porcelain) ]]; then
