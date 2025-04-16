@@ -1,0 +1,17 @@
+---
+name: Code quality check
+on:
+  push
+jobs:
+  python_quality_check:
+    name: Run Python quality checks
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Run Python quality checks
+        uses: flox/activate-action@v1
+        with:
+          command: mise tasks run python:lint

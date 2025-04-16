@@ -1,28 +1,27 @@
 # pocketsizefund
 
-> Open source quantitative hedge fund 🍊  
+> Open source quantitative hedge fund 🍊
 
 ## About
 
-**Pocket Size Fund** is an open source quantitative hedge fund.  
+**Pocket Size Fund** is an open source quantitative hedge fund.
 
-This repository holds the resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
+This repository holds the resources for the fund platform.
 
-The project is actively a work-in-progress.  
+The project is actively a work-in-progress.
 
 ## Project
 
 ### Setup
 
-Run the commands below in your terminal to get started.  
+Run the commands below the repository root directory.  
 
 ```sh
 brew install flox # https://flox.dev/ for more information
 flox activate
 mise tasks # see all available Mise tasks
+mise tasks run python:install
 ```
-
-### Principles
 
 An unordered and non-exhaustive list we work towards:  
 
@@ -32,13 +31,13 @@ An unordered and non-exhaustive list we work towards:
 > No code is good code  
 > Never write documentation  
 > Git is truth  
-> Communicate with issues and pull requests  
+> Communicate without speaking  
 > Make everything liquid  
 
 ### Links
 
-Here are some places to get started:  
+Here are some places to get started:
 
-1. [Our tasks](https://github.com/orgs/pocketsizefund/projects/11) that we're currently working on  
-2. [Open a discussion](https://discord.com/channels/1230911601704435752/1230911601704435755) to ask questions or share ideas  
-3. [Send a direct message](https://twitter.com/pocketsizefund) on everything else  
+1. [Our tasks](https://github.com/orgs/pocketsizefund/projects/11) that we're currently working on
+2. [Open a discussion](https://discord.com/channels/1230911601704435752/1230911601704435755) to ask questions or share ideas
+3. [Send a direct message](https://twitter.com/pocketsizefund) on everything else

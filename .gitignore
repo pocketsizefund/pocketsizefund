@@ -1,1 +1,7 @@
 .DS_Store
+.flox/cache/
+.flox/log/
+.flox/run/
+.env
+.python_coverage.*
+__pycache__/

@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue view:*)",
+      "Bash(mise run test:*)",
+      "Bash(mise ls:*)",
+      "Bash(mise tasks:*)",
+      "Bash(pre-commit:*)",
+      "Bash(git add:*)",
+      "Bash(rm:*)",
+      "WebFetch(domain:docs.github.com)"
+      "Bash(git add:*)",
+      "Bash(python -m pytest application/datamanager/tests -v)",
+      "Bash(uv pip:*)",
+      "Bash(cat:*)",
+      "Bash(mise run:*)",
+      "Bash(gh issue close:*)"
+    ],
+    "deny": []
+  }
+}

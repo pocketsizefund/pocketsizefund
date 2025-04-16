@@ -1,0 +1,23 @@
+name: Format and Lint Check
+
+on:
+  pull_request
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Run code formatter and linter
+        uses: flox/activate-action@v1
+        with:
+          command: LD_PRELOAD="" mise run lint
+      - name: Check for changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "code formatting issues found. please run 'mise run fmt' locally and commit the changes."
+            git diff
+            exit 1
+          fi

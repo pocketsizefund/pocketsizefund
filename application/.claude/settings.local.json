@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(python:*)",
+      "Bash(gh issue create:*)"
+    ],
+    "deny": []
+  }
+}

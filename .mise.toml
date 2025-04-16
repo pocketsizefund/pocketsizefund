@@ -1,28 +1,66 @@
-[tasks."python:check"]
-description="run python code quality checks across the full repository"
-run = """
-uvx ruff check \
-    --output-format=github \
-    .
-
-"""
-
-[tasks."python:dead-code"]
-description="check for dead python code"
-run = """
-uvx vulture \
-    --min-confidence 80 \
-    --exclude '.venv,target' \
-    .
-"""
+[tasks."python:install"]
+description = "Install Python dependencies"
+run = "uv sync --all-packages"
 
 [tasks."python:format"]
-description="format python code"
-run = "uvx ruff format"
+description = "Format Python code"
+run = "ruff format"
+
+[tasks."python:dead-code"]
+depends = ["python:format"]
+description = "Check for dead Python code"
+run = """
+vulture \
+    --min-confidence 80 \
+    --exclude '.flox,.venv,target' \
+    .
+"""
 
 [tasks."python:lint"]
-depends = ["python:check", "python:dead-code", "python:format"]
-description="run python code quality checks across the full repository"
+depends = ["python:dead-code"]
+description = "Run Python code quality checks"
+run = """
+ruff check \
+    --output-format=github \
+    .
+"""
 
+[tasks."python:test"]
+description = "Run Python tests"
+run = """
+uv run coverage run \
+    --parallel-mode \
+    --omit '*/__init__.py,**/test_*.py' \
+    --data-file .python_coverage.output \
+    --module pytest
 
+uv run coverage combine \
+    --data-file .python_coverage.output
 
+uv run coverage report \
+    --data-file .python_coverage.output
+
+uv run coverage xml \
+    --data-file .python_coverage.output \
+    -o .python_coverage.xml
+"""
+
+[tasks."application:service:build"]
+description = "Build the application service"
+run = """
+TIMESTAMP=$(date +%Y%m%d) 
+docker build \
+--file application/{{arg(name="service_name")}}/Dockerfile \
+--tag pocketsizefund/{{arg(name="service_name")}}:latest \
+--tag pocketsizefund/{{arg(name="service_name")}}:${TIMESTAMP} \
+.
+"""
+
+[tasks."application:service:run"]
+description = "Run the application service"
+run = """
+docker run \
+--env-file .env \
+--publish 8080:8080 \
+pocketsizefund/{{arg(name="service_name")}}:latest \
+"""
