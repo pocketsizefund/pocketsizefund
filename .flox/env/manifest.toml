@@ -11,6 +11,7 @@ pulumi-python.pkg-path = "pulumiPackages.pulumi-python"
 ormolu.pkg-path = "ormolu"
 hlint.pkg-path = "hlint"
 ruff.pkg-path = "ruff"
+vulture.pkg-path = "python313Packages.vulture"
 
 [vars]
 
