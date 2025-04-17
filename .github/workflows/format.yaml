@@ -35,6 +35,7 @@ jobs:
         uses: jdx/mise-action@v2
       - name: Run code formatter
         run: mise run format
+        run: mise run fmt
       - name: Run code linter
         run: mise run lint
       - name: Check for changes

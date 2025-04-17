@@ -38,7 +38,6 @@ venv.bak/
 *.venv
 
 *.log
-*.DS_Store
 *.swp
 *.swo
 .idea/
