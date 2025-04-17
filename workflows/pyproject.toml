@@ -1,0 +1,11 @@
+[project]
+name = "workflows"
+version = "0.1.0"
+description = "data and machine learning workflows"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "duckdb>=1.2.2",
+    "flytekit>=1.15.3",
+    "tinygrad>=0.10.2",
+    "unionai>=0.1.172",
+]

@@ -1,4 +1,10 @@
+<<<<<<< Updated upstream
 {-# LANGUAGE DataKinds #-}
+=======
+{-# LANGUAGE DataKinds       #  -*- lexical-binding: t; -*--}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeOperators   #-}
+>>>>>>> Stashed changes
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -11,19 +17,36 @@ import Account
 import Control.Lens
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
+<<<<<<< Updated upstream
 import Data.Aeson.TH
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Text (Text)
+=======
+import Data.Aeson.TH import Data.Text (Text)
+>>>>>>> Stashed changes
 import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wreq (defaults, getWith, header, responseBody)
 import Servant
 import System.Environment (getEnv)
 
+<<<<<<< Updated upstream
 type API =
   "health" :> Get '[JSON] NoContent
     :<|> "account" :> Get '[JSON] Account
+=======
+
+data User = User
+  { userId        :: Int
+  , userFirstName :: String
+  , userLastName  :: String
+  } deriving (Eq, Show)
+
+$(deriveJSON defaultOptions ''User)
+
+type API = "health" :> Get '[PlainText] Text
+>>>>>>> Stashed changes
 
 app :: Application
 app = serve api server
