@@ -16,7 +16,14 @@ jobs:
           command: env -u LD_AUDIT mise run lint
       - name: Check for changes
         run: |
-          if [[ -n $(git status --porcelain) ]]; then
+          # Capture any errors from git status command
+          git_status_output=$(git status --porcelain 2>&1) || {
+            echo "Error executing git status command:"
+            echo "$git_status_output"
+            exit 1
+          }
+
+          if [[ -n "$git_status_output" ]]; then
             echo "code formatting issues found. please run 'mise run fmt' locally and commit the changes."
             git diff
             exit 1
