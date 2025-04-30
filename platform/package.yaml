@@ -19,17 +19,46 @@ dependencies:
 - wreq
 - lens
 - bytestring
+- scientific
 
 ghc-options:
-- -Wall
-- -Wcompat
-- -Widentities
-- -Wincomplete-record-updates
-- -Wincomplete-uni-patterns
-- -Wmissing-export-lists
-- -Wmissing-home-modules
-- -Wpartial-fields
-- -Wredundant-constraints
+  -Wall
+  -Wcompat
+  -Widentities
+  -Wincomplete-record-updates
+  -Wincomplete-uni-patterns
+  -Wmissing-export-lists
+  -Wmissing-home-modules
+  -Wpartial-fields
+  -Wredundant-constraints
+  -Wunused-packages
+  -Wno-unticked-promoted-constructors
+  -Werror=incomplete-patterns
+  -Werror=incomplete-record-updates
+  -Werror=missing-fields
+  -Werror=missing-methods
+  -Werror=missing-signatures
+  -Werror=orphans
+  -Werror=unused-imports
+  -Werror=unused-matches
+  -Werror=unused-do-bind
+  -Werror=wrong-do-bind
+  -Werror=deprecations
+  -Werror=compat
+  -Werror=type-defaults
+  -Werror=identities
+  -Werror=dodgy-exports
+  -Werror=dodgy-imports
+  -fhide-source-paths
+  -fno-warn-tabs
+  -fno-ignore-interface-pragmas
+  -fno-defer-typed-holes
+  -fno-defer-type-errors
+  -fno-defer-out-of-scope-variables
+  -fno-max-relevant-binds
+  -fno-max-valid-hole-fits
+  -fno-omit-yields
+  -fno-omit-interface-pragmas
 
 library:
   source-dirs: src

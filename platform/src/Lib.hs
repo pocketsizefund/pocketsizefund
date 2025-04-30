@@ -10,13 +10,10 @@ where
 import Account
 import Control.Lens
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson
-import Data.Aeson.TH
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Text (Text)
+import Data.Aeson (eitherDecode)
+import Data.ByteString.Char8 (pack)
+import qualified Data.ByteString.Lazy.Char8 as BL8
 import Network.Wai
-import Network.Wai.Handler.Warp
 import Network.Wreq (defaults, getWith, header, responseBody)
 import Servant
 import System.Environment (getEnv)
@@ -44,11 +41,16 @@ getAccount = do
 
   let opts =
         defaults
-          & header "APCA-API-KEY-ID" .~ [BS.pack key]
-          & header "APCA-API-SECRET-KEY" .~ [BS.pack secret]
+          & header "APCA-API-KEY-ID" .~ [pack key]
+          & header "APCA-API-SECRET-KEY" .~ [pack secret]
       url = baseUrl ++ "/v2/account"
 
-  r <- liftIO $ getWith opts url
-  case Data.Aeson.decode (r ^. responseBody) of
-    Just account -> return account
-    Nothing -> throwError $ err404 {errBody = "Alpaca account not found or unparseable"}
+  response <- liftIO $ getWith opts url
+  let body = response ^. responseBody
+  case eitherDecode body of
+    Right account -> return account
+    Left err -> do
+      liftIO $ putStrLn "Error decoding account:"
+      liftIO $ print err
+      liftIO $ putStrLn $ "Raw response: " ++ BL8.unpack body
+      throwError $ err404 {errBody = "Alpaca account not found or unparseable"}
