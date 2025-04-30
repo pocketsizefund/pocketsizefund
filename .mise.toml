@@ -30,6 +30,10 @@ description = "lint haskell code"
 depends = ["haskell:format"]
 run = "hlint ."
 
+[tasks."haskell:build"]
+description = "build haskell code"
+run = "cd platform && stack build"
+
 [tasks."haskell:test"]
 description = "run haskell tests"
 run = "cd platform && stack test"
@@ -44,7 +48,7 @@ docker compose up
 [tasks."platform:build"]
 description = "build platform image to dockerhub"
 run = """
-TIMESTAMP=$(date +%Y%m%d) 
+TIMESTAMP=$(date +%Y%m%d)
 cd platform
 docker build \
     --platform linux/amd64 \
@@ -57,7 +61,7 @@ docker build \
 description = "push platform image to dockerhub"
 depends = ["platform:build"]
 run = """
-TIMESTAMP=$(date +%Y%m%d) 
+TIMESTAMP=$(date +%Y%m%d)
 cd platform
 docker push pocketsizefund/platform:latest
 docker push pocketsizefund/platform:${TIMESTAMP}
