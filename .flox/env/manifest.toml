@@ -1,14 +1,8 @@
 version = 1
 
 [install]
-hlint.pkg-path = "hlint"
 mise.pkg-path = "mise"
-ormolu.pkg-path = "ormolu"
-pulumi.pkg-path = "pulumi"
-pulumi-language-python.pkg-path = "pulumiPackages.pulumi-language-python"
-pulumi-python.pkg-path = "pulumiPackages.pulumi-python"
 ruff.pkg-path = "ruff"
-stack.pkg-path = "stack"
 uv.pkg-path = "uv"
 vulture.pkg-path = "python313Packages.vulture"
 

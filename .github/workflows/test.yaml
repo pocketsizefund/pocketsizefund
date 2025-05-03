@@ -11,7 +11,7 @@ jobs:
       - name: Install mise
         uses: jdx/mise-action@v2
       - name: Run tests
-        run: mise run teset
+        run: mise run test
       - name: Check for changes
         run: |
           if [[ -n $(git status --porcelain) ]]; then
