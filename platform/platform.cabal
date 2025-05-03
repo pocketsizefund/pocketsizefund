@@ -33,7 +33,6 @@ library
     , base >=4.7 && <5
     , bytestring
     , lens
-    , scientific
     , servant-server
     , text
     , wai
@@ -82,7 +81,6 @@ test-suite platform-test
     , lens
     , platform
     , raw-strings-qq
-    , scientific
     , servant-server
     , text
     , wai

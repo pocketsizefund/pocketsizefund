@@ -48,7 +48,6 @@ docker compose up
 [tasks."platform:build"]
 description = "build platform image to dockerhub"
 run = """
-TIMESTAMP=$(date +%Y%m%d)
 cd platform
 docker build \
     --platform linux/amd64 \

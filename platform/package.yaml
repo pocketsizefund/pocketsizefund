@@ -19,7 +19,6 @@ dependencies:
 - wreq
 - lens
 - bytestring
-- scientific
 
 ghc-options:
   -Wall
