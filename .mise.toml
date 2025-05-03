@@ -22,7 +22,7 @@ ruff check \
 """
 
 [tasks."haskell:format"]
-description = "lint haskell code"
+description = "format haskell code"
 run = "ormolu --mode inplace $(find . -name '*.hs')"
 
 [tasks."haskell:lint"]

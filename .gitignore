@@ -43,3 +43,6 @@ venv.bak/
 .idea/
 .vscode/
 *.bak
+
+.pulumi/
+Pulumi.*.backup
