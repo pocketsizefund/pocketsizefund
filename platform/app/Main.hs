@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Lib
-import Network.Wai.Handler.Warp (defaultSettings, run, runSettings, setLogger, setPort)
+import Network.Wai.Handler.Warp (defaultSettings, runSettings, setLogger, setPort)
 import Network.Wai.Logger (withStdoutLogger)
 
 main :: IO ()

@@ -1,9 +1,12 @@
-FROM haskell:9.8.4 AS builder
+FROM haskell:9.12.2 AS builder
 
 WORKDIR /app
 
 RUN mkdir -p src app test && touch README.md
 
+# Create minimum directory structure required by Stack
+# this allows us to compile and cache dependencies
+# between runs and then only need to compile our source
 COPY stack.yaml stack.yaml.lock package.yaml ./
 RUN stack setup && stack build --only-dependencies
 

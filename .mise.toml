@@ -22,13 +22,17 @@ ruff check \
 """
 
 [tasks."haskell:format"]
-description = "lint haskell code"
+description = "format haskell code"
 run = "ormolu --mode inplace $(find . -name '*.hs')"
 
 [tasks."haskell:lint"]
 description = "lint haskell code"
 depends = ["haskell:format"]
 run = "hlint ."
+
+[tasks."haskell:build"]
+description = "build haskell code"
+run = "cd platform && stack build"
 
 [tasks."haskell:test"]
 description = "run haskell tests"
@@ -44,7 +48,6 @@ docker compose up
 [tasks."platform:build"]
 description = "build platform image to dockerhub"
 run = """
-TIMESTAMP=$(date +%Y%m%d) 
 cd platform
 docker build \
     --platform linux/amd64 \
@@ -57,7 +60,7 @@ docker build \
 description = "push platform image to dockerhub"
 depends = ["platform:build"]
 run = """
-TIMESTAMP=$(date +%Y%m%d) 
+TIMESTAMP=$(date +%Y%m%d)
 cd platform
 docker push pocketsizefund/platform:latest
 docker push pocketsizefund/platform:${TIMESTAMP}
@@ -69,7 +72,6 @@ run = "cd infrastructure && uv run pulumi up"
 
 [tasks."format"]
 description = "format entire codebase"
-depends = ["python:lint", "haskell:lint"]
 
 [tasks."lint"]
 description = "lint entire codebase"

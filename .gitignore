@@ -38,9 +38,11 @@ venv.bak/
 *.venv
 
 *.log
-*.DS_Store
 *.swp
 *.swo
 .idea/
 .vscode/
 *.bak
+
+.pulumi/
+Pulumi.*.backup
