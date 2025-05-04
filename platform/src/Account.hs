@@ -48,10 +48,13 @@ data Multiplier
 instance FromJSON Multiplier where
   parseJSON (String n) = case n of
     "1" -> pure CashAccount
+    "cashAccount" -> pure CashAccount
     "2" -> pure MarginAccount
+    "marginAccount" -> pure MarginAccount
     "4" -> pure PatternDayTrader
+    "patternDayTrader" -> pure PatternDayTrader
     _ -> fail "Invalid Multiplier value"
-  parseJSON _ = fail "Multiplier must be a number"
+  parseJSON _ = fail "Multiplier must be a String"
 
 instance ToJSON Multiplier where
   toJSON CashAccount = String "cashAccount"

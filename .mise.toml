@@ -72,7 +72,6 @@ run = "cd infrastructure && uv run pulumi up"
 
 [tasks."format"]
 description = "format entire codebase"
-depends = ["python:lint", "haskell:lint"]
 
 [tasks."lint"]
 description = "lint entire codebase"
