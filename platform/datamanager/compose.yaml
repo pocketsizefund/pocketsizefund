@@ -1,0 +1,21 @@
+services:
+  datamanager:
+    build:
+      context: ../..
+      dockerfile: platform/datamanager/Dockerfile
+      # platform: linux/amd64
+    image: pocketsizefund/datamanager:latest
+    ports:
+      - 8080:8080
+    environment:
+      - DUCKDB_PATH=/app/my_database.db
+    volumes:
+      # NOTE: this path will be updated prior to opening the pull request
+      # NOTE: the file will be included in the pull request
+      # NOTE: rename the database file
+      # NOTE: rebuild file from in service directory
+      - ../../my_database.db:/app/my_database.db:ro # read only
+      # - ./platform/database/my_database.db:/app/my_database.db:ro # read only
+      # - ../my_database.db:/app/my_database.db:ro # read only
+      # - /Users/johnforstmeier/pocketsizefund/pocketsizefund/platform/datamanager/my_database.db:/app/my_database.db:ro
+      # - /Users/johnforstmeier/pocketsizefund/pocketsizefund/my_database.db:/app/my_database.db:ro

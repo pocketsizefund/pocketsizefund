@@ -1,0 +1,8 @@
+# resolver: lts-22.29
+resolver: lts-23.18
+packages:
+  - platform/datamanager
+  - platform/shared
+
+extra-deps:
+  - duckdb-haskell-0.1.0.0

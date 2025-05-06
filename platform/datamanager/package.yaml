@@ -1,0 +1,29 @@
+name: datamanager
+version: 0.1.0.0
+synopsis: Serving and collecting data in the application
+dependencies:
+  - base >= 4.12 && < 5
+  - aeson >= 1.4 && < 2.3
+  - text >= 1.2 && < 2.2
+  - time >= 1.9 && < 1.15
+  - containers >= 0.6 && < 0.8
+  - servant >= 0.19 && < 0.21
+  - servant-server >= 0.19 && < 0.21
+  - wai >= 3.2 && < 3.3
+  - warp >= 3.3
+  - duckdb-haskell
+  - shared
+  - directory # TEMP
+
+library:
+  source-dirs: src
+
+executables:
+  datamanager:
+    main: Main.hs
+    source-dirs:
+      - app
+      - src
+    other-modules:
+      - Lib
+    

@@ -1,5 +1,4 @@
 .DS_Store
-
 dist/
 dist-newstyle/
 .stack-work/
@@ -19,7 +18,7 @@ tags
 cabal.sandbox.config
 cabal.project.local
 .ghc.environment.*
-
+*.cabal
 __pycache__/
 *.py[cod]
 *.so
@@ -36,7 +35,6 @@ env.bak/
 venv.bak/
 *.env
 *.venv
-
 *.log
 *.DS_Store
 *.swp

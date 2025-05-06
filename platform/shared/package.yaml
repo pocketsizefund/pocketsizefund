@@ -1,0 +1,17 @@
+name: shared
+version: 0.1.0.0
+synopsis: Shared resources for the application
+description: Provides common resources used across services
+
+library:
+  source-dirs: src
+  dependencies:
+    - base >= 4.12 && < 5
+    - aeson >= 1.4 && < 2.3
+    - text >= 1.2 && < 2.2
+    - time >= 1.9 && < 1.15
+    - containers >= 0.6 && < 0.8
+    - vector >= 0.12 && < 0.14
+    - unordered-containers >= 0.2 && < 0.3
+  # exposed-modules:
+  #   - EquityBar
