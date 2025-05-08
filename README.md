@@ -6,7 +6,7 @@
 
 **Pocket Size Fund** is an open source quantitative hedge fund.  
 
-This repository holds the resources for the fund platform including data pipelines, model definitions, trading engine, and frontend resources.  
+This repository holds the resources for the fund platform.
 
 The project is actively a work-in-progress.  
 
@@ -21,8 +21,6 @@ brew install flox # https://flox.dev/ for more information
 flox activate
 mise tasks # see all available Mise tasks
 ```
-
-### Principles
 
 An unordered and non-exhaustive list we work towards:  
 
