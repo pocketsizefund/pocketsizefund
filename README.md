@@ -12,6 +12,16 @@ The project is actively a work-in-progress.
 
 ## Project
 
+### Setup
+
+Run the commands below in your terminal to get started.  
+
+```sh
+brew install flox # https://flox.dev/ for more information
+flox activate
+mise tasks # see all available Mise tasks
+```
+
 An unordered and non-exhaustive list we work towards:  
 
 > Test in production  

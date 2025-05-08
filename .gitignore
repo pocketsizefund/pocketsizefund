@@ -1,1 +1,4 @@
 .DS_Store
+.flox/cache/
+.flox/log/
+.flox/run/
