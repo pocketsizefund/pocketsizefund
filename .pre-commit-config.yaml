@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+    - id: lint
+      name: Python lint
+      entry: |
+        mise run python:lint
+      pass_filenames: false
+      types: [file, python]
+      language: system
