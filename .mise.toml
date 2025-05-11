@@ -2,6 +2,29 @@
 description = "Install Python dependencies"
 run = "uv sync --all-packages"
 
+[tasks."python:format"]
+description="Format Python code"
+run = "ruff format"
+
+[tasks."python:dead-code"]
+depends = ["python:format"]
+description="Check for dead Python code"
+run = """
+vulture \
+    --min-confidence 80 \
+    --exclude '.flox,.venv,target' \
+    .
+"""
+
+[tasks."python:lint"]
+depends = ["python:dead-code"]
+description="Run Python code quality checks"
+run = """
+ruff check \
+    --output-format=github \
+    .
+"""
+
 [tasks."application:service:build"]
 description = "Build the application service"
 run = """
