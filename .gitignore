@@ -2,3 +2,4 @@
 .flox/cache/
 .flox/log/
 .flox/run/
+.env

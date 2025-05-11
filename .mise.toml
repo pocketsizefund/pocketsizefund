@@ -1,0 +1,23 @@
+[tasks."python:install"]
+description = "Install Python dependencies"
+run = "uv sync --all-packages"
+
+[tasks."application:service:build"]
+description = "Build the application service"
+run = """
+TIMESTAMP=$(date +%Y%m%d) 
+docker build \
+--file application/{{arg(name="service_name")}}/Dockerfile \
+--tag pocketsizefund/{{arg(name="service_name")}}:latest \
+--tag pocketsizefund/{{arg(name="service_name")}}:${TIMESTAMP} \
+.
+"""
+
+[tasks."application:service:run"]
+description = "Run the application service"
+run = """
+docker run \
+--env-file .env \
+--publish 8080:8080 \
+pocketsizefund/{{arg(name="service_name")}}:latest \
+"""
