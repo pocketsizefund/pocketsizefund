@@ -7,3 +7,5 @@
 __pycache__/
 
 **/.claude/settings.local.json
+infrastructure/**.yaml
+!infrastructure/Pulumi.yaml
