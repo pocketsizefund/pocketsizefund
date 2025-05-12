@@ -6,16 +6,6 @@ mise.pkg-path = "mise"
 ruff.pkg-path = "ruff"
 vulture.pkg-path = "python313Packages.vulture"
 
-[vars]
-
-[hook]
-
-[profile]
-
-[services]
-
-[options]
-
 systems = [
   "aarch64-darwin",
   "aarch64-linux",
