@@ -6,8 +6,8 @@ When asked to create a new GitHub issue:
 
 1. Follow the structure in `.github/ISSUE_TEMPLATE.md`
 2. Include:
-   - A descriptive title with [FEATURE|BUG] prefix
-   - Add the "backlog" label
+   - A descriptive title (without [FEATURE|BUG] prefix)
+   - Add the "backlog" label and either "bug" or "feature" label as appropriate
    - Explain why the feature is needed
    - Detail the benefits it will bring
    - Propose two implementation options (after considering at least five)
