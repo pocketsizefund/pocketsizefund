@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue view:*)",
+      "Bash(mise run test:*)",
+      "Bash(mise ls:*)",
+      "Bash(mise tasks:*)",
+      "Bash(pre-commit:*)",
+      "Bash(git add:*)",
+      "Bash(rm:*)",
+      "WebFetch(domain:docs.github.com)"
+    ],
+    "deny": []
+  }
+}

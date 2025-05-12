@@ -1,6 +1,9 @@
+---
 name: Test and coverage check
 on:
-  push
+  pull_request:
+    branches:
+      - master
 jobs:
   python_test_and_coverage:
     name: Run Python tests
@@ -21,7 +24,7 @@ jobs:
           install_args: "-y"
           experimental: true
       - name: Run unit tests with coverage
-        run:  mise tasks run python:test
+        run: mise tasks run python:test
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:

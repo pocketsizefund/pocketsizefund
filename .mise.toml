@@ -48,7 +48,7 @@ uv run coverage xml \
 [tasks."application:service:build"]
 description = "Build the application service"
 run = """
-TIMESTAMP=$(date +%Y%m%d) 
+TIMESTAMP=$(date +%Y%m%d)
 docker build \
 --file application/{{arg(name="service_name")}}/Dockerfile \
 --tag pocketsizefund/{{arg(name="service_name")}}:latest \
@@ -63,4 +63,18 @@ docker run \
 --env-file .env \
 --publish 8080:8080 \
 pocketsizefund/{{arg(name="service_name")}}:latest \
+"""
+
+[tasks."application:service:serve"]
+description = "Run the application service with hot reloading"
+run = """
+cd application/{{arg(name="service_name")}}
+uv run uvicorn {{arg(name="service_name")}}.main:application --reload
+"""
+
+[tasks."lint"]
+description = "Run all linters (Python, YAML)"
+depends = ["python:lint"]
+run = """
+yamllint -c .yamllint .
 """

@@ -5,3 +5,7 @@
 .env
 .python_coverage.*
 __pycache__/
+
+infrastructure/.claude/
+
+**/.claude/settings.local.json
