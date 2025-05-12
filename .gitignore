@@ -6,6 +6,8 @@
 .python_coverage.*
 __pycache__/
 
+tags/
+
 **/.claude/settings.local.json
 infrastructure/**.yaml
 !infrastructure/Pulumi.yaml
