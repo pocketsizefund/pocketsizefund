@@ -1,0 +1,10 @@
+config:
+  pocketsizefund-infrastructure:ALPACA_API_KEY_ID:
+    secure: AAABAM7xhA+yMIIQt4mgrT5j6OMvCsmP//RPocVcmNzuoYCvRtpu1Ttfcfm2WXyz67WpXg==
+  pocketsizefund-infrastructure:ALPACA_API_SECRET_KEY:
+    secure: AAABAAf9U5w6tYFSyqh4cfx7+SKpbAoZlO1lVBI/VtL91l13z52VcVRdYr000Yz2XbDQZV6FAl3JolECy/oQ+Pa/Mt4OGopM
+  gcp:project: fund-alpha
+  pocketsizefund-infrastructure:chrisaddyEmail:
+    secure: AAABAODyIC4Dr88FDX0Hl5fOS5balQtAFsSOZJ2O9sa9+Ba4UkuTMN3rGRGbqZFerqZW1zDeUQH1a3Qg
+  pocketsizefund-infrastructure:forstmeierEmail:
+    secure: AAABAGaOYCNtOkHjTPuYFyxASMYoJw84t24peJcZEo0zRy8KAOpoyfz0tHMfQ8Ka5370kkOmfVMV

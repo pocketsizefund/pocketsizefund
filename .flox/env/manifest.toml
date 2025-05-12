@@ -1,11 +1,16 @@
 version = 1
 
 [install]
-uv.pkg-path = "uv"
 mise.pkg-path = "mise"
+uv.pkg-path = "uv"
 ruff.pkg-path = "ruff"
 vulture.pkg-path = "python313Packages.vulture"
+pre-commit.pkg-path = "pre-commit"
+pulumi.pkg-path = "pulumi"
+pulumi-python.pkg-path = "pulumiPackages.pulumi-python"
+google-cloud-sdk.pkg-path = "google-cloud-sdk"
 
+[options]
 systems = [
   "aarch64-darwin",
   "aarch64-linux",

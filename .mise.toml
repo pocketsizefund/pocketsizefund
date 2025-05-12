@@ -48,7 +48,7 @@ uv run coverage xml \
 [tasks."application:service:build"]
 description = "Build the application service"
 run = """
-TIMESTAMP=$(date +%Y%m%d) 
+TIMESTAMP=$(date +%Y%m%d)
 docker build \
 --file application/{{arg(name="service_name")}}/Dockerfile \
 --tag pocketsizefund/{{arg(name="service_name")}}:latest \
@@ -64,3 +64,11 @@ docker run \
 --publish 8080:8080 \
 pocketsizefund/{{arg(name="service_name")}}:latest \
 """
+
+[tasks."infrastructure:up"]
+description = "launch infrastructure"
+run = "cd infrastructure && uv run pulumi up"
+
+[tasks."infrastructure:preview"]
+description = "preview infrastructure changes"
+run = "cd infrastructure && uv run pulumi preview"

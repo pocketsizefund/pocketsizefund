@@ -3,8 +3,20 @@
   "manifest": {
     "version": 1,
     "install": {
+      "google-cloud-sdk": {
+        "pkg-path": "google-cloud-sdk"
+      },
       "mise": {
         "pkg-path": "mise"
+      },
+      "pre-commit": {
+        "pkg-path": "pre-commit"
+      },
+      "pulumi": {
+        "pkg-path": "pulumi"
+      },
+      "pulumi-python": {
+        "pkg-path": "pulumiPackages.pulumi-python"
       },
       "ruff": {
         "pkg-path": "ruff"
@@ -16,8 +28,6 @@
         "pkg-path": "python313Packages.vulture"
       }
     },
-    "hook": {},
-    "profile": {},
     "options": {
       "systems": [
         "aarch64-darwin",
@@ -28,6 +38,126 @@
     }
   },
   "packages": [
+    {
+      "attr_path": "google-cloud-sdk",
+      "broken": false,
+      "derivation": "/nix/store/d3zz8kpjk454a5q6bdq68nklcrznxi4g-google-cloud-sdk-519.0.0.drv",
+      "description": "Tools for the google cloud platform",
+      "install_id": "google-cloud-sdk",
+      "license": "Unspecified free software license",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "google-cloud-sdk-519.0.0",
+      "pname": "google-cloud-sdk",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:29.273920Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "519.0.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/r9hzi487p608g20hydk5x0afm58fbymi-google-cloud-sdk-519.0.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "google-cloud-sdk",
+      "broken": false,
+      "derivation": "/nix/store/yay76ir5mzhfk1zqik81mnhplm6g0nhj-google-cloud-sdk-519.0.0.drv",
+      "description": "Tools for the google cloud platform",
+      "install_id": "google-cloud-sdk",
+      "license": "Unspecified free software license",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "google-cloud-sdk-519.0.0",
+      "pname": "google-cloud-sdk",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:20.992042Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "519.0.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/rqgy5gwr7pragl5kp0frvy14r8z7pf1h-google-cloud-sdk-519.0.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "google-cloud-sdk",
+      "broken": false,
+      "derivation": "/nix/store/z53nvy91723rzhyl4hdmw2n05zfky1i8-google-cloud-sdk-519.0.0.drv",
+      "description": "Tools for the google cloud platform",
+      "install_id": "google-cloud-sdk",
+      "license": "Unspecified free software license",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "google-cloud-sdk-519.0.0",
+      "pname": "google-cloud-sdk",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:29.934088Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "519.0.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/rzcrhqfszp9m2z1z6fdqc1p6f5yivvp3-google-cloud-sdk-519.0.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "google-cloud-sdk",
+      "broken": false,
+      "derivation": "/nix/store/l8vqa49szs1hichh1k3rfmyxjcqf0lna-google-cloud-sdk-519.0.0.drv",
+      "description": "Tools for the google cloud platform",
+      "install_id": "google-cloud-sdk",
+      "license": "Unspecified free software license",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "google-cloud-sdk-519.0.0",
+      "pname": "google-cloud-sdk",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:15:55.985990Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "519.0.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/61flv7l4cmrydqxz030fqail95a14yja-google-cloud-sdk-519.0.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
     {
       "attr_path": "mise",
       "broken": false,
@@ -43,6 +173,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:19:31.165669Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -72,6 +203,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:37:29.329193Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -101,6 +233,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:54:31.864641Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -130,6 +263,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T05:16:05.941930Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -139,6 +273,370 @@
       ],
       "outputs": {
         "out": "/nix/store/y8kcp90c4fy2jqvjlzjmbxnhxk4v7ah1-mise-2025.4.11"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pre-commit",
+      "broken": false,
+      "derivation": "/nix/store/g1kysk6z9mw04jidfq3fgnz2xrqydvq3-pre-commit-4.0.1.drv",
+      "description": "Framework for managing and maintaining multi-language pre-commit hooks",
+      "install_id": "pre-commit",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pre-commit-4.0.1",
+      "pname": "pre-commit",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:37.454566Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "4.0.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/2kfsh11nmbfb4p0swc8fbd64zx8yxk2m-pre-commit-4.0.1-dist",
+        "out": "/nix/store/3qcg99ylsvnpgjz6mraychq1cq7h0hqy-pre-commit-4.0.1"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pre-commit",
+      "broken": false,
+      "derivation": "/nix/store/90bk7m8yfrrlh8jj6pa944rq0bhy9yhv-pre-commit-4.0.1.drv",
+      "description": "Framework for managing and maintaining multi-language pre-commit hooks",
+      "install_id": "pre-commit",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pre-commit-4.0.1",
+      "pname": "pre-commit",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:41.661721Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "4.0.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/5v1b6b3bsb8aqvmdykgh3yyz67nsxixi-pre-commit-4.0.1-dist",
+        "out": "/nix/store/4ijb68pz8ffg5x9lqlkkxdv0pbqcgd12-pre-commit-4.0.1"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pre-commit",
+      "broken": false,
+      "derivation": "/nix/store/b7aa8rhpid0syj590nv76024qs1k0qkf-pre-commit-4.0.1.drv",
+      "description": "Framework for managing and maintaining multi-language pre-commit hooks",
+      "install_id": "pre-commit",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pre-commit-4.0.1",
+      "pname": "pre-commit",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:38.212329Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "4.0.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/i66khaa7g5v722lp1lb1sf9ahzlsdbhl-pre-commit-4.0.1-dist",
+        "out": "/nix/store/4cawf7w6kan4hk8fm7fd61r6wrcx1pql-pre-commit-4.0.1"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pre-commit",
+      "broken": false,
+      "derivation": "/nix/store/37gaq0083mkhqbw2k8vd2dv5d7h3qqyz-pre-commit-4.0.1.drv",
+      "description": "Framework for managing and maintaining multi-language pre-commit hooks",
+      "install_id": "pre-commit",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pre-commit-4.0.1",
+      "pname": "pre-commit",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:16:19.360522Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "4.0.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/m29nhq6i055rica1niz5h4bbqm42pq8w-pre-commit-4.0.1-dist",
+        "out": "/nix/store/0k231x8c9hs0ypl3snwm37d0aqvf8gwr-pre-commit-4.0.1"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/q4gmwrcdgfky0a1c54425p5lrpkc40xv-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:37.674963Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/0ylbamwgdddnrc306m7lcjj1951wsjim-pulumi-3.162.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/j843870kk1mzi10bbnnsrxspgb1lz646-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:42.099378Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/nj7liqz947djg171ccm8hypqy6md44l8-pulumi-3.162.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/dq5wpxlz56ilza5yadylv8m1srbl88ai-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:38.435341Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/xkvdqqrmdr1zbb6yjw1br8w1apnrsn22-pulumi-3.162.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/vdp26qmdcchb7rq1a9mb3jdxlf0y34qj-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:16:19.837493Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/m7wi8smy3xkyf5rrlzh73z4d5ck4ic5p-pulumi-3.162.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/csks3x6072jsy3flm0ni1l47lndw6vkx-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:37.684088Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/n71vz5rsqnpw6wszx982rcry5xkcbpgs-pulumi-python-3.162.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/hrss3x4h3j22w497gd00qy5jwhpc2g4b-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:42.113974Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/dcgz4fzwcjh9834x1qsv14p1i8ib9pv8-pulumi-python-3.162.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/704isa4xv1xxwv6cghga55iicjmcl2ih-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:38.444512Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/a1cmahmxygihhi5b9z04dgwmd1prl1bl-pulumi-python-3.162.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/jccr0phqmfwacr7pas9hmalxhvaa6kpk-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:16:19.852933Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/0mnamh3p4j6fffy8la6mck3im2kq7ins-pulumi-python-3.162.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -159,6 +657,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:20:01.303799Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -188,6 +687,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:38:18.124702Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -217,6 +717,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:55:01.974104Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -246,6 +747,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T05:16:57.964005Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -275,6 +777,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:20:25.534043Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -304,6 +807,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:38:52.133165Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -333,6 +837,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:55:26.025989Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -362,6 +867,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T05:17:33.646871Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -391,6 +897,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:19:56.681364Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -421,6 +928,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:38:11.017366Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -451,6 +959,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T04:54:57.351040Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,
@@ -481,6 +990,7 @@
       "rev_date": "2025-05-04T03:14:55Z",
       "scrape_date": "2025-05-05T05:16:50.153939Z",
       "stabilities": [
+        "staging",
         "unstable"
       ],
       "unfree": false,

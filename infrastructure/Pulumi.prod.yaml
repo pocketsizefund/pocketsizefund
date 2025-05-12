@@ -1,0 +1,7 @@
+config:
+  gcp:project: fund-alpha
+  gcp:region: us-east1
+  infrastructure:ALPACA_API_KEY:
+    secure: AAABAKPT/AhVsvKumR5W6tttPBUoC83gOzttBJyuqhs39Nld3tyEKkhBSWWpK7yZXYeYRw==
+  infrastructure:ALPACA_API_SECRET:
+    secure: AAABAOsh0I7XOMQVgKBalZASyrXKIpVikadYcbBxCSzWZXvh/WYyItYJtUF7s6o1u5Zz2a+s3uXiSzIDBcdc6KId0bzLoQ8Q
