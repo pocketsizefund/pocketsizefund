@@ -3,3 +3,4 @@
 .flox/log/
 .flox/run/
 .env
+.python_coverage.*

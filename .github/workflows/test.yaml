@@ -1,0 +1,31 @@
+name: Test and coverage check
+on:
+  push
+jobs:
+  python_test_and_coverage:
+    name: Run Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          install_args: "-y"
+          experimental: true
+      - name: Run unit tests with coverage
+        run:  mise tasks run python:test
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: .python_coverage.xml
+          flag-name: python
+          parallel: true

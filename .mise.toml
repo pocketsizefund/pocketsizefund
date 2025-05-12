@@ -3,12 +3,12 @@ description = "Install Python dependencies"
 run = "uv sync --all-packages"
 
 [tasks."python:format"]
-description="Format Python code"
+description = "Format Python code"
 run = "ruff format"
 
 [tasks."python:dead-code"]
 depends = ["python:format"]
-description="Check for dead Python code"
+description = "Check for dead Python code"
 run = """
 vulture \
     --min-confidence 80 \
@@ -18,11 +18,28 @@ vulture \
 
 [tasks."python:lint"]
 depends = ["python:dead-code"]
-description="Run Python code quality checks"
+description = "Run Python code quality checks"
 run = """
 ruff check \
     --output-format=github \
     .
+"""
+
+[tasks."python:test"]
+description = "Run Python tests"
+run = """
+uv run coverage run \
+    --parallel-mode \
+    --omit '*/__init__.py,**/test_*.py' \
+    --data-file .python_coverage.output \
+    --module pytest
+
+uv run coverage report \
+    --data-file .python_coverage.output
+
+uv run coverage xml \
+    --data-file .python_coverage.output \
+    -o .python_coverage.xml
 """
 
 [tasks."application:service:build"]
