@@ -2,6 +2,9 @@
 name: Bug
 about: Create a bug report
 title: ''
+labels: ["bug", "backlog"]
+projects: ["pocketsizefund/11"]
+
 ---
 
 ### Description

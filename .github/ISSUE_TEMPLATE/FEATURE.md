@@ -2,6 +2,9 @@
 name: Feature
 about: Create a feature request
 title: ''
+labels: ["feature", "backlog"]
+projects: ["pocketsizefund/11"]
+
 ---
 
 ### Description
