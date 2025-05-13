@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Get all pr/* branches, sorted by prefix number
+branches=$(jj branch list --no-graph --format '{name}' | grep '^pr/' | sort -V)
+
+echo $branches
