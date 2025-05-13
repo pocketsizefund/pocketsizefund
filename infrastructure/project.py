@@ -6,8 +6,6 @@ PROJECT = pulumi.Config("gcp").require("project")
 REGION = pulumi.Config("gcp").require("region")
 
 config = pulumi.Config()
-chrisaddy_email = config.require_secret("chrisaddyEmail")
-forstmeier_email = config.require_secret("forstmeierEmail")
 
 
 Service("enable-run", project=PROJECT, service="run.googleapis.com")
@@ -26,22 +24,4 @@ IAMMember(
     project=PROJECT,
     role="roles/pubsub.subscriber",
     member=service_account.email.apply(lambda e: f"serviceAccount:{e}"),
-)
-
-config = pulumi.Config()
-admin1_email = config.require_secret("admin1Email")
-admin2_email = config.require_secret("admin2Email")
-
-IAMMember(
-    "chrisaddy-owner",
-    project=PROJECT,
-    role="roles/owner",
-    member=chrisaddy_email.apply(lambda e: f"user:{e}"),
-)
-
-IAMMember(
-    "forstmeier-owner",
-    project=PROJECT,
-    role="roles/owner",
-    member=forstmeier_email.apply(lambda e: f"user:{e}"),
 )
