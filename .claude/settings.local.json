@@ -8,7 +8,9 @@
       "Bash(mise ls:*)",
       "Bash(mise tasks:*)",
       "Bash(pre-commit:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(rm:*)",
+      "WebFetch(domain:docs.github.com)"
     ],
     "deny": []
   }
