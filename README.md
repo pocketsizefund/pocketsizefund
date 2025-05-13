@@ -30,7 +30,7 @@ mise tasks run python:install
 
 ### Our Philosophy
 
-An unordered and non-exhaustive list we work towards:  
+At Pocket Size Fund, we adhere to a set of guiding principles that shape our approach to building and operating the platform. Below is an unordered and non-exhaustive list we work towards:  
 
 > Test in production  
 > Always roll forward  
