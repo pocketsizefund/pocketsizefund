@@ -6,6 +6,7 @@ Always use mise tasks for running tests, linting, formatting. If there is not a 
 
 - Unless the code is complex, never use comments in the code. The code should speak for itself.
 
+
 ## GitHub Issue Creation
 
 When asked to create a new GitHub issue:
