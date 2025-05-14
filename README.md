@@ -23,6 +23,8 @@ mise tasks # see all available Mise tasks
 mise tasks run python:install
 ```
 
+### Principles
+
 An unordered and non-exhaustive list we work towards:  
 
 > Test in production  
