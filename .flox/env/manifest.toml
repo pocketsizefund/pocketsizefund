@@ -2,6 +2,8 @@ version = 1
 
 [install]
 mise.pkg-path = "mise"
+pulumi.pkg-path = "pulumi"
+pulumi-python.pkg-path = "pulumiPackages.pulumi-python"
 ruff.pkg-path = "ruff"
 uv.pkg-path = "uv"
 vulture.pkg-path = "python313Packages.vulture"

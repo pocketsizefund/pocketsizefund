@@ -1,0 +1,10 @@
+[project]
+name = "infrastructure"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pulumi>=3.169.0",
+    "pulumi-gcp>=8.30.1",
+]

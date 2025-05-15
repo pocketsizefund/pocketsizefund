@@ -6,6 +6,12 @@
       "mise": {
         "pkg-path": "mise"
       },
+      "pulumi": {
+        "pkg-path": "pulumi"
+      },
+      "pulumi-python": {
+        "pkg-path": "pulumiPackages.pulumi-python"
+      },
       "ruff": {
         "pkg-path": "ruff"
       },
@@ -144,6 +150,246 @@
       ],
       "outputs": {
         "out": "/nix/store/y8kcp90c4fy2jqvjlzjmbxnhxk4v7ah1-mise-2025.4.11"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/q4gmwrcdgfky0a1c54425p5lrpkc40xv-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:37.674963Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/0ylbamwgdddnrc306m7lcjj1951wsjim-pulumi-3.162.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/j843870kk1mzi10bbnnsrxspgb1lz646-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:42.099378Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/nj7liqz947djg171ccm8hypqy6md44l8-pulumi-3.162.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/dq5wpxlz56ilza5yadylv8m1srbl88ai-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:38.435341Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/xkvdqqrmdr1zbb6yjw1br8w1apnrsn22-pulumi-3.162.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/vdp26qmdcchb7rq1a9mb3jdxlf0y34qj-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:16:19.837493Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/m7wi8smy3xkyf5rrlzh73z4d5ck4ic5p-pulumi-3.162.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/csks3x6072jsy3flm0ni1l47lndw6vkx-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:37.684088Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/n71vz5rsqnpw6wszx982rcry5xkcbpgs-pulumi-python-3.162.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/hrss3x4h3j22w497gd00qy5jwhpc2g4b-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:42.113974Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/dcgz4fzwcjh9834x1qsv14p1i8ib9pv8-pulumi-python-3.162.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/704isa4xv1xxwv6cghga55iicjmcl2ih-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:38.444512Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/a1cmahmxygihhi5b9z04dgwmd1prl1bl-pulumi-python-3.162.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/jccr0phqmfwacr7pas9hmalxhvaa6kpk-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:16:19.852933Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/0mnamh3p4j6fffy8la6mck3im2kq7ins-pulumi-python-3.162.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

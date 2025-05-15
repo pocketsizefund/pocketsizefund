@@ -1,0 +1,7 @@
+config:
+  gcp:project: fund-alpha
+  gcp:region: us-east1
+  pocketsizefund-infrastructure:ALPACA_API_KEY_ID:
+    secure: AAABAB4pDeY4NwygED94yFtCW2yFGqux7+1PbYqelbCXIFdLcAoOFiXkDqb/YQe6wRT+Sw==
+  pocketsizefund-infrastructure:ALPACA_API_SECRET_KEY:
+    secure: AAABAErv3YbpWbLIPzuYRe5Xp/b0Mhij2qq8xeQLb3FJa1va64YPwRCLXB70lR6c9PKUuc9fXA6UJhq9doHLmKYz2tUeJZYw

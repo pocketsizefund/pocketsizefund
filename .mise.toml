@@ -72,3 +72,10 @@ description = "Run code quality checks"
 run = """
 yamllint .
 """
+
+[tasks."infrastructure:up"]
+description = "launch cloud infrastructure"
+run = """
+cd infrastructure 
+uv run pulumi up
+"""
