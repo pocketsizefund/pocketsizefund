@@ -10,7 +10,10 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["application/datamanager"]
+members = [
+    "application/datamanager",
+ "infrastructure",
+]
 
 [tool.uv.sources]
 datamanager = { workspace = true }

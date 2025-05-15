@@ -6,6 +6,12 @@
       "mise": {
         "pkg-path": "mise"
       },
+      "pulumi": {
+        "pkg-path": "pulumi"
+      },
+      "pulumi-python": {
+        "pkg-path": "pulumiPackages.pulumi-python"
+      },
       "ruff": {
         "pkg-path": "ruff"
       },
@@ -14,10 +20,11 @@
       },
       "vulture": {
         "pkg-path": "python313Packages.vulture"
+      },
+      "yamllint": {
+        "pkg-path": "yamllint"
       }
     },
-    "hook": {},
-    "profile": {},
     "options": {
       "systems": [
         "aarch64-darwin",
@@ -143,6 +150,246 @@
       ],
       "outputs": {
         "out": "/nix/store/y8kcp90c4fy2jqvjlzjmbxnhxk4v7ah1-mise-2025.4.11"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/q4gmwrcdgfky0a1c54425p5lrpkc40xv-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:37.674963Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/0ylbamwgdddnrc306m7lcjj1951wsjim-pulumi-3.162.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/j843870kk1mzi10bbnnsrxspgb1lz646-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:42.099378Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/nj7liqz947djg171ccm8hypqy6md44l8-pulumi-3.162.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/dq5wpxlz56ilza5yadylv8m1srbl88ai-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:38.435341Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/xkvdqqrmdr1zbb6yjw1br8w1apnrsn22-pulumi-3.162.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumi",
+      "broken": false,
+      "derivation": "/nix/store/vdp26qmdcchb7rq1a9mb3jdxlf0y34qj-pulumi-3.162.0.drv",
+      "description": "Pulumi is a cloud development platform that makes creating cloud programs easy and productive",
+      "install_id": "pulumi",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-3.162.0",
+      "pname": "pulumi",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:16:19.837493Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/m7wi8smy3xkyf5rrlzh73z4d5ck4ic5p-pulumi-3.162.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/csks3x6072jsy3flm0ni1l47lndw6vkx-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:37.684088Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/n71vz5rsqnpw6wszx982rcry5xkcbpgs-pulumi-python-3.162.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/hrss3x4h3j22w497gd00qy5jwhpc2g4b-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:42.113974Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/dcgz4fzwcjh9834x1qsv14p1i8ib9pv8-pulumi-python-3.162.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/704isa4xv1xxwv6cghga55iicjmcl2ih-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:38.444512Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/a1cmahmxygihhi5b9z04dgwmd1prl1bl-pulumi-python-3.162.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pulumiPackages.pulumi-python",
+      "broken": false,
+      "derivation": "/nix/store/jccr0phqmfwacr7pas9hmalxhvaa6kpk-pulumi-python-3.162.0.drv",
+      "description": "Language host for Pulumi programs written in Python",
+      "install_id": "pulumi-python",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "pulumi-python-3.162.0",
+      "pname": "pulumi-python",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:16:19.852933Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.162.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/0mnamh3p4j6fffy8la6mck3im2kq7ins-pulumi-python-3.162.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -507,6 +754,130 @@
       "outputs": {
         "dist": "/nix/store/jyfl1i4jyyv55inwkpnva8g4hmik7lh8-python3.13-vulture-2.14-dist",
         "out": "/nix/store/r3rq29lvid6fqq32k4nzwb05abzlds8p-python3.13-vulture-2.14"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "yamllint",
+      "broken": false,
+      "derivation": "/nix/store/lfphdm6fmfba1654is7y5djg4pscwinp-python3.12-yamllint-1.37.0.drv",
+      "description": "Linter for YAML files",
+      "install_id": "yamllint",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "python3.12-yamllint-1.37.0",
+      "pname": "yamllint",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:20:32.757794Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.37.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/7375pc0w9qqc1f5wcbg8pwclw0k9gdas-python3.12-yamllint-1.37.0-dist",
+        "out": "/nix/store/lrcb38xsf82yzj633jkrcyhsqv56jx88-python3.12-yamllint-1.37.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "yamllint",
+      "broken": false,
+      "derivation": "/nix/store/ni7y8jbfnqyvdx4vxia7n0rv7b104smj-python3.12-yamllint-1.37.0.drv",
+      "description": "Linter for YAML files",
+      "install_id": "yamllint",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "python3.12-yamllint-1.37.0",
+      "pname": "yamllint",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:39:03.182314Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.37.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/9zj9za1vxywa3qig1dzc9s3na9k927nn-python3.12-yamllint-1.37.0-dist",
+        "out": "/nix/store/3qfpb8zji71qlcdxb723nf8id1r1aycd-python3.12-yamllint-1.37.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "yamllint",
+      "broken": false,
+      "derivation": "/nix/store/jfsg416ff82ss9n9c6nrnx6xkw4g193q-python3.12-yamllint-1.37.0.drv",
+      "description": "Linter for YAML files",
+      "install_id": "yamllint",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "python3.12-yamllint-1.37.0",
+      "pname": "yamllint",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:55:33.294585Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.37.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/2dri4azs0vc18fgh2mkdy0crmwxa3vqa-python3.12-yamllint-1.37.0-dist",
+        "out": "/nix/store/2l3jnywmzbwmxda4lxn5h98ijwqqac68-python3.12-yamllint-1.37.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "yamllint",
+      "broken": false,
+      "derivation": "/nix/store/d7v676hj869dwp61jdhqgy46dali6irp-python3.12-yamllint-1.37.0.drv",
+      "description": "Linter for YAML files",
+      "install_id": "yamllint",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "python3.12-yamllint-1.37.0",
+      "pname": "yamllint",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:17:45.391634Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.37.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/g3kmvlal3hdmmyakcavr2ynkc8jcsqcy-python3.12-yamllint-1.37.0-dist",
+        "out": "/nix/store/hq43nmliiy6jr64rcz5adrzj39jpbk1k-python3.12-yamllint-1.37.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
