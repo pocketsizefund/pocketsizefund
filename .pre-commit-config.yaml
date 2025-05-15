@@ -1,15 +1,16 @@
+---
 repos:
   - repo: local
     hooks:
-    - id: quality
-      name: Python quality check
-      entry: mise run python:lint
-      pass_filenames: false
-      types: [file, python]
-      language: system
-    - id: test
-      name: Python test
-      entry: mise run python:test
-      pass_filenames: false
-      types: [file, python]
-      language: system
+      - id: quality
+        name: Python quality check
+        entry: mise run python:lint
+        pass_filenames: false
+        types: [file, python]
+        language: system
+      - id: test
+        name: Python test
+        entry: mise run python:test
+        pass_filenames: false
+        types: [file, python]
+        language: system

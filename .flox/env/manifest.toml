@@ -1,21 +1,13 @@
 version = 1
 
 [install]
-uv.pkg-path = "uv"
 mise.pkg-path = "mise"
 ruff.pkg-path = "ruff"
+uv.pkg-path = "uv"
 vulture.pkg-path = "python313Packages.vulture"
-
-[vars]
-
-[hook]
-
-[profile]
-
-[services]
+yamllint.pkg-path = "yamllint"
 
 [options]
-
 systems = [
   "aarch64-darwin",
   "aarch64-linux",

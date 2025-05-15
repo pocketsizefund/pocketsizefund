@@ -64,3 +64,11 @@ docker run \
 --publish 8080:8080 \
 pocketsizefund/{{arg(name="service_name")}}:latest \
 """
+
+
+[tasks."lint"]
+depends = ["python:lint"]
+description = "Run code quality checks"
+run = """
+yamllint .
+"""
