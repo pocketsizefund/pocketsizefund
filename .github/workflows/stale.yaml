@@ -1,3 +1,4 @@
+---
 name: Close stale issues and pull requests
 on:
   schedule:
@@ -13,8 +14,12 @@ jobs:
       - name: Close stale issues and pull requests
         uses: actions/stale@v9
         with:
-          stale-issue-message: 'Marked stale due to inactivity. Remove stale label or comment or this will be closed.'
-          stale-pr-message: 'Marked stale due to inactivity. Remove stale label or comment or this will be closed.'
+          stale-issue-message: >-
+            Marked stale due to inactivity.
+            Remove stale label or comment or this will be closed.
+          stale-pr-message: >-
+            Marked stale due to inactivity.
+            Remove stale label or comment or this will be closed.
           stale-issue-label: stale
           stale-pr-label: stale
           close-issue-message: 'Closed due to inactivity.'

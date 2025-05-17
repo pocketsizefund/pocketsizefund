@@ -1,3 +1,4 @@
+---
 name: Code quality check
 on:
   push
@@ -13,4 +14,4 @@ jobs:
       - name: Run Python quality checks
         uses: flox/activate-action@v1
         with:
-          command:  mise tasks run python:lint
+          command: mise tasks run python:lint
