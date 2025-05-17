@@ -5,6 +5,7 @@ description = "Open source quantitative hedge fund 🍊"
 requires-python = ">=3.13"
 dependencies = [
     "pytest>=8.3.5",
+    "pytest-asyncio>=0.23.0",
     "httpx>=0.28.1",
     "coverage>=7.6.1",
 ]
