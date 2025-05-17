@@ -49,6 +49,12 @@ docker run \
 pocketsizefund/{{arg(name="service_name")}}:latest \
 """
 
+[tasks."application:service:dev"]
+description = "Run the application service locally with hot reloading"
+run = """
+cd application/{{arg(name="service_name")}}
+uv run uvicorn src.{{arg(name="service_name")}}.main:application --reload
+"""
 
 [tasks."lint"]
 depends = ["python:lint"]
