@@ -1,16 +1,17 @@
-from fastapi import FastAPI
+import os
+from datetime import datetime, timedelta
+
 import duckdb
 import polars as pl
-from datetime import datetime, timedelta
-import os
+from fastapi import FastAPI
 
 
 class Database:
     def __init__(
         self,
-        gcp_key_id: str = "",
-        gcp_secret: str = "",
-        gcp_gcs_bucket: str = "",
+        gcp_key_id: str | None,
+        gcp_secret: str | None,
+        gcp_gcs_bucket: str | None,
     ):
         self.gcp_gcs_bucket = gcp_gcs_bucket
         self.connection = None

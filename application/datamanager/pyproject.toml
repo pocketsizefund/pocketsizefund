@@ -18,3 +18,9 @@ packages = ["datamanager"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest-asyncio>=0.26.0",
+]
