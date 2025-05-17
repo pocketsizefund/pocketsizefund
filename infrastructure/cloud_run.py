@@ -22,10 +22,12 @@ service = cloudrun.Service(
                     args=["--period=1"],
                     envs=[
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
-                            name="ALPACA_API_KEY_ID", value=alpaca_api_key
+                            name="ALPACA_API_KEY_ID",
+                            value=alpaca_api_key,
                         ),
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
-                            name="ALPACA_API_SECRET_KEY", value=alpaca_api_secret
+                            name="ALPACA_API_SECRET_KEY",
+                            value=alpaca_api_secret,
                         ),
                     ],
                 )
