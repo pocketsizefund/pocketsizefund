@@ -10,10 +10,14 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["application/datamanager"]
+members = [
+    "application/datamanager",
+    "application/positionmanager",
+]
 
 [tool.uv.sources]
 datamanager = { workspace = true }
+positionmanager = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["pocketsizefund"]
