@@ -7,10 +7,12 @@ projects: ["pocketsizefund/11"]
 
 ---
 
-### Description
+# Overview
+
+## Description
 
 <!-- Write a few sentences for context for new proposed behavior and benefits. -->
 
-### Specifics
+## Specifics
 
 <!-- Provide bullet point details with code changes and work proposal. -->

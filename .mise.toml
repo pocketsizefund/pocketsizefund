@@ -1,3 +1,6 @@
+[env]
+COMPOSE_BAKE=true
+
 [tasks."python:install"]
 description = "Install Python dependencies"
 run = "uv sync --all-packages"
@@ -45,31 +48,47 @@ uv run coverage xml \
     -o .python_coverage.xml
 """
 
-[tasks."application:service:build"]
+
+[tasks."python:test:behave"]
+description = "Run behave end-to-end tests"
+run = """
+cd application/{{arg(name="application_name")}}
+uv run behave features/
+"""
+
+
+[tasks."application:build"]
 description = "Build the application service"
 run = """
 TIMESTAMP=$(date +%Y%m%d) 
 docker build \
---file application/{{arg(name="service_name")}}/Dockerfile \
---tag pocketsizefund/{{arg(name="service_name")}}:latest \
---tag pocketsizefund/{{arg(name="service_name")}}:${TIMESTAMP} \
+--file application/{{arg(name="application_name")}}/Dockerfile \
+--tag pocketsizefund/{{arg(name="application_name")}}:latest \
+--tag pocketsizefund/{{arg(name="application_name")}}:${TIMESTAMP} \
 .
 """
 
-[tasks."application:service:run"]
+[tasks."application:run"]
 description = "Run the application service"
 run = """
 docker run \
 --env-file .env \
 --publish 8080:8080 \
-pocketsizefund/{{arg(name="service_name")}}:latest \
+pocketsizefund/{{arg(name="application_name")}}:latest \
 """
 
-[tasks."application:service:dev"]
+[tasks."application:dev"]
 description = "Run the application service locally with hot reloading"
 run = """
-cd application/{{arg(name="service_name")}}
-uv run uvicorn src.{{arg(name="service_name")}}.main:application --reload
+cd application/{{arg(name="application_name")}}
+uv run uvicorn src.{{arg(name="application_name")}}.main:application --reload
+"""
+
+[tasks."application:test"]
+description = "Run integration tests"
+run = """
+cd application/{{arg(name="application_name")}}
+docker-compose up --build --abort-on-container-exit --remove-orphans
 """
 
 [tasks."lint"]
@@ -82,6 +101,7 @@ yamllint .
 [tasks."infrastructure:up"]
 description = "launch cloud infrastructure"
 run = """
-cd infrastructure 
-uv run pulumi up
+cd infrastructure
+uv run pulumi up --yes
 """
+
