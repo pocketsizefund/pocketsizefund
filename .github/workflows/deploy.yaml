@@ -1,0 +1,19 @@
+---
+name: Deploy infrastructure
+on:
+  push:
+    branches:
+      - master
+jobs:
+  deploy:
+    name: Deploy infrastructure
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Deploy with Pulumi
+        uses: flox/activate-action@v1
+        with:
+          command: mise tasks run infrastructure:up
