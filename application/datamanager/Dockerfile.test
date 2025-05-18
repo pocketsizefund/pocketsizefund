@@ -1,0 +1,17 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY application/datamanager/pyproject.toml .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir hatch && \
+    pip install --no-cache-dir -e . && \
+    pip install --no-cache-dir behave requests httpx
+
+# Copy application code
+COPY application/datamanager /app/datamanager
+
+WORKDIR /app/datamanager
+
+CMD ["behave", "features/"]

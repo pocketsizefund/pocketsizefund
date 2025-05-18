@@ -23,4 +23,6 @@ build-backend = "hatchling.build"
 dev = [
     "httpx>=0.28.1",
     "pytest-asyncio>=0.26.0",
+    "behave>=1.2.6",
+    "requests>=2.31.0",
 ]

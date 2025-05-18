@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  datamanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+    environment:
+      - POLYGON_API_KEY=test-api-key
+      - POLYGON_BASE_URL=http://polygon-mock:8080
+      - GCP_KEY_ID=test-key-id
+      - GCP_SECRET=test-secret
+      - GCP_GCS_BUCKET=test-bucket
+    volumes:
+      - ./:/app/datamanager
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./:/app/datamanager
+    depends_on:
+      datamanager:
+        condition: service_healthy
+    environment:
+      - BASE_URL=http://datamanager:8000
+    command: ["behave", "features/"]
