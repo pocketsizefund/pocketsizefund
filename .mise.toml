@@ -45,6 +45,26 @@ uv run coverage xml \
     -o .python_coverage.xml
 """
 
+[tasks."python:test:integration"]
+description = "Run integration tests"
+run = """
+uv run coverage run \
+    --parallel-mode \
+    --omit '*/__init__.py,**/test_*.py' \
+    --data-file .python_coverage.output \
+    -m pytest -m integration
+
+uv run coverage combine \
+    --data-file .python_coverage.output
+
+uv run coverage report \
+    --data-file .python_coverage.output
+
+uv run coverage xml \
+    --data-file .python_coverage.output \
+    -o .python_coverage.xml
+"""
+
 [tasks."application:service:build"]
 description = "Build the application service"
 run = """

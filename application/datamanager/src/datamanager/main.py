@@ -1,119 +1,89 @@
-import os
-from datetime import datetime, timedelta
+from __future__ import annotations
 
+import os
+from contextlib import asynccontextmanager
+from datetime import date, datetime, timedelta
+from pathlib import Path
+
+import httpx
 import duckdb
 import polars as pl
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel
+
+from config import Settings
+from models import BarsResult, DateRange
 
 
-class Database:
-    def __init__(
-        self,
-        gcp_key_id: str | None,
-        gcp_secret: str | None,
-        gcp_gcs_bucket: str | None,
-    ):
-        self.gcp_gcs_bucket = gcp_gcs_bucket
-        self.connection = None
-        if gcp_key_id and gcp_secret:
-            connection = duckdb.connect()
+def get_connection(settings: Settings) -> duckdb.DuckDBPyConnection:
+    connection = duckdb.connect()
+    if settings.gcp_key_id and settings.gcp_secret:
+        connection.execute("INSTALL httpfs;")
+        connection.execute("LOAD httpfs;")
+        connection.execute(
+            f"""CREATE SECRET (TYPE gcs, KEY_ID '{settings.gcp_key_id}', SECRET '{settings.gcp_secret}');"""
+        )
+    return connection
 
-            connection.execute("INSTALL httpfs;")
-            connection.execute("LOAD httpfs;")
 
-            connection.execute(f"""CREATE SECRET (
-                TYPE gcs,
-                KEY_ID '{gcp_key_id}',
-                SECRET '{gcp_secret}'
-            );""")
+def store_bars(data: pl.DataFrame, date: date, settings: Settings) -> None:
+    path = (
+        f"gs://{settings.gcp_gcs_bucket}/equity/bars/{date.strftime('%Y-%m-%d')}/data.parquet"
+        if settings.gcp_gcs_bucket
+        else f"equity_bars_{date.strftime('%Y-%m-%d')}.parquet"
+    )
+    connection = get_connection(settings)
+    connection.register("data_frame", data)
+    connection.execute(f"COPY data_frame TO '{path}' (FORMAT PARQUET)")
 
-            self.connection = connection
 
-        else:
-            connection = duckdb.connect()
-
-            data = {
-                "timestamp": [
-                    "2025-05-01T09:30:00Z",
-                    "2025-05-02T09:30:00Z",
-                    "2025-05-03T09:30:00Z",
-                    "2025-05-04T09:30:00Z",
-                    "2025-05-05T09:30:00Z",
-                ],
-                "ticker": ["AAPL", "AAPL", "AAPL", "AAPL", "AAPL"],
-                "open_price": [150.00, 151.80, 152.10, 153.30, 154.60],
-                "high_price": [152.50, 153.20, 154.00, 155.00, 156.30],
-                "low_price": [149.00, 150.50, 151.00, 152.20, 153.40],
-                "close_price": [151.75, 152.00, 153.25, 154.50, 155.75],
-                "trade_count": [1000, 1200, 1100, 1300, 1400],
-                "volume": [50000, 55000, 52000, 57000, 60000],
-                "volume_weighted_average_price": [
-                    151.25,
-                    151.90,
-                    152.60,
-                    153.80,
-                    155.00,
-                ],
-            }
-
-            connection.register("equity_bars_data", pl.DataFrame(data))
-
-            connection.execute(
-                "CREATE TABLE equity_bars AS SELECT * FROM equity_bars_data"
+def query_bars(
+    request: Request, date_range: DateRange, settings: Settings
+) -> pl.DataFrame:
+    filepaths = []
+    current = date_range.start
+    while current <= date_range.end:
+        filepaths.append(
+            (
+                f"gs://{settings.gcp_gcs_bucket}/equity/bars/{current.strftime('%Y-%m-%d')}/data.parquet"
+                if settings.gcp_gcs_bucket
+                else f"equity_bars_{current.strftime('%Y-%m-%d')}.parquet"
             )
-
-            self.connection = connection
-
-    def query(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-    ) -> pl.DataFrame:
-        if start_date > end_date:
-            raise ValueError("Start date must be earlier than end date.")
-
-        query_statement = ""
-        if self.gcp_gcs_bucket:
-            filepaths = []
-            current_date = start_date
-            while current_date <= end_date:
-                filepath = f"gs://{self.gcp_gcs_bucket}/equity/bars/{current_date.strftime('%Y-%m-%d')}/data.csv"
-                filepaths.append(filepath)
-                current_date += timedelta(days=1)
-
-            query_statement = f"SELECT * FROM read_csv({filepaths})"
-
-        else:
-            query_statement = "SELECT * FROM equity_bars;"
-
-        return self.connection.execute(query_statement).pl()
+        )
+        current += timedelta(days=1)
+    sql = request.app.state.SQL_PATH.read_text().format(filepaths=str(filepaths))
+    connection = get_connection(settings)
+    return connection.execute(sql).pl()
 
 
-application = FastAPI()
+@asynccontextmanager
+def lifespan(app: FastAPI):
+    app.state.settings = Settings(
+        polygon_api_key=os.getenv("POLYGON_API_KEY"),
+        polygon_base_url=os.getenv("POLYGON_BASE_URL", "https://api.polygon.io"),
+        gcp_key_id=os.getenv("GCP_KEY_ID"),
+        gcp_secret=os.getenv("GCP_SECRET"),
+        gcp_gcs_bucket=os.getenv("GCP_GCS_BUCKET"),
+    )
 
-gcp_key_id = os.getenv("GCP_KEY_ID")
-gcp_secret = os.getenv("GCP_SECRET")
-gcp_gcs_bucket = os.getenv("GCP_GCS_BUCKET")
+    app.state.SQL_PATH = Path(__file__).with_name("bars.sql")
+    yield
 
-database = Database(
-    gcp_key_id=gcp_key_id,
-    gcp_secret=gcp_secret,
-    gcp_gcs_bucket=gcp_gcs_bucket,
-)
+
+application = FastAPI(lifespan=lifespan)
 
 
 @application.get("/health")
-async def get_health():
+async def get_health() -> dict[str, str]:
     return {"status": "healthy"}
 
 
 @application.get("/equity-bars")
 async def get_equity_bars(
-    start_date: datetime,
-    end_date: datetime,
-):
-    results = database.query(start_date, end_date)
-
+    request: Request, start_date: datetime, end_date: datetime
+) -> dict[str, object]:
+    settings: Settings = request.app.state.settings
+    results = query_bars(start_date, end_date, settings)
     return {
         "data": results.to_dicts(),
         "metadata": {
@@ -122,3 +92,20 @@ async def get_equity_bars(
             "count": len(results),
         },
     }
+
+
+@application.post("/equity-bars", response_model=BarsResult)
+async def fetch_equity_bars(request: Request, date: date | None = None) -> BarsResult:
+    settings: Settings = request.app.state.settings
+    target_date = (date or datetime.utcnow()).date()
+    if not settings.polygon_api_key:
+        raise HTTPException(status_code=500, detail="Missing API key")
+    url = f"{settings.polygon_base_url}/v2/aggs/grouped/locale/us/market/stocks/{target_date}"
+    params = {"adjusted": "true", "apiKey": settings.polygon_api_key}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, params=params)
+    response.raise_for_status()
+    payload = response.json().get("results", [])
+    frame = pl.DataFrame(payload)
+    store_bars(frame, datetime.combine(target_date, datetime.min.time()), settings)
+    return BarsResult(date=str(target_date), count=len(frame))
