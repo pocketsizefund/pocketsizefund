@@ -1,124 +1,103 @@
+import json
 import os
-from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from datetime import date, datetime, timedelta
+from pathlib import Path
 
+import httpx
 import duckdb
 import polars as pl
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, Response, status
+from .config import Settings
+from .models import BarsResult, DateRange
+from .query import list_file_paths, query_bars
+from loguru import logger
 
 
-class Database:
-    def __init__(
-        self,
-        gcp_key_id: str | None,
-        gcp_secret: str | None,
-        gcp_gcs_bucket: str | None,
-    ):
-        self.gcp_gcs_bucket = gcp_gcs_bucket
-        self.connection = None
-        if gcp_key_id and gcp_secret:
-            connection = duckdb.connect()
-
-            connection.execute("INSTALL httpfs;")
-            connection.execute("LOAD httpfs;")
-
-            connection.execute(f"""CREATE SECRET (
-                TYPE gcs,
-                KEY_ID '{gcp_key_id}',
-                SECRET '{gcp_secret}'
-            );""")
-
-            self.connection = connection
-
-        else:
-            connection = duckdb.connect()
-
-            data = {
-                "timestamp": [
-                    "2025-05-01T09:30:00Z",
-                    "2025-05-02T09:30:00Z",
-                    "2025-05-03T09:30:00Z",
-                    "2025-05-04T09:30:00Z",
-                    "2025-05-05T09:30:00Z",
-                ],
-                "ticker": ["AAPL", "AAPL", "AAPL", "AAPL", "AAPL"],
-                "open_price": [150.00, 151.80, 152.10, 153.30, 154.60],
-                "high_price": [152.50, 153.20, 154.00, 155.00, 156.30],
-                "low_price": [149.00, 150.50, 151.00, 152.20, 153.40],
-                "close_price": [151.75, 152.00, 153.25, 154.50, 155.75],
-                "trade_count": [1000, 1200, 1100, 1300, 1400],
-                "volume": [50000, 55000, 52000, 57000, 60000],
-                "volume_weighted_average_price": [
-                    151.25,
-                    151.90,
-                    152.60,
-                    153.80,
-                    155.00,
-                ],
-            }
-
-            connection.register("equity_bars_data", pl.DataFrame(data))
-
-            connection.execute(
-                "CREATE TABLE equity_bars AS SELECT * FROM equity_bars_data"
-            )
-
-            self.connection = connection
-
-    def query(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-    ) -> pl.DataFrame:
-        if start_date > end_date:
-            raise ValueError("Start date must be earlier than end date.")
-
-        query_statement = ""
-        if self.gcp_gcs_bucket:
-            filepaths = []
-            current_date = start_date
-            while current_date <= end_date:
-                filepath = f"gs://{self.gcp_gcs_bucket}/equity/bars/{current_date.strftime('%Y-%m-%d')}/data.csv"
-                filepaths.append(filepath)
-                current_date += timedelta(days=1)
-
-            query_statement = f"SELECT * FROM read_csv({filepaths})"
-
-        else:
-            query_statement = "SELECT * FROM equity_bars;"
-
-        return self.connection.execute(query_statement).pl()
+def get_connection(settings: Settings) -> duckdb.DuckDBPyConnection:
+    connection = duckdb.connect()
+    if settings.gcp_key_id and settings.gcp_secret:
+        connection.execute("INSTALL httpfs;")
+        connection.execute("LOAD httpfs;")
+        connection.execute(
+            f"""CREATE SECRET (TYPE gcs, KEY_ID '{settings.gcp_key_id}', SECRET '{settings.gcp_secret}');"""
+        )
+    return connection
 
 
-application = FastAPI()
+def delete_bars(date: date, bucket: str):
+    path = f"gs://{bucket}/equity/bars/{date.strftime('%Y-%m-%d')}/data.parquet"
 
-gcp_key_id = os.getenv("GCP_KEY_ID")
-gcp_secret = os.getenv("GCP_SECRET")
-gcp_gcs_bucket = os.getenv("GCP_GCS_BUCKET")
 
-database = Database(
-    gcp_key_id=gcp_key_id,
-    gcp_secret=gcp_secret,
-    gcp_gcs_bucket=gcp_gcs_bucket,
-)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.settings = Settings()
+
+    yield
+
+
+application = FastAPI(lifespan=lifespan)
 
 
 @application.get("/health")
-async def get_health():
-    return {"status": "healthy"}
+async def health_check():
+    return Response(status_code=status.HTTP_200_OK)
 
 
 @application.get("/equity-bars")
 async def get_equity_bars(
-    start_date: datetime,
-    end_date: datetime,
-):
-    results = database.query(start_date, end_date)
+    request: Request,
+    date_range: DateRange,
+) -> dict[str, object]:
+    settings: Settings = request.app.state.settings
+    paths = await list_file_paths(
+        bucket=settings.data_bucket, date_range=settings.date_range
+    )
+    results = await query_bars(filepaths=paths)
+    logger.info(results.head())
 
     return {
         "data": results.to_dicts(),
         "metadata": {
-            "start_date": start_date,
-            "end_date": end_date,
+            "start_date": str(date_range.start),
+            "end_date": str(date_range.end),
             "count": len(results),
         },
     }
+
+
+@application.post("/equity-bars", response_model=BarsResult)
+async def fetch_equity_bars(request: Request, date: date | None = None) -> BarsResult:
+    settings: Settings = request.app.state.settings
+    target_date = (date or datetime.utcnow()).date()
+    params = {"adjusted": "true", "apiKey": settings.polygon.api_key}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{settings.polygon.base_url}{settings.polygon.daily_bars}{target_date}",
+            params=params,
+        )
+    response.raise_for_status()
+    payload = response.json().get("results", [])
+
+    bars = pl.DataFrame(payload)
+    logger.info(bars.head())
+
+    # logger.info(f"storing dataframe to {path=}")
+
+    bars.write_parquet(settings.bucket.daily_bars_path(target_date))
+    return BarsResult(date=str(target_date), count=len(bars))
+
+
+@application.delete("/equity-bars")
+async def delete_equity_bars(request: Request, date: date):
+    settings: Settings = request.app.state.settings
+    success = delete_bars(date, settings)
+
+    if not success:
+        return Response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=json.dumps({"detail": f"No data found for date {date}"}),
+            media_type="application/json",
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

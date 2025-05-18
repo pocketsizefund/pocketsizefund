@@ -1,0 +1,36 @@
+services:
+  datamanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    environment:
+      - POLYGON_API_KEY=${POLYGON_API_KEY}
+      - DATA_BUCKET=${DATA_BUCKET}
+      - GOOGLE_APPLICATION_CREDENTIALS:/secrets/gcp-key.json
+    volumes:
+      - ./:/app/datamanager
+      - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 1s
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./:/app/datamanager
+    depends_on:
+      datamanager:
+        condition: service_healthy
+    environment:
+      # Point tests at the datamanager service port (8080)
+      - BASE_URL=http://datamanager:8080
+    # Use the uv wrapper to run tests with dev dependencies installed
+    # Let behave default to the 'features' directory without explicit path
+    command: ["uv", "run", "behave"]

@@ -3,6 +3,7 @@ import base64
 from pulumi import Config
 import project
 import topics
+import buckets
 
 config = Config()
 
@@ -22,10 +23,16 @@ service = cloudrun.Service(
                     args=["--period=1"],
                     envs=[
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
-                            name="ALPACA_API_KEY_ID", value=alpaca_api_key
+                            name="ALPACA_API_KEY_ID",
+                            value=alpaca_api_key,
                         ),
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
-                            name="ALPACA_API_SECRET_KEY", value=alpaca_api_secret
+                            name="ALPACA_API_SECRET_KEY",
+                            value=alpaca_api_secret,
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DATA_BUCKET",
+                            value=buckets.production_data_bucket.name,
                         ),
                     ],
                 )
@@ -47,7 +54,7 @@ subscription = pubsub.Subscription(
 
 job = cloudscheduler.Job(
     "datamanager-job",
-    schedule="0 * * * *",
+    schedule="0 0 * * *",
     time_zone="UTC",
     pubsub_target=cloudscheduler.JobPubsubTargetArgs(
         topic_name=topics.datamanager_ping.id,
