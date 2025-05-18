@@ -9,8 +9,8 @@ dependencies = [
 
 [tool.uv.workspace]
 members = [
-    "application/datamanager",
     "infrastructure",
+    "application/datamanager",
     "application/positionmanager",
 ]
 
