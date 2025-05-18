@@ -4,8 +4,11 @@ on:
   push
 jobs:
   python_quality_check:
-    name: Run Python quality checks
-    runs-on: macos-latest
+    name: Run Python quality checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
