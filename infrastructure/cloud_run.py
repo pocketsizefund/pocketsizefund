@@ -47,7 +47,7 @@ subscription = pubsub.Subscription(
 
 job = cloudscheduler.Job(
     "datamanager-job",
-    schedule="0 * * * *",
+    schedule="0 0 * * *",
     time_zone="UTC",
     pubsub_target=cloudscheduler.JobPubsubTargetArgs(
         topic_name=topics.datamanager_ping.id,
