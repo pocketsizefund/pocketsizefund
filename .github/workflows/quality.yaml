@@ -12,17 +12,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.13"
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-      - name: Setup Mise
-        uses: jdx/mise-action@v2
-        with:
-          install: true
-          install_args: "-y"
-          experimental: true
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
       - name: Run Python quality checks
-        run: mise tasks run python:lint
+        uses: flox/activate-action@v1
+        with:
+          command: mise tasks run python:lint
