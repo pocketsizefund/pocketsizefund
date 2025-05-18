@@ -3,6 +3,7 @@ import base64
 from pulumi import Config
 import project
 import topics
+import buckets
 
 config = Config()
 
@@ -26,6 +27,9 @@ service = cloudrun.Service(
                         ),
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
                             name="ALPACA_API_SECRET_KEY", value=alpaca_api_secret
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="GCP_GCS_BUCKET", value=buckets.prod_data_bucket.name
                         ),
                     ],
                 )
