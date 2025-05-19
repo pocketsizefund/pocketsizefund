@@ -27,4 +27,4 @@ When asked to create a new GitHub issue:
 
 1. After creating a ticket, it will be reviewed and possibly modified
 2. Issues with "todo" status are prepared for implementation
-3. When asked to look at tickets ready for implementation, search for Github issues with "in progress" status
+3. When asked to look at tickets ready for implementation, search for GitHub issues with "in progress" status
