@@ -1,0 +1,22 @@
+[project]
+name = "positionmanager"
+version = "0.1.0"
+description = "Position management service"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
+    "alpaca-py>=0.15.0",
+    "pydantic>=2.8.2",
+    "requests>=2.31.0",
+    "polars>=1.29.0",
+    "pandas>=2.1.0",
+    "pyportfolioopt>=1.5.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["positionmanager"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
