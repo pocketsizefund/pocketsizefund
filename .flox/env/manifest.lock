@@ -3,6 +3,9 @@
   "manifest": {
     "version": 1,
     "install": {
+      "libpqxx": {
+        "pkg-path": "libpqxx"
+      },
       "mise": {
         "pkg-path": "mise"
       },
@@ -35,6 +38,130 @@
     }
   },
   "packages": [
+    {
+      "attr_path": "libpqxx",
+      "broken": false,
+      "derivation": "/nix/store/w9lvn6s828mpwq6b3pqv0hizsfzwhgjm-libpqxx-7.10.1.drv",
+      "description": "C++ library to access PostgreSQL databases",
+      "install_id": "libpqxx",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "libpqxx-7.10.1",
+      "pname": "libpqxx",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:30.069215Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "7.10.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/zhxb9605ws89rzy1rh7c43a5q6l2fksd-libpqxx-7.10.1-dev",
+        "out": "/nix/store/qznww33gb7ym7jnd3i4raxwagd059fir-libpqxx-7.10.1"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "libpqxx",
+      "broken": false,
+      "derivation": "/nix/store/yv2vasrkh611sh8liv2lx361n9bn82ag-libpqxx-7.10.1.drv",
+      "description": "C++ library to access PostgreSQL databases",
+      "install_id": "libpqxx",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "libpqxx-7.10.1",
+      "pname": "libpqxx",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:23.298189Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "7.10.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/4fafh1bc0varik2d6wngd20mn3fwkzmc-libpqxx-7.10.1-dev",
+        "out": "/nix/store/d727l5xl8khnzrkgd8x7p7hy7v1apn4q-libpqxx-7.10.1"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "libpqxx",
+      "broken": false,
+      "derivation": "/nix/store/l8bwf0cl29np6xi1kyvgkvb5jnv4a1w3-libpqxx-7.10.1.drv",
+      "description": "C++ library to access PostgreSQL databases",
+      "install_id": "libpqxx",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "libpqxx-7.10.1",
+      "pname": "libpqxx",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:30.752025Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "7.10.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/72i3bj360rp5kp2rbfkrb9267raqpbxi-libpqxx-7.10.1-dev",
+        "out": "/nix/store/xlzlkln61251vl4vdhzcgiv03krq4d7s-libpqxx-7.10.1"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "libpqxx",
+      "broken": false,
+      "derivation": "/nix/store/3cnj26fkyk7yvkzbkq9ricckz2x3lg46-libpqxx-7.10.1.drv",
+      "description": "C++ library to access PostgreSQL databases",
+      "install_id": "libpqxx",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "libpqxx-7.10.1",
+      "pname": "libpqxx",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:15:58.462220Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "7.10.1",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/n3rb5ag633fj1fpkkb17dc826g3k2yh7-libpqxx-7.10.1-dev",
+        "out": "/nix/store/dxbnd3lixj1273hdfqpdvyb7v9w4da6m-libpqxx-7.10.1"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
     {
       "attr_path": "mise",
       "broken": false,

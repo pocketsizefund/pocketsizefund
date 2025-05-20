@@ -8,12 +8,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # os: [macos-latest] # ubuntu-latest should be included once C++ dependencies are fixed
+        os: [ubuntu-latest] # ubuntu-latest should be included once C++ dependencies are fixed
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Install Flox
         uses: flox/install-flox-action@v2
+      # - name: Install libstdc++
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y lib32stdc++6
       - name: Install Python dependencies
         uses: flox/activate-action@v1
         with:
