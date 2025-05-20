@@ -8,17 +8,25 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [macos-latest] # ubuntu-latest should be included once C++ dependencies are fixed
-        os: [ubuntu-latest] # ubuntu-latest should be included once C++ dependencies are fixed
+        os: [ubuntu-latest]
+        # os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y libstdc++6 build-essential liblapack-dev libopenblas-dev gfortran
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            echo "whatever right now"
+          fi
       - name: Install Flox
         uses: flox/install-flox-action@v2
-      # - name: Install libstdc++
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y lib32stdc++6
+      # - name: Install ecos dependency
+      #   uses: flox/activate-action@v1
+      #   with:
+      #     command: uv pip install ecos==2.0.13
       - name: Install Python dependencies
         uses: flox/activate-action@v1
         with:

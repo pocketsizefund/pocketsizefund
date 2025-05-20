@@ -3,8 +3,8 @@
   "manifest": {
     "version": 1,
     "install": {
-      "libpqxx": {
-        "pkg-path": "libpqxx"
+      "gcc": {
+        "pkg-path": "gcc"
       },
       "mise": {
         "pkg-path": "mise"
@@ -39,124 +39,132 @@
   },
   "packages": [
     {
-      "attr_path": "libpqxx",
+      "attr_path": "gcc",
       "broken": false,
-      "derivation": "/nix/store/w9lvn6s828mpwq6b3pqv0hizsfzwhgjm-libpqxx-7.10.1.drv",
-      "description": "C++ library to access PostgreSQL databases",
-      "install_id": "libpqxx",
-      "license": "BSD-3-Clause",
+      "derivation": "/nix/store/6r879yr3znvy5yjkirwjz5ahl9gdqa0g-gcc-wrapper-14.2.1.20250322.drv",
+      "description": "GNU Compiler Collection, version 14.2.1.20250322 (wrapper script)",
+      "install_id": "gcc",
+      "license": "GPL-3.0-or-later",
       "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "libpqxx-7.10.1",
-      "pname": "libpqxx",
+      "name": "gcc-wrapper-14.2.1.20250322",
+      "pname": "gcc",
       "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
       "rev_count": 793735,
       "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:19:30.069215Z",
+      "scrape_date": "2025-05-05T04:19:29.090218Z",
       "stabilities": [
         "staging",
         "unstable"
       ],
       "unfree": false,
-      "version": "7.10.1",
+      "version": "14.2.1.20250322",
       "outputs_to_install": [
+        "man",
         "out"
       ],
       "outputs": {
-        "dev": "/nix/store/zhxb9605ws89rzy1rh7c43a5q6l2fksd-libpqxx-7.10.1-dev",
-        "out": "/nix/store/qznww33gb7ym7jnd3i4raxwagd059fir-libpqxx-7.10.1"
+        "info": "/nix/store/agglx345hbig4x5frmj7mwwnhq8xlxlh-gcc-wrapper-14.2.1.20250322-info",
+        "man": "/nix/store/8wfzzn50wm0zdr14l8ri6fzhswdwsw6l-gcc-wrapper-14.2.1.20250322-man",
+        "out": "/nix/store/xh3cx77w64nf1lwszik07vx2lan9l8jj-gcc-wrapper-14.2.1.20250322"
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
-      "attr_path": "libpqxx",
+      "attr_path": "gcc",
       "broken": false,
-      "derivation": "/nix/store/yv2vasrkh611sh8liv2lx361n9bn82ag-libpqxx-7.10.1.drv",
-      "description": "C++ library to access PostgreSQL databases",
-      "install_id": "libpqxx",
-      "license": "BSD-3-Clause",
+      "derivation": "/nix/store/mvq26ns0vkglyz35x6zd6jn1dvpr0wvx-gcc-wrapper-14.2.1.20250322.drv",
+      "description": "GNU Compiler Collection, version 14.2.1.20250322 (wrapper script)",
+      "install_id": "gcc",
+      "license": "GPL-3.0-or-later",
       "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "libpqxx-7.10.1",
-      "pname": "libpqxx",
+      "name": "gcc-wrapper-14.2.1.20250322",
+      "pname": "gcc",
       "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
       "rev_count": 793735,
       "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:37:23.298189Z",
+      "scrape_date": "2025-05-05T04:37:20.415079Z",
       "stabilities": [
         "staging",
         "unstable"
       ],
       "unfree": false,
-      "version": "7.10.1",
+      "version": "14.2.1.20250322",
       "outputs_to_install": [
+        "man",
         "out"
       ],
       "outputs": {
-        "dev": "/nix/store/4fafh1bc0varik2d6wngd20mn3fwkzmc-libpqxx-7.10.1-dev",
-        "out": "/nix/store/d727l5xl8khnzrkgd8x7p7hy7v1apn4q-libpqxx-7.10.1"
+        "info": "/nix/store/7y6glm22qfb7sw1ybf0lgi5ml9ra278b-gcc-wrapper-14.2.1.20250322-info",
+        "man": "/nix/store/km6mm6rmh1p2av5vw37skaprgrd293vl-gcc-wrapper-14.2.1.20250322-man",
+        "out": "/nix/store/rpxlridr3yn6mbmd34r0bya9qv91b79s-gcc-wrapper-14.2.1.20250322"
       },
       "system": "aarch64-linux",
       "group": "toplevel",
       "priority": 5
     },
     {
-      "attr_path": "libpqxx",
+      "attr_path": "gcc",
       "broken": false,
-      "derivation": "/nix/store/l8bwf0cl29np6xi1kyvgkvb5jnv4a1w3-libpqxx-7.10.1.drv",
-      "description": "C++ library to access PostgreSQL databases",
-      "install_id": "libpqxx",
-      "license": "BSD-3-Clause",
+      "derivation": "/nix/store/awwvcwwanflz00ns50g61lyklg72cxm7-gcc-wrapper-14.2.1.20250322.drv",
+      "description": "GNU Compiler Collection, version 14.2.1.20250322 (wrapper script)",
+      "install_id": "gcc",
+      "license": "GPL-3.0-or-later",
       "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "libpqxx-7.10.1",
-      "pname": "libpqxx",
+      "name": "gcc-wrapper-14.2.1.20250322",
+      "pname": "gcc",
       "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
       "rev_count": 793735,
       "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:54:30.752025Z",
+      "scrape_date": "2025-05-05T04:54:29.718062Z",
       "stabilities": [
         "staging",
         "unstable"
       ],
       "unfree": false,
-      "version": "7.10.1",
+      "version": "14.2.1.20250322",
       "outputs_to_install": [
+        "man",
         "out"
       ],
       "outputs": {
-        "dev": "/nix/store/72i3bj360rp5kp2rbfkrb9267raqpbxi-libpqxx-7.10.1-dev",
-        "out": "/nix/store/xlzlkln61251vl4vdhzcgiv03krq4d7s-libpqxx-7.10.1"
+        "info": "/nix/store/ldw9g57kj17ywcmwr2h7z4aw4rfr6438-gcc-wrapper-14.2.1.20250322-info",
+        "man": "/nix/store/skqvyhvi7mc2iyvcsi3jw9x5w1r2gw2k-gcc-wrapper-14.2.1.20250322-man",
+        "out": "/nix/store/lvil1wrw3cgd8dbcjlvhm7728fhpq27k-gcc-wrapper-14.2.1.20250322"
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
-      "attr_path": "libpqxx",
+      "attr_path": "gcc",
       "broken": false,
-      "derivation": "/nix/store/3cnj26fkyk7yvkzbkq9ricckz2x3lg46-libpqxx-7.10.1.drv",
-      "description": "C++ library to access PostgreSQL databases",
-      "install_id": "libpqxx",
-      "license": "BSD-3-Clause",
+      "derivation": "/nix/store/7chb1402lr3jgd7sxcbj3v01l97kvs3h-gcc-wrapper-14.2.1.20250322.drv",
+      "description": "GNU Compiler Collection, version 14.2.1.20250322 (wrapper script)",
+      "install_id": "gcc",
+      "license": "GPL-3.0-or-later",
       "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "libpqxx-7.10.1",
-      "pname": "libpqxx",
+      "name": "gcc-wrapper-14.2.1.20250322",
+      "pname": "gcc",
       "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
       "rev_count": 793735,
       "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T05:15:58.462220Z",
+      "scrape_date": "2025-05-05T05:15:55.338399Z",
       "stabilities": [
         "staging",
         "unstable"
       ],
       "unfree": false,
-      "version": "7.10.1",
+      "version": "14.2.1.20250322",
       "outputs_to_install": [
+        "man",
         "out"
       ],
       "outputs": {
-        "dev": "/nix/store/n3rb5ag633fj1fpkkb17dc826g3k2yh7-libpqxx-7.10.1-dev",
-        "out": "/nix/store/dxbnd3lixj1273hdfqpdvyb7v9w4da6m-libpqxx-7.10.1"
+        "info": "/nix/store/rs9pvqy38dx84320sxf7ql4ppv2k4rhj-gcc-wrapper-14.2.1.20250322-info",
+        "man": "/nix/store/1icxr998a24dfw4dk30v4n8kwdl0v29y-gcc-wrapper-14.2.1.20250322-man",
+        "out": "/nix/store/f0m6caffiykyvsjim9376a3hx2yj2ghj-gcc-wrapper-14.2.1.20250322"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
