@@ -8,6 +8,7 @@ ruff.pkg-path = "ruff"
 uv.pkg-path = "uv"
 vulture.pkg-path = "python313Packages.vulture"
 yamllint.pkg-path = "yamllint"
+# libpqxx.pkg-path = "libpqxx"
 
 [options]
 systems = [
