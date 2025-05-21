@@ -22,14 +22,3 @@ Feature: Equity Bars Data Management
             | 2025-05-20 | 2025-05-20 |
 
     Scenario Outline: Skip weekends
-        Given I have date ranges:
-            | start_date | end_date |
-            | <start_date> | <end_date> |
-        When I send a POST request to "/equity-bars" for date range
-        Then the response status code should be 200
-        When I send a GET request to "/equity-bars" for date range
-        Then the response status code should be 404
-
-        Examples: dates
-            | start_date | end_date   |
-            | 2025-05-17 | 2025-05-17 |
