@@ -2,7 +2,7 @@
 name = "pocketsizefund"
 version = "0.1.0"
 description = "Open source quantitative hedge fund 🍊"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "pytest>=8.3.5",
     "httpx>=0.28.1",
@@ -26,3 +26,38 @@ packages = ["pocketsizefund"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "alpaca-py>=0.40.1",
+    "coverage>=7.8.0",
+    "duckdb>=1.2.2",
+    "ecos>=2.0.14",
+    "fastapi>=0.115.12",
+    "polars>=1.29.0",
+    "pyarrow>=20.0.0",
+    "pyportfolioopt>=1.5.6",
+    "pytest>=8.3.5",
+    "requests>=2.32.3",
+]
+
+
+[tool.pytest.ini_options]
+testpaths = [
+    "/tests/",
+    "application/datamanager/tests",
+    "/tests/application/datamanager/tests",
+    "application/positionmanager/tests",
+    "/tests/application/positionmanager/tests"
+]
+
+[tool.coverage.run]
+parallel = true
+omit = ["*/__init__.py", "**/test_*.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.coverage.xml]
+output = ".python_coverage.xml"
