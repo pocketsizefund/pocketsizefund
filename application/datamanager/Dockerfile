@@ -12,7 +12,7 @@ COPY pyproject.toml ./
 
 COPY application/datamanager/ ./application/datamanager/
 
-RUN uv sync --all-packages
+RUN uv sync --no-dev
 
 EXPOSE 8000
 

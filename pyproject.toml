@@ -14,11 +14,13 @@ members = [
     "application/datamanager",
     "infrastructure",
     "application/positionmanager",
+    "application/accountmanager",
 ]
 
 [tool.uv.sources]
 datamanager = { workspace = true }
 positionmanager = { workspace = true }
+accountmanager = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["pocketsizefund"]
