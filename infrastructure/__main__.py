@@ -1,3 +1,4 @@
 import topics  # noqa: F401
 import buckets  # noqa: F401
+import images  # noqa: F401
 import cloud_run  # noqa: F401

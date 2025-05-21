@@ -4,6 +4,7 @@ from pulumi import Config
 import project
 import topics
 import buckets
+import images
 
 config = Config()
 
@@ -19,7 +20,7 @@ service = cloudrun.Service(
             service_account_name=project.platform_service_account.email,
             containers=[
                 cloudrun.ServiceTemplateSpecContainerArgs(
-                    image="pocketsizefund/datamanager:latest",
+                    image=images.images["datamanager"].image_name,
                     args=["--period=1"],
                     envs=[
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
