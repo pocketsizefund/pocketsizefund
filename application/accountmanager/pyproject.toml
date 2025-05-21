@@ -1,0 +1,17 @@
+[project]
+name = "accountmanager"
+version = "0.1.0"
+description = "Account management service"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
+    "alpaca-py>=0.15.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["accountmanager"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
