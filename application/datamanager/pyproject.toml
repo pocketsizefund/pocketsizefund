@@ -12,6 +12,7 @@ dependencies = [
     "datamanager",
     "google-cloud-storage>=2.16.0",
     "loguru>=0.7.3",
+    "httpx>=0.28.1",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -23,9 +24,6 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
-    "pytest-asyncio>=0.26.0",
     "behave>=1.2.6",
     "requests>=2.31.0",
-    "polars>=1.29.0",
 ]
