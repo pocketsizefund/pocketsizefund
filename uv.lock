@@ -140,24 +140,14 @@ wheels = [
 
 [[package]]
 name = "click"
-<<<<<<< HEAD
 version = "8.2.1"
-=======
-version = "8.2.0"
->>>>>>> master
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
-<<<<<<< HEAD
 sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/85/32/10bb5764d90a8eee674e9dc6f4db6a0ab47c8c4d0d83c27f7c39ac415a4d/click-8.2.1-py3-none-any.whl", hash = "sha256:61a3265b914e850b85317d0b3109c7f8cd35a670f963866005d6ef1d5175a12b", size = 102215, upload-time = "2025-05-20T23:19:47.796Z" },
-=======
-sdist = { url = "https://files.pythonhosted.org/packages/cd/0f/62ca20172d4f87d93cf89665fbaedcd560ac48b465bd1d92bfc7ea6b0a41/click-8.2.0.tar.gz", hash = "sha256:f5452aeddd9988eefa20f90f05ab66f17fce1ee2a36907fd30b05bbb5953814d", size = 235857, upload-time = "2025-05-10T22:21:03.111Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/58/1f37bf81e3c689cc74ffa42102fa8915b59085f54a6e4a80bc6265c0f6bf/click-8.2.0-py3-none-any.whl", hash = "sha256:6b303f0b2aa85f1cb4e5303078fadcbcd4e476f114fab9b5007005711839325c", size = 102156, upload-time = "2025-05-10T22:21:01.352Z" },
->>>>>>> master
 ]
 
 [[package]]
@@ -531,7 +521,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "loguru"
 version = "0.7.3"
 source = { registry = "https://pypi.org/simple" }
@@ -545,8 +534,6 @@ wheels = [
 ]
 
 [[package]]
-=======
->>>>>>> master
 name = "markupsafe"
 version = "3.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -677,7 +664,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "parse"
 version = "1.20.2"
 source = { registry = "https://pypi.org/simple" }
@@ -700,8 +686,6 @@ wheels = [
 ]
 
 [[package]]
-=======
->>>>>>> master
 name = "parver"
 version = "0.5"
 source = { registry = "https://pypi.org/simple" }
@@ -791,38 +775,23 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyportfolioopt" },
     { name = "requests" },
-<<<<<<< HEAD
-=======
-    { name = "scikit-learn" },
-    { name = "scipy" },
->>>>>>> master
     { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "alpaca-py", specifier = ">=0.15.0" },
-<<<<<<< HEAD
     { name = "ecos", specifier = ">=2.0.14" },
-=======
-    { name = "ecos", specifier = ">=2.0.13" },
->>>>>>> master
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "pandas", specifier = ">=2.1.0" },
     { name = "polars", specifier = ">=1.29.0" },
     { name = "pydantic", specifier = ">=2.8.2" },
     { name = "pyportfolioopt", specifier = ">=1.5.6" },
     { name = "requests", specifier = ">=2.31.0" },
-<<<<<<< HEAD
-=======
-    { name = "scikit-learn", specifier = ">=1.4.1" },
-    { name = "scipy", specifier = ">=1.12.0" },
->>>>>>> master
     { name = "uvicorn", specifier = ">=0.34.2" },
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "proto-plus"
 version = "1.26.1"
 source = { registry = "https://pypi.org/simple" }
@@ -835,8 +804,6 @@ wheels = [
 ]
 
 [[package]]
-=======
->>>>>>> master
 name = "protobuf"
 version = "4.25.7"
 source = { registry = "https://pypi.org/simple" }
@@ -1004,7 +971,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "pytest-asyncio"
 version = "0.26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1017,8 +983,6 @@ wheels = [
 ]
 
 [[package]]
-=======
->>>>>>> master
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -1072,7 +1036,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "rsa"
 version = "4.9.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1103,7 +1066,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d6/54/32fa2ee591af44507eac86406fa6bba968d1eb22831494470d0a2e4a1eb1/scikit_learn-1.6.1-cp313-cp313t-macosx_12_0_arm64.whl", hash = "sha256:6a7aa5f9908f0f28f4edaa6963c0a6183f1911e63a69aa03782f0d924c830a35", size = 11100530, upload-time = "2025-01-10T08:07:23.675Z" },
     { url = "https://files.pythonhosted.org/packages/3f/58/55856da1adec655bdce77b502e94a267bf40a8c0b89f8622837f89503b5a/scikit_learn-1.6.1-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0650e730afb87402baa88afbf31c07b84c98272622aaba002559b614600ca691", size = 12433852, upload-time = "2025-01-10T08:07:26.817Z" },
     { url = "https://files.pythonhosted.org/packages/ff/4f/c83853af13901a574f8f13b645467285a48940f185b690936bb700a50863/scikit_learn-1.6.1-cp313-cp313t-win_amd64.whl", hash = "sha256:3f59fe08dc03ea158605170eb52b22a105f238a5d512c4470ddeca71feae8e5f", size = 11337256, upload-time = "2025-01-10T08:07:31.084Z" },
->>>>>>> master
 ]
 
 [[package]]
@@ -1164,7 +1126,6 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-<<<<<<< HEAD
 version = "80.8.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/8d/d2/ec1acaaff45caed5c2dedb33b67055ba9d4e96b091094df90762e60135fe/setuptools-80.8.0.tar.gz", hash = "sha256:49f7af965996f26d43c8ae34539c8d99c5042fbff34302ea151eaa9c207cd257", size = 1319720, upload-time = "2025-05-20T14:02:53.503Z" }
@@ -1176,7 +1137,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9e/8b/dc1773e8e5d07fd27c1632c45c1de856ac3dbf09c0147f782ca6d990cf15/setuptools-80.7.1.tar.gz", hash = "sha256:f6ffc5f0142b1bd8d0ca94ee91b30c0ca862ffd50826da1ea85258a06fd94552", size = 1319188, upload-time = "2025-05-15T02:41:00.955Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a1/18/0e835c3a557dc5faffc8f91092f62fc337c1dab1066715842e7a4b318ec4/setuptools-80.7.1-py3-none-any.whl", hash = "sha256:ca5cc1069b85dc23070a6628e6bcecb3292acac802399c7f8edc0100619f9009", size = 1200776, upload-time = "2025-05-15T02:40:58.887Z" },
->>>>>>> master
 ]
 
 [[package]]
@@ -1228,7 +1188,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 =======
 name = "threadpoolctl"
 version = "3.6.0"
@@ -1239,7 +1198,6 @@ wheels = [
 ]
 
 [[package]]
->>>>>>> master
 name = "typing-extensions"
 version = "4.13.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1310,7 +1268,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1b/6c/c65773d6cab416a64d191d6ee8a8b1c68a09970ea6909d16965d26bfed1e/websockets-15.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:e09473f095a819042ecb2ab9465aee615bd9c2028e4ef7d933600a8401c79561", size = 176837, upload-time = "2025-03-05T20:02:55.237Z" },
     { url = "https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl", hash = "sha256:f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f", size = 169743, upload-time = "2025-03-05T20:03:39.41Z" },
 ]
-<<<<<<< HEAD
 
 [[package]]
 name = "win32-setctime"
@@ -1320,5 +1277,3 @@ sdist = { url = "https://files.pythonhosted.org/packages/b3/8f/705086c9d734d3b66
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/07/c6fe3ad3e685340704d314d765b7912993bcb8dc198f0e7a89382d37974b/win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390", size = 4083, upload-time = "2024-12-07T15:28:26.465Z" },
 ]
-=======
->>>>>>> master
