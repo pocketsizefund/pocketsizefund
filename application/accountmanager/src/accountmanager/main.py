@@ -1,30 +1,28 @@
-from fastapi import FastAPI, HTTPException
-from alpaca.trading.client import TradingClient
 import os
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request, Response, HTTPException, status
+from alpaca.trading.client import TradingClient
+from loguru import logger
 
 
-application = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.client = TradingClient(
+        os.getenv("ALPACA_API_KEY"),
+        os.getenv("ALPACA_API_SECRET"),
+        paper=os.getenv("ALPACA_PAPER", "false").lower() == "true",
+    )
+    yield
 
 
-def get_client() -> TradingClient:
-    api_key = os.getenv("ALPACA_API_KEY", "")
-    api_secret = os.getenv("ALPACA_API_SECRET", "")
-    paper = os.getenv("ALPACA_PAPER", "true").lower() == "true"
-    if not api_key or not api_secret:
-        raise ValueError("Alpaca API key and secret are required")
-    return TradingClient(api_key, api_secret, paper=paper)
+application = FastAPI(lifespan=lifespan)
 
 
 @application.get("/health")
 async def get_health():
-    return {"status": "healthy"}
+    return Response(status_code=status.HTTP_200_OK)
 
 
 @application.get("/account")
-async def get_account():
-    try:
-        client = get_client()
-        account = client.get_account()
-        return account.model_dump()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def get_account(request: Request):
+    return request.app.state.client.get_account()

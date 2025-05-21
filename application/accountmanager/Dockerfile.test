@@ -1,0 +1,9 @@
+FROM python:3.13-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+WORKDIR /tests
+
+COPY pyproject.toml .
+RUN uv sync --only-group dev
+
+COPY features /tests
