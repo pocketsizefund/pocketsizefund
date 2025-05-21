@@ -5,4 +5,5 @@
 .env
 .python_coverage.*
 __pycache__/
+**/*__pycache__
 infrastructure/Pulumi.infrastructure.yaml

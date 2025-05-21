@@ -2,7 +2,7 @@
 name = "positionmanager"
 version = "0.1.0"
 description = "Position management service"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",

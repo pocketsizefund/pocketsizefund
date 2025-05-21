@@ -587,6 +587,7 @@ version = "0.1.0"
 source = { editable = "application/positionmanager" }
 dependencies = [
     { name = "alpaca-py" },
+    { name = "ecos" },
     { name = "fastapi" },
     { name = "pandas" },
     { name = "polars" },
@@ -599,6 +600,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "alpaca-py", specifier = ">=0.15.0" },
+    { name = "ecos", specifier = ">=2.0.14" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "pandas", specifier = ">=2.1.0" },
     { name = "polars", specifier = ">=1.29.0" },
