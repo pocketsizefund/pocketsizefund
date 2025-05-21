@@ -1,0 +1,20 @@
+
+services:
+  positionmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    environment:
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
+    volumes:
+      - ./:/app/positionmanager
+      - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 1s

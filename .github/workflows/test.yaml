@@ -6,21 +6,26 @@ jobs:
   python_test_and_coverage:
     name: Run Python tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    container:
+      image: python:3.13
+    # env:
+    #   LD_LIBRARY_PATH: /lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        # os: [ubuntu-latest, macos-latest]
+        # os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y libstdc++6 build-essential liblapack-dev libopenblas-dev gfortran
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            echo "whatever right now"
-          fi
+      # - name: Install system dependencies
+      #   run: |
+      #     if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+      #       sudo apt-get update
+      #       sudo apt-get install -y libstdc++6 build-essential liblapack-dev libopenblas-dev gfortran
+      #       sudo ldconfig
+      #     elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+      #       echo "whatever right now"
+      #     fi
       - name: Install Flox
         uses: flox/install-flox-action@v2
       # - name: Install ecos dependency
