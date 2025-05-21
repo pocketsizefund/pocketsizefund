@@ -8,7 +8,7 @@ def step_impl_api_url(context):
 
 
 @when('I send a GET request to "{endpoint}"')
-def step_impl(context, endpoint):
+def step_impl_get(context, endpoint):
     """Send a GET request to the specified endpoint."""
     url = f"{context.api_url}{endpoint}"
     context.response = requests.get(url)

@@ -1,8 +1,7 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response, HTTPException, status
+from fastapi import FastAPI, Request, Response, status
 from alpaca.trading.client import TradingClient
-from loguru import logger
 
 
 @asynccontextmanager
