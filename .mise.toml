@@ -65,6 +65,22 @@ docker run \
 pocketsizefund/{{arg(name="service_name")}}:latest \
 """
 
+[tasks."application:build"]
+description = "Build and push the application service image"
+run = """
+set -euxo pipefail
+TIMESTAMP=$(date +%Y%m%d)
+docker build \
+  --file application/{{arg(name="service_name")}}/Dockerfile \
+  --tag ${REGISTRY}/{{arg(name="service_name")}}:latest \
+  --tag ${REGISTRY}/{{arg(name="service_name")}}:${TIMESTAMP} \
+  .
+docker push ${REGISTRY}/{{arg(name="service_name")}}:latest
+docker push ${REGISTRY}/{{arg(name="service_name")}}:${TIMESTAMP}
+"""
+[args]
+registry = "pocketsizefund"
+
 
 [tasks."lint"]
 depends = ["python:lint"]

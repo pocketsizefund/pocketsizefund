@@ -1,0 +1,51 @@
+---
+name: Build and push Docker images
+on:
+  push:
+    branches:
+      - master
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  generate_matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Generate service matrix
+        id: generate
+        shell: bash
+        run: |
+          services=$(find application -name Dockerfile -exec dirname {} \; | sed 's|application/||')
+          matrix=$(echo "$services" | jq -R . | jq -s -c '[.[] | {service:.}]')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+  build_and_push:
+    name: Build and push application images
+    needs: generate_matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.generate_matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Set build timestamp
+        run: echo "TIMESTAMP=$(date +%Y%m%d)" >> $GITHUB_ENV
+      - name: Build and push service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: application/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            pocketsizefund/${{ matrix.service }}:latest
+            pocketsizefund/${{ matrix.service }}:${{ env.TIMESTAMP }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
