@@ -1,0 +1,42 @@
+---
+name: Build and push Docker images
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  set-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - id: generate
+        run: |
+          services=$(find application -name Dockerfile -printf '%h\n' | sed 's|application/||')
+          matrix=$(echo "$services" | jq -R . | jq -s -c '[.[] | {service:.}]')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  build_and_push:
+    needs: set-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push service
+        uses: flox/activate-action@v1
+        with:
+          command: mise tasks run application:build service_name=${{ matrix.service }}
+
