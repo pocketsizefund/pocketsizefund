@@ -45,17 +45,6 @@ uv run coverage xml \
     -o .python_coverage.xml
 """
 
-[tasks."application:service:build"]
-description = "Build the application service"
-run = """
-TIMESTAMP=$(date +%Y%m%d) 
-docker build \
---file application/{{arg(name="service_name")}}/Dockerfile \
---tag pocketsizefund/{{arg(name="service_name")}}:latest \
---tag pocketsizefund/{{arg(name="service_name")}}:${TIMESTAMP} \
-.
-"""
-
 [tasks."application:service:run"]
 description = "Run the application service"
 run = """

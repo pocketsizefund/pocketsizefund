@@ -7,6 +7,7 @@ dependencies = [
     "pytest>=8.3.5",
     "httpx>=0.28.1",
     "coverage>=7.6.1",
+    "fastapi>=0.115.12",
 ]
 
 [tool.uv.workspace]
