@@ -35,6 +35,6 @@ class DateRange(BaseModel):
         return end_value
 
 
-class BarsResult(BaseModel):
+class BarsSummary(BaseModel):
     date: str
     count: int
