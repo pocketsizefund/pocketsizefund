@@ -3,7 +3,7 @@ COMPOSE_BAKE=true
 
 [tasks."python:install"]
 description = "Install Python dependencies"
-run = "uv sync --all-packages"
+run = "uv sync --all-groups"
 
 [tasks."python:format"]
 description = "Format Python code"
@@ -30,22 +30,14 @@ ruff check \
 
 [tasks."python:test"]
 description = "Run Python tests"
+run = "docker compose run tests"
+
+
+[tasks."python:test:behave"]
+description = "Run behave end-to-end tests"
 run = """
-uv run coverage run \
-    --parallel-mode \
-    --omit '*/__init__.py,**/test_*.py' \
-    --data-file .python_coverage.output \
-    --module pytest
-
-uv run coverage combine \
-    --data-file .python_coverage.output
-
-uv run coverage report \
-    --data-file .python_coverage.output
-
-uv run coverage xml \
-    --data-file .python_coverage.output \
-    -o .python_coverage.xml
+cd application/{{arg(name="application_name")}}
+uv run behave features/
 """
 
 
@@ -62,19 +54,19 @@ description = "Build the application service"
 run = """
 TIMESTAMP=$(date +%Y%m%d) 
 docker build \
---file application/{{arg(name="service_name")}}/Dockerfile \
---tag pocketsizefund/{{arg(name="service_name")}}:latest \
---tag pocketsizefund/{{arg(name="service_name")}}:${TIMESTAMP} \
+--file application/{{arg(name="application_name")}}/Dockerfile \
+--tag pocketsizefund/{{arg(name="application_name")}}:latest \
+--tag pocketsizefund/{{arg(name="application_name")}}:${TIMESTAMP} \
 .
 """
 
-[tasks."application:service:run"]
+[tasks."application:run"]
 description = "Run the application service"
 run = """
 docker run \
 --env-file .env \
 --publish 8080:8080 \
-pocketsizefund/{{arg(name="service_name")}}:latest \
+pocketsizefund/{{arg(name="application_name")}}:latest \
 """
 
 [tasks."application:service:development"]

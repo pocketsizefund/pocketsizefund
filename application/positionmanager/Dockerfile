@@ -1,15 +1,15 @@
-FROM python:3.13-slim 
-
+FROM python:3.13
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+ENV PYTHONPATH=/app/src
 
 WORKDIR /app
 
 COPY pyproject.toml ./
+RUN uv sync --no-dev
 
-COPY application/positionmanager/ ./application/positionmanager/
-
-RUN uv sync --all-packages
+COPY ./src ./src
 
 EXPOSE 8080
 
-ENTRYPOINT ["uv", "run", "uvicorn", "application.positionmanager.src.positionmanager.main:application", "--host", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ["uv", "run", "uvicorn", "positionmanager.main:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]

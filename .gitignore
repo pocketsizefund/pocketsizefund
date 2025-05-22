@@ -6,6 +6,7 @@
 .python_coverage.*
 __pycache__/
 infrastructure/Pulumi.infrastructure.yaml
-
-**/.claude/settings.local.json
+.coverage*
+.coverage/
+coverage.xml
 .envrc
