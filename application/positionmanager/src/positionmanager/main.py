@@ -8,10 +8,13 @@ from .models import Money, DateRange, PredictionPayload
 from .clients import AlpacaClient, DataClient
 from .portfolio import PortfolioOptimizer
 
+from prometheus_fastapi_instrumentator import Instrumentator
+
 
 trading_days_per_year = 252
 
 application = FastAPI()
+Instrumentator().instrument(application).expose(application)
 
 
 @application.get("/health")

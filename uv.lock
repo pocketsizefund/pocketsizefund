@@ -193,6 +193,7 @@ dependencies = [
     { name = "duckdb" },
     { name = "fastapi" },
     { name = "polars" },
+    { name = "prometheus-fastapi-instrumentator" },
     { name = "pyarrow" },
     { name = "uvicorn" },
 ]
@@ -203,6 +204,7 @@ requires-dist = [
     { name = "duckdb", specifier = ">=1.2.2" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "polars", specifier = ">=1.29.0" },
+    { name = "prometheus-fastapi-instrumentator", specifier = ">=7.1.0" },
     { name = "pyarrow", specifier = ">=20.0.0" },
     { name = "uvicorn", specifier = ">=0.34.2" },
 ]
@@ -626,6 +628,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "pandas" },
     { name = "polars" },
+    { name = "prometheus-fastapi-instrumentator" },
     { name = "pydantic" },
     { name = "pyportfolioopt" },
     { name = "requests" },
@@ -639,10 +642,33 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "pandas", specifier = ">=2.1.0" },
     { name = "polars", specifier = ">=1.29.0" },
+    { name = "prometheus-fastapi-instrumentator", specifier = ">=7.1.0" },
     { name = "pydantic", specifier = ">=2.8.2" },
     { name = "pyportfolioopt", specifier = ">=1.5.6" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "uvicorn", specifier = ">=0.34.2" },
+]
+
+[[package]]
+name = "prometheus-client"
+version = "0.22.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/5a/3fa1fa7e91a203759aaf316be394f70f2ef598d589b9785a8611b6094c00/prometheus_client-0.22.0.tar.gz", hash = "sha256:18da1d2241ac2d10c8d2110f13eedcd5c7c0c8af18c926e8731f04fc10cd575c", size = 74443, upload-time = "2025-05-16T20:50:18.333Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/50/c7/cee159ba3d7192e84a4c166ec1752f44a5fa859ac0eeda2d73a1da65ab47/prometheus_client-0.22.0-py3-none-any.whl", hash = "sha256:c8951bbe64e62b96cd8e8f5d917279d1b9b91ab766793f33d4dce6c228558713", size = 62658, upload-time = "2025-05-16T20:50:16.978Z" },
+]
+
+[[package]]
+name = "prometheus-fastapi-instrumentator"
+version = "7.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "prometheus-client" },
+    { name = "starlette" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/69/6d/24d53033cf93826aa7857699a4450c1c67e5b9c710e925b1ed2b320c04df/prometheus_fastapi_instrumentator-7.1.0.tar.gz", hash = "sha256:be7cd61eeea4e5912aeccb4261c6631b3f227d8924542d79eaf5af3f439cbe5e", size = 20220, upload-time = "2025-03-19T19:35:05.351Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/72/0824c18f3bc75810f55dacc2dd933f6ec829771180245ae3cc976195dec0/prometheus_fastapi_instrumentator-7.1.0-py3-none-any.whl", hash = "sha256:978130f3c0bb7b8ebcc90d35516a6fe13e02d2eb358c8f83887cdef7020c31e9", size = 19296, upload-time = "2025-03-19T19:35:04.323Z" },
 ]
 
 [[package]]
