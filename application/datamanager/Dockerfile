@@ -6,8 +6,8 @@ WORKDIR /app
 COPY pyproject.toml ./
 RUN uv sync --no-dev
 
-COPY ./src/ ./src/
+COPY ./src ./src
 
 EXPOSE 8080
 
-ENTRYPOINT ["uv", "run", "uvicorn", "datamanager.src.datamanager.main:application", "--host", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ["uv", "run", "uvicorn", "datamanager.main:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]
