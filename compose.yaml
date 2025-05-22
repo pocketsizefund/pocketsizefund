@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.test
     volumes:
-       - .:/tests
+      - .:/tests
     command:
       - /bin/sh
       - -euxc
@@ -14,4 +14,3 @@ services:
         uv run coverage combine && \
         uv run coverage report && \
         uv run coverage xml
-
