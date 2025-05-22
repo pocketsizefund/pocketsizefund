@@ -1,3 +1,6 @@
+[env]
+COMPOSE_BAKE=true
+
 [tasks."python:install"]
 description = "Install Python dependencies"
 run = "uv sync --all-groups"
@@ -29,6 +32,7 @@ ruff check \
 description = "Run Python tests"
 run = "docker compose run tests"
 
+
 [tasks."application:service:run"]
 description = "Run the application service"
 run = """
@@ -38,12 +42,25 @@ docker run \
 pocketsizefund/{{arg(name="service_name")}}:latest \
 """
 
+[tasks."application:service:development"]
+description = "Run the application service locally with hot reloading"
+run = """
+cd application/{{arg(name="service_name")}}
+uv run uvicorn src.{{arg(name="service_name")}}.main:application --reload
+"""
+
+[tasks."application:service:test"]
+description = "Run integration tests"
+run = """
+cd application/{{arg(name="service_name")}}
+docker-compose up --build --abort-on-container-exit --remove-orphans
+"""
 
 [tasks."lint"]
 depends = ["python:lint"]
 description = "Run code quality checks"
 run = """
-yamllint .
+yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" . 
 """
 
 [tasks."infrastructure:up"]
@@ -52,3 +69,4 @@ run = """
 cd infrastructure
 uv run pulumi up --yes
 """
+

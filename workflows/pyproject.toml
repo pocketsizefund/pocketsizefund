@@ -1,0 +1,11 @@
+[project]
+name = "workflows"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "flytekit>=1.10.0",
+    "httpx>=0.28.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["workflows"]
