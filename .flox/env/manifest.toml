@@ -10,6 +10,14 @@ vulture.pkg-path = "python313Packages.vulture"
 yamllint.pkg-path = "yamllint"
 # libpqxx.pkg-path = "libpqxx"
 
+[vars]
+ALPACA_API_KEY = "${ALPACA_API_KEY}"
+ALPACA_API_SECRET = "${ALPACA_API_SECRET}"
+POLYGON_API_KEY = "${POLYGON_API_KEY}"
+DATA_BUCKET = "${DATA_BUCKET}"
+DUCKB_ACCESS_KEY = "${DUCKDB_ACCESS_KEY}"
+DUCKDB_SECRET = "${DUCKDB_SECRET}"
+
 [options]
 systems = [
   "aarch64-darwin",
