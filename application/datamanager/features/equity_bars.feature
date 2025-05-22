@@ -1,5 +1,5 @@
 Feature: Equity Bars Data Management
-    As a data manager application
+    As a datamanager application
     I want to fetch, store, retrieve, and delete equity bars data
     So that I can manage market data efficiently
 

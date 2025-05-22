@@ -8,10 +8,9 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY pyproject.toml ./
+RUN uv sync --no-dev
 
-COPY ./src / ./app
-
-RUN uv sync --all-packages
+COPY ./src/ ./app
 
 EXPOSE 8080
 

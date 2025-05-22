@@ -1,5 +1,5 @@
 import datetime
-from pydantic import BaseModel, Field, field_validator, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class SummaryDate(BaseModel):
@@ -7,7 +7,7 @@ class SummaryDate(BaseModel):
         default_factory=lambda: datetime.datetime.utcnow().date()
     )
 
-    @validator("date", pre=True)
+    @field_validator("date", mode="before")
     def parse_date(cls, value):
         if isinstance(value, datetime.date):
             return value
@@ -18,8 +18,7 @@ class SummaryDate(BaseModel):
                 continue
         raise ValueError("Invalid date format: expected YYYY-MM-DD or YYYY/MM/DD")
 
-    class Config:
-        json_encoders = {datetime.date: lambda d: d.strftime("%Y/%m/%d")}
+    model_config = {"json_encoders": {datetime.date: lambda d: d.strftime("%Y/%m/%d")}}
 
 
 class DateRange(BaseModel):

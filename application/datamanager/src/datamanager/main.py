@@ -9,13 +9,13 @@ from contextlib import asynccontextmanager
 from datetime import date
 import httpx
 import polars as pl
-from fastapi import FastAPI, Request, Response, status
+from fastapi import FastAPI, Request, Response, status, HTTPException
 from .config import Settings
 from .models import BarsSummary, SummaryDate
 from loguru import logger
 
 
-def bars_query(*, bucket: str, start_date: date, end_date: date) -> pl.DataFrame:
+def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
     path_pattern = f"gs://{bucket}/equity/bars/*/*/*/*"
 
     return f"""
@@ -127,14 +127,24 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
     bars = pl.DataFrame(payload)
     count = len(bars)
     if count > 0:
-        bars.with_columns(
-            [
-                pl.from_epoch("t", time_unit="ms").alias("datetime"),
-                pl.from_epoch("t", time_unit="ms").dt.year().alias("year"),
-                pl.from_epoch("t", time_unit="ms").dt.month().alias("month"),
-                pl.from_epoch("t", time_unit="ms").dt.day().alias("day"),
-            ]
-        ).write_parquet(bucket.daily_bars_path, partition_by=["year", "month", "day"])
+        try:
+            bars.with_columns(
+                [
+                    pl.from_epoch("t", time_unit="ms").alias("datetime"),
+                    pl.from_epoch("t", time_unit="ms").dt.year().alias("year"),
+                    pl.from_epoch("t", time_unit="ms").dt.month().alias("month"),
+                    pl.from_epoch("t", time_unit="ms").dt.day().alias("day"),
+                ]
+            ).write_parquet(
+                bucket.daily_bars_path, partition_by=["year", "month", "day"]
+            )
+        except Exception as e:
+            logger.error(f"Error writing parquet file: {e}")
+            logger.error(traceback.format_exc())
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to write data",
+            )
     return BarsSummary(date=summary_date.date.strftime("%Y-%m-%d"), count=count)
 
 
