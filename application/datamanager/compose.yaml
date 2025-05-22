@@ -13,7 +13,6 @@ services:
       - DUCKDB_SECRET=${DUCKDB_SECRET}
     volumes:
       - ./:/app/datamanager
-      # - ~/.secrets/docker-compose-service-account.json:/root/.config/gcloud/application_default_credentials.json:ro
       - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/health"]
