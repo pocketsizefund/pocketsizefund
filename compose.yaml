@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.test
     volumes:
-       - .:/tests
+      - .:/tests
     command:
       - /bin/sh
       - -euxc
