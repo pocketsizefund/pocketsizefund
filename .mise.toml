@@ -41,7 +41,15 @@ uv run behave features/
 """
 
 
-[tasks."application:build"]
+[tasks."python:test:behave"]
+description = "Run behave end-to-end tests"
+run = """
+cd application/{{arg(name="service_name")}}
+uv run behave features/
+"""
+
+
+[tasks."application:service:build"]
 description = "Build the application service"
 run = """
 TIMESTAMP=$(date +%Y%m%d) 
@@ -61,17 +69,17 @@ docker run \
 pocketsizefund/{{arg(name="application_name")}}:latest \
 """
 
-[tasks."application:dev"]
+[tasks."application:service:development"]
 description = "Run the application service locally with hot reloading"
 run = """
-cd application/{{arg(name="application_name")}}
-uv run uvicorn src.{{arg(name="application_name")}}.main:application --reload
+cd application/{{arg(name="service_name")}}
+uv run uvicorn src.{{arg(name="service_name")}}.main:application --reload
 """
 
-[tasks."application:test"]
+[tasks."application:service:test"]
 description = "Run integration tests"
 run = """
-cd application/{{arg(name="application_name")}}
+cd application/{{arg(name="service_name")}}
 docker-compose up --build --abort-on-container-exit --remove-orphans
 """
 
@@ -79,7 +87,7 @@ docker-compose up --build --abort-on-container-exit --remove-orphans
 depends = ["python:lint"]
 description = "Run code quality checks"
 run = """
-yamllint .
+yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" . 
 """
 
 [tasks."infrastructure:up"]

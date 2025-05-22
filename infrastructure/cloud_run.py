@@ -46,6 +46,17 @@ service = cloudrun.Service(
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
                             name="DUCKDB_SECRET",
                             value=duckdb_secret,
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DATA_BUCKET",
+                            value=buckets.production_data_bucket.name,
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DUCKDB_ACCESS_KEY", value=duckdb_access_key
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DUCKDB_SECRET",
+                            value=duckdb_secret,
                             ),
                     ],
                 )

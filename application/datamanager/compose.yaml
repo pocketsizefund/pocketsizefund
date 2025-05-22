@@ -1,3 +1,5 @@
+name: Integration Tests for datamanager service
+
 services:
   datamanager:
     build:

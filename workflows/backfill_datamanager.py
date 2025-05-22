@@ -7,7 +7,7 @@ from flytekit import task, workflow
 
 @task(retries=3)
 def backfill_single_date(base_url: str, day: date) -> int:
-    response = httpx.get(f"{base_url}/equity-bars", params={"date": day.isoformat()})
+    response = httpx.post(f"{base_url}/equity-bars", json={"date": day.isoformat()})
     response.raise_for_status()
     return response.json().get("count", 0)
 
