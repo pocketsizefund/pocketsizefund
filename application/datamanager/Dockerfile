@@ -1,11 +1,5 @@
-FROM python:3.13-slim 
+FROM python:3.13
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-
-ENV PYTHONPATH=/app/src
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libgomp1 curl \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

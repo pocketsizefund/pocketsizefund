@@ -1,6 +1,7 @@
 import traceback
 import pyarrow
 import os
+from prometheus_fastapi_instrumentator import Instrumentator
 
 import duckdb
 from google.api_core import exceptions
@@ -62,7 +63,7 @@ async def lifespan(app: FastAPI):
 
 
 application = FastAPI(lifespan=lifespan)
-
+Instrumentator().instrument(application).expose(application)
 
 @application.get("/health")
 async def health_check():
@@ -146,6 +147,7 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
                 detail="Failed to write data",
             )
     return BarsSummary(date=summary_date.date.strftime("%Y-%m-%d"), count=count)
+
 
 
 @application.delete("/equity-bars")
