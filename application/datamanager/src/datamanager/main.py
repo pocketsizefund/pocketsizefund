@@ -3,6 +3,7 @@ import duckdb
 import polars as pl
 from datetime import datetime, timedelta
 import os
+from prometheus_fastapi_instrumentator import Instrumentator
 
 
 class Database:
@@ -89,6 +90,9 @@ class Database:
 
 
 application = FastAPI()
+
+Instrumentator().instrument(application).expose(application)
+
 
 gcp_key_id = os.getenv("GCP_KEY_ID")
 gcp_secret = os.getenv("GCP_SECRET")

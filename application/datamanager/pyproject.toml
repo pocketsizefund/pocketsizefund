@@ -9,6 +9,7 @@ dependencies = [
     "duckdb>=1.2.2",
     "polars>=1.29.0",
     "pyarrow>=20.0.0",
+    "prometheus-fastapi-instrumentator>=7.1.0",
 ]
 
 [tool.hatch.build.targets.wheel]
