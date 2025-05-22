@@ -5,5 +5,5 @@ ENV PYTEST_ADDOPTS="--rootdir=/tests"
 
 WORKDIR /tests
 
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock .
 RUN uv sync --all-groups

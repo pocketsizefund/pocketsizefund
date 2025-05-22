@@ -14,9 +14,6 @@ RUN uv sync --no-dev
 
 COPY ./src ./src
 
-
-
 EXPOSE 8080
 
-# ENTRYPOINT ["uv", "run", "uvicorn", "datamanager.main:application", "--host", "0.0.0.0", "--port", "8080"]
 ENTRYPOINT ["uv", "run", "uvicorn", "datamanager.main:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]

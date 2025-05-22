@@ -1,6 +1,6 @@
 [tasks."python:install"]
 description = "Install Python dependencies"
-run = "uv sync"
+run = "uv sync --all-groups"
 
 [tasks."python:format"]
 description = "Format Python code"

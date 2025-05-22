@@ -4,9 +4,7 @@ version = "0.1.0"
 description = "Open source quantitative hedge fund 🍊"
 requires-python = ">=3.12"
 dependencies = [
-    "pytest>=8.3.5",
     "httpx>=0.28.1",
-    "coverage>=7.6.1",
 ]
 
 [tool.uv.workspace]
@@ -46,9 +44,7 @@ dev = [
 testpaths = [
     "/tests/",
     "application/datamanager/tests",
-    "/tests/application/datamanager/tests",
     "application/positionmanager/tests",
-    "/tests/application/positionmanager/tests"
 ]
 
 [tool.coverage.run]
