@@ -2,13 +2,14 @@
 name = "datamanager"
 version = "0.1.0"
 description = "Data management service"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",
     "duckdb>=1.2.2",
     "polars>=1.29.0",
     "pyarrow>=20.0.0",
+    "datamanager"
 ]
 
 [tool.hatch.build.targets.wheel]
