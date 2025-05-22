@@ -9,9 +9,9 @@ from contextlib import asynccontextmanager
 from datetime import date
 import httpx
 import polars as pl
-from fastapi import FastAPI, HTTPException, Request, Response, status, Query
+from fastapi import FastAPI, Request, Response, status
 from .config import Settings
-from .models import BarsResult, DateRange, SummaryDate
+from .models import BarsSummary, SummaryDate
 from loguru import logger
 
 
@@ -79,8 +79,6 @@ async def get_equity_bars(
         bucket=settings.gcp.bucket.name, start_date=start_date, end_date=end_date
     )
 
-    logger.info(query)
-
     try:
         data = request.app.state.connection.execute(query).arrow()
 
@@ -109,15 +107,13 @@ async def get_equity_bars(
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@application.post("/equity-bars", response_model=BarsResult)
-async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> BarsResult:
-    logger.info(summary_date)
+@application.post("/equity-bars", response_model=BarsSummary)
+async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> BarsSummary:
     polygon = request.app.state.settings.polygon
     bucket = request.app.state.settings.gcp.bucket
 
-    logger.info(summary_date.date)
     url = f"{polygon.base_url}{polygon.daily_bars}{summary_date.date.strftime('%Y-%m-%d')}"
-    logger.info(url)
+    logger.info(f"polygon_api_endpoint={url}")
 
     params = {"adjusted": "true", "apiKey": polygon.api_key}
     async with httpx.AsyncClient() as client:
@@ -139,7 +135,7 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
                 pl.from_epoch("t", time_unit="ms").dt.day().alias("day"),
             ]
         ).write_parquet(bucket.daily_bars_path, partition_by=["year", "month", "day"])
-    return BarsResult(date=summary_date.date.strftime("%Y-%m-%d"), count=count)
+    return BarsSummary(date=summary_date.date.strftime("%Y-%m-%d"), count=count)
 
 
 @application.delete("/equity-bars")

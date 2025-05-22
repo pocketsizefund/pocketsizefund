@@ -1,9 +1,7 @@
 import os
 import json
 from functools import cached_property
-from datetime import date, datetime
 from pydantic import BaseModel, Field, computed_field
-from loguru import logger
 
 
 class Polygon(BaseModel):
