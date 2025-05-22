@@ -165,5 +165,4 @@ async def delete_equity_bars(request: Request, summary_date: SummaryDate):
 
     logger.info(f"deleting {prefix=}")
     bucket.delete_blobs(blobs)
-
     return Response(status_code=status.HTTP_204_NO_CONTENT)
