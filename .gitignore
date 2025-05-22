@@ -6,7 +6,6 @@
 .python_coverage.*
 __pycache__/
 infrastructure/Pulumi.infrastructure.yaml
-.coverage*
 .coverage/
+.coverage*
 coverage.xml
-.python_coverage.xml
