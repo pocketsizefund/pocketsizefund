@@ -9,7 +9,10 @@ dependencies = [
     "duckdb>=1.2.2",
     "polars>=1.29.0",
     "pyarrow>=20.0.0",
-    "datamanager"
+    "datamanager",
+    "google-cloud-storage>=2.16.0",
+    "loguru>=0.7.3",
+    "httpx>=0.28.1",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -18,3 +21,9 @@ packages = ["datamanager"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "behave>=1.2.6",
+    "requests>=2.31.0",
+]
