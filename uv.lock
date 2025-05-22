@@ -200,6 +200,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "datamanager", editable = "application/datamanager" },
     { name = "duckdb", specifier = ">=1.2.2" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "polars", specifier = ">=1.29.0" },
@@ -562,11 +563,39 @@ dependencies = [
     { name = "pytest" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "alpaca-py" },
+    { name = "coverage" },
+    { name = "duckdb" },
+    { name = "ecos" },
+    { name = "fastapi" },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "pyportfolioopt" },
+    { name = "pytest" },
+    { name = "requests" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "coverage", specifier = ">=7.6.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pytest", specifier = ">=8.3.5" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "alpaca-py", specifier = ">=0.40.1" },
+    { name = "coverage", specifier = ">=7.8.0" },
+    { name = "duckdb", specifier = ">=1.2.2" },
+    { name = "ecos", specifier = ">=2.0.14" },
+    { name = "fastapi", specifier = ">=0.115.12" },
+    { name = "polars", specifier = ">=1.29.0" },
+    { name = "pyarrow", specifier = ">=20.0.0" },
+    { name = "pyportfolioopt", specifier = ">=1.5.6" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "requests", specifier = ">=2.32.3" },
 ]
 
 [[package]]

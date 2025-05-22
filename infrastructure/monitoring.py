@@ -6,7 +6,7 @@ prometheus_config_secret = secretmanager.Secret("prometheus-config")
 prometheus_config_version = secretmanager.SecretVersion(
     "prometheus-config-version",
     secret=prometheus_config_secret.id,
-    secret_data=FileAsset("prometheus.yaml"),
+    secret_data=FileAsset("infrastructure/prometheus.yaml"),
 )
 
 prometheus_service = cloudrun.Service(
