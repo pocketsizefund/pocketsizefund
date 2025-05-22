@@ -3,7 +3,7 @@ COMPOSE_BAKE=true
 
 [tasks."python:install"]
 description = "Install Python dependencies"
-run = "uv sync --all-packages"
+run = "uv sync --all-groups"
 
 [tasks."python:format"]
 description = "Format Python code"
@@ -30,23 +30,7 @@ ruff check \
 
 [tasks."python:test"]
 description = "Run Python tests"
-run = """
-uv run coverage run \
-    --parallel-mode \
-    --omit '*/__init__.py,**/test_*.py' \
-    --data-file .python_coverage.output \
-    --module pytest
-
-uv run coverage combine \
-    --data-file .python_coverage.output
-
-uv run coverage report \
-    --data-file .python_coverage.output
-
-uv run coverage xml \
-    --data-file .python_coverage.output \
-    -o .python_coverage.xml
-"""
+run = "docker compose run tests"
 
 
 [tasks."python:test:behave"]
