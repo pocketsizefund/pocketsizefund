@@ -1,3 +1,5 @@
+---
+name: Application unit tests
 
 services:
   tests:

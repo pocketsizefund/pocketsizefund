@@ -10,9 +10,7 @@ dependencies = [
     "polars>=1.29.0",
     "pyarrow>=20.0.0",
     "google-cloud-storage>=2.16.0",
-    "loguru>=0.7.3",
     "httpx>=0.28.1",
-    "prometheus-fastapi-instrumentator>=7.1.0",
     "datamanager"
 ]
 

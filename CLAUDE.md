@@ -15,6 +15,7 @@ When asked to create a new GitHub issue:
    - `.github/ISSUE_TEMPLATE/FEATURE.md` for new features
 2. Include:
    - A descriptive title (without [FEATURE|BUG] prefix)
+   - Set its GitHub Project status to "To Do"
    - Explain why the feature is needed
    - Detail the benefits it will bring
    - Propose two implementation options (after considering at least five)
@@ -26,5 +27,5 @@ When asked to create a new GitHub issue:
 ## GitHub Issue Workflow
 
 1. After creating a ticket, it will be reviewed and possibly modified
-2. Issues with "todo" status are prepared for implementation
-3. When asked to look at tickets ready for implementation, search for GitHub issues with "in progress" status
+2. Issues with "To Do" Project status are prepared for implementation
+3. When asked to look at tickets ready for implementation, search for GitHub issues with "To Do" Project status
