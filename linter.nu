@@ -1,4 +1,4 @@
-#!/usr/env/bin nu
+#!/usr/bin/env nu
 use std/assert
 
 fd .
