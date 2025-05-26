@@ -22,7 +22,6 @@ service = cloudrun.Service(
             containers=[
                 cloudrun.ServiceTemplateSpecContainerArgs(
                     image="pocketsizefund/datamanager:latest",
-                    args=["--period=1"],
                     envs=[
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
                             name="ALPACA_API_KEY_ID",

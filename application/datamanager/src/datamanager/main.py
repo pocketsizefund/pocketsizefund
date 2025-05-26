@@ -1,6 +1,7 @@
 import traceback
 import pyarrow
 import os
+from prometheus_fastapi_instrumentator import Instrumentator
 
 import duckdb
 from google.api_core import exceptions
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
 
 
 application = FastAPI(lifespan=lifespan)
+Instrumentator().instrument(application).expose(application)
 
 
 @application.get("/health")

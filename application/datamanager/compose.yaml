@@ -1,4 +1,4 @@
-name: Integration Tests for datamanager service
+name: Data manager integration tests
 
 services:
   datamanager:
