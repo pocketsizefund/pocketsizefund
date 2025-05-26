@@ -9,6 +9,8 @@ config = Config()
 
 alpaca_api_key = config.require_secret("ALPACA_API_KEY_ID")
 alpaca_api_secret = config.require_secret("ALPACA_API_SECRET_KEY")
+duckdb_access_key = config.require_secret("DUCKDB_ACCESS_KEY")
+duckdb_secret = config.require_secret("DUCKDB_SECRET")
 
 
 service = cloudrun.Service(
@@ -20,7 +22,6 @@ service = cloudrun.Service(
             containers=[
                 cloudrun.ServiceTemplateSpecContainerArgs(
                     image="pocketsizefund/datamanager:latest",
-                    args=["--period=1"],
                     envs=[
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
                             name="ALPACA_API_KEY_ID",
@@ -31,7 +32,19 @@ service = cloudrun.Service(
                             value=alpaca_api_secret,
                         ),
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
-                            name="GCP_GCS_BUCKET", value=buckets.prod_data_bucket.name
+                            name="GCP_PROJECT",
+                            value=project.PROJECT,
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DATA_BUCKET",
+                            value=buckets.production_data_bucket.name,
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DUCKDB_ACCESS_KEY", value=duckdb_access_key
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DUCKDB_SECRET",
+                            value=duckdb_secret,
                         ),
                     ],
                 )

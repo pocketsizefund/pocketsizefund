@@ -1,3 +1,6 @@
+[env]
+COMPOSE_BAKE=true
+
 [tasks."python:install"]
 description = "Install Python dependencies"
 run = "uv sync --all-packages"
@@ -28,35 +31,11 @@ ruff check \
 [tasks."python:test"]
 description = "Run Python tests"
 run = """
-uv run coverage run \
-    --parallel-mode \
-    --omit '*/__init__.py,**/test_*.py' \
-    --data-file .python_coverage.output \
-    --module pytest
-
-uv run coverage combine \
-    --data-file .python_coverage.output
-
-uv run coverage report \
-    --data-file .python_coverage.output
-
-uv run coverage xml \
-    --data-file .python_coverage.output \
-    -o .python_coverage.xml
+docker compose build tests
+docker compose run -T tests
 """
 
-[tasks."application:service:build"]
-description = "Build the application service"
-run = """
-TIMESTAMP=$(date +%Y%m%d) 
-docker build \
---file application/{{arg(name="service_name")}}/Dockerfile \
---tag pocketsizefund/{{arg(name="service_name")}}:latest \
---tag pocketsizefund/{{arg(name="service_name")}}:${TIMESTAMP} \
-.
-"""
-
-[tasks."application:service:run"]
+[tasks."application:service:run:production"]
 description = "Run the application service"
 run = """
 docker run \
@@ -65,13 +44,40 @@ docker run \
 pocketsizefund/{{arg(name="service_name")}}:latest \
 """
 
+[tasks."application:service:run:development"]
+description = "Run the application service locally with hot reloading"
+run = """
+cd application/{{arg(name="service_name")}}
+uv run uvicorn src.{{arg(name="service_name")}}.main:application --reload
+"""
+
+[tasks."application:service:test:integration"]
+description = "Run integration tests"
+run = """
+cd application/{{arg(name="service_name")}}
+docker-compose up --build --abort-on-container-exit --remove-orphans
+"""
+
+[tasks."application:service:test:behavioral"]
+description = "Run behavioral tests"
+run = """
+cd application/{{arg(name="service_name")}}
+docker-compose up --build --abort-on-container-exit
+"""
+
+[tasks."application:service:cleanup:behavioral"]
+description = "Clean up behavioral tests"
+run = """
+cd application/{{arg(name="service_name")}}
+docker-compose down -v
+"""
 
 [tasks."lint"]
 depends = ["python:lint"]
 description = "Run code quality checks"
 run = """
 nu linter.nu
-yamllint .
+yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" . 
 """
 
 [tasks."infrastructure:up"]
