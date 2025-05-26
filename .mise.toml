@@ -70,6 +70,7 @@ pocketsizefund/{{arg(name="service_name")}}:latest \
 depends = ["python:lint"]
 description = "Run code quality checks"
 run = """
+nu linter.nu
 yamllint .
 """
 

@@ -8,6 +8,9 @@ ruff.pkg-path = "ruff"
 uv.pkg-path = "uv"
 vulture.pkg-path = "python313Packages.vulture"
 yamllint.pkg-path = "yamllint"
+nushell.pkg-path = "nushell"
+fd.pkg-path = "fd"
+fselect.pkg-path = "fselect"
 # libpqxx.pkg-path = "libpqxx"
 
 [options]
