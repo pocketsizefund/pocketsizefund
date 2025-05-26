@@ -1,0 +1,58 @@
+from tinygrad.tensor import Tensor
+import numpy as np
+from application.predictionengine.src.predictionengine.loss_function import (
+    quantile_loss,
+)
+
+
+def test_quantile_loss_basic():
+    predictions = Tensor([[1.0, 2.0, 3.0]])
+    targets = Tensor([[2.0]])
+    quantiles = (0.25, 0.5, 0.75)
+
+    loss = quantile_loss(predictions, targets, quantiles)
+
+    assert isinstance(loss, Tensor)
+    assert loss.shape == () or loss.shape == (1,)
+
+
+def test_quantile_loss_multiple_samples():
+    predictions = Tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    targets = Tensor([[2.5], [5.5]])
+    quantiles = (0.25, 0.5, 0.75)
+
+    loss = quantile_loss(predictions, targets, quantiles)
+
+    assert isinstance(loss, Tensor)
+    assert loss.shape == () or loss.shape == (1,)
+
+
+def test_quantile_loss_perfect_prediction():
+    predictions = Tensor([[1.0, 2.0, 3.0]])
+    targets = Tensor([[2.0]])  # matches median prediction
+    quantiles = (0.25, 0.5, 0.75)
+
+    loss = quantile_loss(predictions, targets, quantiles)
+
+    assert loss.numpy() >= 0.0
+
+
+def test_quantile_loss_different_quantiles():
+    predictions = Tensor([[1.0, 2.0, 3.0, 4.0, 5.0]])  # 5 quantiles
+    targets = Tensor([[3.0]])
+    quantiles = (0.1, 0.25, 0.5, 0.75, 0.9)
+
+    loss = quantile_loss(predictions, targets, quantiles)
+
+    assert isinstance(loss, Tensor)
+    assert loss.numpy() >= 0.0
+
+
+def test_quantile_loss_shapes():
+    for batch_size in [1, 2, 4, 8]:
+        predictions = Tensor(np.random.randn(batch_size, 3).astype(np.float32))
+        targets = Tensor(np.random.randn(batch_size, 1).astype(np.float32))
+        quantiles = (0.25, 0.5, 0.75)
+
+        loss = quantile_loss(predictions, targets, quantiles)
+        assert isinstance(loss, Tensor)

@@ -1,9 +1,33 @@
 FROM python:3.13
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    clang \
+    libc6-dev \
+    linux-libc-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PYTEST_ADDOPTS="--rootdir=/tests"
+ENV PYTHON=1
 
 WORKDIR /tests
 
-COPY pyproject.toml uv.lock .
-RUN uv sync --all-groups
+COPY pyproject.toml uv.lock ./
+
+COPY application/datamanager/pyproject.toml ./application/datamanager/
+
+COPY application/positionmanager/pyproject.toml ./application/positionmanager/
+
+COPY application/predictionengine/pyproject.toml ./application/predictionengine/
+
+COPY infrastructure/pyproject.toml ./infrastructure/
+
+COPY workflows/pyproject.toml ./workflows/
+
+RUN uv sync --all-packages --dev
+
+COPY application/ ./application/
+
+RUN mkdir -p /tests/coverage_output

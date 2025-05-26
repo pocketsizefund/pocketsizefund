@@ -1,4 +1,5 @@
-FROM python:3.13
+FROM python:3.12
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 ENV PYTHONPATH=/app/src
@@ -6,6 +7,7 @@ ENV PYTHONPATH=/app/src
 WORKDIR /app
 
 COPY pyproject.toml ./
+
 RUN uv sync --no-dev
 
 COPY ./src ./src

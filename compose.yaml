@@ -1,13 +1,16 @@
 ---
-name: Application unit tests
+name: pocketsizefund-tests
 
 services:
   tests:
+    image: pocketsizefund-tests:latest
     build:
       context: .
       dockerfile: Dockerfile.test
+      tags:
+        - pocketsizefund-tests:latest
     volumes:
-      - .:/tests
+      - ./coverage_output:/tests/coverage_output # mounted for coverage output
     command:
       - /bin/sh
       - -euxc
@@ -15,4 +18,4 @@ services:
         uv run coverage run --parallel-mode -m pytest && \
         uv run coverage combine && \
         uv run coverage report && \
-        uv run coverage xml
+        uv run coverage xml -o /tests/coverage_output/.python_coverage.xml
