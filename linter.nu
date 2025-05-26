@@ -6,10 +6,16 @@ fd .
   | path dirname
   | uniq
   | each {|service|
-    let dockerfile_version = open $"($service)/Dockerfile"
-      | find "FROM python"
-      | $in.0
-      | str replace --regex '.*:(\d+\.\d+)-.*' '$1'
+    let dockerfile_version = if ($"($service)/Dockerfile" | path exists) {
+      let from_lines = open $"($service)/Dockerfile" | find "FROM python"
+      if ($from_lines | length) > 0 {
+        $from_lines.0 | str replace --regex '.*python:(\d+\.\d+).*' '$1'
+      } else {
+        error make {msg: $"No 'FROM python' line found in ($service)/Dockerfile"}
+      }
+    } else {
+      error make {msg: $"Dockerfile not found in ($service)"}
+    }
     let pyproject_version = if ($"($service)/pyproject.toml" | path exists) {
       let toml_content = open $"($service)/pyproject.toml"
       if "project" in $toml_content and "requires-python" in $toml_content.project {
