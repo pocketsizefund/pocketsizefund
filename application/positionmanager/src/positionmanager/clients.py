@@ -54,7 +54,7 @@ class AlpacaClient:
 
 
 class DataClient:
-    def __init__(self, datamanager_base_url: str | None):
+    def __init__(self, datamanager_base_url: str | None) -> None:
         self.datamanager_base_url = datamanager_base_url
 
     def get_data(

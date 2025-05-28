@@ -1481,6 +1481,7 @@ dependencies = [
     { name = "httpx" },
     { name = "pulumi-docker-build" },
     { name = "pulumi-gcp" },
+    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -1506,6 +1507,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pulumi-docker-build", specifier = ">=0.0.12" },
     { name = "pulumi-gcp", specifier = ">=8.32.0" },
+    { name = "requests", specifier = ">=2.32.3" },
 ]
 
 [package.metadata.requires-dev]

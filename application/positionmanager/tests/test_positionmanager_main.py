@@ -14,7 +14,7 @@ from application.positionmanager.src.positionmanager.portfolio import PortfolioO
 client = TestClient(application)
 
 
-def test_health_check():
+def test_health_check() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
@@ -25,8 +25,11 @@ class TestPositionsEndpoint(unittest.TestCase):
     @patch("application.positionmanager.src.positionmanager.main.DataClient")
     @patch("application.positionmanager.src.positionmanager.main.PortfolioOptimizer")
     def test_create_position_success(
-        self, MockPortfolioOptimizer, MockDataClient, MockAlpacaClient
-    ):
+        self,
+        MockPortfolioOptimizer: MagicMock,
+        MockDataClient: MagicMock,
+        MockAlpacaClient: MagicMock,
+    ) -> None:
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_cash_balance = Money(amount=Decimal("100000.00"))
         mock_alpaca_instance.get_cash_balance.return_value = mock_cash_balance
@@ -76,7 +79,7 @@ class TestPositionsEndpoint(unittest.TestCase):
         assert mock_alpaca_instance.place_notional_order.call_count == 2
 
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
-    def test_create_position_alpaca_error(self, MockAlpacaClient):
+    def test_create_position_alpaca_error(self, MockAlpacaClient: MagicMock) -> None:
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.get_cash_balance.side_effect = Exception("API error")
         MockAlpacaClient.return_value = mock_alpaca_instance
@@ -91,7 +94,7 @@ class TestPositionsEndpoint(unittest.TestCase):
         mock_alpaca_instance.get_cash_balance.assert_called_once()
 
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
-    def test_delete_positions_success(self, MockAlpacaClient):
+    def test_delete_positions_success(self, MockAlpacaClient: MagicMock) -> None:
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.clear_positions.return_value = {
             "status": "success",
@@ -113,7 +116,10 @@ class TestPositionsEndpoint(unittest.TestCase):
         mock_alpaca_instance.get_cash_balance.assert_called_once()
 
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
-    def test_delete_positions_error(self, MockAlpacaClient):
+    def test_delete_positions_error(
+        self,
+        MockAlpacaClient: MagicMock,
+    ) -> None:
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.clear_positions.side_effect = Exception("API error")
         MockAlpacaClient.return_value = mock_alpaca_instance
