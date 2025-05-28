@@ -5,10 +5,10 @@ import buckets
 
 config = Config()
 
-grafana_admin_password = config.require_secret("GRAFANA_ADMIN_PASSWORD")
+grafana_administrator_password = config.require_secret("GRAFANA_ADMIN_PASSWORD")
 
 grafana_admin_password_secret = secretmanager.Secret(
-    "grafana-admin-password",
+    "grafana-administrator-password",
     replication={
         "user_managed": {
             "replicas": [
@@ -25,10 +25,9 @@ grafana_admin_password_secret = secretmanager.Secret(
 grafana_admin_password_version = secretmanager.SecretVersion(
     "grafana-admin-password-version",
     secret=grafana_admin_password_secret.id,
-    secret_data=grafana_admin_password,
+    secret_data=grafana_administrator_password,
 )
 
-# Prometheus configuration directly embedded
 prometheus_config = """
 global:
   scrape_interval: 30s
