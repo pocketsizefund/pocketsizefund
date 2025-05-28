@@ -204,6 +204,7 @@ ignore = [
 select = [
   "ANN", # type annotations
   "ASYNC",
+  "BLE", # no blind exceptions
   "ERA", # dead code
   "FAST", # fastapi
   "S", # bandit (security)
