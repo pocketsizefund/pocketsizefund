@@ -7,7 +7,7 @@ config = Config()
 
 grafana_administrator_password = config.require_secret("GRAFANA_ADMIN_PASSWORD")
 
-grafana_admin_password_secret = secretmanager.Secret(
+grafana_administrator_password_secret = secretmanager.Secret(
     "grafana-administrator-password",
     replication={
         "user_managed": {
@@ -22,9 +22,9 @@ grafana_admin_password_secret = secretmanager.Secret(
         }
     },
 )
-grafana_admin_password_version = secretmanager.SecretVersion(
-    "grafana-admin-password-version",
-    secret=grafana_admin_password_secret.id,
+grafana_administrator_password_version = secretmanager.SecretVersion(
+    "grafana-administrator-password-version",
+    secret=grafana_administrator_password_secret.id,
     secret_data=grafana_administrator_password,
 )
 
@@ -41,7 +41,6 @@ scrape_configs:
           - positionmanager
 """
 
-# Upload Prometheus config to GCS bucket
 prometheus_config_object = storage.BucketObject(
     "prometheus-config",
     bucket=buckets.grafana_dashboards_bucket.name,
@@ -117,8 +116,8 @@ grafana_service = cloudrun.Service(
                             name="GF_SECURITY_ADMIN_PASSWORD",
                             value_from=cloudrun.ServiceTemplateSpecContainerEnvValueFromArgs(
                                 secret_key_ref=cloudrun.ServiceTemplateSpecContainerEnvValueFromSecretKeyRefArgs(
-                                    name=grafana_admin_password_secret.name,
-                                    key=grafana_admin_password_version.version,
+                                    name=grafana_administrator_password_secret.name,
+                                    key=grafana_administrator_password_version.version,
                                 )
                             ),
                         ),
