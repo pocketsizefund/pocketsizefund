@@ -54,5 +54,7 @@ IAMMember(
     "pubsub-token-access",
     project=PROJECT,
     role="roles/pubsub.subscriber",
-    member=platform_service_account.email.apply(lambda e: f"serviceAccount:{e}"),
+    member=platform_service_account.email.apply(
+        lambda e: f"serviceAccount:{e}"
+    ),  # ty: ignore[missing-argument]
 )

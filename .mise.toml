@@ -13,7 +13,7 @@ run = "ruff format"
 depends = ["python:format"]
 description = "Check for dead Python code"
 run = """
-vulture \
+uvx vulture \
     --min-confidence 80 \
     --exclude '.flox,.venv,target' \
     .
@@ -26,6 +26,7 @@ run = """
 ruff check \
     --output-format=github \
     .
+uvx ty check
 """
 
 [tasks."python:test"]

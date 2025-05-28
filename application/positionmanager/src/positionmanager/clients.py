@@ -12,8 +12,8 @@ from .models import Money, DateRange
 class AlpacaClient:
     def __init__(
         self,
-        api_key: str = "",
-        api_secret: str = "",
+        api_key: str | None = "",
+        api_secret: str | None = "",
         paper: bool = True,
     ) -> None:
         if not api_key or not api_secret:
@@ -54,7 +54,7 @@ class AlpacaClient:
 
 
 class DataClient:
-    def __init__(self, datamanager_base_url: str):
+    def __init__(self, datamanager_base_url: str | None):
         self.datamanager_base_url = datamanager_base_url
 
     def get_data(
