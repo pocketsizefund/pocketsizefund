@@ -12,14 +12,8 @@ from .models import Money, DateRange
 class AlpacaClient:
     def __init__(
         self,
-     def __init__(
--        api_key: str | None = "",
--        api_secret: str | None = "",
-+        api_key: str | None = None,
-+        api_secret: str | None = None,
-         paper: bool = True,
-     ) -> None:
-         # ...
+        api_key: str | None = None,
+        api_secret: str | None = None,
         paper: bool = True,
     ) -> None:
         if not api_key or not api_secret:
