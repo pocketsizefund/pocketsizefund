@@ -8,6 +8,7 @@ jobs:
   deploy:
     name: Deploy infrastructure
     runs-on: ubuntu-latest
+    environment: pulumi
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,4 +19,4 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         with:
-          command: mise tasks run infrastructure:up
+          command: mise run infrastructure:up

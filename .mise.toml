@@ -42,7 +42,7 @@ run = """
 docker run \
 --env-file .env \
 --publish 8080:8080 \
-pocketsizefund/{{arg(name="service_name")}}:latest \
+pocketsizefund/{{arg(name="application_name")}}:latest \
 """
 
 [tasks."application:service:run:development"]
