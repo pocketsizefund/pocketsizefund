@@ -44,8 +44,8 @@ def create_position(payload: PredictionPayload) -> dict[str, Any]:
         ) from e
 
     date_range = DateRange(
-        start=datetime.now(tz=UTC) - timedelta(days=trading_days_per_year),
-        end=datetime.now(tz=UTC),
+        start=datetime.now(tz=timezone.utc) - timedelta(days=trading_days_per_year),
+        end=datetime.now(tz=timezone.utc),
     )
 
     try:

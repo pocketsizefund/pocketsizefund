@@ -17,7 +17,7 @@ class SummaryDate(BaseModel):
             try:
                 return (
                     datetime.datetime.strptime(value, fmt)
-                    .replace(tzinfo=datetime.UTC)
+                    .replace(tzinfo=datetime.timezone.utc)
                     .date()
                 )
             except ValueError:

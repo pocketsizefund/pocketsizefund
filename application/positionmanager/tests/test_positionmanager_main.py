@@ -88,7 +88,8 @@ class TestPositionsEndpoint(unittest.TestCase):
     def test_create_position_alpaca_error(self, MockAlpacaClient: MagicMock) -> None:  # noqa: N803
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.get_cash_balance.side_effect = HTTPException(
-            status_code=500, detail="Error getting cash balance"
+            status_code=500,
+            detail="Error getting cash balance",
         )
         MockAlpacaClient.return_value = mock_alpaca_instance
 
@@ -130,7 +131,8 @@ class TestPositionsEndpoint(unittest.TestCase):
     ) -> None:
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.clear_positions.side_effect = HTTPException(
-            status_code=500, detail="Error getting cash balance"
+            status_code=500,
+            detail="Error getting cash balance",
         )
         MockAlpacaClient.return_value = mock_alpaca_instance
 
