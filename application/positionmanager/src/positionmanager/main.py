@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+import requests
 import os
 from datetime import datetime, timedelta
 import polars as pl
@@ -9,6 +10,9 @@ from .clients import AlpacaClient, DataClient
 from .portfolio import PortfolioOptimizer
 
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from alpaca.common.rest import APIError
+from pydantic import ValidationError
 
 
 trading_days_per_year = 252
@@ -40,7 +44,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
     try:
         cash_balance = alpaca_client.get_cash_balance()
 
-    except Exception as e:
+    except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error getting cash balance: {str(e)}",
@@ -54,7 +58,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
     try:
         historical_data = data_client.get_data(date_range=date_range)
 
-    except Exception as e:
+    except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error getting historical data: {str(e)}",
@@ -67,7 +71,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
             predictions=payload.predictions,
         )
 
-    except Exception as e:
+    except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error optimizing portfolio: {str(e)}",
@@ -108,7 +112,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
                 }
             )
 
-        except Exception as e:
+        except (requests.RequestException, APIError, ValidationError) as e:
             executed_trades.append(
                 {
                     "ticker": ticker,
@@ -142,7 +146,7 @@ def delete_positions() -> Dict[str, Any]:
     try:
         result = alpaca_client.clear_positions()
 
-    except Exception as e:
+    except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     cash_balance = alpaca_client.get_cash_balance()
