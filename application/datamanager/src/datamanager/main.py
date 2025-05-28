@@ -8,10 +8,16 @@ import duckdb
 import httpx
 import polars as pl
 import pyarrow
+import pyarrow.lib  # for ArrowIOError if using Arrow internally
+from duckdb import IOException
+import requests
+
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from google.api_core import exceptions
+from google.api_core.exceptions import GoogleAPIError
 from google.cloud import storage  # type: ignore
 from loguru import logger
+from polars.exceptions import ComputeError
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from .config import Settings
@@ -105,7 +111,13 @@ async def get_equity_bars(
             },
         )
 
-    except Exception as e:
+    except (
+        requests.RequestsException,
+        ComputeError,
+        IOException,
+        GoogleAPIError,
+        pyarrow.lib.ArrowIOError,
+    ) as e:
         logger.error(f"Error querying data: {e}")
         logger.error(traceback.format_exc())
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -142,7 +154,13 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
             ).write_parquet(
                 bucket.daily_bars_path, partition_by=["year", "month", "day"]
             )
-        except Exception as e:
+        except (
+            requests.RequestsException,
+            ComputeError,
+            IOException,
+            GoogleAPIError,
+            pyarrow.lib.ArrowIOError,
+        ) as e:
             logger.error(f"Error writing parquet file: {e}")
             logger.error(traceback.format_exc())
             raise HTTPException(
