@@ -200,6 +200,11 @@ ignore = [
 "**/tests/**/*.py" = ["S101"]
 "**/features/steps/**/*.py" = ["S101"]
 
+[tool.ruff]
+select = [
+  "ANN"
+]
+
 [tool.ty.rules]
 unresolved-import = "ignore"
 invalid-return-type = "error"
