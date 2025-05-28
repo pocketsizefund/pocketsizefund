@@ -17,10 +17,6 @@ class Bucket(BaseModel):
             raise ValueError("DATA_BUCKET environment variable is required")
         return f"gs://{self.name}/equity/bars/"
 
-    @computed_field
-    def daily_bars_path(self) -> str:
-        return f"gs://{self.name}/equity/bars/"
-
 
 class GCP(BaseModel):
     bucket: Bucket = Bucket()
