@@ -85,6 +85,7 @@ select = [
   "BLE", # no blind exceptions
   "ERA", # dead code
   "FAST", # fastapi
+  "FBT", # boolean traps
   "S", # bandit (security)
   "YTT" # flake8
 ]
