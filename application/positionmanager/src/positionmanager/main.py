@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 import requests
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import polars as pl
 from typing import Dict, Any
 from .models import Money, DateRange, PredictionPayload
@@ -49,8 +49,8 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
         ) from e
 
     date_range = DateRange(
-        start=datetime.now() - timedelta(days=trading_days_per_year),
-        end=datetime.now(),
+        start=datetime.now(tz=timezone.utc) - timedelta(days=trading_days_per_year),
+        end=datetime.now(tz=timezone.utc),
     )
 
     try:
@@ -81,7 +81,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
             continue
 
         latest_prices = historical_data.filter(pl.col(ticker).is_not_null()).select(
-            ticker
+            ticker,
         )
         if latest_prices.is_empty():
             executed_trades.append(
@@ -89,13 +89,13 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
                     "ticker": ticker,
                     "status": "error",
                     "error": "No recent price available",
-                }
+                },
             )
             continue
         latest_price = latest_prices.tail(1)[0, 0]
 
         notional_amount = Money.from_float(
-            latest_price * share_count * 0.95
+            latest_price * share_count * 0.95,
         )  # 5% buffer
 
         try:
@@ -107,7 +107,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
                     "share_count": share_count,
                     "notional_amount": float(notional_amount),
                     "status": "success",
-                }
+                },
             )
 
         except (requests.RequestException, APIError, ValidationError) as e:
@@ -118,7 +118,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
                     "notional_amount": float(notional_amount),
                     "status": "error",
                     "error": str(e),
-                }
+                },
             )
 
     final_cash_balance = alpaca_client.get_cash_balance()

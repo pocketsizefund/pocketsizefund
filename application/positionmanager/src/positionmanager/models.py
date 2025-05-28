@@ -8,7 +8,8 @@ from pydantic_core import core_schema
 
 class Money(BaseModel):
     amount: Decimal = Field(
-        ..., description="Monetary value in USD with 2 decimal places"
+        ...,
+        description="Monetary value in USD with 2 decimal places",
     )
 
     @field_validator("amount", check_fields=True)
@@ -42,7 +43,9 @@ class DateRange(BaseModel):
     @field_validator("end")
     @classmethod
     def check_end_after_start(
-        cls, end_value: datetime, info: core_schema.ValidationInfo
+        cls,
+        end_value: datetime,
+        info: core_schema.ValidationInfo,
     ) -> datetime:
         start_value = info.data.get("start")
         if start_value and end_value <= start_value:

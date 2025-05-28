@@ -48,7 +48,7 @@ def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.settings = Settings()
     app.state.bucket = storage.Client(os.getenv("GCP_PROJECT")).bucket(
-        app.state.settings.gcp.bucket.name
+        app.state.settings.gcp.bucket.name,
     )
 
     DUCKDB_ACCESS_KEY = os.getenv("DUCKDB_ACCESS_KEY")
@@ -81,12 +81,16 @@ async def health_check() -> Response:
 
 @application.get("/equity-bars")
 async def get_equity_bars(
-    request: Request, start_date: date, end_date: date
+    request: Request,
+    start_date: date,
+    end_date: date,
 ) -> Response:
     settings: Settings = request.app.state.settings
 
     query = bars_query(
-        bucket=settings.gcp.bucket.name, start_date=start_date, end_date=end_date
+        bucket=settings.gcp.bucket.name,
+        start_date=start_date,
+        end_date=end_date,
     )
 
     try:
@@ -150,9 +154,10 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
                     pl.from_epoch("t", time_unit="ms").dt.year().alias("year"),
                     pl.from_epoch("t", time_unit="ms").dt.month().alias("month"),
                     pl.from_epoch("t", time_unit="ms").dt.day().alias("day"),
-                ]
+                ],
             ).write_parquet(
-                bucket.daily_bars_path, partition_by=["year", "month", "day"]
+                bucket.daily_bars_path,
+                partition_by=["year", "month", "day"],
             )
         except (
             requests.RequestException,
@@ -166,7 +171,7 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to write data",
-            )
+            ) from e
     return BarsSummary(date=summary_date.date.strftime("%Y-%m-%d"), count=count)
 
 
