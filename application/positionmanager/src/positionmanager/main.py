@@ -1,3 +1,5 @@
+from fastapi import FastAPI, HTTPException
+import requests
 import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
