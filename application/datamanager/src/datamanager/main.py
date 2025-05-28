@@ -1,19 +1,21 @@
-import traceback
-import pyarrow
 import os
-from prometheus_fastapi_instrumentator import Instrumentator
-
-import duckdb
-from google.api_core import exceptions
-from google.cloud import storage
+import traceback
 from contextlib import asynccontextmanager
 from datetime import date
+from typing import AsyncGenerator
+
+import duckdb
 import httpx
 import polars as pl
-from fastapi import FastAPI, Request, Response, status, HTTPException
+import pyarrow
+from fastapi import FastAPI, HTTPException, Request, Response, status
+from google.api_core import exceptions
+from google.cloud import storage  # type: ignore
+from loguru import logger
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from .config import Settings
 from .models import BarsSummary, SummaryDate
-from loguru import logger
 
 
 def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
@@ -37,7 +39,7 @@ def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.settings = Settings()
     app.state.bucket = storage.Client(os.getenv("GCP_PROJECT")).bucket(
         app.state.settings.gcp.bucket.name
@@ -67,7 +69,7 @@ Instrumentator().instrument(application).expose(application)
 
 
 @application.get("/health")
-async def health_check():
+async def health_check() -> Response:
     return Response(status_code=status.HTTP_200_OK)
 
 
@@ -151,7 +153,7 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
 
 
 @application.delete("/equity-bars")
-async def delete_equity_bars(request: Request, summary_date: SummaryDate):
+async def delete_equity_bars(request: Request, summary_date: SummaryDate) -> Response:
     bucket = request.app.state.bucket
     year = summary_date.date.year
     month = summary_date.date.month
