@@ -17,7 +17,7 @@ dockerfile_paths = [
 
 tags = [
     "latest",
-    datetime.now(tz=UTC).strftime("%Y%m%d"),
+    datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
 ]
 
 images = {}
