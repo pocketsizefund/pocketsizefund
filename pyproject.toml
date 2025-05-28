@@ -3,6 +3,13 @@ name = "pocketsizefund"
 version = "20250602.4"
 description = "Open source quantitative hedge fund 🍊"
 requires-python = ">=3.12"
+dependencies = [
+    "flytekit>=1.15.4",
+    "httpx>=0.28.1",
+    "pulumi-docker-build>=0.0.12",
+    "pulumi-gcp>=8.32.0",
+    "requests>=2.32.3",
+]
 
 [tool.uv.workspace]
 members = [
@@ -71,8 +78,16 @@ select = [
   "ERA"
 ]
 
+[tool.ruff]
+select = [
+  "ANN"
+]
+
 [tool.ty.rules]
 unresolved-import = "ignore"
 invalid-return-type = "error"
 invalid-argument-type = "error"
 unresolved-reference = "error"
+
+[tool.pyright]
+reportMissingImports = "none"

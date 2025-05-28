@@ -1503,6 +1503,13 @@ wheels = [
 name = "pocketsizefund"
 version = "20250602.4"
 source = { editable = "." }
+dependencies = [
+    { name = "flytekit" },
+    { name = "httpx" },
+    { name = "pulumi-docker-build" },
+    { name = "pulumi-gcp" },
+    { name = "requests" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1512,6 +1519,13 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [
+    { name = "flytekit", specifier = ">=1.15.4" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pulumi-docker-build", specifier = ">=0.0.12" },
+    { name = "pulumi-gcp", specifier = ">=8.32.0" },
+    { name = "requests", specifier = ">=2.32.3" },
+]
 
 [package.metadata.requires-dev]
 dev = [
