@@ -121,7 +121,7 @@ async def get_equity_bars(
         )
 
     except (
-        requests.RequestsException,
+        requests.RequestException,
         ComputeError,
         IOException,
         GoogleAPIError,
@@ -166,7 +166,7 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
                 partition_by=["year", "month", "day"],
             )
         except (
-            requests.RequestsException,
+            requests.RequestException,
             ComputeError,
             IOException,
             GoogleAPIError,
