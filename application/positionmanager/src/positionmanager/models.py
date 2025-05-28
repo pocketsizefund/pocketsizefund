@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import Dict, Any
-from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict
+
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import core_schema
 
 
 class Money(BaseModel):
@@ -10,7 +12,7 @@ class Money(BaseModel):
     )
 
     @field_validator("amount", check_fields=True)
-    def validate_amount(cls, v):
+    def validate_amount(cls, v: str | Decimal) -> Decimal:
         if not isinstance(v, Decimal):
             v = Decimal(str(v))
 
@@ -39,7 +41,9 @@ class DateRange(BaseModel):
 
     @field_validator("end")
     @classmethod
-    def check_end_after_start(cls, end_value, info):
+    def check_end_after_start(
+        cls, end_value: datetime, info: core_schema.ValidationInfo
+    ) -> datetime:
         start_value = info.data.get("start")
         if start_value and end_value <= start_value:
             raise ValueError("End date must be after start date.")
