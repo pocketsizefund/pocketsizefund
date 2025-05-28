@@ -10,4 +10,4 @@ COPY ./src ./src
 
 EXPOSE 8080
 
-ENTRYPOINT ["uv", "run", "uvicorn", "datamanager.main:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]
+ENTRYPOINT ["uv", "run", "uvicorn", "datamanager.src.datamanager.main:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]

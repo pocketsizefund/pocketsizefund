@@ -11,3 +11,10 @@ production_data_bucket = storage.Bucket(
     location=project.REGION,
     uniform_bucket_level_access=True,
 )
+
+grafana_dashboards_bucket = storage.Bucket(
+    "grafana-dashboards",
+    name=config.require("grafana_dashboards_bucket_name"),
+    location=project.REGION,
+    uniform_bucket_level_access=True,
+)
