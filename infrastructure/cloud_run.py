@@ -40,14 +40,15 @@ service = cloudrun.Service(
                             value=buckets.production_data_bucket.name,
                         ),
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
-                            name="DUCKDB_ACCESS_KEY", value=duckdb_access_key
+                            name="DUCKDB_ACCESS_KEY",
+                            value=duckdb_access_key,
                         ),
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
                             name="DUCKDB_SECRET",
                             value=duckdb_secret,
                         ),
                     ],
-                )
+                ),
             ],
         ),
     ),
@@ -59,7 +60,7 @@ subscription = pubsub.Subscription(
     push_config=pubsub.SubscriptionPushConfigArgs(
         push_endpoint=service.statuses[0].url,
         oidc_token=pubsub.SubscriptionPushConfigOidcTokenArgs(
-            service_account_email=project.platform_service_account.email
+            service_account_email=project.platform_service_account.email,
         ),
     ),
 )

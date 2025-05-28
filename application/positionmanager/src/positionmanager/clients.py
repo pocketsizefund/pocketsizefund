@@ -85,7 +85,7 @@ class DataClient:
             pl.col("timestamp")
             .str.slice(0, 10)
             .str.strptime(pl.Date, "%Y-%m-%d")
-            .alias("date")
+            .alias("date"),
         )
 
         data = (
