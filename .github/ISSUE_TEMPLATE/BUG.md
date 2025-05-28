@@ -2,7 +2,7 @@
 name: Bug
 about: Create a bug report
 title: ''
-labels: ["bug", "backlog"]
+labels: ["bug"]
 projects: ["pocketsizefund/11"]
 
 ---
