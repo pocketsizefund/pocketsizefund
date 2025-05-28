@@ -8,6 +8,7 @@ dependencies = [
     "httpx>=0.28.1",
     "pulumi-docker-build>=0.0.12",
     "pulumi-gcp>=8.32.0",
+    "requests>=2.32.3",
 ]
 
 [tool.uv.workspace]
@@ -65,5 +66,14 @@ skip_covered = true
 [tool.coverage.xml]
 output = ".python_coverage.xml"
 
+[tool.ruff]
+select = [
+  "ANN",
+  "ERA"
+]
+
 [tool.ty.rules]
 unresolved-import = "ignore"
+invalid-return-type = "error"
+invalid-argument-type = "error"
+unresolved-reference = "error"

@@ -1,5 +1,6 @@
 import datetime
 from pydantic import BaseModel, Field, field_validator
+from pydantic_core import core_schema
 
 
 class SummaryDate(BaseModel):
@@ -8,7 +9,7 @@ class SummaryDate(BaseModel):
     )
 
     @field_validator("date", mode="before")
-    def parse_date(cls, value):
+    def parse_date(cls, value: datetime.date | str) -> datetime.date:
         if isinstance(value, datetime.date):
             return value
         for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
@@ -27,7 +28,9 @@ class DateRange(BaseModel):
 
     @field_validator("end")
     @classmethod
-    def check_end_after_start(cls, end_value, info):
+    def check_end_after_start(
+        cls, end_value: datetime.datetime, info: core_schema.ValidationInfo
+    ) -> datetime.datetime:
         start_value = info.data.get("start")
         if start_value and end_value <= start_value:
             raise ValueError("End date must be after start date.")
