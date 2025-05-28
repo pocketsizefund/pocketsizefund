@@ -69,6 +69,7 @@ output = ".python_coverage.xml"
 [tool.ruff]
 select = [
   "ANN"
+  "ERA"
 ]
 
 [tool.ty.rules]
@@ -76,6 +77,3 @@ unresolved-import = "ignore"
 invalid-return-type = "error"
 invalid-argument-type = "error"
 unresolved-reference = "error"
-
-[tool.pyright]
-reportMissingImports = "none"
