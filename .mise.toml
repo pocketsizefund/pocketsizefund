@@ -3,7 +3,7 @@ COMPOSE_BAKE=true
 
 [tasks."python:install"]
 description = "Install Python dependencies"
-run = "uv sync --all-packages"
+run = "uv sync --all-groups"
 
 [tasks."python:format"]
 description = "Format Python code"
@@ -30,46 +30,30 @@ ruff check \
 
 [tasks."python:test"]
 description = "Run Python tests"
-run = """
-docker compose build tests
-docker compose run -T tests
-"""
+run = "docker compose run tests"
 
-[tasks."application:service:run:production"]
+
+[tasks."application:service:run"]
 description = "Run the application service"
 run = """
 docker run \
 --env-file .env \
 --publish 8080:8080 \
-pocketsizefund/{{arg(name="application_name")}}:latest \
+pocketsizefund/{{arg(name="service_name")}}:latest \
 """
 
-[tasks."application:service:run:development"]
+[tasks."application:service:development"]
 description = "Run the application service locally with hot reloading"
 run = """
 cd application/{{arg(name="service_name")}}
 uv run uvicorn src.{{arg(name="service_name")}}.main:application --reload
 """
 
-[tasks."application:service:test:integration"]
+[tasks."application:service:test"]
 description = "Run integration tests"
 run = """
 cd application/{{arg(name="service_name")}}
 docker-compose up --build --abort-on-container-exit --remove-orphans
-"""
-
-[tasks."application:service:test:behavioral"]
-description = "Run behavioral tests"
-run = """
-cd application/{{arg(name="service_name")}}
-docker-compose up --build --abort-on-container-exit
-"""
-
-[tasks."application:service:cleanup:behavioral"]
-description = "Clean up behavioral tests"
-run = """
-cd application/{{arg(name="service_name")}}
-docker-compose down -v
 """
 
 [tasks."lint"]
@@ -85,3 +69,4 @@ run = """
 cd infrastructure
 uv run pulumi up --yes
 """
+
