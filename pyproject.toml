@@ -6,8 +6,8 @@ requires-python = ">=3.12"
 dependencies = [
     "flytekit>=1.15.4",
     "httpx>=0.28.1",
-    "pulumi-docker-build>=0.0.6",
-    "pulumi-gcp>=8.16.0",
+    "pulumi-docker-build>=0.0.12",
+    "pulumi-gcp>=8.32.0",
     "requests>=2.32.3",
 ]
 
@@ -139,8 +139,16 @@ ignore = [
 "**/tests/**/*.py" = ["S101"]
 "**/features/steps/**/*.py" = ["S101"]
 
+[tool.ruff]
+select = [
+  "ANN"
+]
+
 [tool.ty.rules]
 unresolved-import = "ignore"
 invalid-return-type = "error"
 invalid-argument-type = "error"
 unresolved-reference = "error"
+
+[tool.pyright]
+reportMissingImports = "none"
