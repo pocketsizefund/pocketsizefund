@@ -1,7 +1,6 @@
+import project
 from pulumi import Config
 from pulumi_gcp import storage
-import project
-
 
 config = Config()
 

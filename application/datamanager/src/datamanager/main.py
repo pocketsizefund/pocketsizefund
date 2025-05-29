@@ -9,9 +9,8 @@ import httpx
 import polars as pl
 import pyarrow as pa
 import pyarrow.lib
-from duckdb import IOException
 import requests
-
+from duckdb import IOException
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from google.api_core import exceptions
 from google.api_core.exceptions import GoogleAPIError
@@ -51,8 +50,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.settings.gcp.bucket.name,
     )
 
-    DUCKDB_ACCESS_KEY = os.getenv("DUCKDB_ACCESS_KEY")
-    DUCKDB_SECRET = os.getenv("DUCKDB_SECRET")
+    DUCKDB_ACCESS_KEY = os.getenv("DUCKDB_ACCESS_KEY")  # noqa: N806
+    DUCKDB_SECRET = os.getenv("DUCKDB_SECRET")  # noqa: N806
 
     app.state.connection = duckdb.connect()
     app.state.connection.execute(f"""

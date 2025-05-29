@@ -1,4 +1,5 @@
 import datetime
+
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import core_schema
 
@@ -9,7 +10,7 @@ class SummaryDate(BaseModel):
     )
 
     @field_validator("date", mode="before")
-    def parse_date(cls, value: datetime.date | str) -> datetime.date:
+    def parse_date(cls, value: datetime.date | str) -> datetime.date:  # noqa: N805
         if isinstance(value, datetime.date):
             return value
         for fmt in ("%Y-%m-%d", "%Y/%m/%d"):

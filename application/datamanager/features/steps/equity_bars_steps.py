@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import requests
-from behave import given, when, then
+from behave import given, then, when
 from behave.runner import Context
 
 
