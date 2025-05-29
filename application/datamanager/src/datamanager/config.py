@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import json
 from functools import cached_property
 from pydantic import BaseModel, Field, computed_field
@@ -27,9 +28,8 @@ class GCP(BaseModel):
 
     @cached_property
     def _creds(self) -> dict:
-        with open(self.credentials_path) as f:
-            creds = json.load(f)
-        return creds
+        with Path(self.credentials_path).open("r") as f:
+            return json.load(f)
 
     @computed_field
     def key_id(self) -> str | None:

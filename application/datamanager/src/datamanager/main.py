@@ -7,8 +7,8 @@ from typing import AsyncGenerator
 import duckdb
 import httpx
 import polars as pl
-import pyarrow
-import pyarrow.lib  # for ArrowIOError if using Arrow internally
+import pyarrow as pa
+import pyarrow.lib
 from duckdb import IOException
 import requests
 
@@ -100,8 +100,8 @@ async def get_equity_bars(
             return Response(status_code=status.HTTP_404_NOT_FOUND)
 
         logger.info(f"Query returned {data.num_rows} rows")
-        sink = pyarrow.BufferOutputStream()
-        with pyarrow.ipc.RecordBatchStreamWriter(sink, data.schema) as writer:
+        sink = pa.BufferOutputStream()
+        with pa.ipc.RecordBatchStreamWriter(sink, data.schema) as writer:
             writer.write_table(data)
 
         return Response(

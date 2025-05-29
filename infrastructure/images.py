@@ -1,16 +1,20 @@
 import os
+from pathlib import Path
 from datetime import datetime, timezone
 from glob import glob
 import pulumi
 import pulumi_docker_build as docker_build
 from pulumi import Config
+from loguru import logger
 
 config = Config()
 dockerhub_username = config.require_secret("dockerhub_username")
 dockerhub_password = config.require_secret("dockerhub_password")
 
-dockerfile_paths = glob(os.path.join("..", "application", "*", "Dockerfile"))
-dockerfile_paths = [os.path.relpath(dockerfile) for dockerfile in dockerfile_paths]
+application_path = Path("../application/").resolve()
+dockerfile_paths = [
+    app.relative_to(application_path) for app in application_path.glob("*/Dockerfile")
+]
 
 tags = [
     "latest",
@@ -19,9 +23,9 @@ tags = [
 
 images = {}
 for dockerfile in dockerfile_paths:
-    service_dir = os.path.dirname(dockerfile)
-    service_name = os.path.basename(service_dir)
-    print(f"Creating image for service: {service_name}")
+    service_dir = dockerfile.parent
+    service_name = dockerfile.name
+    logger.info(f"Creating image for service: {service_name}")
 
     images[service_name] = docker_build.Image(
         f"{service_name}-image",
@@ -45,8 +49,4 @@ for dockerfile in dockerfile_paths:
 
     pulumi.export(f"{service_name}-ref", images[service_name].ref)
 
-datamanager_image = images.get("datamanager")
-positionmanager_image = images.get("positionmanager")
-predictionengine_image = images.get("predictionengine")
-
-print(f"Available image services: {list(images.keys())}")
+logger.info(f"Available image services: {list(images.keys())}")
