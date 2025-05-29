@@ -1,6 +1,3 @@
-from fastapi.testclient import TestClient
-from fastapi import HTTPException
-
 import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
