@@ -6,6 +6,7 @@ import pulumi_docker_build as docker_build
 from loguru import logger
 from pulumi import Config
 from loguru import logger
+from pulumi import Config
 
 config = Config()
 dockerhub_username = config.require_secret("dockerhub_username")

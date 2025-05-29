@@ -9,7 +9,6 @@ import httpx
 import polars as pl
 import pyarrow as pa
 import pyarrow.lib
-from duckdb import IOException
 import requests
 from duckdb import IOException
 from fastapi import FastAPI, HTTPException, Request, Response, status

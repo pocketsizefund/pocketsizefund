@@ -1,8 +1,6 @@
-from fastapi import FastAPI, HTTPException
-import requests
 import os
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict
 
 import polars as pl
 import requests

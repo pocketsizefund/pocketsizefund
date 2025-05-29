@@ -1,3 +1,4 @@
+import requests
 from behave import when
 from behave.runner import Context
 
