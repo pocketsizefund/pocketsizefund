@@ -6,7 +6,7 @@ from pydantic_core import core_schema
 
 class SummaryDate(BaseModel):
     date: datetime.date = Field(
-        default_factory=lambda: datetime.datetime.now(tz=datetime.timezone.utc).date(),
+        default_factory=lambda: datetime.datetime.now(tz=datetime.UTC).date(),
     )
 
     @field_validator("date", mode="before")
@@ -17,7 +17,7 @@ class SummaryDate(BaseModel):
             try:
                 return (
                     datetime.datetime.strptime(value, fmt)
-                    .replace(tzinfo=datetime.timezone.utc)
+                    .replace(tzinfo=datetime.UTC)
                     .date()
                 )
             except ValueError:

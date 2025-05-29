@@ -1,5 +1,3 @@
-from typing import Dict
-
 import pandas as pd
 import polars as pl
 from pypfopt import EfficientFrontier, expected_returns, risk_models
@@ -21,9 +19,9 @@ class PortfolioOptimizer:
         self,
         data: pl.DataFrame,
         portfolio_value: Money,
-        predictions: Dict[str, float],
+        predictions: dict[str, float],
         prediction_weight: float = 0.3,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         converted_data = data.to_pandas()
 
         if "date" in converted_data.columns:
