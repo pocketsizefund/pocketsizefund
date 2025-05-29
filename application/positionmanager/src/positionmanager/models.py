@@ -49,7 +49,8 @@ class DateRange(BaseModel):
     ) -> datetime:
         start_value = info.data.get("start")
         if start_value and end_value <= start_value:
-            raise ValueError("End date must be after start date.")
+            msg = "End date must be after start date."
+            raise ValueError(msg)
 
         return end_value
 

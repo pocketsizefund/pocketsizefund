@@ -7,4 +7,5 @@ dependencies = [
     "pulumi-gcp>=8.30.1",
     "pulumi-docker>=3.0.0",
     "pulumi-docker-build>=0.0.12",
+    "loguru>=0.7.3",
 ]

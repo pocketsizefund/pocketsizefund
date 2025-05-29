@@ -18,7 +18,8 @@ class AlpacaClient:
         paper: bool = True,
     ) -> None:
         if not api_key or not api_secret:
-            raise ValueError("Alpaca API key and secret are required")
+            msg = "Alpaca API key and secret are required"
+            raise ValueError(msg)
 
         self.trading_client = TradingClient(api_key, api_secret, paper=paper)
 
@@ -63,19 +64,22 @@ class DataClient:
         date_range: DateRange,
     ) -> pl.DataFrame:
         if not self.datamanager_base_url:
-            raise ValueError("Data manager URL is not configured")
+            msg = "Data manager URL is not configured"
+            raise ValueError(msg)
 
         endpoint = f"{self.datamanager_base_url}/equity-bars"
 
         try:
             response = requests.post(endpoint, json=date_range.to_payload(), timeout=10)
         except requests.RequestException as err:
-            raise RuntimeError(f"Data manager service call error: {err}") from err
+            msg = f"Data manager service call error: {err}"
+            raise RuntimeError(msg) from err
 
         if response.status_code != 200:
-            raise Exception(
+            msg = (
                 f"Data service error: {response.text}, status code: {response.status_code}",
             )
+            raise Exception(msg)
 
         response_data = response.json()
 
@@ -88,10 +92,8 @@ class DataClient:
             .alias("date"),
         )
 
-        data = (
+        return (
             data.sort("date")
             .pivot(index="date", columns="ticker", values="close_price")
             .with_columns(pl.all().exclude("date").cast(pl.Float64))
         )
-
-        return data
