@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import core_schema
@@ -32,7 +32,7 @@ class Money(BaseModel):
     def from_float(cls, value: float) -> "Money":
         return cls(amount=Decimal(str(value)))
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         return {"amount": float(self.amount)}
 
 
@@ -54,7 +54,7 @@ class DateRange(BaseModel):
 
         return end_value
 
-    def to_payload(self) -> Dict[str, str]:
+    def to_payload(self) -> dict[str, str]:
         return {
             "start_date": self.start.isoformat(),
             "end_date": self.end.isoformat(),
@@ -62,4 +62,4 @@ class DateRange(BaseModel):
 
 
 class PredictionPayload(BaseModel):
-    predictions: Dict[str, Any]
+    predictions: dict[str, Any]

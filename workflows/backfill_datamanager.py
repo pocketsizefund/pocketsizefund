@@ -1,5 +1,4 @@
 from datetime import date, timedelta
-from typing import List
 
 import httpx
 from flytekit import task, workflow
@@ -13,8 +12,8 @@ def backfill_single_date(base_url: str, day: date) -> int:
 
 
 @workflow
-def backfill_equity_bars(base_url: str, start_date: date, end_date: date) -> List[int]:
-    results: List[int] = []
+def backfill_equity_bars(base_url: str, start_date: date, end_date: date) -> list[int]:
+    results: list[int] = []
     current = start_date
     while current <= end_date:
         results.append(backfill_single_date(base_url=base_url, day=current))

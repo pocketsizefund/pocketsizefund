@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 import polars as pl
 import requests
@@ -31,7 +31,7 @@ class AlpacaClient:
         self,
         ticker: str,
         notional_amount: Money,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         market_order_request = MarketOrderRequest(
             symbol=ticker,
             notional=float(notional_amount),
@@ -43,10 +43,10 @@ class AlpacaClient:
 
         return {
             "status": "success",
-            "message": f"Order placed for {ticker} with notional amount {notional_amount}",
+            "message": f"Order placed [{ticker=}, {notional_amount}]",
         }
 
-    def clear_positions(self) -> Dict[str, Any]:
+    def clear_positions(self) -> dict[str, Any]:
         self.trading_client.close_all_positions(cancel_orders=True)
 
         return {
@@ -75,11 +75,7 @@ class DataClient:
             msg = f"Data manager service call error: {err}"
             raise RuntimeError(msg) from err
 
-        if response.status_code != 200:
-            msg = (
-                f"Data service error: {response.text}, status code: {response.status_code}",
-            )
-            raise Exception(msg)
+        response.raise_for_status()
 
         response_data = response.json()
 
