@@ -13,7 +13,7 @@ class Money(BaseModel):
     )
 
     @field_validator("amount", check_fields=True)
-    def validate_amount(cls, v: str | Decimal) -> Decimal:
+    def validate_amount(cls, v: str | Decimal) -> Decimal:  # noqa: N805
         if not isinstance(v, Decimal):
             v = Decimal(str(v))
 

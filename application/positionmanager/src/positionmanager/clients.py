@@ -1,12 +1,12 @@
-import requests
+from typing import Any, Dict
+
 import polars as pl
-from typing import Dict, Any
-
+import requests
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import MarketOrderRequest
 
-from .models import Money, DateRange
+from .models import DateRange, Money
 
 
 class AlpacaClient:

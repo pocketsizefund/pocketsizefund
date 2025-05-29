@@ -1,19 +1,17 @@
-from fastapi import FastAPI, HTTPException
-import requests
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict
+
 import polars as pl
-from typing import Dict, Any
-
-from .models import Money, DateRange, PredictionPayload
-from .clients import AlpacaClient, DataClient
-from .portfolio import PortfolioOptimizer
-
-from prometheus_fastapi_instrumentator import Instrumentator
-
+import requests
 from alpaca.common.rest import APIError
+from fastapi import FastAPI, HTTPException
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import ValidationError
 
+from .clients import AlpacaClient, DataClient
+from .models import DateRange, Money, PredictionPayload
+from .portfolio import PortfolioOptimizer
 
 trading_days_per_year = 252
 

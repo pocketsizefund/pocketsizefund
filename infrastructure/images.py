@@ -1,11 +1,12 @@
 import os
-from pathlib import Path
 from datetime import datetime, timezone
 from glob import glob
+from pathlib import Path
+
 import pulumi
 import pulumi_docker_build as docker_build
-from pulumi import Config
 from loguru import logger
+from pulumi import Config
 
 config = Config()
 dockerhub_username = config.require_secret("dockerhub_username")

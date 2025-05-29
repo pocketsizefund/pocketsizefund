@@ -75,6 +75,7 @@ select = [
   "B",     # bugbear
   "COM",   # commas
   "C4",    # comprehensions
+  "C90",   # complexity
   "BLE",   # no blind exceptions
   "DTZ",   # datetimes
   "EM",    # error messages
@@ -83,16 +84,21 @@ select = [
   "FA",    # future annotations
   "FAST",  # fastapi
   "FIX",   # no fixme/todo comments
+  "FLY",   # f strings
   "FBT",   # boolean traps
   "G",     # logging format
   "ICN",   # import conventions
   "ISC",   # implicit string concatenation
+   "I",    # isort
   "LOG",   # logging
-  "Q",     # quotes
+  "N",     # naming
+  "NPY",   # numpy
+  "PD",    # pandas
   "PIE",   # misc lints
   "PT",    # pytest style
   "PTH",   # use pathlib
   "PYI",   # type hints
+  "Q",     # quotes
   "RSE",   # raises
   "RET",   # returns
   "S",     # bandit (security)
