@@ -40,7 +40,9 @@ class PortfolioOptimizer:
 
         long_only_weight_bounds = (0, 0.2)  # 20% max weight per asset
         efficient_frontier = EfficientFrontier(
-            mu, S, weight_bounds=long_only_weight_bounds
+            mu,
+            S,
+            weight_bounds=long_only_weight_bounds,
         )
 
         efficient_frontier.max_sharpe(risk_free_rate=0.02)  # 2% risk-free rate

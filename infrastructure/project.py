@@ -55,6 +55,6 @@ IAMMember(
     project=PROJECT,
     role="roles/pubsub.subscriber",
     member=platform_service_account.email.apply(
-        lambda e: f"serviceAccount:{e}"
+        lambda e: f"serviceAccount:{e}",
     ),  # ty: ignore[missing-argument]
 )

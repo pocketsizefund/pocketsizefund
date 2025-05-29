@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from glob import glob
 import pulumi
 import pulumi_docker_build as docker_build
@@ -12,7 +12,10 @@ dockerhub_password = config.require_secret("dockerhub_password")
 dockerfile_paths = glob(os.path.join("..", "application", "*", "Dockerfile"))
 dockerfile_paths = [os.path.relpath(dockerfile) for dockerfile in dockerfile_paths]
 
-tags = ["latest", datetime.utcnow().strftime("%Y%m%d")]
+tags = [
+    "latest",
+    datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
+]
 
 images = {}
 for dockerfile in dockerfile_paths:
@@ -36,7 +39,7 @@ for dockerfile in dockerfile_paths:
                 address="docker.io",
                 username=dockerhub_username,
                 password=dockerhub_password,
-            )
+            ),
         ],
     )
 
