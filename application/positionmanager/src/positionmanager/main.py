@@ -1,6 +1,6 @@
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import polars as pl
 from typing import Dict, Any
@@ -54,8 +54,8 @@ def create_position(payload: PredictionPayload) -> dict[str, Any]:
         ) from e
 
     date_range = DateRange(
-        start=datetime.now(tz=timezone.utc) - timedelta(days=trading_days_per_year),
-        end=datetime.now(tz=timezone.utc),
+        start=datetime.now(tz=UTC) - timedelta(days=trading_days_per_year),
+        end=datetime.now(tz=UTC),
     )
 
     try:

@@ -1,6 +1,4 @@
-import os
-from datetime import datetime, timezone
-from glob import glob
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pulumi
@@ -21,7 +19,7 @@ dockerfile_paths = [
 
 tags = [
     "latest",
-    datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
+    datetime.now(tz=UTC).strftime("%Y%m%d"),
 ]
 
 images = {}
