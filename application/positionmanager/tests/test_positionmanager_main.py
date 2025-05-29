@@ -1,16 +1,17 @@
-from fastapi.testclient import TestClient
-from fastapi import HTTPException
-
 import unittest
-from unittest.mock import patch, MagicMock
-import polars as pl
 from decimal import Decimal
-from application.positionmanager.src.positionmanager.main import application
-from application.positionmanager.src.positionmanager.models import Money
+from unittest.mock import MagicMock, patch
+
+import polars as pl
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+
 from application.positionmanager.src.positionmanager.clients import (
     AlpacaClient,
     DataClient,
 )
+from application.positionmanager.src.positionmanager.main import application
+from application.positionmanager.src.positionmanager.models import Money
 from application.positionmanager.src.positionmanager.portfolio import PortfolioOptimizer
 
 client = TestClient(application)
@@ -28,9 +29,9 @@ class TestPositionsEndpoint(unittest.TestCase):
     @patch("application.positionmanager.src.positionmanager.main.PortfolioOptimizer")
     def test_create_position_success(
         self,
-        MockPortfolioOptimizer: MagicMock,
-        MockDataClient: MagicMock,
-        MockAlpacaClient: MagicMock,
+        MockPortfolioOptimizer: MagicMock,  # noqa: N803
+        MockDataClient: MagicMock,  # noqa: N803
+        MockAlpacaClient: MagicMock,  # noqa: N803
     ) -> None:
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_cash_balance = Money(amount=Decimal("100000.00"))
@@ -81,7 +82,7 @@ class TestPositionsEndpoint(unittest.TestCase):
         assert mock_alpaca_instance.place_notional_order.call_count == 2
 
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
-    def test_create_position_alpaca_error(self, MockAlpacaClient: MagicMock) -> None:
+    def test_create_position_alpaca_error(self, MockAlpacaClient: MagicMock) -> None:  # noqa: N803
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.get_cash_balance.side_effect = HTTPException(
             status_code=500,
@@ -99,7 +100,7 @@ class TestPositionsEndpoint(unittest.TestCase):
         mock_alpaca_instance.get_cash_balance.assert_called_once()
 
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
-    def test_delete_positions_success(self, MockAlpacaClient: MagicMock) -> None:
+    def test_delete_positions_success(self, MockAlpacaClient: MagicMock) -> None:  # noqa: N803
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.clear_positions.return_value = {
             "status": "success",
@@ -123,7 +124,7 @@ class TestPositionsEndpoint(unittest.TestCase):
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
     def test_delete_positions_error(
         self,
-        MockAlpacaClient: MagicMock,
+        MockAlpacaClient: MagicMock,  # noqa: N803
     ) -> None:
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.clear_positions.side_effect = HTTPException(

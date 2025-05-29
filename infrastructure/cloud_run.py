@@ -1,9 +1,10 @@
-from pulumi_gcp import cloudrun, pubsub, cloudscheduler
 import base64
-from pulumi import Config
+
+import buckets
 import project
 import topics
-import buckets
+from pulumi import Config
+from pulumi_gcp import cloudrun, cloudscheduler, pubsub
 
 config = Config()
 

@@ -7,11 +7,10 @@ from typing import AsyncGenerator
 import duckdb
 import httpx
 import polars as pl
-import pyarrow
-import pyarrow.lib  # for ArrowIOError if using Arrow internally
-from duckdb import IOException
+import pyarrow as pa
+import pyarrow.lib
 import requests
-
+from duckdb import IOException
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from google.api_core import exceptions
 from google.api_core.exceptions import GoogleAPIError
@@ -51,8 +50,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         app.state.settings.gcp.bucket.name,
     )
 
-    DUCKDB_ACCESS_KEY = os.getenv("DUCKDB_ACCESS_KEY")
-    DUCKDB_SECRET = os.getenv("DUCKDB_SECRET")
+    DUCKDB_ACCESS_KEY = os.getenv("DUCKDB_ACCESS_KEY")  # noqa: N806
+    DUCKDB_SECRET = os.getenv("DUCKDB_SECRET")  # noqa: N806
 
     app.state.connection = duckdb.connect()
     app.state.connection.execute(f"""
@@ -100,8 +99,8 @@ async def get_equity_bars(
             return Response(status_code=status.HTTP_404_NOT_FOUND)
 
         logger.info(f"Query returned {data.num_rows} rows")
-        sink = pyarrow.BufferOutputStream()
-        with pyarrow.ipc.RecordBatchStreamWriter(sink, data.schema) as writer:
+        sink = pa.BufferOutputStream()
+        with pa.ipc.RecordBatchStreamWriter(sink, data.schema) as writer:
             writer.write_table(data)
 
         return Response(

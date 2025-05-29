@@ -1,6 +1,6 @@
-from pulumi_gcp import cloudrun, secretmanager
-from pulumi import FileAsset
 import project
+from pulumi import FileAsset
+from pulumi_gcp import cloudrun, secretmanager
 
 prometheus_config_secret = secretmanager.Secret("prometheus-config")
 prometheus_config_version = secretmanager.SecretVersion(
