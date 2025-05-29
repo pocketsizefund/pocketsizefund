@@ -202,19 +202,42 @@ ignore = [
 
 [tool.ruff.lint]
 select = [
-  "A", # flake8 builtins
-  "ANN", # type annotations
+  "A",     # flake8 builtins
+  "ANN",   # type annotations
+  "ARG",   # unused args
   "ASYNC",
-  "B", # bugbear
-  "COM", # commas
-  "C4", # comprehensions
-  "BLE", # no blind exceptions
-  "DTZ", # datetimes
-  "ERA", # dead code
-  "FAST", # fastapi
-  "FBT", # boolean traps
-  "S", # bandit (security)
-  "YTT" # flake8
+  "B",     # bugbear
+  "COM",   # commas
+  "C4",    # comprehensions
+  "BLE",   # no blind exceptions
+  "DTZ",   # datetimes
+  "EM",    # error messages
+  "ERA",   # dead code
+  "EXE",   # executables
+  "FA",    # future annotations
+  "FAST",  # fastapi
+  "FIX",   # no fixme/todo comments
+  "FBT",   # boolean traps
+  "G",     # logging format
+  "ICN",   # import conventions
+  "ISC",   # implicit string concatenation
+  "LOG",   # logging
+  "Q",     # quotes
+  "PIE",   # misc lints
+  "PT",    # pytest style
+  "PTH",   # use pathlib
+  "PYI",   # type hints
+  "RSE",   # raises
+  "RET",   # returns
+  "S",     # bandit (security)
+  "SIM",   # simplicity
+  "SLF",   # self
+  "SLOT",  # slots
+  "TC",    # type checking
+  "TID",   # tidy imports
+  "T10",   # debugger
+  "T20",   # printing
+  "YTT"    # flake8
 ]
 ignore = [
     "COM812",

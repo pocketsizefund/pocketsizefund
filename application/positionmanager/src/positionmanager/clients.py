@@ -83,7 +83,11 @@ class DataClient:
             msg = f"Data manager service call error: {err}"
             raise RuntimeError(msg) from err
 
-        response.raise_for_status()
+        if response.status_code != 200:
+            msg = (
+                f"Data service error: {response.text}, status code: {response.status_code}",
+            )
+            raise Exception(msg)
 
         response_data = response.json()
 
