@@ -1,6 +1,6 @@
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import polars as pl
 from typing import Dict, Any
@@ -30,7 +30,7 @@ def get_health() -> dict[str, str]:
 
 
 @application.post("/positions")
-def create_position(payload: PredictionPayload) -> Dict[str, Any]:
+def create_position(payload: PredictionPayload) -> dict[str, Any]:
     alpaca_client = AlpacaClient(
         api_key=os.getenv("ALPACA_API_KEY", ""),
         api_secret=os.getenv("ALPACA_API_SECRET", ""),
@@ -50,12 +50,12 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
     except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error getting cash balance: {str(e)}",
+            detail=f"Error getting cash balance: {e!r}",
         ) from e
 
     date_range = DateRange(
-        start=datetime.now(tz=timezone.utc) - timedelta(days=trading_days_per_year),
-        end=datetime.now(tz=timezone.utc),
+        start=datetime.now(tz=UTC) - timedelta(days=trading_days_per_year),
+        end=datetime.now(tz=UTC),
     )
 
     try:
@@ -64,7 +64,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
     except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error getting historical data: {str(e)}",
+            detail=f"Error getting historical data: {e!r}",
         ) from e
 
     try:
@@ -77,7 +77,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
     except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error optimizing portfolio: {str(e)}",
+            detail=f"Error optimizing portfolio: {e!r}",
         ) from e
 
     executed_trades = []
@@ -139,7 +139,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
 
 
 @application.delete("/positions")
-def delete_positions() -> Dict[str, Any]:
+def delete_positions() -> dict[str, Any]:
     alpaca_client = AlpacaClient(
         api_key=os.getenv("ALPACA_API_KEY", ""),
         api_secret=os.getenv("ALPACA_API_SECRET", ""),

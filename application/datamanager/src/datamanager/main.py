@@ -1,8 +1,8 @@
 import os
 import traceback
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import date
-from typing import AsyncGenerator
 
 import duckdb
 import httpx
@@ -35,11 +35,14 @@ def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
         WHERE 
             (year > {start_date.year} OR 
              (year = {start_date.year} AND month > {start_date.month}) OR 
-             (year = {start_date.year} AND month = {start_date.month} AND day >= {start_date.day}))
+             (year = {start_date.year} AND month = {start_date.month}
+               AND day >= {start_date.day}))
             AND
             (year < {end_date.year} OR 
              (year = {end_date.year} AND month < {end_date.month}) OR 
-             (year = {end_date.year} AND month = {end_date.month} AND day <= {end_date.day}))
+             (year = {end_date.year}
+               AND month = {end_date.month}
+               AND day <= {end_date.day}))
     """  # noqa: S608
 
 
@@ -103,11 +106,14 @@ async def get_equity_bars(
         with pa.ipc.RecordBatchStreamWriter(sink, data.schema) as writer:
             writer.write_table(data)
 
+            filename = f"equity_bars_{start_date}_{end_date}.arrow"
+            content_disposition = f"attachment; {filename=}"
+
         return Response(
             content=sink.getvalue().to_pybytes(),
             media_type="application/vnd.apache.arrow.file",
             headers={
-                "Content-Disposition": f"attachment; filename=equity_bars_{start_date}_{end_date}.arrow",
+                "Content-Disposition": content_disposition,
                 "X-Row-Count": str(data.num_rows),
                 "X-Start-Date": str(start_date),
                 "X-End-Date": str(end_date),
@@ -131,7 +137,8 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
     polygon = request.app.state.settings.polygon
     bucket = request.app.state.settings.gcp.bucket
 
-    url = f"{polygon.base_url}{polygon.daily_bars}{summary_date.date.strftime('%Y-%m-%d')}"
+    summary_date: str = summary_date.date.strftime("%Y-%m-%d")
+    url = f"{polygon.base_url}{polygon.daily_bars}{summary_date}"
     logger.info(f"polygon_api_endpoint={url}")
 
     params = {"adjusted": "true", "apiKey": polygon.api_key}
@@ -171,7 +178,7 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to write data",
             ) from e
-    return BarsSummary(date=summary_date.date.strftime("%Y-%m-%d"), count=count)
+    return BarsSummary(date=summary_date, count=count)
 
 
 @application.delete("/equity-bars")
