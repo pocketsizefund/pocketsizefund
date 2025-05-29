@@ -151,37 +151,45 @@ select = [
   "C90",   # complexity
   "BLE",   # no blind exceptions
   "DTZ",   # datetimes
+  "E",     # whitespace
   "EM",    # error messages
   "ERA",   # dead code
   "EXE",   # executables
+  "F",     # pyflakes
   "FA",    # future annotations
   "FAST",  # fastapi
   "FIX",   # no fixme/todo comments
   "FLY",   # f strings
   "FBT",   # boolean traps
+  "FURB",  # refurb
   "G",     # logging format
   "ICN",   # import conventions
   "ISC",   # implicit string concatenation
-   "I",    # isort
+  "I",    # isort
   "LOG",   # logging
   "N",     # naming
   "NPY",   # numpy
   "PD",    # pandas
+  "PERF",  # performance
   "PIE",   # misc lints
+  "PL",    # pylint
   "PT",    # pytest style
   "PTH",   # use pathlib
   "PYI",   # type hints
   "Q",     # quotes
   "RSE",   # raises
   "RET",   # returns
+  "RUF",   # ruff
   "S",     # bandit (security)
   "SIM",   # simplicity
   "SLF",   # self
   "SLOT",  # slots
   "TC",    # type checking
   "TID",   # tidy imports
+  "TRY",   # trys
   "T10",   # debugger
   "T20",   # printing
+  "UP",    # pyupgrade
   "YTT"    # flake8
 ]
 ignore = [
