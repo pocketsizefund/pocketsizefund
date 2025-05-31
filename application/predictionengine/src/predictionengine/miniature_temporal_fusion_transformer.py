@@ -79,7 +79,11 @@ class MiniatureTemporalFusionTransformer:
     ) -> Tuple[Tensor, Tensor, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         ticker_embeddings = self.ticker_embedding.forward(tickers)
 
-        lstm_input = features.cat(ticker_embeddings, dim=-1)
+        # get ticker embeddings and expand to (batch_size, seq_len, embedding_dim)
+        ticker_embeddings = self.ticker_embedding.forward(tickers)  # (batch_size, embedding_dim)
+        ticker_embeddings = ticker_embeddings.unsqueeze(1).expand(-1, features.size(1), -1)
+        # concatenate along the feature dimension
+        lstm_input = torch.cat([features, ticker_embeddings], dim=-1)
 
         lstm_output, _ = self.lstm_encoder.forward(lstm_input)
 
