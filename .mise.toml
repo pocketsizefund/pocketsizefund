@@ -80,6 +80,7 @@ docker compose down -v
 depends = ["python:lint"]
 description = "Run code quality checks"
 run = """
+nu linter.nu
 yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" . 
 """
 
