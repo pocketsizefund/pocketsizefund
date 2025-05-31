@@ -36,10 +36,11 @@ class PostProcessor:
         rescaled_predictions = np.empty_like(predictions)
 
         for i, ticker in enumerate(decoded_tickers):
+            if ticker not in self.means_by_ticker or ticker not in self.standard_deviations_by_ticker:
+                raise ValueError(f"Statistics not found for ticker: {ticker}")
             mean = self.means_by_ticker[ticker].numpy()
             standard_deviation = self.standard_deviations_by_ticker[ticker].numpy()
             rescaled_predictions[i, :] = predictions[i, :] * standard_deviation + mean
-
         percentile_25 = np.percentile(rescaled_predictions, 25, axis=-1)
         percentile_50 = np.percentile(rescaled_predictions, 50, axis=-1)
         percentile_75 = np.percentile(rescaled_predictions, 75, axis=-1)
