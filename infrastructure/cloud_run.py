@@ -56,7 +56,7 @@ service = cloudrun.Service(
                         cloudrun.ServiceTemplateSpecContainerEnvArgs(
                             name="DUCKDB_SECRET",
                             value=duckdb_secret,
-                            ),
+                        ),
                     ],
                 )
             ],
