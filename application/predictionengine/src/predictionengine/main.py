@@ -71,8 +71,8 @@ def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTrans
         ticker_count=len(data["ticker"].unique()),
         embedding_size=32,
         attention_head_count=4,
-        means_by_ticker=preprocessors["means_by_ticker"][0],
-        standard_deviations_by_ticker=preprocessors["standard_deviations_by_ticker"][0],
+        means_by_ticker=preprocessors["means_by_ticker"],
+        standard_deviations_by_ticker=preprocessors["standard_deviations_by_ticker"],
         ticker_encoder=preprocessors["ticker_encoder"],
         dropout_rate=0.0,
     )
