@@ -7,7 +7,7 @@ from application.predictionengine.src.predictionengine.post_processor import (
 )
 
 
-def test_post_processor_initialization():
+def test_post_processor_initialization() -> None:
     ticker_encoder = OrdinalEncoder(cols=["ticker"])
     means_by_ticker = {"AAPL": Tensor([150.0])}
     standard_deviations_by_ticker = {"AAPL": Tensor([5.0])}
@@ -23,7 +23,7 @@ def test_post_processor_initialization():
     assert post_processor.ticker_encoder == ticker_encoder
 
 
-def test_post_processor_predictions():
+def test_post_processor_predictions() -> None:
     tickers = ["AAPL", "GOOGL"]
 
     ticker_encoder = OrdinalEncoder(cols=["ticker"])
@@ -74,7 +74,7 @@ def test_post_processor_predictions():
     assert np.all(percentile_50 <= percentile_75)
 
 
-def test_post_processor_single_ticker():
+def test_post_processor_single_ticker() -> None:
     ticker_encoder = OrdinalEncoder(cols=["ticker"])
     ticker_encoder.fit(pl.DataFrame({"ticker": ["AAPL"]}).to_pandas())
 

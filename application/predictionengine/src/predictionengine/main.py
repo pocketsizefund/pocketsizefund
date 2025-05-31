@@ -1,5 +1,6 @@
 import os
 import traceback
+from typing import AsyncGenerator
 from datetime import date, datetime, timedelta
 from contextlib import asynccontextmanager
 import requests
@@ -13,7 +14,7 @@ from .models import PredictionResponse
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     datamanager_base_url = os.getenv("DATAMANAGER_BASE_URL", "")
     app.state.datamanager_base_url = datamanager_base_url
 
@@ -26,7 +27,7 @@ Instrumentator().instrument(application).expose(application)
 
 
 @application.get("/health")
-async def health_check():
+async def health_check() -> Response:
     return Response(status_code=status.HTTP_200_OK)
 
 
@@ -154,4 +155,6 @@ async def create_predictions(
     except Exception as e:
         logger.error(f"Error creating predictions: {e}")
         logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {str(e)}"
+        ) from e

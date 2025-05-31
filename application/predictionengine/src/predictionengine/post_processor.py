@@ -36,7 +36,10 @@ class PostProcessor:
         rescaled_predictions = np.empty_like(predictions)
 
         for i, ticker in enumerate(decoded_tickers):
-            if ticker not in self.means_by_ticker or ticker not in self.standard_deviations_by_ticker:
+            if (
+                ticker not in self.means_by_ticker
+                or ticker not in self.standard_deviations_by_ticker
+            ):
                 raise ValueError(f"Statistics not found for ticker: {ticker}")
             mean = self.means_by_ticker[ticker].numpy()
             standard_deviation = self.standard_deviations_by_ticker[ticker].numpy()

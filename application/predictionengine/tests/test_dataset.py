@@ -3,7 +3,7 @@ import pytest
 from application.predictionengine.src.predictionengine.dataset import DataSet
 
 
-def test_dataset_initialization():
+def test_dataset_initialization() -> None:
     dataset = DataSet(
         batch_size=2,
         sequence_length=3,
@@ -16,7 +16,7 @@ def test_dataset_initialization():
     assert len(dataset) == 2
 
 
-def test_dataset_load_data():
+def test_dataset_load_data() -> None:
     data = pl.DataFrame(
         {
             "timestamp": [
@@ -51,7 +51,7 @@ def test_dataset_load_data():
     assert "ticker_encoder" in dataset.preprocessors
 
 
-def test_dataset_get_preprocessors():
+def test_dataset_get_preprocessors() -> None:
     data = pl.DataFrame(
         {
             "timestamp": ["2023-01-01", "2023-01-02"],
@@ -80,7 +80,7 @@ def test_dataset_get_preprocessors():
     assert "indices" in preprocessors
 
 
-def test_dataset_batches():
+def test_dataset_batches() -> None:
     data = pl.DataFrame(
         {
             "timestamp": ["2023-01-01", "2023-01-02", "2023-01-03"],
@@ -112,7 +112,7 @@ def test_dataset_batches():
     assert batch_count > 0
 
 
-def test_dataset_preprocessors_validation():
+def test_dataset_preprocessors_validation() -> None:
     dataset = DataSet(
         batch_size=1,
         sequence_length=2,

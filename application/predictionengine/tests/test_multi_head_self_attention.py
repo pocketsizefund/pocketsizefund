@@ -5,14 +5,14 @@ from application.predictionengine.src.predictionengine.multi_head_self_attention
 )
 
 
-def test_multi_head_attention_initialization():
+def test_multi_head_attention_initialization() -> None:
     attention = MultiHeadSelfAttention(heads_count=8, embedding_size=64)
 
     assert attention.heads_count == 8
     assert attention.embedding_size == 64
 
 
-def test_multi_head_attention_forward():
+def test_multi_head_attention_forward() -> None:
     attention = MultiHeadSelfAttention(heads_count=4, embedding_size=32)
 
     input_tensor = Tensor(np.random.randn(2, 10, 32))
@@ -23,7 +23,7 @@ def test_multi_head_attention_forward():
     assert attention_weights.shape[1] == 4  # heads count
 
 
-def test_multi_head_attention_different_heads():
+def test_multi_head_attention_different_heads() -> None:
     for heads_count in [1, 2, 4, 8]:
         embedding_size = 32
         attention = MultiHeadSelfAttention(
@@ -37,7 +37,7 @@ def test_multi_head_attention_different_heads():
         assert attention_weights.shape[1] == heads_count
 
 
-def test_multi_head_attention_single_sequence():
+def test_multi_head_attention_single_sequence() -> None:
     attention = MultiHeadSelfAttention(heads_count=2, embedding_size=16)
 
     input_tensor = Tensor(np.random.randn(1, 1, 16))
@@ -46,7 +46,7 @@ def test_multi_head_attention_single_sequence():
     assert output.shape == (1, 1, 16)
 
 
-def test_multi_head_attention_longer_sequences():
+def test_multi_head_attention_longer_sequences() -> None:
     attention = MultiHeadSelfAttention(heads_count=4, embedding_size=64)
 
     for seq_len in [10, 20, 50]:
@@ -56,7 +56,7 @@ def test_multi_head_attention_longer_sequences():
         assert output.shape == (1, seq_len, 64)
 
 
-def test_multi_head_attention_batch_processing():
+def test_multi_head_attention_batch_processing() -> None:
     attention = MultiHeadSelfAttention(heads_count=2, embedding_size=32)
 
     for batch_size in [1, 2, 4, 8]:

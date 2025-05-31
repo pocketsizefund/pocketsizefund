@@ -5,7 +5,7 @@ from application.predictionengine.src.predictionengine.long_short_term_memory im
 )
 
 
-def test_lstm_initialization():
+def test_lstm_initialization() -> None:
     lstm = LongShortTermMemory(
         input_size=32, hidden_size=64, layer_count=2, dropout_rate=0.1
     )
@@ -15,7 +15,7 @@ def test_lstm_initialization():
     assert lstm.dropout_rate == 0.1
 
 
-def test_lstm_forward():
+def test_lstm_forward() -> None:
     lstm = LongShortTermMemory(
         input_size=16, hidden_size=32, layer_count=1, dropout_rate=0.0
     )
@@ -28,7 +28,7 @@ def test_lstm_forward():
     assert len(hidden_state) == 2
 
 
-def test_lstm_different_sequence_lengths():
+def test_lstm_different_sequence_lengths() -> None:
     lstm = LongShortTermMemory(
         input_size=8, hidden_size=16, layer_count=1, dropout_rate=0.0
     )
@@ -40,7 +40,7 @@ def test_lstm_different_sequence_lengths():
         assert output.shape == (2, seq_len, 16)
 
 
-def test_lstm_multiple_layers():
+def test_lstm_multiple_layers() -> None:
     lstm = LongShortTermMemory(
         input_size=10, hidden_size=20, layer_count=3, dropout_rate=0.0
     )
@@ -52,7 +52,7 @@ def test_lstm_multiple_layers():
     assert isinstance(hidden_state, tuple)
 
 
-def test_lstm_single_timestep():
+def test_lstm_single_timestep() -> None:
     lstm = LongShortTermMemory(
         input_size=12, hidden_size=24, layer_count=1, dropout_rate=0.0
     )
@@ -63,7 +63,7 @@ def test_lstm_single_timestep():
     assert output.shape == (3, 1, 24)
 
 
-def test_lstm_consistency():
+def test_lstm_consistency() -> None:
     lstm = LongShortTermMemory(
         input_size=6, hidden_size=12, layer_count=1, dropout_rate=0.0
     )
