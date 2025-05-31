@@ -32,8 +32,11 @@ uvx ty check
 [tasks."python:test"]
 description = "Run Python tests"
 run = """
+mkdir -p coverage_output
+docker compose down --volumes --remove-orphans
 docker compose build tests
-docker compose run -T tests
+docker compose run --rm --no-TTY tests
+docker compose down --volumes --remove-orphans
 """
 
 [tasks."application:service:run:production"]
@@ -56,21 +59,21 @@ uv run uvicorn src.{{arg(name="service_name")}}.main:application --reload
 description = "Run integration tests"
 run = """
 cd application/{{arg(name="service_name")}}
-docker-compose up --build --abort-on-container-exit --remove-orphans
+docker compose up --build --abort-on-container-exit --remove-orphans
 """
 
 [tasks."application:service:test:behavioral"]
 description = "Run behavioral tests"
 run = """
 cd application/{{arg(name="service_name")}}
-docker-compose up --build --abort-on-container-exit
+docker compose up --build --abort-on-container-exit
 """
 
 [tasks."application:service:cleanup:behavioral"]
 description = "Clean up behavioral tests"
 run = """
 cd application/{{arg(name="service_name")}}
-docker-compose down -v
+docker compose down -v
 """
 
 [tasks."lint"]

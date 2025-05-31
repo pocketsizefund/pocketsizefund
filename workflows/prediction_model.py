@@ -42,8 +42,8 @@ def store_model(model_bytes: bytes) -> str:
 
 
 @workflow
-def training_workflow(start_date: datetime, end_date: datetime) -> str:
+def training_workflow(start_date: datetime, end_date: datetime) -> None:
     data = fetch_data(start_date=start_date, end_date=end_date)
     model_bytes = train_dummy_model(data=data)
     artifact_path = store_model(model_bytes=model_bytes)
-    return artifact_path
+    return

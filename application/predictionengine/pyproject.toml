@@ -1,0 +1,20 @@
+[project]
+name = "predictionengine"
+version = "0.1.0"
+description = "Prediction engine service"
+requires-python = ">=3.12" # possibly 3.10
+dependencies = [
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
+    "tinygrad>=0.10.3",
+    "polars>=1.29.0",
+    "category-encoders>=2.8.1",
+    "requests>=2.31.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["predictionengine"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

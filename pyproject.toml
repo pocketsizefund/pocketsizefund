@@ -3,25 +3,20 @@ name = "pocketsizefund"
 version = "0.1.0"
 description = "Open source quantitative hedge fund 🍊"
 requires-python = ">=3.12"
-dependencies = [
-    "flytekit>=1.15.4",
-    "httpx>=0.28.1",
-    "pulumi-docker-build>=0.0.12",
-    "pulumi-gcp>=8.32.0",
-    "requests>=2.32.3",
-]
 
 [tool.uv.workspace]
 members = [
     "infrastructure",
     "application/datamanager",
     "application/positionmanager",
+    "application/predictionengine",
     "workflows",
 ]
 
 [tool.uv.sources]
 datamanager = { workspace = true }
 positionmanager = { workspace = true }
+predictionengine = { workspace = true }
 workflows = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
@@ -33,26 +28,30 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "alpaca-py>=0.40.1",
     "coverage>=7.8.0",
-    "duckdb>=1.2.2",
-    "ecos>=2.0.14",
-    "fastapi>=0.115.12",
-    "polars>=1.29.0",
-    "pyarrow>=20.0.0",
-    "pyportfolioopt>=1.5.6",
     "pytest>=8.3.5",
-    "requests>=2.32.3",
     "behave>=1.2.6",
-    "prometheus-fastapi-instrumentator>=7.1.0",
-    "loguru>=0.7.3",
 ]
 
 [tool.pytest.ini_options]
 testpaths = [
-    "/tests/",
     "application/datamanager/tests",
-    "application/positionmanager/tests",
+    "application/positionmanager/tests", 
+    "application/predictionengine/tests",
+]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--tb=short",
+    "--strict-markers",
+    "--color=yes",
+    "--rootdir=/tests"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:websockets.legacy.*",
+    "ignore::DeprecationWarning",
 ]
 
 [tool.coverage.run]
@@ -64,7 +63,7 @@ show_missing = true
 skip_covered = true
 
 [tool.coverage.xml]
-output = ".python_coverage.xml"
+output = "coverage_output/.python_coverage.xml"
 
 [tool.ruff]
 select = [

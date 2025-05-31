@@ -5,14 +5,14 @@ from pydantic import BaseModel, Field, computed_field
 
 
 class Polygon(BaseModel):
-    api_key: str | None = Field(default=os.getenv("POLYGON_API_KEY"))
+    api_key: str = Field(default=os.getenv("POLYGON_API_KEY", ""))
     base_url: str = "https://api.polygon.io"
     daily_bars: str = "/v2/aggs/grouped/locale/us/market/stocks/"
 
 
 class Bucket(BaseModel):
-    name: str | None = Field(default=os.getenv("DATA_BUCKET"))
-    project: str | None = Field(default=os.getenv("GCP_PROJECT"))
+    name: str = Field(default=os.getenv("DATA_BUCKET", ""))
+    project: str = Field(default=os.getenv("GCP_PROJECT", ""))
 
     @computed_field
     def daily_bars_path(self) -> str:
