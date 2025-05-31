@@ -174,11 +174,15 @@ class DataSet:
 
             tickers = batch_data[: self.batch_size, 0]
 
+            batch_tensors = [
+                batch_data[i : i + self.sequence_length, 1:]
+                for i in range(self.batch_size)
+            ]
+
+            # TODO: add check for empty batch tensors or size equal to one
             historical_features = Tensor.stack(
-                *[
-                    batch_data[i : i + self.sequence_length, 1:]
-                    for i in range(self.batch_size)
-                ],
+                batch_tensors[0],
+                *batch_tensors[1:],
                 dim=0,
             )
 
