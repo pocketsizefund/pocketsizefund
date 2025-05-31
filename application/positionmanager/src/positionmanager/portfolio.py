@@ -12,7 +12,7 @@ class PortfolioOptimizer:
         self,
         minimum_portfolio_tickers: int = 5,
         maximum_portfolio_tickers: int = 20,
-    ):
+    ) -> None:
         self.minimum_portfolio_tickers = minimum_portfolio_tickers
         self.maximum_portfolio_tickers = maximum_portfolio_tickers
 

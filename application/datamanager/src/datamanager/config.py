@@ -16,6 +16,8 @@ class Bucket(BaseModel):
 
     @computed_field
     def daily_bars_path(self) -> str:
+        if self.name is None:
+            raise ValueError("DATA_BUCKET environment variable is required")
         return f"gs://{self.name}/equity/bars/"
 
 

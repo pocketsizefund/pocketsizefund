@@ -16,7 +16,7 @@ Instrumentator().instrument(application).expose(application)
 
 
 @application.get("/health")
-def get_health():
+def get_health() -> dict[str, str]:
     return {"status": "healthy"}
 
 
