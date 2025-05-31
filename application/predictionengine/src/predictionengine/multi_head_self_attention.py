@@ -10,7 +10,6 @@ class MultiHeadSelfAttention:
         heads_count: int,
         embedding_size: int,
     ) -> None:
-        print("check:", embedding_size % heads_count)
         if embedding_size % heads_count != 0:
             raise ValueError("Embedding dimension must be divisible by heads count")
 
