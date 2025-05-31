@@ -13,7 +13,7 @@ duckdb_access_key = config.require_secret("DUCKDB_ACCESS_KEY")
 duckdb_secret = config.require_secret("DUCKDB_SECRET")
 
 
-service = cloudrun.Service(
+datamanager_service = cloudrun.Service(
     "datamanager",
     location=project.REGION,
     template=cloudrun.ServiceTemplateArgs(
@@ -68,7 +68,7 @@ subscription = pubsub.Subscription(
     "datamanager-subscription",
     topic=topics.datamanager_ping.id,
     push_config=pubsub.SubscriptionPushConfigArgs(
-        push_endpoint=service.statuses[0].url,
+        push_endpoint=datamanager_service.statuses[0].url,
         oidc_token=pubsub.SubscriptionPushConfigOidcTokenArgs(
             service_account_email=project.platform_service_account.email
         ),
@@ -82,5 +82,67 @@ job = cloudscheduler.Job(
     pubsub_target=cloudscheduler.JobPubsubTargetArgs(
         topic_name=topics.datamanager_ping.id,
         data=base64.b64encode(b"{}").decode("utf-8"),
+    ),
+)
+
+positionmanager_service = cloudrun.Service(
+    "positionmanager",
+    location=project.REGION,
+    template=cloudrun.ServiceTemplateArgs(
+        spec=cloudrun.ServiceTemplateSpecArgs(
+            service_account_name=project.platform_service_account.email,
+            containers=[
+                cloudrun.ServiceTemplateSpecContainerArgs(
+                    image="pocketsizefund/positionmanager:latest",
+                    envs=[
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="ALPACA_API_KEY",
+                            value=config.require_secret("ALPACA_API_KEY"),
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="ALPACA_API_SECRET",
+                            value=config.require_secret("ALPACA_API_SECRET"),
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="ALPACA_PAPER",
+                            value=config.get("ALPACA_PAPER") or "true",
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DATAMANAGER_BASE_URL",
+                            value=datamanager_service.statuses[0].url,
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="MINIMUM_PORTFOLIO_TICKERS",
+                            value=config.get("MINIMUM_PORTFOLIO_TICKERS") or "5",
+                        ),
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="MAXIMUM_PORTFOLIO_TICKERS",
+                            value=config.get("MAXIMUM_PORTFOLIO_TICKERS") or "20",
+                        ),
+                    ],
+                )
+            ],
+        )
+    ),
+)
+
+predictionengine_service = cloudrun.Service(
+    "predictionengine",
+    location=project.REGION,
+    template=cloudrun.ServiceTemplateArgs(
+        spec=cloudrun.ServiceTemplateSpecArgs(
+            service_account_name=project.platform_service_account.email,
+            containers=[
+                cloudrun.ServiceTemplateSpecContainerArgs(
+                    image="pocketsizefund/predictionengine:latest",
+                    envs=[
+                        cloudrun.ServiceTemplateSpecContainerEnvArgs(
+                            name="DATAMANAGER_BASE_URL",
+                            value=datamanager_service.statuses[0].url,
+                        )
+                    ],
+                )
+            ],
+        )
     ),
 )
