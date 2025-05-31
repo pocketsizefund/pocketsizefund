@@ -42,11 +42,8 @@ def fetch_historical_data(
     response = requests.get(url, params=parameters, timeout=30)
     response.raise_for_status()
 
-    if response.status_code == 404:
-        raise HTTPException(
-            status_code=404,
-            detail="No historical data found for the specified date range",
-        )
+    response = requests.get(url, params=parameters, timeout=30)
+    response.raise_for_status()
 
     import pyarrow as pa
 
