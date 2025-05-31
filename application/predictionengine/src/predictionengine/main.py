@@ -154,4 +154,4 @@ async def create_predictions(
     except Exception as e:
         logger.error(f"Error creating predictions: {e}")
         logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}") from e
