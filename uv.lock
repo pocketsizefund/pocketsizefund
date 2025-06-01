@@ -513,7 +513,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "datamanager", editable = "application/datamanager" },
     { name = "duckdb", specifier = ">=1.2.2" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "google-cloud-storage", specifier = ">=2.16.0" },
@@ -1564,7 +1563,6 @@ dependencies = [
     { name = "category-encoders" },
     { name = "fastapi" },
     { name = "polars" },
-    { name = "pydantic" },
     { name = "requests" },
     { name = "tinygrad" },
     { name = "uvicorn" },
@@ -1575,8 +1573,6 @@ requires-dist = [
     { name = "category-encoders", specifier = ">=2.8.1" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "polars", specifier = ">=1.29.0" },
-    { name = "predictionengine", editable = "application/predictionengine" },
-    { name = "pydantic", specifier = ">=2.8.2" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "tinygrad", specifier = ">=0.10.3" },
     { name = "uvicorn", specifier = ">=0.34.2" },

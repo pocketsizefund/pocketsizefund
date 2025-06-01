@@ -174,13 +174,23 @@ class DataSet:
 
             tickers = batch_data[: self.batch_size, 0]
 
-            historical_features = Tensor.stack(
-                *[
-                    batch_data[i : i + self.sequence_length, 1:]
-                    for i in range(self.batch_size)
-                ],
-                dim=0,
-            )
+            batch_tensors = [
+                batch_data[i : i + self.sequence_length, 1:]
+                for i in range(self.batch_size)
+            ]
+
+            if not batch_tensors:
+                raise ValueError(
+                    "Cannot stack empty batch tensors (batch_size must be ≥ 1)"
+                )
+            if len(batch_tensors) == 1:
+                historical_features = batch_tensors[0].unsqueeze(0)
+            else:
+                historical_features = Tensor.stack(
+                    batch_tensors[0],
+                    *batch_tensors[1:],
+                    dim=0,
+                )
 
             targets = batch_data[: self.batch_size, close_price_idx].reshape(
                 self.batch_size, 1

@@ -58,5 +58,11 @@ class LongShortTermMemory:
 
             outputs.append(hidden_state[-1])
 
-        output_tensor = Tensor.stack(*outputs, dim=1)
+        if not outputs:
+            raise ValueError("Cannot stack empty outputs list")
+        elif len(outputs) == 1:
+            output_tensor = outputs[0].unsqueeze(1)
+        else:
+            output_tensor = Tensor.stack(outputs[0], *outputs[1:], dim=1)
+
         return output_tensor, (hidden_state, cell_state)

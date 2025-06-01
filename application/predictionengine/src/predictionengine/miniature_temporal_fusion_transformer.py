@@ -41,8 +41,8 @@ class MiniatureTemporalFusionTransformer:
         )
 
         self.lstm_encoder = LongShortTermMemory(
-            input_size=input_size,
-            hidden_size=hidden_size + embedding_size,
+            input_size=input_size + embedding_size,
+            hidden_size=hidden_size,
             layer_count=layer_count,
             dropout_rate=dropout_rate,
         )
@@ -77,16 +77,13 @@ class MiniatureTemporalFusionTransformer:
         tickers: Tensor,
         features: Tensor,
     ) -> Tuple[Tensor, Tensor, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
-        ticker_embeddings = self.ticker_embedding.forward(tickers)
-
-        # get ticker embeddings and expand to (batch_size, seq_len, embedding_dim)
         ticker_embeddings = self.ticker_embedding.forward(
             tickers
         )  # (batch_size, embedding_dim)
         ticker_embeddings = ticker_embeddings.unsqueeze(1).expand(
             -1, features.size(1), -1
-        )
-        lstm_input = Tensor.cat([features, ticker_embeddings], dim=-1)
+        )  # (batch size, sequence length, embedding dimension)
+        lstm_input = Tensor.cat(features, ticker_embeddings, dim=-1)
 
         lstm_output, _ = self.lstm_encoder.forward(lstm_input)
 
