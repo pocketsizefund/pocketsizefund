@@ -33,10 +33,10 @@ uvx ty check
 description = "Run Python tests"
 run = """
 mkdir -p coverage_output
-docker compose down --volumes --remove-orphans
-docker compose build tests
-docker compose run --rm --no-TTY tests
-docker compose down --volumes --remove-orphans
+docker compose --file tests.yaml down --volumes --remove-orphans
+docker compose --file tests.yaml build tests
+docker compose --file tests.yaml run --rm --no-TTY tests
+docker compose --file tests.yaml down --volumes --remove-orphans
 """
 
 [tasks."application:service:run:production"]
