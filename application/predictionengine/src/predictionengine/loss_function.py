@@ -19,8 +19,8 @@ def quantile_loss(
         raise ValueError("All quantiles must be between 0 and 1")
 
     loss: Tensor = Tensor.zeros(1)
+    error = cast(Tensor, y_true - y_pred)  # Precompute the error outside the loop
     for quantile in quantiles:
-        error = cast(Tensor, y_true - y_pred)
         quantile_error = cast(Tensor, quantile * error)
         quantile_minus_one_error = cast(Tensor, (quantile - 1) * error)
         loss += Tensor.maximum(quantile_error, quantile_minus_one_error).mean()
