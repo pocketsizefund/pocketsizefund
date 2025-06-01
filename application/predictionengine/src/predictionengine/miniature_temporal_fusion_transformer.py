@@ -79,7 +79,7 @@ class MiniatureTemporalFusionTransformer:
     ) -> Tuple[Tensor, Tensor, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         ticker_embeddings = self.ticker_embedding.forward(tickers)
 
-        # get ticker embeddings and expand to (batch size, sequence length, embedding dimenson)
+        # get ticker embeddings and expand to (batch size, sequence length, embedding dimension)
         ticker_embeddings = self.ticker_embedding.forward(
             tickers
         )  # (batch_size, embedding_dim)
