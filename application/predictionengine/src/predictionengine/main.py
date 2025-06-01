@@ -43,9 +43,6 @@ def fetch_historical_data(
     response = requests.get(url, params=parameters, timeout=30)
     response.raise_for_status()
 
-    response = requests.get(url, params=parameters, timeout=30)
-    response.raise_for_status()
-
     import pyarrow as pa
 
     buffer = pa.py_buffer(response.content)

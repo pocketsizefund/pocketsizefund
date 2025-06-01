@@ -9,6 +9,6 @@ infrastructure/Pulumi.infrastructure.yaml
 .envrc
 .coverage*
 .coverage/
-coverage.xmlcoverage.xml
+coverage.xml
 
 todos.md

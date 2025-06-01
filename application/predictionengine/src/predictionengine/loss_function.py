@@ -1,4 +1,5 @@
 from tinygrad.tensor import Tensor
+from typing import cast
 
 Quantiles = tuple[float, float, float] | tuple[float, float, float, float, float]
 
@@ -8,9 +9,20 @@ def quantile_loss(
 ) -> Tensor:
     if quantiles is None:
         quantiles = (0.25, 0.5, 0.75)
+
+    if y_pred.shape != y_true.shape:
+        raise ValueError(
+            f"Shape mismatch: y_pred {y_pred.shape} vs y_true {y_true.shape}"
+        )
+
+    if not all(0 <= q <= 1 for q in quantiles):
+        raise ValueError("All quantiles must be between 0 and 1")
+
     loss: Tensor = Tensor.zeros(1)
-    for q in quantiles:
-        error: Tensor = y_true - y_pred
-        loss += Tensor.maximum(q * error, (q - 1) * error).mean()
+    error = cast(Tensor, y_true - y_pred)  # Precompute the error outside the loop
+    for quantile in quantiles:
+        quantile_error = cast(Tensor, quantile * error)
+        quantile_minus_one_error = cast(Tensor, (quantile - 1) * error)
+        loss += Tensor.maximum(quantile_error, quantile_minus_one_error).mean()
 
     return loss

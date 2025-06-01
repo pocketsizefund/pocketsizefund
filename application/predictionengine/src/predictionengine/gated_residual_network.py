@@ -1,6 +1,7 @@
 from typing import cast
 from tinygrad.tensor import Tensor
 from tinygrad.nn import Linear, LayerNorm
+from typing import Optional
 
 
 class GatedResidualNetwork:
@@ -8,7 +9,7 @@ class GatedResidualNetwork:
         self,
         input_size: int,
         hidden_size: int,
-        output_size: int,
+        output_size: Optional[int] = None,
     ) -> None:
         output_size = output_size if output_size is not None else input_size
 
