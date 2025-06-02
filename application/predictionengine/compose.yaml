@@ -10,7 +10,7 @@ services:
     environment:
       - DATAMANAGER_BASE_URL=${DATAMANAGER_BASE_URL}
     volumes:
-      - ./:/app/datamanager
+      - ./:/app/predictionengine
       - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/health"]
