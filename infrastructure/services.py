@@ -27,6 +27,8 @@ def create_service(
         version = tomllib.load(f).get("project", {}).get("version")
 
     service_dir = Path("../application") / name
+    if not service_dir.exists():
+        raise FileNotFoundError(f"Service directory not found: {service_dir}")
 
     image = docker_build.Image(
         f"{name}-image",
