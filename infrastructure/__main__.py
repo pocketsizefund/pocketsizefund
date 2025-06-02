@@ -33,7 +33,7 @@ DATAMANAGER_BASE_URL = create_environment_variable(
     "DATAMANAGER_BASE_URL", datamanager_service.statuses[0].url
 )
 
-predicitonengine_service = create_service(
+predictionengine_service = create_service(
     "predictionengine", envs=[DATAMANAGER_BASE_URL]
 )
 
@@ -44,8 +44,6 @@ positionmanager_service = create_service(
         ALPACA_API_KEY_ID,
         ALPACA_API_SECRET_KEY,
         DATAMANAGER_BASE_URL,
-        # MINIMUM_PORTFOLIO_TICKERS,  # 20
-        # MAXIMUM_PORTFOLIO_TICKERS,  # 20
     ],
 )
 
