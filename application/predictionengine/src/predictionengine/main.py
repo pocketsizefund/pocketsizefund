@@ -14,7 +14,7 @@ from .models import PredictionResponse
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     datamanager_base_url = os.getenv("DATAMANAGER_BASE_URL", "")
     app.state.datamanager_base_url = datamanager_base_url
 

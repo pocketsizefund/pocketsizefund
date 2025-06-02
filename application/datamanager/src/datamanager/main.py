@@ -39,7 +39,7 @@ def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.settings = Settings()
     app.state.bucket = storage.Client(os.getenv("GCP_PROJECT")).bucket(
         app.state.settings.gcp.bucket.name
