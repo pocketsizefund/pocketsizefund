@@ -33,7 +33,9 @@ DATAMANAGER_BASE_URL = create_environment_variable(
     "DATAMANAGER_BASE_URL", datamanager_service.statuses[0].url
 )
 
-predicitonengine_service = create_service(
+predictionengine_service = create_service(
+     "predictionengine", envs=[DATAMANAGER_BASE_URL]
+)
     "predictionengine", envs=[DATAMANAGER_BASE_URL]
 )
 
