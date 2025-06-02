@@ -13,7 +13,7 @@ from environment_variables import (
 )
 from services import create_service
 import topics  # noqa: F401
-import buckets  # noqa: F401
+import buckets  # noqa: F401  # registers Pulumi `production_data_bucket` resource
 
 
 datamanager_service = create_service(
