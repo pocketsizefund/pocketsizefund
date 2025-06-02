@@ -23,9 +23,14 @@ def create_service(
     if envs is None:
         envs = []
 
-    with Path("pyproject.toml").open("rb") as f:
-        version = tomllib.load(f).get("project", {}).get("version")
-
+    try:
+        with Path("pyproject.toml").open("rb") as f:
+            project_data = tomllib.load(f)
+            version = project_data.get("project", {}).get("version")
+            if not version:
+                raise ValueError("Version not found in pyproject.toml")
+    except (FileNotFoundError, tomllib.TOMLDecodeError, ValueError) as e:
+        raise RuntimeError(f"Failed to read version from pyproject.toml: {e}") from e
     service_dir = Path("../application") / name
     if not service_dir.exists():
         raise FileNotFoundError(f"Service directory not found: {service_dir}")
