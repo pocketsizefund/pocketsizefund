@@ -118,20 +118,19 @@ class MiniatureTemporalFusionTransformer:
         for _ in range(epoch_count):
             epoch_loss = 0.0
 
-            for batch in dataset.batches():
-                for tickers, historical_features, targets in batch:
-                    predictions, _, _ = self.forward(
-                        Tensor(tickers),
-                        Tensor(historical_features),
-                    )
+            for tickers, historical_features, targets in dataset.batches():
+                predictions, _, _ = self.forward(
+                    tickers,
+                    historical_features,
+                )
 
-                    loss = quantile_loss(predictions, Tensor(targets), quantiles)
+                loss = quantile_loss(predictions, targets, quantiles)
 
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-                    epoch_loss += loss.numpy().item()
+                epoch_loss += loss.numpy().item()
 
                 avgerage_epoch_loss = epoch_loss / len(dataset)
                 losses.append(avgerage_epoch_loss)
@@ -143,21 +142,13 @@ class MiniatureTemporalFusionTransformer:
         dataset: DataSet,
     ) -> float:
         total_loss = 0.0
-        batch_count = len(dataset)
+        batch_count = 0
 
-        for batch in dataset.batches():
-            tickers, features, targets = batch
-            tickers, features, targets = (
-                Tensor(tickers),
-                Tensor(features),
-                Tensor(targets),
-            )
-
+        for tickers, features, targets in dataset.batches():
             output, _, _ = self.forward(tickers, features)
-
             loss = quantile_loss(output, targets)
-
             total_loss += loss.item()
+            batch_count += 1
 
         average_loss = total_loss / batch_count
 

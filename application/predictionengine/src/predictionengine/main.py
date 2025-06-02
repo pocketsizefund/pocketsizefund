@@ -128,17 +128,16 @@ async def create_predictions(
             )
             dataset.load_data(recent_data)
 
-            for tickers_batch, features_batch, _ in dataset.batches():
-                percentile_25, percentile_50, percentile_75 = model.predict(
-                    tickers_batch, features_batch
-                )
+            tickers_batch, features_batch, _ = next(iter(dataset.batches()))
+            percentile_25, percentile_50, percentile_75 = model.predict(
+                tickers_batch, features_batch
+            )
 
-                predictions[ticker] = {
-                    "percentile_25": float(percentile_25[0]),
-                    "percentile_50": float(percentile_50[0]),
-                    "percentile_75": float(percentile_75[0]),
-                }
-                break
+            predictions[ticker] = {
+                "percentile_25": float(percentile_25[0]),
+                "percentile_50": float(percentile_50[0]),
+                "percentile_75": float(percentile_75[0]),
+            }
 
         if not predictions:
             raise HTTPException(

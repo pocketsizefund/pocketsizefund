@@ -31,8 +31,8 @@ class DataSet:
     def __len__(self) -> int:
         return (self.sample_count + self.batch_size - 1) // self.batch_size
 
-    def load_data(self, data: pl.DataFrame) -> None:
-        data = data.with_columns(
+    def _cast_columns(self, data: pl.DataFrame) -> pl.DataFrame:
+        return data.with_columns(
             [
                 pl.col("timestamp").str.strptime(pl.Datetime).cast(pl.Date),
                 pl.col("open_price").cast(pl.Float64),
@@ -45,10 +45,7 @@ class DataSet:
             ]
         )
 
-        self.preprocessors["indices"] = {
-            col: idx for idx, col in enumerate(data.columns)
-        }
-
+    def _generate_complete_time_series(self, data: pl.DataFrame) -> pl.DataFrame:
         data = data.unique(subset=["ticker", "timestamp"])
 
         tickers = data.select("ticker").unique()
@@ -80,10 +77,9 @@ class DataSet:
         )
 
         data = full_tickers_and_dates.join(data, on=["ticker", "timestamp"], how="left")
-
         data = data.sort(["ticker", "timestamp"])
 
-        data = data.group_by("ticker").map_groups(
+        return data.group_by("ticker").map_groups(
             lambda df: df.sort("timestamp").with_columns(
                 [
                     pl.col(col)
@@ -95,6 +91,7 @@ class DataSet:
             )
         )
 
+    def _encode_tickers(self, data: pl.DataFrame) -> pl.DataFrame:
         ticker_encoder = OrdinalEncoder(
             cols=["ticker"],
             handle_unknown="use_encoded_value",
@@ -105,9 +102,10 @@ class DataSet:
         ticker_df = data.select("ticker").to_pandas()
         encoded_tickers = ticker_encoder.fit_transform(ticker_df)
 
-        data = data.with_columns(pl.Series("ticker", encoded_tickers["ticker"]))
+        return data.with_columns(pl.Series("ticker", encoded_tickers["ticker"]))
 
-        if self.scalers is None or len(self.scalers) == 0:
+    def _compute_scalers(self, data: pl.DataFrame) -> None:
+        if len(self.scalers) == 0:
             self.scalers: Dict[str, Dict[str, Tensor]] = {}
             for ticker_key, group in data.group_by("ticker"):
                 ticker = ticker_key[0]
@@ -119,6 +117,7 @@ class DataSet:
                     "standard_deviations": Tensor(standard_deviations.to_numpy()),
                 }
 
+    def _scale_data(self, data: pl.DataFrame) -> Tensor:
         groups: List[Tensor] = []
         for ticker_key, group in data.group_by("ticker"):
             ticker = ticker_key[0]
@@ -133,10 +132,23 @@ class DataSet:
             combined_group = ticker_column.cat(scaled_group, dim=1)
             groups.append(combined_group)
 
-        output_data = Tensor.empty(groups[0].shape)
-        output_data = output_data.cat(*groups, dim=0)
+        if not groups:
+            raise ValueError("No data available after preprocessing")
 
-        self.data = output_data
+        output_data = Tensor.empty(groups[0].shape)
+        return output_data.cat(*groups, dim=0)
+
+    def load_data(self, data: pl.DataFrame) -> None:
+        data = self._cast_columns(data)
+
+        self.preprocessors["indices"] = {
+            col: idx for idx, col in enumerate(data.columns)
+        }
+
+        data = self._generate_complete_time_series(data)
+        data = self._encode_tickers(data)
+        self._compute_scalers(data)
+        self.data = self._scale_data(data)
 
     def get_preprocessors(self) -> Dict[str, Any]:
         if not self.preprocessors:
@@ -170,7 +182,8 @@ class DataSet:
                         *batch_data.shape[1:],
                     )
                 )
-                batch_data = Tensor(batch_data).stack(padding, dim=0)
+
+                batch_data = batch_data.cat(padding, dim=0)
 
             tickers = batch_data[: self.batch_size, 0]
 
