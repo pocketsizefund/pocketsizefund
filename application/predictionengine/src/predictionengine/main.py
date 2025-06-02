@@ -128,7 +128,12 @@ async def create_predictions(
             )
             dataset.load_data(recent_data)
 
-            tickers_batch, features_batch, _ = next(iter(dataset.batches()))
+            try:
+                tickers_batch, features_batch, _ = next(iter(dataset.batches()))
+            except StopIteration:
+                logger.warning(f"No batches available for ticker {ticker}")
+                continue
+
             percentile_25, percentile_50, percentile_75 = model.predict(
                 tickers_batch, features_batch
             )
