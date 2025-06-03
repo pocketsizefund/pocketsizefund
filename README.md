@@ -2,6 +2,8 @@
 
 > Open source quantitative hedge fund 🍊  
 
+[![Code quality check](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/quality.yaml/badge.svg?branch=master)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/quality.yaml) [![Test and coverage check](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/test.yaml) 
+
 ## About
 
 **Pocket Size Fund** is an open source quantitative hedge fund.  
