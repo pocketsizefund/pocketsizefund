@@ -89,9 +89,12 @@ class DataClient:
             message = f"Data manager service call error: {err}"
             raise RuntimeError(message) from err
 
-        if not response.ok:
-            message = f"Data service error: {response.text}, status code: {response.status_code}"  # noqa: E501
-            raise requests.HTTPError(message)
+        if response.status_code == 404:
+            return pl.DataFrame()
+        elif response.status_code != 200:
+            raise Exception(
+                f"Data service error: {response.text}, status code: {response.status_code}",
+            )
 
         buffer = pa.py_buffer(response.content)
         reader = pa.ipc.RecordBatchStreamReader(buffer)
