@@ -8,3 +8,4 @@ scrape_configs:
       - targets:
           - datamanager
           - positionmanager
+          - predictionengine
