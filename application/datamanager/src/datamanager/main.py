@@ -21,7 +21,7 @@ from .models import BarsSummary, SummaryDate
 def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
     path_pattern = f"gs://{bucket}/equity/bars/*/*/*/*"
 
-    return f"""
+    return f""" 
         SELECT *
         FROM read_parquet(
             '{path_pattern}', 
@@ -35,7 +35,7 @@ def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
             (year < {end_date.year} OR 
              (year = {end_date.year} AND month < {end_date.month}) OR 
              (year = {end_date.year} AND month = {end_date.month} AND day <= {end_date.day}))
-    """
+    """  # noqa: S608
 
 
 @asynccontextmanager
@@ -111,7 +111,7 @@ async def get_equity_bars(
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@application.post("/equity-bars", response_model=BarsSummary)
+@application.post("/equity-bars")
 async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> BarsSummary:
     polygon = request.app.state.settings.polygon
     bucket = request.app.state.settings.gcp.bucket

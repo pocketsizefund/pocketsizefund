@@ -65,11 +65,18 @@ skip_covered = true
 [tool.coverage.xml]
 output = "coverage_output/.python_coverage.xml"
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
-  "ANN",
-  "ERA"
+  "ANN", # type annotations
+  "ASYNC",
+  "ERA", # dead code
+  "FAST", # fastapi
+  "S", # bandit (security)
+  "YTT" # flake8
 ]
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**/*.py" = ["S101"]
+"**/features/steps/**/*.py" = ["S101"]
 
 [tool.ty.rules]
 unresolved-import = "ignore"
