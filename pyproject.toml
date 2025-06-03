@@ -67,13 +67,24 @@ output = "coverage_output/.python_coverage.xml"
 
 [tool.ruff.lint]
 select = [
+  "A", # flake8 builtins
   "ANN", # type annotations
   "ASYNC",
+  "B", # bugbear
+  "COM", # commas
+  "C4", # comprehensions
+  "BLE", # no blind exceptions
+  "DTZ", # datetimes
   "ERA", # dead code
   "FAST", # fastapi
+  "FBT", # boolean traps
   "S", # bandit (security)
   "YTT" # flake8
 ]
+ignore = [
+    "COM812",
+]
+
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = ["S101"]
 "**/features/steps/**/*.py" = ["S101"]

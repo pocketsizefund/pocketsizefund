@@ -12,6 +12,9 @@ from .models import Money, DateRange
 class AlpacaClient:
     def __init__(
         self,
+        *,
+        api_key: str | None = "",
+        api_secret: str | None = "",
         api_key: str | None = None,
         api_secret: str | None = None,
         paper: bool = True,
@@ -89,7 +92,7 @@ class DataClient:
             pl.col("timestamp")
             .str.slice(0, 10)
             .str.strptime(pl.Date, "%Y-%m-%d")
-            .alias("date")
+            .alias("date"),
         )
 
         data = (

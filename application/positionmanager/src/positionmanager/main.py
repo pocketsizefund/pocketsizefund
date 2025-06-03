@@ -1,12 +1,16 @@
 from fastapi import FastAPI, HTTPException
+import requests
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import polars as pl
 from typing import Dict, Any
 from .models import Money, DateRange, PredictionPayload
 from .clients import AlpacaClient, DataClient
 from .portfolio import PortfolioOptimizer
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from alpaca.common.rest import APIError
+from pydantic import ValidationError
 
 
 trading_days_per_year = 252
@@ -38,21 +42,21 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
     try:
         cash_balance = alpaca_client.get_cash_balance()
 
-    except Exception as e:
+    except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error getting cash balance: {str(e)}",
         ) from e
 
     date_range = DateRange(
-        start=datetime.now() - timedelta(days=trading_days_per_year),
-        end=datetime.now(),
+        start=datetime.now(tz=timezone.utc) - timedelta(days=trading_days_per_year),
+        end=datetime.now(tz=timezone.utc),
     )
 
     try:
         historical_data = data_client.get_data(date_range=date_range)
 
-    except Exception as e:
+    except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error getting historical data: {str(e)}",
@@ -65,7 +69,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
             predictions=payload.predictions,
         )
 
-    except Exception as e:
+    except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error optimizing portfolio: {str(e)}",
@@ -77,7 +81,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
             continue
 
         latest_prices = historical_data.filter(pl.col(ticker).is_not_null()).select(
-            ticker
+            ticker,
         )
         if latest_prices.is_empty():
             executed_trades.append(
@@ -85,13 +89,13 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
                     "ticker": ticker,
                     "status": "error",
                     "error": "No recent price available",
-                }
+                },
             )
             continue
         latest_price = latest_prices.tail(1)[0, 0]
 
         notional_amount = Money.from_float(
-            latest_price * share_count * 0.95
+            latest_price * share_count * 0.95,
         )  # 5% buffer
 
         try:
@@ -103,10 +107,10 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
                     "share_count": share_count,
                     "notional_amount": float(notional_amount),
                     "status": "success",
-                }
+                },
             )
 
-        except Exception as e:
+        except (requests.RequestException, APIError, ValidationError) as e:
             executed_trades.append(
                 {
                     "ticker": ticker,
@@ -114,7 +118,7 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
                     "notional_amount": float(notional_amount),
                     "status": "error",
                     "error": str(e),
-                }
+                },
             )
 
     final_cash_balance = alpaca_client.get_cash_balance()
@@ -140,7 +144,7 @@ def delete_positions() -> Dict[str, Any]:
     try:
         result = alpaca_client.clear_positions()
 
-    except Exception as e:
+    except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     cash_balance = alpaca_client.get_cash_balance()
