@@ -45,4 +45,8 @@ for dockerfile in dockerfile_paths:
 
     pulumi.export(f"{service_name}-ref", images[service_name].ref)
 
+datamanager_image = images.get("datamanager")
+positionmanager_image = images.get("positionmanager")
+predictionengine_image = images.get("predictionengine")
+
 print(f"Available image services: {list(images.keys())}")

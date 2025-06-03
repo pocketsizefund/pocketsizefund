@@ -10,3 +10,5 @@ infrastructure/Pulumi.infrastructure.yaml
 .coverage*
 .coverage/
 coverage.xml
+
+todos.md

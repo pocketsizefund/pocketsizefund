@@ -15,6 +15,8 @@ class AlpacaClient:
         *,
         api_key: str | None = "",
         api_secret: str | None = "",
+        api_key: str | None = None,
+        api_secret: str | None = None,
         paper: bool = True,
     ) -> None:
         if not api_key or not api_secret:
@@ -24,7 +26,12 @@ class AlpacaClient:
 
     def get_cash_balance(self) -> Money:
         account = self.trading_client.get_account()
-        return Money.from_float(float(account.cash))
+        cash_balance = getattr(account, "cash", None)
+
+        if cash_balance is None:
+            raise ValueError("Cash balance is not available")
+
+        return Money.from_float(float(cash_balance))
 
     def place_notional_order(
         self,
@@ -90,7 +97,7 @@ class DataClient:
 
         data = (
             data.sort("date")
-            .pivot(index="date", columns="ticker", values="close_price")
+            .pivot(on="ticker", index="date", values="close_price")
             .with_columns(pl.all().exclude("date").cast(pl.Float64))
         )
 
