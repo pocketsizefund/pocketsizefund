@@ -1,7 +1,6 @@
-from typing import Dict
-import polars as pl
 import pandas as pd
-from pypfopt import EfficientFrontier, risk_models, expected_returns
+import polars as pl
+from pypfopt import EfficientFrontier, expected_returns, risk_models
 from pypfopt.discrete_allocation import DiscreteAllocation, get_latest_prices
 
 from .models import Money
@@ -20,9 +19,9 @@ class PortfolioOptimizer:
         self,
         data: pl.DataFrame,
         portfolio_value: Money,
-        predictions: Dict[str, float],
+        predictions: dict[str, float],
         prediction_weight: float = 0.3,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         converted_data = data.to_pandas()
 
         if "date" in converted_data.columns:
@@ -36,11 +35,13 @@ class PortfolioOptimizer:
                 ticker
             ] + prediction_weight * prediction_series[ticker]
 
-        S = risk_models.CovarianceShrinkage(converted_data).ledoit_wolf()
+        covariance = risk_models.CovarianceShrinkage(converted_data).ledoit_wolf()
 
         long_only_weight_bounds = (0, 0.2)  # 20% max weight per asset
         efficient_frontier = EfficientFrontier(
-            mu, S, weight_bounds=long_only_weight_bounds
+            mu,
+            covariance,
+            weight_bounds=long_only_weight_bounds,
         )
 
         efficient_frontier.max_sharpe(risk_free_rate=0.02)  # 2% risk-free rate

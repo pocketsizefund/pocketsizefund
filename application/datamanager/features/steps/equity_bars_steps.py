@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import requests
-from behave import given, when, then
+from behave import given, then, when
 from behave.runner import Context
 
 
@@ -24,7 +24,7 @@ def step_impl_api_url(context: Context) -> None:
 @when('I send a POST request to "{endpoint}" for date range')
 def step_impl_post_request(context: Context, endpoint: str) -> None:
     url = f"{context.api_url}{endpoint}"
-    response = requests.post(url, json={"date": context.start_date})
+    response = requests.post(url, json={"date": context.start_date}, timeout=30)
     context.response = response
 
 
@@ -34,6 +34,7 @@ def step_imp_get_request(context: Context, endpoint: str) -> None:
     response = requests.get(
         url,
         params={"start_date": context.start_date, "end_date": context.end_date},
+        timeout=30,
     )
     context.response = response
 
@@ -48,13 +49,13 @@ def step_impl_response_status_code(context: Context, status_code: str) -> None:
 @when('I send a DELETE request to "{endpoint}" for date "{date_str}"')
 def step_impl(context: Context, endpoint: str, date_str: str) -> None:
     url = f"{context.api_url}{endpoint}"
-    response = requests.delete(url, json={"date": date_str})
+    response = requests.delete(url, json={"date": date_str}, timeout=30)
     context.response = response
     context.test_date = date_str
 
 
 @then('the equity bars data for "{date_str}" should be deleted')
-def step_impl_equity_bars(context: Context, date_str: str) -> None:
+def step_impl_equity_bars(context: Context, date_str: str) -> None:  # noqa: ARG001
     if os.environ.get("GCP_GCS_BUCKET"):
         assert True, "GCS bucket deletion check would go here"
     else:

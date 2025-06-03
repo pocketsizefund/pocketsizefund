@@ -3,22 +3,28 @@ import polars as pl
 from typing import Dict, Any
 import pyarrow as pa
 
+import polars as pl
+import requests
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import MarketOrderRequest
 
-from .models import Money, DateRange
+from .models import DateRange, Money
 
 
 class AlpacaClient:
     def __init__(
         self,
+        *,
+        api_key: str | None = "",
+        api_secret: str | None = "",
         api_key: str | None = None,
         api_secret: str | None = None,
         paper: bool = True,
     ) -> None:
         if not api_key or not api_secret:
-            raise ValueError("Alpaca API key and secret are required")
+            msg = "Alpaca API key and secret are required"
+            raise ValueError(msg)
 
         self.trading_client = TradingClient(api_key, api_secret, paper=paper)
 
@@ -35,7 +41,7 @@ class AlpacaClient:
         self,
         ticker: str,
         notional_amount: Money,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         market_order_request = MarketOrderRequest(
             symbol=ticker,
             notional=float(notional_amount),
@@ -47,10 +53,10 @@ class AlpacaClient:
 
         return {
             "status": "success",
-            "message": f"Order placed for {ticker} with notional amount {notional_amount}",
+            "message": f"Order placed [{ticker=}, {notional_amount}]",
         }
 
-    def clear_positions(self) -> Dict[str, Any]:
+    def clear_positions(self) -> dict[str, Any]:
         self.trading_client.close_all_positions(cancel_orders=True)
 
         return {
@@ -68,7 +74,8 @@ class DataClient:
         date_range: DateRange,
     ) -> pl.DataFrame:
         if not self.datamanager_base_url:
-            raise ValueError("Data manager URL is not configured")
+            msg = "Data manager URL is not configured"
+            raise ValueError(msg)
 
         endpoint = f"{self.datamanager_base_url}/equity-bars"
 
@@ -80,7 +87,8 @@ class DataClient:
         try:
             response = requests.get(endpoint, params=params, timeout=30)
         except requests.RequestException as err:
-            raise RuntimeError(f"Data manager service call error: {err}") from err
+            msg = f"Data manager service call error: {err}"
+            raise RuntimeError(msg) from err
 
         if response.status_code == 404:
             return pl.DataFrame()
@@ -97,10 +105,8 @@ class DataClient:
 
         data = data.with_columns(pl.col("t").cast(pl.Datetime).dt.date().alias("date"))
 
-        data = (
+        return (
             data.sort("date")
             .pivot(on="T", index="date", values="c")
             .with_columns(pl.all().exclude("date").cast(pl.Float64))
         )
-
-        return data

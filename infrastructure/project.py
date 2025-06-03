@@ -1,5 +1,5 @@
 import pulumi
-from pulumi_gcp.projects import Service, IAMMember
+from pulumi_gcp.projects import IAMMember, Service
 from pulumi_gcp.serviceaccount import Account
 
 PROJECT = pulumi.Config("gcp").require("project")
@@ -55,6 +55,6 @@ IAMMember(
     project=PROJECT,
     role="roles/pubsub.subscriber",
     member=platform_service_account.email.apply(
-        lambda e: f"serviceAccount:{e}"
+        lambda e: f"serviceAccount:{e}",
     ),  # ty: ignore[missing-argument]
 )
