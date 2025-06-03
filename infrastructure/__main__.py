@@ -34,8 +34,6 @@ DATAMANAGER_BASE_URL = create_environment_variable(
 )
 
 predictionengine_service = create_service(
-     "predictionengine", envs=[DATAMANAGER_BASE_URL]
-)
     "predictionengine", envs=[DATAMANAGER_BASE_URL]
 )
 
