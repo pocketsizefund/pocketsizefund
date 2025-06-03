@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import requests
-from behave import given, when, then
+from behave import given, then, when
 from behave.runner import Context
 
 
@@ -55,7 +55,7 @@ def step_impl(context: Context, endpoint: str, date_str: str) -> None:
 
 
 @then('the equity bars data for "{date_str}" should be deleted')
-def step_impl_equity_bars(context: Context, date_str: str) -> None:
+def step_impl_equity_bars(context: Context, date_str: str) -> None:  # noqa: ARG001
     if os.environ.get("GCP_GCS_BUCKET"):
         assert True, "GCS bucket deletion check would go here"
     else:

@@ -1,5 +1,5 @@
 import pulumi
-from pulumi_gcp.projects import Service, IAMMember
+from pulumi_gcp.projects import IAMMember, Service
 from pulumi_gcp.serviceaccount import Account
 
 PROJECT = pulumi.Config("gcp").require("project")

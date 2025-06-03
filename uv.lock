@@ -963,6 +963,7 @@ name = "infrastructure"
 version = "0.1.0"
 source = { virtual = "infrastructure" }
 dependencies = [
+    { name = "loguru" },
     { name = "pulumi" },
     { name = "pulumi-docker" },
     { name = "pulumi-docker-build" },
@@ -971,6 +972,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "loguru", specifier = ">=0.7.3" },
     { name = "pulumi", specifier = ">=3.169.0" },
     { name = "pulumi-docker", specifier = ">=3.0.0" },
     { name = "pulumi-docker-build", specifier = ">=0.0.12" },
