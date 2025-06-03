@@ -84,8 +84,8 @@ class DataClient:
 
         if response.status_code == 404:
             return pl.DataFrame()
-        elif response.status_code != 200:
-            raise Exception(
+        if response.status_code != 200:
+            raise requests.HTTPError(
                 f"Data service error: {response.text}, status code: {response.status_code}",
             )
 
