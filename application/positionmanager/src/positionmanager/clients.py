@@ -1,6 +1,7 @@
 import requests
 import polars as pl
 from typing import Dict, Any
+import pyarrow as pa
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
@@ -71,30 +72,34 @@ class DataClient:
 
         endpoint = f"{self.datamanager_base_url}/equity-bars"
 
+        params = {
+            "start_date": date_range.start.date().isoformat(),
+            "end_date": date_range.end.date().isoformat(),
+        }
+
         try:
-            response = requests.post(endpoint, json=date_range.to_payload(), timeout=10)
+            response = requests.get(endpoint, params=params, timeout=30)
         except requests.RequestException as err:
             raise RuntimeError(f"Data manager service call error: {err}") from err
 
-        if response.status_code != 200:
+        if response.status_code == 404:
+            return pl.DataFrame()
+        elif response.status_code != 200:
             raise Exception(
                 f"Data service error: {response.text}, status code: {response.status_code}",
             )
 
-        response_data = response.json()
+        buffer = pa.py_buffer(response.content)
+        reader = pa.ipc.RecordBatchStreamReader(buffer)
+        table = reader.read_all()
 
-        data = pl.DataFrame(response_data["data"])
+        data = pl.DataFrame(pl.from_arrow(table))
 
-        data = data.with_columns(
-            pl.col("timestamp")
-            .str.slice(0, 10)
-            .str.strptime(pl.Date, "%Y-%m-%d")
-            .alias("date")
-        )
+        data = data.with_columns(pl.col("t").cast(pl.Datetime).dt.date().alias("date"))
 
         data = (
             data.sort("date")
-            .pivot(on="ticker", index="date", values="close_price")
+            .pivot(on="T", index="date", values="c")
             .with_columns(pl.all().exclude("date").cast(pl.Float64))
         )
 
