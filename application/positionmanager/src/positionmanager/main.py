@@ -3,11 +3,9 @@ import os
 from datetime import datetime, timedelta
 import polars as pl
 from typing import Dict, Any
-
 from .models import Money, DateRange, PredictionPayload
 from .clients import AlpacaClient, DataClient
 from .portfolio import PortfolioOptimizer
-
 from prometheus_fastapi_instrumentator import Instrumentator
 
 
@@ -18,19 +16,19 @@ Instrumentator().instrument(application).expose(application)
 
 
 @application.get("/health")
-def get_health():
+def get_health() -> dict[str, str]:
     return {"status": "healthy"}
 
 
 @application.post("/positions")
 def create_position(payload: PredictionPayload) -> Dict[str, Any]:
     alpaca_client = AlpacaClient(
-        api_key=os.getenv("ALPACA_API_KEY"),
-        api_secret=os.getenv("ALPACA_API_SECRET"),
+        api_key=os.getenv("ALPACA_API_KEY", ""),
+        api_secret=os.getenv("ALPACA_API_SECRET", ""),
         paper=os.getenv("ALPACA_PAPER", "true").lower() == "true",
     )
 
-    data_client = DataClient(datamanager_base_url=os.getenv("DATAMANAGER_BASE_URL"))
+    data_client = DataClient(datamanager_base_url=os.getenv("DATAMANAGER_BASE_URL", ""))
 
     portfolio_optimizer = PortfolioOptimizer(
         minimum_portfolio_tickers=int(os.getenv("MINIMUM_PORTFOLIO_TICKERS", "5")),
@@ -134,8 +132,8 @@ def create_position(payload: PredictionPayload) -> Dict[str, Any]:
 @application.delete("/positions")
 def delete_positions() -> Dict[str, Any]:
     alpaca_client = AlpacaClient(
-        api_key=os.getenv("ALPACA_API_KEY"),
-        api_secret=os.getenv("ALPACA_API_SECRET"),
+        api_key=os.getenv("ALPACA_API_KEY", ""),
+        api_secret=os.getenv("ALPACA_API_SECRET", ""),
         paper=os.getenv("ALPACA_PAPER", "true").lower() == "true",
     )
 
