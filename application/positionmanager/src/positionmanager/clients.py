@@ -12,6 +12,7 @@ from .models import Money, DateRange
 class AlpacaClient:
     def __init__(
         self,
+        *,
         api_key: str | None = "",
         api_secret: str | None = "",
         paper: bool = True,
