@@ -12,6 +12,7 @@ from .models import DateRange, Money
 class AlpacaClient:
     def __init__(
         self,
+        *,
         api_key: str | None = None,
         api_secret: str | None = None,
         paper: bool = True,
@@ -20,14 +21,17 @@ class AlpacaClient:
             msg = "Alpaca API key and secret are required"
             raise ValueError(msg)
 
-        self.trading_client = TradingClient(api_key, api_secret, paper=paper)
+        self.trading_client: TradingClient = TradingClient(
+            api_key, api_secret, paper=paper
+        )
 
     def get_cash_balance(self) -> Money:
         account = self.trading_client.get_account()
         cash_balance = getattr(account, "cash", None)
 
         if cash_balance is None:
-            raise ValueError("Cash balance is not available")
+            msg = "Cash balance is not available"
+            raise ValueError(msg)
 
         return Money.from_float(float(cash_balance))
 

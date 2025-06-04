@@ -1,16 +1,25 @@
 import os
 import traceback
-from typing import AsyncGenerator
-from datetime import date, datetime, timedelta
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-import requests
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+
 import polars as pl
-from fastapi import FastAPI, Request, Response, status, HTTPException
-from prometheus_fastapi_instrumentator import Instrumentator
+import requests
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from loguru import logger
-from .miniature_temporal_fusion_transformer import MiniatureTemporalFusionTransformer
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from .dataset import DataSet
+from .miniature_temporal_fusion_transformer import MiniatureTemporalFusionTransformer
 from .models import PredictionResponse
+
+LOOKBACK_DAYS = 30
+
+
+class LoadError(Exception):
+    """Raised when loading a file fails due to format or content issues."""
 
 
 @asynccontextmanager
@@ -55,7 +64,7 @@ def fetch_historical_data(
 def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTransformer:
     dataset = DataSet(
         batch_size=32,
-        sequence_length=30,
+        sequence_length=LOOKBACK_DAYS,
         sample_count=len(data),
     )
     dataset.load_data(data)
@@ -76,22 +85,22 @@ def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTrans
     )
 
     model_path = "miniature_temporal_fusion_transformer.safetensor"
-    if os.path.exists(model_path):
+    if Path(model_path).exists():
         try:
             model.load(model_path)
             logger.info("Loaded existing model weights")
-        except Exception as e:
-            logger.warning(f"Failed to load model weights: {e}")
+        except LoadError as e:
+            logger.error(f"Failed to load model weights: {e}")
 
     return model
 
 
-@application.post("/create-predictions", response_model=PredictionResponse)
+@application.post("/create-predictions")
 async def create_predictions(
     request: Request,
 ) -> PredictionResponse:
     try:
-        end_date = datetime.now().date()
+        end_date = datetime.now(tz=UTC).date()
         start_date = end_date - timedelta(days=30)
 
         logger.info(f"Fetching data from {start_date} to {end_date}")
@@ -100,7 +109,7 @@ async def create_predictions(
         )
 
         if data.is_empty():
-            raise HTTPException(
+            raise HTTPException(  # noqa: TRY301
                 status_code=404, detail="No data available for prediction"
             )
 
@@ -115,15 +124,15 @@ async def create_predictions(
 
         for ticker in unique_tickers:
             ticker_data = data.filter(pl.col("ticker") == ticker)
-            if len(ticker_data) < 30:
+            if len(ticker_data) < LOOKBACK_DAYS:
                 logger.warning(f"Insufficient data for ticker {ticker}")
                 continue
 
-            recent_data = ticker_data.tail(30)
+            recent_data = ticker_data.tail(LOOKBACK_DAYS)
 
             dataset = DataSet(
                 batch_size=1,
-                sequence_length=30,
+                sequence_length=LOOKBACK_DAYS,
                 sample_count=1,
             )
             dataset.load_data(recent_data)
@@ -145,7 +154,7 @@ async def create_predictions(
             }
 
         if not predictions:
-            raise HTTPException(
+            raise HTTPException(  # noqa: TRY301
                 status_code=404, detail="No predictions could be generated"
             )
 
@@ -157,5 +166,5 @@ async def create_predictions(
         logger.error(f"Error creating predictions: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(
-            status_code=500, detail=f"Internal server error: {str(e)}"
+            status_code=500, detail=f"Internal server error: {e!s}"
         ) from e

@@ -1,20 +1,20 @@
 import base64
-from pulumi_gcp import pubsub, cloudscheduler
-from project import platform_service_account
+
+import buckets  # noqa: F401
+import topics
 from environment_variables import (
-    create_environment_variable,
     ALPACA_API_KEY_ID,
     ALPACA_API_SECRET_KEY,
-    GCP_PROJECT,
     DATA_BUCKET,
     DUCKDB_ACCESS_KEY,
     DUCKDB_SECRET,
+    GCP_PROJECT,
     POLYGON_API_KEY,
+    create_environment_variable,
 )
+from project import platform_service_account
+from pulumi_gcp import cloudscheduler, pubsub
 from services import create_service
-import topics  # noqa: F401
-import buckets  # noqa: F401
-
 
 datamanager_service = create_service(
     name="datamanager",

@@ -1,9 +1,10 @@
-from pathlib import Path
 import tomllib
+from pathlib import Path
 
 import project
 import pulumi_docker_build as docker_build
 from environment_variables import ENVIRONMENT_VARIABLE
+from pulumi import ResourceOptions
 from pulumi.config import Config
 from pulumi_gcp.cloudrun import (
     Service,
@@ -27,13 +28,15 @@ def create_service(
         with Path("pyproject.toml").open("rb") as f:
             project_data = tomllib.load(f)
             version = project_data.get("project", {}).get("version")
-            if not version:
-                raise ValueError("Version not found in pyproject.toml")
+
     except (FileNotFoundError, tomllib.TOMLDecodeError, ValueError) as e:
-        raise RuntimeError(f"Failed to read version from pyproject.toml: {e}") from e
+        msg = f"Failed to read version from pyproject.toml: {e}"
+        raise RuntimeError(msg) from e
+
     service_dir = Path("../application") / name
     if not service_dir.exists():
-        raise FileNotFoundError(f"Service directory not found: {service_dir}")
+        msg = f"Service directory not found: {service_dir}"
+        raise FileNotFoundError(msg)
 
     image = docker_build.Image(
         f"{name}-image",
@@ -55,6 +58,7 @@ def create_service(
 
     return Service(
         name,
+        opts=ResourceOptions(depends_on=[image]),
         location=project.REGION,
         template=ServiceTemplateArgs(
             spec=ServiceTemplateSpecArgs(
