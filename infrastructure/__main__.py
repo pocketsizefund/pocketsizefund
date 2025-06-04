@@ -44,8 +44,6 @@ positionmanager_service = create_service(
         ALPACA_API_KEY_ID,
         ALPACA_API_SECRET_KEY,
         DATAMANAGER_BASE_URL,
-        # MINIMUM_PORTFOLIO_TICKERS,  # 20
-        # MAXIMUM_PORTFOLIO_TICKERS,  # 20
     ],
 )
 
