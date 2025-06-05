@@ -1,6 +1,5 @@
-from typing import List, Tuple
-from tinygrad.tensor import Tensor
 from tinygrad.nn import LSTMCell
+from tinygrad.tensor import Tensor
 
 
 class LongShortTermMemory:
@@ -15,16 +14,16 @@ class LongShortTermMemory:
         self.layer_count = layer_count
         self.dropout_rate = dropout_rate
 
-        self.layers: List[LSTMCell] = []
+        self.layers: list[LSTMCell] = []
         for index in range(layer_count):
             input_size = input_size if index == 0 else self.hidden_size
             self.layers.append(LSTMCell(input_size, self.hidden_size))
 
     def forward(
         self,
-        input: Tensor,
-    ) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
-        batch_size, sequence_length, _ = input.shape
+        input_: Tensor,
+    ) -> tuple[Tensor, tuple[Tensor, Tensor]]:
+        batch_size, sequence_length, _ = input_.shape
 
         hidden_state = Tensor.zeros(
             self.layer_count, batch_size, self.hidden_size
@@ -36,7 +35,7 @@ class LongShortTermMemory:
         outputs = []
 
         for t in range(int(sequence_length)):
-            layer_input = input[:, t]
+            layer_input = input_[:, t]
 
             for index, layer in enumerate(self.layers):
                 layer_hidden_state, layer_cell_state = layer(
@@ -59,8 +58,10 @@ class LongShortTermMemory:
             outputs.append(hidden_state[-1])
 
         if not outputs:
-            raise ValueError("Cannot stack empty outputs list")
-        elif len(outputs) == 1:
+            msg = "Cannot stack empty outputs list"
+            raise ValueError(msg)
+
+        if len(outputs) == 1:
             output_tensor = outputs[0].unsqueeze(1)
         else:
             output_tensor = Tensor.stack(outputs[0], *outputs[1:], dim=1)

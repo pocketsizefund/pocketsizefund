@@ -1,7 +1,7 @@
 from typing import cast
+
+from tinygrad.nn import LayerNorm, Linear
 from tinygrad.tensor import Tensor
-from tinygrad.nn import Linear, LayerNorm
-from typing import Optional
 
 
 class GatedResidualNetwork:
@@ -9,7 +9,7 @@ class GatedResidualNetwork:
         self,
         input_size: int,
         hidden_size: int,
-        output_size: Optional[int] = None,
+        output_size: int | None = None,
     ) -> None:
         output_size = output_size if output_size is not None else input_size
 
@@ -30,18 +30,18 @@ class GatedResidualNetwork:
 
     def forward(
         self,
-        input: Tensor,
+        input_: Tensor,
     ) -> Tensor:
-        hidden_state = self.dense_input(input).relu()
+        hidden_state = self.dense_input(input_).relu()
 
         output_state = self.dense_output(hidden_state)
 
         gate_state = self.gate(hidden_state).sigmoid()
 
         if self.residual_projection is not None:
-            residual = self.residual_projection(input)
+            residual = self.residual_projection(input_)
         else:
-            residual = input
+            residual = input_
 
-        gated_output = cast(Tensor, gate_state * output_state + residual)
+        gated_output = cast("Tensor", gate_state * output_state + residual)
         return self.layer_normalizer(gated_output)

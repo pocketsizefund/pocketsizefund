@@ -12,9 +12,6 @@
       "pulumi-python": {
         "pkg-path": "pulumiPackages.pulumi-python"
       },
-      "pulumictl": {
-        "pkg-path": "pulumictl"
-      },
       "ruff": {
         "pkg-path": "ruff"
       },
@@ -393,126 +390,6 @@
       ],
       "outputs": {
         "out": "/nix/store/0mnamh3p4j6fffy8la6mck3im2kq7ins-pulumi-python-3.162.0"
-      },
-      "system": "x86_64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "pulumictl",
-      "broken": false,
-      "derivation": "/nix/store/kx43jzcfslw28byvs6h5ngsgl432pvvv-pulumictl-0.0.49.drv",
-      "description": "Swiss Army Knife for Pulumi Development",
-      "install_id": "pulumictl",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "pulumictl-0.0.49",
-      "pname": "pulumictl",
-      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "rev_count": 793735,
-      "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:19:37.687142Z",
-      "stabilities": [
-        "staging",
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "0.0.49",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/ny69c9bfkf4w179240ch45injfb2ajqr-pulumictl-0.0.49"
-      },
-      "system": "aarch64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "pulumictl",
-      "broken": false,
-      "derivation": "/nix/store/www9nfncvv7l339n8dks22x5vs5lz1mk-pulumictl-0.0.49.drv",
-      "description": "Swiss Army Knife for Pulumi Development",
-      "install_id": "pulumictl",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "pulumictl-0.0.49",
-      "pname": "pulumictl",
-      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "rev_count": 793735,
-      "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:37:42.118866Z",
-      "stabilities": [
-        "staging",
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "0.0.49",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/xpdh5dijdki4cngh7k7n4rg84i6c28zs-pulumictl-0.0.49"
-      },
-      "system": "aarch64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "pulumictl",
-      "broken": false,
-      "derivation": "/nix/store/17wf5x1kk3v5ch5npwhamnix629y07wg-pulumictl-0.0.49.drv",
-      "description": "Swiss Army Knife for Pulumi Development",
-      "install_id": "pulumictl",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "pulumictl-0.0.49",
-      "pname": "pulumictl",
-      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "rev_count": 793735,
-      "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:54:38.447587Z",
-      "stabilities": [
-        "staging",
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "0.0.49",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/6wmig1w7f3vmfrlyg2qzv21bvacj3as8-pulumictl-0.0.49"
-      },
-      "system": "x86_64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "pulumictl",
-      "broken": false,
-      "derivation": "/nix/store/ib7hqxg7xdf5kyh78jqggzdcs97q1224-pulumictl-0.0.49.drv",
-      "description": "Swiss Army Knife for Pulumi Development",
-      "install_id": "pulumictl",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "pulumictl-0.0.49",
-      "pname": "pulumictl",
-      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "rev_count": 793735,
-      "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T05:16:19.858098Z",
-      "stabilities": [
-        "staging",
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "0.0.49",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/rmh9mjkxijxcc7cvjhsqc9657fbw0yyg-pulumictl-0.0.49"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

@@ -1,8 +1,12 @@
-from tinygrad.tensor import Tensor
 import numpy as np
+from numpy.random import PCG64, Generator
+from tinygrad.tensor import Tensor
+
 from application.predictionengine.src.predictionengine.gated_residual_network import (
     GatedResidualNetwork,
 )
+
+rng = Generator(PCG64())
 
 
 def test_gated_residual_network_initialization() -> None:
@@ -26,7 +30,7 @@ def test_gated_residual_network_initialization() -> None:
 def test_gated_residual_network_forward() -> None:
     grn = GatedResidualNetwork(input_size=32, hidden_size=64, output_size=32)
 
-    input_tensor = Tensor(np.random.randn(8, 32))
+    input_tensor = Tensor(rng.standard_normal((8, 32)))
     output = grn.forward(input_tensor)
 
     assert output.shape == (8, 32)
@@ -35,7 +39,7 @@ def test_gated_residual_network_forward() -> None:
 def test_gated_residual_network_different_sizes() -> None:
     grn = GatedResidualNetwork(input_size=16, hidden_size=32, output_size=8)
 
-    input_tensor = Tensor(np.random.randn(4, 16))
+    input_tensor = Tensor(rng.standard_normal((4, 16)))
     output = grn.forward(input_tensor)
 
     assert output.shape == (4, 8)
@@ -44,7 +48,7 @@ def test_gated_residual_network_different_sizes() -> None:
 def test_gated_residual_network_single_sample() -> None:
     grn = GatedResidualNetwork(input_size=10, hidden_size=20, output_size=10)
 
-    input_tensor = Tensor(np.random.randn(1, 10))
+    input_tensor = Tensor(rng.standard_normal((1, 10)))
     output = grn.forward(input_tensor)
 
     assert output.shape == (1, 10)
@@ -53,7 +57,7 @@ def test_gated_residual_network_single_sample() -> None:
 def test_gated_residual_network_consistency() -> None:
     grn = GatedResidualNetwork(input_size=16, hidden_size=32, output_size=16)
 
-    input_tensor = Tensor(np.random.randn(2, 16))
+    input_tensor = Tensor(rng.standard_normal((2, 16)))
 
     output1 = grn.forward(input_tensor)
     output2 = grn.forward(input_tensor)
