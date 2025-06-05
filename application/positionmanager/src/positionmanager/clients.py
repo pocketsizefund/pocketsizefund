@@ -91,9 +91,7 @@ class DataClient:
 
         if not response.ok:
             message = f"Data service error: {response.text}, status code: {response.status_code}"  # noqa: E501
-            raise requests.HTTPError(
-                message,
-            )
+            raise requests.HTTPError(message)
 
         buffer = pa.py_buffer(response.content)
         reader = pa.ipc.RecordBatchStreamReader(buffer)
