@@ -88,8 +88,9 @@ def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTrans
         try:
             model.load(model_path)
             logger.info("Loaded existing model weights")
-        except LoadError as e:
-            logger.error(f"Failed to load model weights: {e}")
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to load model weights: {e}")
+            logger.warning(f"Failed to load model weights: {e}")
 
     return model
 
