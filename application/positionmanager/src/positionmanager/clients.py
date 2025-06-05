@@ -14,15 +14,17 @@ class AlpacaClient:
     def __init__(
         self,
         *,
-        api_key: str | None = "",
-        api_secret: str | None = "",
+        api_key: str | None = None,
+        api_secret: str | None = None,
         paper: bool = True,
     ) -> None:
         if not api_key or not api_secret:
             message = "Alpaca API key and secret are required"
             raise ValueError(message)
 
-        self.trading_client = TradingClient(api_key, api_secret, paper=paper)
+        self.trading_client: TradingClient = TradingClient(
+            api_key, api_secret, paper=paper
+        )
 
     def get_cash_balance(self) -> Money:
         account = self.trading_client.get_account()

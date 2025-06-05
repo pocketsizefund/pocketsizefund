@@ -67,9 +67,11 @@ def test_post_processor_predictions() -> None:
     assert isinstance(percentile_25, np.ndarray)
     assert isinstance(percentile_50, np.ndarray)
     assert isinstance(percentile_75, np.ndarray)
-    assert len(percentile_25) == 2  # noqa: PLR2004
-    assert len(percentile_50) == 2  # noqa: PLR2004
-    assert len(percentile_75) == 2  # noqa: PLR2004
+
+    percentile_size = 2
+    assert len(percentile_25) == percentile_size
+    assert len(percentile_50) == percentile_size
+    assert len(percentile_75) == percentile_size
 
     assert np.all(percentile_25 <= percentile_50)
     assert np.all(percentile_50 <= percentile_75)

@@ -1,3 +1,5 @@
+from typing import NamedTuple
+
 import polars as pl
 import pytest
 
@@ -11,10 +13,18 @@ def test_dataset_initialization() -> None:
         sample_count=3,
     )
 
-    assert dataset.batch_size == 2  # noqa: PLR2004
-    assert dataset.sequence_length == 3  # noqa: PLR2004
-    assert dataset.sample_count == 3  # noqa: PLR2004
-    assert len(dataset) == 2  # noqa: PLR2004
+    class Expected(NamedTuple):
+        batch_size: int = 2
+        sequence_length: int = 3
+        sample_count: int = 3
+        observations: int = 2
+
+    expected = Expected()
+
+    assert dataset.batch_size == expected.batch_size
+    assert dataset.sequence_length == expected.sequence_length
+    assert dataset.sample_count == expected.sample_count
+    assert len(dataset) == expected.observations
 
 
 def test_dataset_load_data() -> None:
@@ -103,12 +113,26 @@ def test_dataset_batches() -> None:
 
     dataset.load_data(data)
 
+    class Expected(NamedTuple):
+        batch_size: int = 1
+        sequence_length: int = 2
+        sample_count: int = 3
+        observations: int = 2
+        features: int = 6
+        target: int = 1
+
+    expected = Expected()
+
     batch_count = 0
     for tickers, features, targets in dataset.batches():
         batch_count += 1
-        assert tickers.shape[0] == 1  # batch_size
-        assert features.shape == (1, 2, 6)  # batch_size, sequence_length, features
-        assert targets.shape == (1, 1)  # batch_size, 1
+        assert tickers.shape[0] == expected.batch_size
+        assert features.shape == (
+            expected.batch_size,
+            expected.sequence_length,
+            expected.features,
+        )
+        assert targets.shape == (expected.batch_size, expected.target)
 
     assert batch_count > 0
 
@@ -121,4 +145,4 @@ def test_dataset_preprocessors_validation() -> None:
     )
 
     with pytest.raises(ValueError, match="Preprocessors have not been initialized"):
-        dataset.get_preprocessors()
+        _ = dataset.get_preprocessors()

@@ -18,8 +18,12 @@ from .models import PredictionResponse
 SEQUENCE_LENGTH = 30
 
 
+class LoadError(Exception):
+    """Raised when loading a file fails due to format or content issues."""
+
+
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     datamanager_base_url = os.getenv("DATAMANAGER_BASE_URL", "")
     app.state.datamanager_base_url = datamanager_base_url
 
@@ -84,9 +88,8 @@ def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTrans
         try:
             model.load(model_path)
             logger.info("Loaded existing model weights")
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"Failed to load model weights: {e}")
-            logger.warning(f"Failed to load model weights: {e}")
+        except LoadError as e:
+            logger.error(f"Failed to load model weights: {e}")
 
     return model
 

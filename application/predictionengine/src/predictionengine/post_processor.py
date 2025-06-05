@@ -1,30 +1,33 @@
-from typing import Any
-
 import numpy as np
+import numpy.typing as npt
 import polars as pl
 from category_encoders import OrdinalEncoder
 from tinygrad.tensor import Tensor
+
+TensorMapping = dict[str, Tensor]
 
 
 class PostProcessor:
     def __init__(
         self,
-        means_by_ticker: dict[str, Tensor],
-        standard_deviations_by_ticker: dict[str, Tensor],
+        means_by_ticker: TensorMapping,
+        standard_deviations_by_ticker: TensorMapping,
         ticker_encoder: OrdinalEncoder,
     ) -> None:
-        self.means_by_ticker = means_by_ticker
-        self.standard_deviations_by_ticker = standard_deviations_by_ticker
-        self.ticker_encoder = ticker_encoder
+        self.means_by_ticker: TensorMapping = means_by_ticker
+        self.standard_deviations_by_ticker: TensorMapping = (
+            standard_deviations_by_ticker
+        )
+        self.ticker_encoder: OrdinalEncoder = ticker_encoder
 
     def post_process_predictions(
         self,
-        encoded_tickers: np.ndarray,
-        predictions: np.ndarray,
+        encoded_tickers: npt.NDArray[np.float64],
+        predictions: npt.NDArray[np.float64],
     ) -> tuple[
-        np.ndarray[Any, np.dtype[np.float64]],
-        np.ndarray[Any, np.dtype[np.float64]],
-        np.ndarray[Any, np.dtype[np.float64]],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
     ]:
         decoded_tickers = self.ticker_encoder.inverse_transform(
             pl.DataFrame(
@@ -41,8 +44,8 @@ class PostProcessor:
                 ticker not in self.means_by_ticker
                 or ticker not in self.standard_deviations_by_ticker
             ):
-                message = f"Statistics not found for ticker: {ticker}"
-                raise ValueError(message)
+                msg = f"Statistics not found for ticker: {ticker}"
+                raise ValueError(msg)
 
             mean = self.means_by_ticker[ticker].numpy()
             standard_deviation = self.standard_deviations_by_ticker[ticker].numpy()

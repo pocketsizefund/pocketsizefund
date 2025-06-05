@@ -15,27 +15,29 @@ class MultiHeadSelfAttention:
             message = "Embedding dimension must be divisible by heads count"
             raise ValueError(message)
 
-        self.heads_count = heads_count
-        self.embedding_size = embedding_size
-        self.heads_dimension = embedding_size // heads_count
+        self.heads_count: int = heads_count
+        self.embedding_size: int = embedding_size
+        self.heads_dimension: int = embedding_size // heads_count
 
-        self.query_weight = Linear(self.embedding_size, self.embedding_size)
-        self.key_weight = Linear(self.embedding_size, self.embedding_size)
-        self.value_weight = Linear(self.embedding_size, self.embedding_size)
+        self.query_weight: Linear = Linear(self.embedding_size, self.embedding_size)
+        self.key_weight: Linear = Linear(self.embedding_size, self.embedding_size)
+        self.value_weight: Linear = Linear(self.embedding_size, self.embedding_size)
 
-        self.fully_connected_out = Linear(self.embedding_size, self.embedding_size)
+        self.fully_connected_out: Linear = Linear(
+            self.embedding_size, self.embedding_size
+        )
 
-        self.scale = Tensor(self.heads_dimension**0.5, dtype=dtypes.float32)
+        self.scale: Tensor = Tensor(self.heads_dimension**0.5, dtype=dtypes.float32)
 
     def forward(
         self,
-        features: Tensor,
+        input_: Tensor,
     ) -> tuple[Tensor, Tensor]:
-        batch_size, sequence_length, _ = features.shape
+        batch_size, sequence_length, _ = input_.shape
 
-        query_weights = self.query_weight(features)
-        key_weights = self.key_weight(features)
-        value_weights = self.value_weight(features)
+        query_weights = self.query_weight(input_)
+        key_weights = self.key_weight(input_)
+        value_weights = self.value_weight(input_)
 
         query_weights = query_weights.view(
             (batch_size, sequence_length, self.heads_count, self.heads_dimension),

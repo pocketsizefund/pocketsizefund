@@ -21,9 +21,9 @@ class LongShortTermMemory:
 
     def forward(
         self,
-        features: Tensor,
+        input_: Tensor,
     ) -> tuple[Tensor, tuple[Tensor, Tensor]]:
-        batch_size, sequence_length, _ = features.shape
+        batch_size, sequence_length, _ = input_.shape
 
         hidden_state = Tensor.zeros(
             self.layer_count, batch_size, self.hidden_size
@@ -35,7 +35,7 @@ class LongShortTermMemory:
         outputs = []
 
         for t in range(int(sequence_length)):
-            layer_input = features[:, t]
+            layer_input = input_[:, t]
 
             for index, layer in enumerate(self.layers):
                 layer_hidden_state, layer_cell_state = layer(

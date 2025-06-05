@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.typing as npt
 from category_encoders import OrdinalEncoder
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import (
@@ -34,36 +35,36 @@ class MiniatureTemporalFusionTransformer:
         ticker_encoder: OrdinalEncoder,
         dropout_rate: float,  # non-zero indicates training
     ) -> None:
-        self.ticker_embedding = TickerEmbedding(
+        self.ticker_embedding: TickerEmbedding = TickerEmbedding(
             ticker_count=ticker_count,
             embedding_size=embedding_size,
         )
 
-        self.lstm_encoder = LongShortTermMemory(
+        self.lstm_encoder: LongShortTermMemory = LongShortTermMemory(
             input_size=input_size + embedding_size,
             hidden_size=hidden_size,
             layer_count=layer_count,
             dropout_rate=dropout_rate,
         )
 
-        self.feature_processor = GatedResidualNetwork(
+        self.feature_processor: GatedResidualNetwork = GatedResidualNetwork(
             input_size=hidden_size,
             hidden_size=hidden_size,
             output_size=hidden_size,
         )
 
-        self.self_attention = MultiHeadSelfAttention(
+        self.self_attention: MultiHeadSelfAttention = MultiHeadSelfAttention(
             heads_count=attention_head_count,
             embedding_size=hidden_size,
         )
 
-        self.output_layer = GatedResidualNetwork(
+        self.output_layer: GatedResidualNetwork = GatedResidualNetwork(
             input_size=hidden_size,
             hidden_size=hidden_size,
             output_size=output_size,
         )
 
-        self.post_processor = PostProcessor(
+        self.post_processor: PostProcessor = PostProcessor(
             means_by_ticker=means_by_ticker,
             standard_deviations_by_ticker=standard_deviations_by_ticker,
             ticker_encoder=ticker_encoder,
@@ -79,7 +80,13 @@ class MiniatureTemporalFusionTransformer:
         self,
         tickers: Tensor,
         features: Tensor,
-    ) -> tuple[Tensor, Tensor, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    ) -> tuple[
+        Tensor,
+        Tensor,
+        tuple[
+            npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
+        ],
+    ]:
         ticker_embeddings = self.ticker_embedding.forward(
             tickers
         )  # (batch_size, embedding_dim)
@@ -115,11 +122,11 @@ class MiniatureTemporalFusionTransformer:
     ) -> list[float]:
         optimizer = Adam(params=self.parameters, lr=learning_rate)
 
-        quantiles = (0.25, 0.50, 0.75)
+        quantiles: tuple[float, float, float] = (0.25, 0.50, 0.75)
         losses: list[float] = []
 
         for _ in range(epoch_count):
-            epoch_loss = 0.0
+            epoch_loss: float = 0.0
 
             for tickers, historical_features, targets in dataset.batches():
                 predictions, _, _ = self.forward(
@@ -127,15 +134,15 @@ class MiniatureTemporalFusionTransformer:
                     historical_features,
                 )
 
-                loss = quantile_loss(predictions, targets, quantiles)
+                loss: Tensor = quantile_loss(predictions, targets, quantiles)
 
                 optimizer.zero_grad()
-                loss.backward()
+                _ = loss.backward()
                 optimizer.step()
 
                 epoch_loss += loss.numpy().item()
 
-                avgerage_epoch_loss = epoch_loss / len(dataset)
+                avgerage_epoch_loss: float = epoch_loss / len(dataset)
                 losses.append(avgerage_epoch_loss)
 
         return losses
@@ -153,9 +160,7 @@ class MiniatureTemporalFusionTransformer:
             total_loss += loss.item()
             batch_count += 1
 
-        average_loss = total_loss / batch_count
-
-        return average_loss  # noqa: RET504
+        return total_loss / batch_count
 
     def save(
         self,
@@ -169,14 +174,16 @@ class MiniatureTemporalFusionTransformer:
         path_and_file: str = "miniature_temporal_fusion_transformer.safetensor",
     ) -> None:
         states = safe_load(path_and_file)
-        load_state_dict(self, states)
+        _ = load_state_dict(self, states)
 
     def predict(
         self,
         tickers: Tensor,
-        features: Tensor,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        predictions, _, _ = self.forward(tickers, features)
+        input_: Tensor,
+    ) -> tuple[
+        npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
+    ]:
+        predictions, _, _ = self.forward(tickers, input_)
 
         percentile_25, percentile_50, percentile_75 = (
             self.post_processor.post_process_predictions(

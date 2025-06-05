@@ -511,6 +511,11 @@ dependencies = [
     { name = "uvicorn" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "behave" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "duckdb", specifier = ">=1.2.2" },
@@ -523,6 +528,9 @@ requires-dist = [
     { name = "pyarrow", specifier = ">=20.0.0" },
     { name = "uvicorn", specifier = ">=0.34.2" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "behave", specifier = ">=1.2.6" }]
 
 [[package]]
 name = "debugpy"
@@ -960,7 +968,7 @@ wheels = [
 
 [[package]]
 name = "infrastructure"
-version = "0.1.0"
+version = "20250602.4"
 source = { virtual = "infrastructure" }
 dependencies = [
     { name = "loguru" },
@@ -1495,8 +1503,15 @@ wheels = [
 
 [[package]]
 name = "pocketsizefund"
-version = "0.1.0"
+version = "20250602.4"
 source = { editable = "." }
+dependencies = [
+    { name = "flytekit" },
+    { name = "httpx" },
+    { name = "pulumi-docker-build" },
+    { name = "pulumi-gcp" },
+    { name = "requests" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1506,6 +1521,13 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [
+    { name = "flytekit", specifier = ">=1.15.4" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pulumi-docker-build", specifier = ">=0.0.12" },
+    { name = "pulumi-gcp", specifier = ">=8.32.0" },
+    { name = "requests", specifier = ">=2.32.3" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1538,6 +1560,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "pandas" },
     { name = "polars" },
+    { name = "prometheus-fastapi-instrumentator" },
     { name = "pydantic" },
     { name = "pyportfolioopt" },
     { name = "requests" },
@@ -1551,6 +1574,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "pandas", specifier = ">=2.1.0" },
     { name = "polars", specifier = ">=1.29.0" },
+    { name = "prometheus-fastapi-instrumentator", specifier = ">=7.1.0" },
     { name = "pydantic", specifier = ">=2.8.2" },
     { name = "pyportfolioopt", specifier = ">=1.5.6" },
     { name = "requests", specifier = ">=2.31.0" },
@@ -1564,7 +1588,9 @@ source = { editable = "application/predictionengine" }
 dependencies = [
     { name = "category-encoders" },
     { name = "fastapi" },
+    { name = "loguru" },
     { name = "polars" },
+    { name = "prometheus-fastapi-instrumentator" },
     { name = "requests" },
     { name = "tinygrad" },
     { name = "uvicorn" },
@@ -1574,7 +1600,9 @@ dependencies = [
 requires-dist = [
     { name = "category-encoders", specifier = ">=2.8.1" },
     { name = "fastapi", specifier = ">=0.115.12" },
+    { name = "loguru", specifier = ">=0.7.3" },
     { name = "polars", specifier = ">=1.29.0" },
+    { name = "prometheus-fastapi-instrumentator", specifier = ">=7.1.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "tinygrad", specifier = ">=0.10.3" },
     { name = "uvicorn", specifier = ">=0.34.2" },

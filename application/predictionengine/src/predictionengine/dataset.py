@@ -23,12 +23,10 @@ class DataSet:
         sample_count: int,
         scalers: dict[str, dict[str, Tensor]] | None = None,
     ) -> None:
-        if scalers is None:
-            scalers = {}
-        self.batch_size = batch_size
-        self.sequence_length = sequence_length
-        self.sample_count = sample_count
-        self.scalers = scalers if scalers is not None else {}
+        self.batch_size: int = batch_size
+        self.sequence_length: int = sequence_length
+        self.sample_count: int = sample_count
+        self.scalers: dict[str, dict[str, Tensor]] = scalers or {}
         self.preprocessors: dict[str, Any] = {}
 
     def __len__(self) -> int:

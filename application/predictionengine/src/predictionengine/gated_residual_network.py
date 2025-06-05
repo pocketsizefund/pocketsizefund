@@ -30,18 +30,18 @@ class GatedResidualNetwork:
 
     def forward(
         self,
-        features: Tensor,
+        input_: Tensor,
     ) -> Tensor:
-        hidden_state = self.dense_input(features).relu()
+        hidden_state = self.dense_input(input_).relu()
 
         output_state = self.dense_output(hidden_state)
 
         gate_state = self.gate(hidden_state).sigmoid()
 
         if self.residual_projection is not None:
-            residual = self.residual_projection(features)
+            residual = self.residual_projection(input_)
         else:
-            residual = features
+            residual = input_
 
         gated_output = cast("Tensor", gate_state * output_state + residual)
         return self.layer_normalizer(gated_output)

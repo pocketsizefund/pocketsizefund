@@ -10,6 +10,8 @@ dependencies = [
     "polars>=1.29.0",
     "category-encoders>=2.8.1",
     "requests>=2.31.0",
+    "prometheus-fastapi-instrumentator>=7.1.0",
+    "loguru>=0.7.3",
 ]
 
 [tool.hatch.build.targets.wheel]
