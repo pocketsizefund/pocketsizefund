@@ -1,9 +1,7 @@
-import requests
-import polars as pl
-from typing import Dict, Any
-import pyarrow as pa
+from typing import Any
 
 import polars as pl
+import pyarrow as pa
 import requests
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -18,13 +16,11 @@ class AlpacaClient:
         *,
         api_key: str | None = "",
         api_secret: str | None = "",
-        api_key: str | None = None,
-        api_secret: str | None = None,
         paper: bool = True,
     ) -> None:
         if not api_key or not api_secret:
-            msg = "Alpaca API key and secret are required"
-            raise ValueError(msg)
+            message = "Alpaca API key and secret are required"
+            raise ValueError(message)
 
         self.trading_client = TradingClient(api_key, api_secret, paper=paper)
 
@@ -33,7 +29,8 @@ class AlpacaClient:
         cash_balance = getattr(account, "cash", None)
 
         if cash_balance is None:
-            raise ValueError("Cash balance is not available")
+            message = "Cash balance is not available"
+            raise ValueError(message)
 
         return Money.from_float(float(cash_balance))
 
@@ -74,8 +71,8 @@ class DataClient:
         date_range: DateRange,
     ) -> pl.DataFrame:
         if not self.datamanager_base_url:
-            msg = "Data manager URL is not configured"
-            raise ValueError(msg)
+            message = "Data manager URL is not configured"
+            raise ValueError(message)
 
         endpoint = f"{self.datamanager_base_url}/equity-bars"
 
@@ -87,14 +84,15 @@ class DataClient:
         try:
             response = requests.get(endpoint, params=params, timeout=30)
         except requests.RequestException as err:
-            msg = f"Data manager service call error: {err}"
-            raise RuntimeError(msg) from err
+            message = f"Data manager service call error: {err}"
+            raise RuntimeError(message) from err
 
-        if response.status_code == 404:
+        if response.status_code == requests.codes.not_found:
             return pl.DataFrame()
-        if response.status_code != 200:
+        if response.status_code != requests.codes.ok:
+            message = f"Data service error: {response.text}, status code: {response.status_code}"  # noqa: E501
             raise requests.HTTPError(
-                f"Data service error: {response.text}, status code: {response.status_code}",
+                message,
             )
 
         buffer = pa.py_buffer(response.content)

@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "flytekit>=1.10.0",
     "httpx>=0.28.1",
+    "loguru>=0.7.3",
 ]
 
 [tool.hatch.build.targets.wheel]
