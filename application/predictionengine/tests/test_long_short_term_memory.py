@@ -52,7 +52,7 @@ def test_lstm_different_sequence_lengths() -> None:
         input_tensor = Tensor(rng.standard_normal((2, seq_len, 8)))
         output, hidden_state = lstm.forward(input_tensor)
 
-        assert output.shape == (2, sequence_length, 16)
+        assert output.shape == (2, seq_len, 16)
 
 
 def test_lstm_multiple_layers() -> None:
