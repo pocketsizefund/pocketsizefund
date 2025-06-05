@@ -1,6 +1,7 @@
-from tinygrad.tensor import Tensor
 import numpy as np
 import pytest
+from tinygrad.tensor import Tensor
+
 from application.predictionengine.src.predictionengine.loss_function import (
     quantile_loss,
 )
@@ -14,7 +15,7 @@ def test_quantile_loss_basic() -> None:
     loss = quantile_loss(predictions, targets, quantiles)
 
     assert isinstance(loss, Tensor)
-    assert loss.shape == () or loss.shape == (1,)
+    assert loss.shape == () or loss.shape == (1,)  # noqa: PLR1714
 
 
 def test_quantile_loss_multiple_samples() -> None:
@@ -25,7 +26,7 @@ def test_quantile_loss_multiple_samples() -> None:
     loss = quantile_loss(predictions, targets, quantiles)
 
     assert isinstance(loss, Tensor)
-    assert loss.shape == () or loss.shape == (1,)
+    assert loss.shape == () or loss.shape == (1,)  # noqa: PLR1714
 
 
 def test_quantile_loss_perfect_prediction() -> None:
@@ -51,8 +52,13 @@ def test_quantile_loss_different_quantiles() -> None:
 
 def test_quantile_loss_shapes() -> None:
     for batch_size in [1, 2, 4, 8]:
-        predictions = Tensor(np.random.randn(batch_size, 1).astype(np.float32))
-        targets = Tensor(np.random.randn(batch_size, 1).astype(np.float32))
+        default_range = np.random.default_rng()
+        predictions = Tensor(
+            default_range.standard_normal((batch_size, 1)).astype(np.float32)
+        )
+        targets = Tensor(
+            default_range.standard_normal((batch_size, 1)).astype(np.float32)
+        )
         quantiles = (0.25, 0.5, 0.75)
 
         loss = quantile_loss(predictions, targets, quantiles)

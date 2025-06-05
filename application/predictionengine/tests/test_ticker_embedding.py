@@ -1,4 +1,5 @@
 from tinygrad.tensor import Tensor
+
 from application.predictionengine.src.predictionengine.ticker_embedding import (
     TickerEmbedding,
 )

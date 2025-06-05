@@ -1,5 +1,6 @@
 import polars as pl
 import pytest
+
 from application.predictionengine.src.predictionengine.dataset import DataSet
 
 
@@ -10,10 +11,10 @@ def test_dataset_initialization() -> None:
         sample_count=3,
     )
 
-    assert dataset.batch_size == 2
-    assert dataset.sequence_length == 3
-    assert dataset.sample_count == 3
-    assert len(dataset) == 2
+    assert dataset.batch_size == 2  # noqa: PLR2004
+    assert dataset.sequence_length == 3  # noqa: PLR2004
+    assert dataset.sample_count == 3  # noqa: PLR2004
+    assert len(dataset) == 2  # noqa: PLR2004
 
 
 def test_dataset_load_data() -> None:

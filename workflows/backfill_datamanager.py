@@ -13,7 +13,7 @@ def backfill_single_date(base_url: str, day: date) -> int:
 
 @workflow
 def backfill_equity_bars(base_url: str, start_date: date, end_date: date) -> list[int]:
-    results: list[int] = []
+    results = []
     current = start_date
     while current <= end_date:
         results.append(backfill_single_date(base_url=base_url, day=current))

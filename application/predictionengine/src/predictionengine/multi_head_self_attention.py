@@ -1,7 +1,8 @@
-from typing import Tuple, cast
-from tinygrad.tensor import Tensor
-from tinygrad.nn import Linear
+from typing import cast
+
 from tinygrad.dtype import dtypes
+from tinygrad.nn import Linear
+from tinygrad.tensor import Tensor
 
 
 class MultiHeadSelfAttention:
@@ -11,7 +12,8 @@ class MultiHeadSelfAttention:
         embedding_size: int,
     ) -> None:
         if embedding_size % heads_count != 0:
-            raise ValueError("Embedding dimension must be divisible by heads count")
+            message = "Embedding dimension must be divisible by heads count"
+            raise ValueError(message)
 
         self.heads_count = heads_count
         self.embedding_size = embedding_size
@@ -27,13 +29,13 @@ class MultiHeadSelfAttention:
 
     def forward(
         self,
-        input: Tensor,
-    ) -> Tuple[Tensor, Tensor]:
-        batch_size, sequence_length, _ = input.shape
+        features: Tensor,
+    ) -> tuple[Tensor, Tensor]:
+        batch_size, sequence_length, _ = features.shape
 
-        query_weights = self.query_weight(input)
-        key_weights = self.key_weight(input)
-        value_weights = self.value_weight(input)
+        query_weights = self.query_weight(features)
+        key_weights = self.key_weight(features)
+        value_weights = self.value_weight(features)
 
         query_weights = query_weights.view(
             (batch_size, sequence_length, self.heads_count, self.heads_dimension),
@@ -49,7 +51,7 @@ class MultiHeadSelfAttention:
             query_weights.matmul(key_weights.transpose(-2, -1)) / self.scale
         )
 
-        attention_weights: Tensor = cast(Tensor, attention_scores).softmax(axis=-1)
+        attention_weights: Tensor = cast("Tensor", attention_scores).softmax(axis=-1)
 
         attention_output = attention_weights.matmul(value_weights)
 

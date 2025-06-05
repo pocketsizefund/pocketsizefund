@@ -1,27 +1,26 @@
-from typing import Dict
+import numpy as np
 from category_encoders import OrdinalEncoder
-from .ticker_embedding import TickerEmbedding
-from .long_short_term_memory import LongShortTermMemory
-from .gated_residual_network import GatedResidualNetwork
-from .multi_head_self_attention import MultiHeadSelfAttention
-from .post_processor import PostProcessor
-from tinygrad.tensor import Tensor
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import (
     get_parameters,
     get_state_dict,
-    safe_save,
-    safe_load,
     load_state_dict,
+    safe_load,
+    safe_save,
 )
-from typing import Tuple, List
-import numpy as np
+from tinygrad.tensor import Tensor
+
 from .dataset import DataSet
+from .gated_residual_network import GatedResidualNetwork
+from .long_short_term_memory import LongShortTermMemory
 from .loss_function import quantile_loss
+from .multi_head_self_attention import MultiHeadSelfAttention
+from .post_processor import PostProcessor
+from .ticker_embedding import TickerEmbedding
 
 
 class MiniatureTemporalFusionTransformer:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         input_size: int,
         hidden_size: int,
@@ -30,8 +29,8 @@ class MiniatureTemporalFusionTransformer:
         ticker_count: int,
         embedding_size: int,
         attention_head_count: int,
-        means_by_ticker: Dict[str, Tensor],
-        standard_deviations_by_ticker: Dict[str, Tensor],
+        means_by_ticker: dict[str, Tensor],
+        standard_deviations_by_ticker: dict[str, Tensor],
         ticker_encoder: OrdinalEncoder,
         dropout_rate: float,  # non-zero indicates training
     ) -> None:
@@ -72,11 +71,15 @@ class MiniatureTemporalFusionTransformer:
 
         self.parameters = get_parameters(self)
 
+    def get_parameters(self) -> list[Tensor]:
+        """Return all trainable parameters of the model."""
+        return self.parameters
+
     def forward(
         self,
         tickers: Tensor,
         features: Tensor,
-    ) -> Tuple[Tensor, Tensor, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    ) -> tuple[Tensor, Tensor, tuple[np.ndarray, np.ndarray, np.ndarray]]:
         ticker_embeddings = self.ticker_embedding.forward(
             tickers
         )  # (batch_size, embedding_dim)
@@ -109,11 +112,11 @@ class MiniatureTemporalFusionTransformer:
         dataset: DataSet,
         epoch_count: int,
         learning_rate: float = 1e-3,
-    ) -> List[float]:
+    ) -> list[float]:
         optimizer = Adam(params=self.parameters, lr=learning_rate)
 
         quantiles = (0.25, 0.50, 0.75)
-        losses: List[float] = []
+        losses: list[float] = []
 
         for _ in range(epoch_count):
             epoch_loss = 0.0
@@ -152,7 +155,7 @@ class MiniatureTemporalFusionTransformer:
 
         average_loss = total_loss / batch_count
 
-        return average_loss
+        return average_loss  # noqa: RET504
 
     def save(
         self,
@@ -171,9 +174,9 @@ class MiniatureTemporalFusionTransformer:
     def predict(
         self,
         tickers: Tensor,
-        input: Tensor,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        predictions, _, _ = self.forward(tickers, input)
+        features: Tensor,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        predictions, _, _ = self.forward(tickers, features)
 
         percentile_25, percentile_50, percentile_75 = (
             self.post_processor.post_process_predictions(

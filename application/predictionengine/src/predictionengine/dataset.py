@@ -1,8 +1,9 @@
-from typing import Dict, List, Any, Tuple, Generator
-from tinygrad.tensor import Tensor
+from collections.abc import Generator
+from typing import Any
+
 import polars as pl
 from category_encoders import OrdinalEncoder
-
+from tinygrad.tensor import Tensor
 
 continuous_variable_columns = [
     "open_price",
@@ -20,13 +21,15 @@ class DataSet:
         batch_size: int,
         sequence_length: int,
         sample_count: int,
-        scalers: Dict[str, Dict[str, Tensor]] = {},
+        scalers: dict[str, dict[str, Tensor]] | None = None,
     ) -> None:
+        if scalers is None:
+            scalers = {}
         self.batch_size = batch_size
         self.sequence_length = sequence_length
         self.sample_count = sample_count
         self.scalers = scalers if scalers is not None else {}
-        self.preprocessors: Dict[str, Any] = {}
+        self.preprocessors: dict[str, Any] = {}
 
     def __len__(self) -> int:
         return (self.sample_count + self.batch_size - 1) // self.batch_size
@@ -106,7 +109,7 @@ class DataSet:
 
     def _compute_scalers(self, data: pl.DataFrame) -> None:
         if len(self.scalers) == 0:
-            self.scalers: Dict[str, Dict[str, Tensor]] = {}
+            self.scalers: dict[str, dict[str, Tensor]] = {}
             for ticker_key, group in data.group_by("ticker"):
                 ticker = ticker_key[0]
                 means = group[continuous_variable_columns].mean()
@@ -118,7 +121,7 @@ class DataSet:
                 }
 
     def _scale_data(self, data: pl.DataFrame) -> Tensor:
-        groups: List[Tensor] = []
+        groups: list[Tensor] = []
         for ticker_key, group in data.group_by("ticker"):
             ticker = ticker_key[0]
             means = self.scalers[str(ticker)]["means"]
@@ -133,7 +136,8 @@ class DataSet:
             groups.append(combined_group)
 
         if not groups:
-            raise ValueError("No data available after preprocessing")
+            message = "No data available after preprocessing"
+            raise ValueError(message)
 
         output_data = Tensor.empty(groups[0].shape)
         return output_data.cat(*groups, dim=0)
@@ -150,9 +154,10 @@ class DataSet:
         self._compute_scalers(data)
         self.data = self._scale_data(data)
 
-    def get_preprocessors(self) -> Dict[str, Any]:
+    def get_preprocessors(self) -> dict[str, Any]:
         if not self.preprocessors:
-            raise ValueError("Preprocessors have not been initialized.")
+            message = "Preprocessors have not been initialized."
+            raise ValueError(message)
 
         means_by_ticker = {
             ticker: values["means"] for ticker, values in self.scalers.items()
@@ -169,7 +174,7 @@ class DataSet:
             "indices": self.preprocessors["indices"],
         }
 
-    def batches(self) -> Generator[Tuple[Tensor, Tensor, Tensor], None, None]:
+    def batches(self) -> Generator[tuple[Tensor, Tensor, Tensor], None, None]:
         close_price_idx = self.preprocessors["indices"]["close_price"]
 
         for i in range(0, self.sample_count, self.batch_size):
@@ -193,9 +198,8 @@ class DataSet:
             ]
 
             if not batch_tensors:
-                raise ValueError(
-                    "Cannot stack empty batch tensors (batch_size must be ≥ 1)"
-                )
+                message = "Cannot stack empty batch tensors (batch_size must be ≥ 1)"
+                raise ValueError(message)
             if len(batch_tensors) == 1:
                 historical_features = batch_tensors[0].unsqueeze(0)
             else:
