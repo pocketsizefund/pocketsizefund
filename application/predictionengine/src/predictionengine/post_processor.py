@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 import numpy.typing as npt
 import polars as pl
@@ -44,8 +46,8 @@ class PostProcessor:
                 ticker not in self.means_by_ticker
                 or ticker not in self.standard_deviations_by_ticker
             ):
-                msg = f"Statistics not found for ticker: {ticker}"
-                raise ValueError(msg)
+                message = f"Statistics not found for ticker: {ticker}"
+                raise ValueError(message)
 
             mean = self.means_by_ticker[ticker].numpy()
             standard_deviation = self.standard_deviations_by_ticker[ticker].numpy()

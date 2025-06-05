@@ -89,11 +89,12 @@ class DataClient:
             message = f"Data manager service call error: {err}"
             raise RuntimeError(message) from err
 
-        if response.status_code == 404:
+        if response.status_code == requests.codes.not_found:
             return pl.DataFrame()
-        elif response.status_code != 200:
-            raise Exception(
-                f"Data service error: {response.text}, status code: {response.status_code}",
+        if response.status_code != requests.codes.ok:
+            message = f"Data service error: {response.text}, status code: {response.status_code}"  # noqa: E501
+            raise requests.HTTPError(
+                message,
             )
 
         buffer = pa.py_buffer(response.content)

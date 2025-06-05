@@ -13,18 +13,10 @@ def test_dataset_initialization() -> None:
         sample_count=3,
     )
 
-    class Expected(NamedTuple):
-        batch_size: int = 2
-        sequence_length: int = 3
-        sample_count: int = 3
-        observations: int = 2
-
-    expected = Expected()
-
-    assert dataset.batch_size == expected.batch_size
-    assert dataset.sequence_length == expected.sequence_length
-    assert dataset.sample_count == expected.sample_count
-    assert len(dataset) == expected.observations
+    assert dataset.batch_size == 2  # noqa: PLR2004
+    assert dataset.sequence_length == 3  # noqa: PLR2004
+    assert dataset.sample_count == 3  # noqa: PLR2004
+    assert len(dataset) == 2  # noqa: PLR2004
 
 
 def test_dataset_load_data() -> None:

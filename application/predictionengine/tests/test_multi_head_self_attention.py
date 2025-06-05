@@ -61,7 +61,7 @@ def test_multi_head_attention_longer_sequences() -> None:
         input_tensor = Tensor(rng.standard_normal((1, seq_len, 64)))
         output, _ = attention.forward(input_tensor)
 
-        assert output.shape == (1, seq_len, 64)
+        assert output.shape == (1, sequence_length, 64)
 
 
 def test_multi_head_attention_batch_processing() -> None:
