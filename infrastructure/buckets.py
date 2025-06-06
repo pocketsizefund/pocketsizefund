@@ -13,7 +13,7 @@ production_data_bucket = storage.Bucket(
 
 
 storage.BucketIAMMember(
-    "platform-oject-admin-access",
+    "platform-object-admin-access",
     bucket=production_data_bucket.name,
     role="roles/storage.objectAdmin",
     member=project.platform_service_account.email.apply(
