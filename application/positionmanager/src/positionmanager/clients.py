@@ -89,12 +89,13 @@ class DataClient:
             message = f"Data manager service call error: {err}"
             raise RuntimeError(message) from err
 
-        if response.status_code == requests.codes.not_found:
+        if response.status_code == requests.codes["no_content"]:
             return pl.DataFrame()
-        if response.status_code != requests.codes.ok:
+        if response.status_code != requests.codes["ok"]:
             message = f"Data service error: {response.text}, status code: {response.status_code}"  # noqa: E501
             raise requests.HTTPError(
                 message,
+                response=response,
             )
 
         buffer = pa.py_buffer(response.content)
@@ -103,7 +104,9 @@ class DataClient:
 
         data = pl.DataFrame(pl.from_arrow(table))
 
-        data = data.with_columns(pl.col("t").cast(pl.Datetime).dt.date().alias("date"))
+        data = data.with_columns(
+            pl.col("datetime").cast(pl.Datetime).dt.date().alias("date")
+        )
 
         return (
             data.sort("date")
