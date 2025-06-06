@@ -50,6 +50,9 @@ def fetch_dates(start_date: str, end_date: str) -> pl.DataFrame | pl.Series:
     with BytesIO(response.content) as buf:
         reader = ipc.open_stream(buf)
         arrow_table = reader.read_all()
-        data: pl.DataFrame | pl.Series | None = pl.from_arrow(arrow_table)
+        data = pl.from_arrow(arrow_table)
+        
+    if data is None:
+        raise ValueError("Failed to convert Arrow data to Polars format")
 
     return data
