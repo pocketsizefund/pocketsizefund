@@ -11,6 +11,7 @@ production_data_bucket = storage.Bucket(
     uniform_bucket_level_access=True,
 )
 
+
 storage.BucketIAMMember(
     "platform-write-access",
     bucket=production_data_bucket.name,
