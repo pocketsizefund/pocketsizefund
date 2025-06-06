@@ -13,6 +13,7 @@ from environment_variables import (
     create_environment_variable,
 )
 from project import platform_service_account
+from pulumi import export
 from pulumi_gcp import cloudscheduler, pubsub
 from services import create_service
 
@@ -68,3 +69,6 @@ datamanager_job = cloudscheduler.Job(
         data=base64.b64encode(b"{}").decode("utf-8"),
     ),
 )
+
+
+export("DATAMANAGER_BASE_URL", datamanager_service.statuses[0].url)
