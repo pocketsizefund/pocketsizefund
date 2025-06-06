@@ -46,6 +46,7 @@ def fetch_dates(start_date: str, end_date: str) -> pl.DataFrame | pl.Series:
         params={"start_date": start_date, "end_date": end_date},
         timeout=60,
     )
+    response.raise_for_status()
 
     with BytesIO(response.content) as buf:
         reader = ipc.open_stream(buf)
