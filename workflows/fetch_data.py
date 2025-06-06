@@ -35,6 +35,9 @@ def fetch_dates(start_date: str, end_date: str) -> pl.DataFrame | pl.Series:
         None,
     )
 
+    if datamanager_url is None:
+        raise ValueError("Datamanager service not found in the specified project and region")
+
     token = get_identity_token()
 
     response: httpx.Response = httpx.get(
