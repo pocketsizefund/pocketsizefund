@@ -1,23 +1,21 @@
 [project]
-name = "positionmanager"
+name = "predictionengine"
 version = "0.1.0"
-description = "Position management service"
-requires-python = ">=3.12"
+description = "Prediction engine service"
+requires-python = ">=3.12" # possibly 3.10
 dependencies = [
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",
-    "alpaca-py>=0.15.0",
-    "pydantic>=2.8.2",
-    "requests>=2.31.0",
+    "tinygrad>=0.10.3",
     "polars>=1.29.0",
-    "pandas>=2.1.0",
-    "pyportfolioopt>=1.5.6",
-    "ecos>=2.0.14",
+    "category-encoders>=2.8.1",
+    "requests>=2.31.0",
     "prometheus-fastapi-instrumentator>=7.1.0",
+    "loguru>=0.7.3",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["positionmanager"]
+packages = ["predictionengine"]
 
 [build-system]
 requires = ["hatchling"]

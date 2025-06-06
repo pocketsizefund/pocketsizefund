@@ -1,6 +1,6 @@
 [project]
 name = "pocketsizefund"
-version = "0.1.0"
+version = "20250602.4"
 description = "Open source quantitative hedge fund 🍊"
 requires-python = ">=3.12"
 dependencies = [
@@ -16,12 +16,14 @@ members = [
     "infrastructure",
     "application/datamanager",
     "application/positionmanager",
+    "application/predictionengine",
     "workflows",
 ]
 
 [tool.uv.sources]
 datamanager = { workspace = true }
 positionmanager = { workspace = true }
+predictionengine = { workspace = true }
 workflows = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
@@ -33,26 +35,30 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "alpaca-py>=0.40.1",
     "coverage>=7.8.0",
-    "duckdb>=1.2.2",
-    "ecos>=2.0.14",
-    "fastapi>=0.115.12",
-    "polars>=1.29.0",
-    "pyarrow>=20.0.0",
-    "pyportfolioopt>=1.5.6",
     "pytest>=8.3.5",
-    "requests>=2.32.3",
     "behave>=1.2.6",
-    "prometheus-fastapi-instrumentator>=7.1.0",
-    "loguru>=0.7.3",
 ]
 
 [tool.pytest.ini_options]
 testpaths = [
-    "/tests/",
     "application/datamanager/tests",
-    "application/positionmanager/tests",
+    "application/positionmanager/tests", 
+    "application/predictionengine/tests",
+]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--tb=short",
+    "--strict-markers",
+    "--color=yes",
+    "--rootdir=/tests"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:websockets.legacy.*",
+    "ignore::DeprecationWarning",
 ]
 
 [tool.coverage.run]
@@ -64,16 +70,74 @@ show_missing = true
 skip_covered = true
 
 [tool.coverage.xml]
-output = ".python_coverage.xml"
+output = "coverage_output/.python_coverage.xml"
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
-  "ANN",
-  "ERA"
+  "A",     # flake8 builtins
+  "ANN",   # type annotations
+  "ARG",   # unused args
+  "ASYNC",
+  "B",     # bugbear
+  "COM",   # commas
+  "C4",    # comprehensions
+  "C90",   # complexity
+  "BLE",   # no blind exceptions
+  "DTZ",   # datetimes
+  "E",     # whitespace
+  "EM",    # error messages
+  "ERA",   # dead code
+  "EXE",   # executables
+  "F",     # pyflakes
+  "FA",    # future annotations
+  "FAST",  # fastapi
+  "FIX",   # no fixme/todo comments
+  "FLY",   # f strings
+  "FBT",   # boolean traps
+  "FURB",  # refurb
+  "G",     # logging format
+  "ICN",   # import conventions
+  "ISC",   # implicit string concatenation
+  "I",    # isort
+  "LOG",   # logging
+  "N",     # naming
+  "NPY",   # numpy
+  "PD",    # pandas
+  "PERF",  # performance
+  "PIE",   # misc lints
+  "PL",    # pylint
+  "PT",    # pytest style
+  "PTH",   # use pathlib
+  "PYI",   # type hints
+  "Q",     # quotes
+  "RSE",   # raises
+  "RET",   # returns
+  "RUF",   # ruff
+  "S",     # bandit (security)
+  "SIM",   # simplicity
+  "SLF",   # self
+  "SLOT",  # slots
+  "TC",    # type checking
+  "TID",   # tidy imports
+  "TRY",   # trys
+  "T10",   # debugger
+  "T20",   # printing
+  "UP",    # pyupgrade
+  "YTT"    # flake8
 ]
+ignore = [
+    "COM812",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**/*.py" = ["S101"]
+"**/features/steps/**/*.py" = ["S101"]
 
 [tool.ty.rules]
 unresolved-import = "ignore"
 invalid-return-type = "error"
 invalid-argument-type = "error"
 unresolved-reference = "error"
+
+[tool.pyright]
+reportMissingImports = "none"

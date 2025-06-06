@@ -1,7 +1,6 @@
-from pulumi_gcp import cloudrun, secretmanager, storage
-from pulumi import Config, FileAsset, Output
 import project
-import buckets
+from pulumi import FileAsset
+from pulumi_gcp import cloudrun, secretmanager
 
 config = Config()
 
@@ -70,17 +69,13 @@ prometheus_service = cloudrun.Service(
                             name="prometheus-config-volume",
                             mount_path="/etc/prometheus",
                         ),
-                        cloudrun.ServiceTemplateSpecContainerVolumeMountArgs(
-                            name="prometheus-data",
-                            mount_path="/prometheus",
-                        ),
                     ],
                     ports=[
                         cloudrun.ServiceTemplateSpecContainerPortArgs(
-                            container_port=9090
-                        )
+                            container_port=9090,
+                        ),
                     ],
-                )
+                ),
             ],
             volumes=[
                 cloudrun.ServiceTemplateSpecVolumeArgs(
@@ -98,7 +93,7 @@ prometheus_service = cloudrun.Service(
                     name="prometheus-data", empty_dir={}
                 ),
             ],
-        )
+        ),
     ),
 )
 
@@ -132,14 +127,14 @@ grafana_service = cloudrun.Service(
                     ],
                     ports=[
                         cloudrun.ServiceTemplateSpecContainerPortArgs(
-                            container_port=3000
-                        )
+                            container_port=3000,
+                        ),
                     ],
                     resources=cloudrun.ServiceTemplateSpecContainerResourcesArgs(
                         limits={"cpu": "1", "memory": "1Gi"}
                     ),
                 )
             ],
-        )
+        ),
     ),
 )

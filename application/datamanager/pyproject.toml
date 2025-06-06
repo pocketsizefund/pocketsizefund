@@ -12,7 +12,8 @@ dependencies = [
     "loguru>=0.7.3",
     "google-cloud-storage>=2.16.0",
     "httpx>=0.28.1",
-    "datamanager"
+    "prometheus-fastapi-instrumentator>=7.1.0",
+    "loguru>=0.7.3",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -25,5 +26,4 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "behave>=1.2.6",
-    "requests>=2.31.0",
 ]
