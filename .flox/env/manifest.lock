@@ -3,8 +3,17 @@
   "manifest": {
     "version": 1,
     "install": {
+      "fd": {
+        "pkg-path": "fd"
+      },
+      "fselect": {
+        "pkg-path": "fselect"
+      },
       "mise": {
         "pkg-path": "mise"
+      },
+      "nushell": {
+        "pkg-path": "nushell"
       },
       "pulumi": {
         "pkg-path": "pulumi"
@@ -43,6 +52,246 @@
     }
   },
   "packages": [
+    {
+      "attr_path": "fd",
+      "broken": false,
+      "derivation": "/nix/store/0hfk6x32j7synb3akv4nhynajd5iwy3r-fd-10.2.0.drv",
+      "description": "Simple, fast and user-friendly alternative to find",
+      "install_id": "fd",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "fd-10.2.0",
+      "pname": "fd",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:28.966400Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "10.2.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/h02qmk22d29pjilxz1grqx9zkb7brzv3-fd-10.2.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "fd",
+      "broken": false,
+      "derivation": "/nix/store/4piqmf3mkj4f54jlkbydj7b24qlnwq9j-fd-10.2.0.drv",
+      "description": "Simple, fast and user-friendly alternative to find",
+      "install_id": "fd",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "fd-10.2.0",
+      "pname": "fd",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:20.186072Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "10.2.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/6slfzgpc4053999gzra6zm1f124vsj28-fd-10.2.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "fd",
+      "broken": false,
+      "derivation": "/nix/store/47r98ik23wa6779dwzfzp6yh4fngdfys-fd-10.2.0.drv",
+      "description": "Simple, fast and user-friendly alternative to find",
+      "install_id": "fd",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "fd-10.2.0",
+      "pname": "fd",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:29.591625Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "10.2.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/g71gs0b9pialvhfjnlsgj8vk85g4x7kr-fd-10.2.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "fd",
+      "broken": false,
+      "derivation": "/nix/store/lvzyy28gdaldb081ilhb2id5wlr6qyvc-fd-10.2.0.drv",
+      "description": "Simple, fast and user-friendly alternative to find",
+      "install_id": "fd",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "fd-10.2.0",
+      "pname": "fd",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:15:55.084541Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "10.2.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/jcfzj2vi57mvqhp212ishibkm6glsdzb-fd-10.2.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "fselect",
+      "broken": false,
+      "derivation": "/nix/store/9xzs7z0fa4c1gaxy1xbs190a3hg729jx-fselect-0.8.11.drv",
+      "description": "Find files with SQL-like queries",
+      "install_id": "fselect",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "fselect-0.8.11",
+      "pname": "fselect",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:29.057717Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.8.11",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/6ca30pq96vq5d4fb8kpxvxjx5fnrb600-fselect-0.8.11"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "fselect",
+      "broken": false,
+      "derivation": "/nix/store/0dv1q6hljs1mgij75dir1dj1vxkd1m40-fselect-0.8.11.drv",
+      "description": "Find files with SQL-like queries",
+      "install_id": "fselect",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "fselect-0.8.11",
+      "pname": "fselect",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:20.353166Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.8.11",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/bpmxkzxwacl72ky6sg8gc7qszdd1b67j-fselect-0.8.11"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "fselect",
+      "broken": false,
+      "derivation": "/nix/store/wz3cp2qy0dsmzmyxcqn89jqnk7di9yy3-fselect-0.8.11.drv",
+      "description": "Find files with SQL-like queries",
+      "install_id": "fselect",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "fselect-0.8.11",
+      "pname": "fselect",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:29.685032Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.8.11",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/rf89p2y4460zyszdm8dgp1hk72p8b1l0-fselect-0.8.11"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "fselect",
+      "broken": false,
+      "derivation": "/nix/store/scwx57606dzj6g92vbnlvbhd7hsyrsid-fselect-0.8.11.drv",
+      "description": "Find files with SQL-like queries",
+      "install_id": "fselect",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "fselect-0.8.11",
+      "pname": "fselect",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:15:55.269928Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.8.11",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/whgigglbkjxp3r7ss22f1va7vivy73ka-fselect-0.8.11"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
     {
       "attr_path": "mise",
       "broken": false,
@@ -158,6 +407,126 @@
       ],
       "outputs": {
         "out": "/nix/store/y8kcp90c4fy2jqvjlzjmbxnhxk4v7ah1-mise-2025.4.11"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "nushell",
+      "broken": false,
+      "derivation": "/nix/store/4s5gj67dwnnm9b78pmshbffqnirqk53h-nushell-0.104.0.drv",
+      "description": "Modern shell written in Rust",
+      "install_id": "nushell",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "nushell-0.104.0",
+      "pname": "nushell",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:31.681597Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.104.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/07m132l9qj6mnl8f5hdjqbc5ywhvfv3f-nushell-0.104.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "nushell",
+      "broken": false,
+      "derivation": "/nix/store/lbgn7ihjnasimc4p90sm9b6xsy153dxg-nushell-0.104.0.drv",
+      "description": "Modern shell written in Rust",
+      "install_id": "nushell",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "nushell-0.104.0",
+      "pname": "nushell",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:30.586273Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.104.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/9wzds55q2ykq470599nd38sqwkak0wxz-nushell-0.104.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "nushell",
+      "broken": false,
+      "derivation": "/nix/store/idk62cn1yq1r2fkkl7zxssn21kwhlrbn-nushell-0.104.0.drv",
+      "description": "Modern shell written in Rust",
+      "install_id": "nushell",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "nushell-0.104.0",
+      "pname": "nushell",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:32.382107Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.104.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/391ra8g300hbqclr8rvpdyy12xff62jc-nushell-0.104.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "nushell",
+      "broken": false,
+      "derivation": "/nix/store/l0nvzkld84bnhi0rxdzhd5f580w362sz-nushell-0.104.0.drv",
+      "description": "Modern shell written in Rust",
+      "install_id": "nushell",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "nushell-0.104.0",
+      "pname": "nushell",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:16:07.357672Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.104.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/dsmqrxxwndczggkaizq6vxry46fn1vjr-nushell-0.104.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
