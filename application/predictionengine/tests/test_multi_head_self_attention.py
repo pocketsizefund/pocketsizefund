@@ -57,8 +57,8 @@ def test_multi_head_attention_single_sequence() -> None:
 def test_multi_head_attention_longer_sequences() -> None:
     attention = MultiHeadSelfAttention(heads_count=4, embedding_size=64)
 
-    for seq_len in [10, 20, 50]:
-        input_tensor = Tensor(rng.standard_normal((1, seq_len, 64)))
+    for sequence_length in [10, 20, 50]:
+        input_tensor = Tensor(rng.standard_normal((1, sequence_length, 64)))
         output, _ = attention.forward(input_tensor)
 
         assert output.shape == (1, sequence_length, 64)
