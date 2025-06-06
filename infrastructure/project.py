@@ -50,6 +50,7 @@ platform_service_account = Account(
     display_name="Platform-Wide Cloud Run Service Account",
 )
 
+
 IAMMember(
     "pubsub-token-access",
     project=PROJECT,
@@ -57,4 +58,11 @@ IAMMember(
     member=platform_service_account.email.apply(
         lambda e: f"serviceAccount:{e}",
     ),  # ty: ignore[missing-argument]
+)
+
+IAMMember(
+    "platform-service-account-owner",
+    project=PROJECT,
+    role="roles/owner",
+    member=platform_service_account.email.apply(lambda e: f"serviceAccount:{e}"),  # type: ignore
 )

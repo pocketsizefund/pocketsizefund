@@ -3,11 +3,11 @@
   "manifest": {
     "version": 1,
     "install": {
-      "fd": {
-        "pkg-path": "fd"
-      },
       "fselect": {
         "pkg-path": "fselect"
+      },
+      "google-cloud-sdk": {
+        "pkg-path": "google-cloud-sdk"
       },
       "mise": {
         "pkg-path": "mise"
@@ -34,13 +34,8 @@
         "pkg-path": "yamllint"
       }
     },
-    "vars": {
-      "ALPACA_API_KEY": "${ALPACA_API_KEY}",
-      "ALPACA_API_SECRET": "${ALPACA_API_SECRET}",
-      "DATA_BUCKET": "${DATA_BUCKET}",
-      "DUCKB_ACCESS_KEY": "${DUCKDB_ACCESS_KEY}",
-      "DUCKDB_SECRET": "${DUCKDB_SECRET}",
-      "POLYGON_API_KEY": "${POLYGON_API_KEY}"
+    "hook": {
+      "on-activate": "\n"
     },
     "options": {
       "systems": [
@@ -52,126 +47,6 @@
     }
   },
   "packages": [
-    {
-      "attr_path": "fd",
-      "broken": false,
-      "derivation": "/nix/store/0hfk6x32j7synb3akv4nhynajd5iwy3r-fd-10.2.0.drv",
-      "description": "Simple, fast and user-friendly alternative to find",
-      "install_id": "fd",
-      "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "fd-10.2.0",
-      "pname": "fd",
-      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "rev_count": 793735,
-      "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:19:28.966400Z",
-      "stabilities": [
-        "staging",
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "10.2.0",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/h02qmk22d29pjilxz1grqx9zkb7brzv3-fd-10.2.0"
-      },
-      "system": "aarch64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "fd",
-      "broken": false,
-      "derivation": "/nix/store/4piqmf3mkj4f54jlkbydj7b24qlnwq9j-fd-10.2.0.drv",
-      "description": "Simple, fast and user-friendly alternative to find",
-      "install_id": "fd",
-      "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "fd-10.2.0",
-      "pname": "fd",
-      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "rev_count": 793735,
-      "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:37:20.186072Z",
-      "stabilities": [
-        "staging",
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "10.2.0",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/6slfzgpc4053999gzra6zm1f124vsj28-fd-10.2.0"
-      },
-      "system": "aarch64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "fd",
-      "broken": false,
-      "derivation": "/nix/store/47r98ik23wa6779dwzfzp6yh4fngdfys-fd-10.2.0.drv",
-      "description": "Simple, fast and user-friendly alternative to find",
-      "install_id": "fd",
-      "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "fd-10.2.0",
-      "pname": "fd",
-      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "rev_count": 793735,
-      "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T04:54:29.591625Z",
-      "stabilities": [
-        "staging",
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "10.2.0",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/g71gs0b9pialvhfjnlsgj8vk85g4x7kr-fd-10.2.0"
-      },
-      "system": "x86_64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "fd",
-      "broken": false,
-      "derivation": "/nix/store/lvzyy28gdaldb081ilhb2id5wlr6qyvc-fd-10.2.0.drv",
-      "description": "Simple, fast and user-friendly alternative to find",
-      "install_id": "fd",
-      "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "name": "fd-10.2.0",
-      "pname": "fd",
-      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
-      "rev_count": 793735,
-      "rev_date": "2025-05-04T03:14:55Z",
-      "scrape_date": "2025-05-05T05:15:55.084541Z",
-      "stabilities": [
-        "staging",
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "10.2.0",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/jcfzj2vi57mvqhp212ishibkm6glsdzb-fd-10.2.0"
-      },
-      "system": "x86_64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
     {
       "attr_path": "fselect",
       "broken": false,
@@ -287,6 +162,126 @@
       ],
       "outputs": {
         "out": "/nix/store/whgigglbkjxp3r7ss22f1va7vivy73ka-fselect-0.8.11"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "google-cloud-sdk",
+      "broken": false,
+      "derivation": "/nix/store/d3zz8kpjk454a5q6bdq68nklcrznxi4g-google-cloud-sdk-519.0.0.drv",
+      "description": "Tools for the google cloud platform",
+      "install_id": "google-cloud-sdk",
+      "license": "Unspecified free software license",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "google-cloud-sdk-519.0.0",
+      "pname": "google-cloud-sdk",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:19:29.273920Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "519.0.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/r9hzi487p608g20hydk5x0afm58fbymi-google-cloud-sdk-519.0.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "google-cloud-sdk",
+      "broken": false,
+      "derivation": "/nix/store/yay76ir5mzhfk1zqik81mnhplm6g0nhj-google-cloud-sdk-519.0.0.drv",
+      "description": "Tools for the google cloud platform",
+      "install_id": "google-cloud-sdk",
+      "license": "Unspecified free software license",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "google-cloud-sdk-519.0.0",
+      "pname": "google-cloud-sdk",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:37:20.992042Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "519.0.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/rqgy5gwr7pragl5kp0frvy14r8z7pf1h-google-cloud-sdk-519.0.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "google-cloud-sdk",
+      "broken": false,
+      "derivation": "/nix/store/z53nvy91723rzhyl4hdmw2n05zfky1i8-google-cloud-sdk-519.0.0.drv",
+      "description": "Tools for the google cloud platform",
+      "install_id": "google-cloud-sdk",
+      "license": "Unspecified free software license",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "google-cloud-sdk-519.0.0",
+      "pname": "google-cloud-sdk",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T04:54:29.934088Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "519.0.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/rzcrhqfszp9m2z1z6fdqc1p6f5yivvp3-google-cloud-sdk-519.0.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "google-cloud-sdk",
+      "broken": false,
+      "derivation": "/nix/store/l8vqa49szs1hichh1k3rfmyxjcqf0lna-google-cloud-sdk-519.0.0.drv",
+      "description": "Tools for the google cloud platform",
+      "install_id": "google-cloud-sdk",
+      "license": "Unspecified free software license",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "name": "google-cloud-sdk-519.0.0",
+      "pname": "google-cloud-sdk",
+      "rev": "979daf34c8cacebcd917d540070b52a3c2b9b16e",
+      "rev_count": 793735,
+      "rev_date": "2025-05-04T03:14:55Z",
+      "scrape_date": "2025-05-05T05:15:55.985990Z",
+      "stabilities": [
+        "staging",
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "519.0.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/61flv7l4cmrydqxz030fqail95a14yja-google-cloud-sdk-519.0.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

@@ -1,6 +1,8 @@
-from pulumi import Output
+from pulumi import Output, export
 from pulumi.config import Config
 from pulumi_gcp.cloudrun import ServiceTemplateSpecContainerEnvArgs
+from pulumi_gcp.storage import HmacKey
+from project import platform_service_account, PROJECT
 
 config = Config()
 
@@ -27,12 +29,20 @@ ALPACA_API_SECRET_KEY = create_environment_variable(
 DATA_BUCKET = create_environment_variable(
     name="DATA_BUCKET", value=config.require_secret("DATA_BUCKET")
 )
-DUCKDB_ACCESS_KEY = create_environment_variable(
-    name="DUCKDB_ACCESS_KEY", value=config.require_secret("DUCKDB_ACCESS_KEY")
-)
-DUCKDB_SECRET = create_environment_variable(
-    name="DUCKDB_SECRET", value=config.require_secret("DUCKDB_SECRET")
-)
 POLYGON_API_KEY = create_environment_variable(
     name="POLYGON_API_KEY", value=config.require_secret("POLYGON_API_KEY")
 )
+
+hmac_key: HmacKey = HmacKey(
+    "platform-duckdb-hmac",
+    service_account_email=platform_service_account.email,
+    project=PROJECT,
+)
+
+DUCKDB_ACCESS_KEY = create_environment_variable(
+    name="DUCKDB_ACCESS_KEY", value=hmac_key.access_id
+)
+DUCKDB_SECRET = create_environment_variable(name="DUCKDB_SECRET", value=hmac_key.secret)
+
+export("duckdb_access_key", hmac_key.access_id)
+export("duckdb_secret", hmac_key.secret)

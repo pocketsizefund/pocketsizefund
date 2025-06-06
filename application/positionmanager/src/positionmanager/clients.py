@@ -89,9 +89,9 @@ class DataClient:
             message = f"Data manager service call error: {err}"
             raise RuntimeError(message) from err
 
-        if response.status_code == requests.codes.not_found:
+        if response.status_code == requests.codes["not_found"]:
             return pl.DataFrame()
-        if response.status_code != requests.codes.ok:
+        if response.status_code != requests.codes["ok"]:
             message = f"Data service error: {response.text}, status code: {response.status_code}"  # noqa: E501
             raise requests.HTTPError(
                 message,

@@ -9,8 +9,14 @@ uv.pkg-path = "uv"
 vulture.pkg-path = "python313Packages.vulture"
 yamllint.pkg-path = "yamllint"
 nushell.pkg-path = "nushell"
-fd.pkg-path = "fd"
 fselect.pkg-path = "fselect"
+google-cloud-sdk.pkg-path = "google-cloud-sdk"
+
+
+[hook]
+on-activate = '''
+
+'''
 
 [options]
 systems = [

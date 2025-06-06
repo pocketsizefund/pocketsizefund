@@ -13,9 +13,9 @@ production_data_bucket = storage.Bucket(
 
 
 storage.BucketIAMMember(
-    "platform-write-access",
+    "platform-oject-admin-access",
     bucket=production_data_bucket.name,
-    role="roles/storage.objectCreator",
+    role="roles/storage.objectAdmin",
     member=project.platform_service_account.email.apply(
         lambda e: f"serviceAccount:{e}"
     ),

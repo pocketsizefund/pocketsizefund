@@ -1,6 +1,7 @@
 import base64
 
 import buckets  # noqa: F401
+from pulumi import export
 import topics
 from environment_variables import (
     ALPACA_API_KEY_ID,
@@ -68,3 +69,6 @@ datamanager_job = cloudscheduler.Job(
         data=base64.b64encode(b"{}").decode("utf-8"),
     ),
 )
+
+
+export("DATAMANAGER_BASE_URL", datamanager_service.statuses[0].url)
