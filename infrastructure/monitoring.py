@@ -1,6 +1,7 @@
+import buckets
 import project
-from pulumi import FileAsset
-from pulumi_gcp import cloudrun, secretmanager
+from pulumi.config import Config
+from pulumi_gcp import cloudrun, secretmanager, storage
 
 config = Config()
 
@@ -59,7 +60,7 @@ prometheus_service = cloudrun.Service(
                     image="prom/prometheus:v2.51.2",
                     args=[
                         "--config.file=/etc/prometheus/prometheus.yaml",
-                        f"--storage.tsdb.path=/prometheus",
+                        "--storage.tsdb.path=/prometheus",
                     ],
                     resources=cloudrun.ServiceTemplateSpecContainerResourcesArgs(
                         limits={"cpu": "500m", "memory": "512Mi"}

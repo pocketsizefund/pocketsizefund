@@ -15,7 +15,7 @@ from .dataset import DataSet
 from .miniature_temporal_fusion_transformer import MiniatureTemporalFusionTransformer
 from .models import PredictionResponse
 
-LOOKBACK_DAYS = 30
+SEQUENCE_LENGTH = 30
 
 
 class LoadError(Exception):
@@ -49,7 +49,7 @@ def fetch_historical_data(
         "end_date": end_date.isoformat(),
     }
 
-    response = requests.get(url, params=parameters, timeout=30)
+    response = requests.get(url, params=parameters, timeout=SEQUENCE_LENGTH)
     response.raise_for_status()
 
     import pyarrow as pa
@@ -64,7 +64,7 @@ def fetch_historical_data(
 def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTransformer:
     dataset = DataSet(
         batch_size=32,
-        sequence_length=LOOKBACK_DAYS,
+        sequence_length=SEQUENCE_LENGTH,
         sample_count=len(data),
     )
     dataset.load_data(data)
@@ -83,14 +83,14 @@ def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTrans
         ticker_encoder=preprocessors["ticker_encoder"],
         dropout_rate=0.0,
     )
-
     model_path = "miniature_temporal_fusion_transformer.safetensor"
     if Path(model_path).exists():
         try:
             model.load(model_path)
             logger.info("Loaded existing model weights")
-        except LoadError as e:
-            logger.error(f"Failed to load model weights: {e}")
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to load model weights: {e}")
+            logger.warning(f"Failed to load model weights: {e}")
 
     return model
 
@@ -101,7 +101,7 @@ async def create_predictions(
 ) -> PredictionResponse:
     try:
         end_date = datetime.now(tz=UTC).date()
-        start_date = end_date - timedelta(days=30)
+        start_date = end_date - timedelta(days=SEQUENCE_LENGTH)
 
         logger.info(f"Fetching data from {start_date} to {end_date}")
         data = fetch_historical_data(
@@ -124,15 +124,15 @@ async def create_predictions(
 
         for ticker in unique_tickers:
             ticker_data = data.filter(pl.col("ticker") == ticker)
-            if len(ticker_data) < LOOKBACK_DAYS:
+            if len(ticker_data) < SEQUENCE_LENGTH:
                 logger.warning(f"Insufficient data for ticker {ticker}")
                 continue
 
-            recent_data = ticker_data.tail(LOOKBACK_DAYS)
+            recent_data = ticker_data.tail(SEQUENCE_LENGTH)
 
             dataset = DataSet(
                 batch_size=1,
-                sequence_length=LOOKBACK_DAYS,
+                sequence_length=SEQUENCE_LENGTH,
                 sample_count=1,
             )
             dataset.load_data(recent_data)

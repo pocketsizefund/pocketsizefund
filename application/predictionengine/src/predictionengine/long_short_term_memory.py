@@ -58,8 +58,8 @@ class LongShortTermMemory:
             outputs.append(hidden_state[-1])
 
         if not outputs:
-            msg = "Cannot stack empty outputs list"
-            raise ValueError(msg)
+            message = "Cannot stack empty outputs list"
+            raise ValueError(message)
 
         if len(outputs) == 1:
             output_tensor = outputs[0].unsqueeze(1)

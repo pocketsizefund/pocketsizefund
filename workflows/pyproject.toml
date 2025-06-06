@@ -2,10 +2,11 @@
 name = "workflows"
 description = "Data and model workflows"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = "==3.12.10"
 dependencies = [
     "flytekit>=1.10.0",
     "httpx>=0.28.1",
+    "loguru>=0.7.3",
 ]
 
 [tool.hatch.build.targets.wheel]

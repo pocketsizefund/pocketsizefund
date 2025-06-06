@@ -18,5 +18,6 @@
       "Bash(gh issue close:*)"
     ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": false
 }

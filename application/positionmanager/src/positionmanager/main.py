@@ -4,7 +4,7 @@ from typing import Any
 
 import polars as pl
 import requests
-from alpaca.common.rest import APIError
+from alpaca.common.exceptions import APIError
 from fastapi import FastAPI, HTTPException
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import ValidationError

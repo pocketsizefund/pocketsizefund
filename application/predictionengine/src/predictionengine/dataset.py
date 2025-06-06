@@ -134,8 +134,8 @@ class DataSet:
             groups.append(combined_group)
 
         if not groups:
-            msg = "No data available after preprocessing"
-            raise ValueError(msg)
+            message = "No data available after preprocessing"
+            raise ValueError(message)
 
         output_data = Tensor.empty(groups[0].shape)
         return output_data.cat(*groups, dim=0)
@@ -154,8 +154,8 @@ class DataSet:
 
     def get_preprocessors(self) -> dict[str, Any]:
         if not self.preprocessors:
-            msg = "Preprocessors have not been initialized."
-            raise ValueError(msg)
+            message = "Preprocessors have not been initialized."
+            raise ValueError(message)
 
         means_by_ticker = {
             ticker: values["means"] for ticker, values in self.scalers.items()
@@ -196,8 +196,8 @@ class DataSet:
             ]
 
             if not batch_tensors:
-                msg = "Cannot stack empty batch tensors (batch_size must be ≥ 1)"
-                raise ValueError(msg)
+                message = "Cannot stack empty batch tensors (batch_size must be ≥ 1)"
+                raise ValueError(message)
             if len(batch_tensors) == 1:
                 historical_features = batch_tensors[0].unsqueeze(0)
             else:

@@ -1,6 +1,7 @@
 from typing import Any
 
 import polars as pl
+import pyarrow as pa
 import requests
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -18,8 +19,8 @@ class AlpacaClient:
         paper: bool = True,
     ) -> None:
         if not api_key or not api_secret:
-            msg = "Alpaca API key and secret are required"
-            raise ValueError(msg)
+            message = "Alpaca API key and secret are required"
+            raise ValueError(message)
 
         self.trading_client: TradingClient = TradingClient(
             api_key, api_secret, paper=paper
@@ -30,8 +31,8 @@ class AlpacaClient:
         cash_balance = getattr(account, "cash", None)
 
         if cash_balance is None:
-            msg = "Cash balance is not available"
-            raise ValueError(msg)
+            message = "Cash balance is not available"
+            raise ValueError(message)
 
         return Money.from_float(float(cash_balance))
 
@@ -72,32 +73,43 @@ class DataClient:
         date_range: DateRange,
     ) -> pl.DataFrame:
         if not self.datamanager_base_url:
-            msg = "Data manager URL is not configured"
-            raise ValueError(msg)
+            message = "Data manager URL is not configured"
+            raise ValueError(message)
 
         endpoint = f"{self.datamanager_base_url}/equity-bars"
 
+        params = {
+            "start_date": date_range.start.date().isoformat(),
+            "end_date": date_range.end.date().isoformat(),
+        }
+
         try:
-            response = requests.post(endpoint, json=date_range.to_payload(), timeout=10)
+            response = requests.get(endpoint, params=params, timeout=30)
         except requests.RequestException as err:
-            msg = f"Data manager service call error: {err}"
-            raise RuntimeError(msg) from err
+            message = f"Data manager service call error: {err}"
+            raise RuntimeError(message) from err
 
-        response.raise_for_status()
+        if response.status_code == requests.codes["no_content"]:
+            return pl.DataFrame()
+        if response.status_code != requests.codes["ok"]:
+            message = f"Data service error: {response.text}, status code: {response.status_code}"  # noqa: E501
+            raise requests.HTTPError(
+                message,
+                response=response,
+            )
 
-        response_data = response.json()
+        buffer = pa.py_buffer(response.content)
+        reader = pa.ipc.RecordBatchStreamReader(buffer)
+        table = reader.read_all()
 
-        data = pl.DataFrame(response_data["data"])
+        data = pl.DataFrame(pl.from_arrow(table))
 
         data = data.with_columns(
-            pl.col("timestamp")
-            .str.slice(0, 10)
-            .str.strptime(pl.Date, "%Y-%m-%d")
-            .alias("date"),
+            pl.col("datetime").cast(pl.Datetime).dt.date().alias("date")
         )
 
         return (
             data.sort("date")
-            .pivot(on="ticker", index="date", values="close_price")
+            .pivot(on="T", index="date", values="c")
             .with_columns(pl.all().exclude("date").cast(pl.Float64))
         )

@@ -72,6 +72,10 @@ class MiniatureTemporalFusionTransformer:
 
         self.parameters = get_parameters(self)
 
+    def get_parameters(self) -> list[Tensor]:
+        """Return all trainable parameters of the model."""
+        return self.parameters
+
     def forward(
         self,
         tickers: Tensor,

@@ -12,12 +12,12 @@ def quantile_loss(
         quantiles = (0.25, 0.5, 0.75)
 
     if y_pred.shape != y_true.shape:
-        msg = f"Shape mismatch: y_pred {y_pred.shape} vs y_true {y_true.shape}"
-        raise ValueError(msg)
+        message = f"Shape mismatch: y_pred {y_pred.shape} vs y_true {y_true.shape}"
+        raise ValueError(message)
 
     if not all(0 <= q <= 1 for q in quantiles):
-        msg = "All quantiles must be between 0 and 1"
-        raise ValueError(msg)
+        message = "All quantiles must be between 0 and 1"
+        raise ValueError(message)
 
     loss: Tensor = Tensor.zeros(1)
     error = cast("Tensor", y_true - y_pred)

@@ -137,8 +137,8 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
     polygon = request.app.state.settings.polygon
     bucket = request.app.state.settings.gcp.bucket
 
-    summary_date: str = summary_date.date.strftime("%Y-%m-%d")
-    url = f"{polygon.base_url}{polygon.daily_bars}{summary_date}"
+    request_summary_date: str = summary_date.date.strftime("%Y-%m-%d")
+    url = f"{polygon.base_url}{polygon.daily_bars}{request_summary_date}"
     logger.info(f"polygon_api_endpoint={url}")
 
     params = {"adjusted": "true", "apiKey": polygon.api_key}
@@ -178,7 +178,7 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to write data",
             ) from e
-    return BarsSummary(date=summary_date, count=count)
+    return BarsSummary(date=request_summary_date, count=count)
 
 
 @application.delete("/equity-bars")
