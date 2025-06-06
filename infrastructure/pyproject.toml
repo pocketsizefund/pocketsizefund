@@ -1,7 +1,7 @@
 [project]
 name = "infrastructure"
 version = "20250602.4"
-requires-python = ">=3.13"
+requires-python = "==3.12.10"
 dependencies = [
     "pulumi>=3.169.0",
     "pulumi-gcp>=8.30.1",
