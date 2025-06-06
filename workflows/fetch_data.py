@@ -1,18 +1,19 @@
+import os
 import subprocess
-import httpx
-import polars as pl
-import pyarrow.ipc as ipc
 from io import BytesIO
 
+import httpx
+import polars as pl
 from google.cloud import run_v2
+from pyarrow import ipc
 from union import task
 
 
+@task
 def get_identity_token() -> str:
-    result = subprocess.run(
-        ["gcloud", "auth", "print-identity-token"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    result = subprocess.run(  # noqa: S603
+        ["gcloud", "auth", "print-identity-token"],  # noqa: S607
+        capture_output=True,
         check=True,
         text=True,
     )
@@ -20,7 +21,7 @@ def get_identity_token() -> str:
 
 
 @task
-def fetch_dates(start_date: str, end_date: str) -> pl.DataFrame | pl.Series:
+def fetch_dates(start_date: str, end_date: str, token: str) -> pl.DataFrame | pl.Series:
     client = run_v2.ServicesClient()
     project = os.getenv("GCP_PROJECT", "fund-alpha")
     region = os.getenv("GCP_REGION", "us-east1")
@@ -36,9 +37,8 @@ def fetch_dates(start_date: str, end_date: str) -> pl.DataFrame | pl.Series:
     )
 
     if datamanager_url is None:
-        raise ValueError("Datamanager service not found in the specified project and region")
-
-    token = get_identity_token()
+        message = "Datamanager service not found in the specified project and region"
+        raise ValueError(message)
 
     response: httpx.Response = httpx.get(
         f"{datamanager_url}/equity-bars",
@@ -51,9 +51,4 @@ def fetch_dates(start_date: str, end_date: str) -> pl.DataFrame | pl.Series:
     with BytesIO(response.content) as buf:
         reader = ipc.open_stream(buf)
         arrow_table = reader.read_all()
-        data = pl.from_arrow(arrow_table)
-        
-    if data is None:
-        raise ValueError("Failed to convert Arrow data to Polars format")
-
-    return data
+        return pl.from_arrow(arrow_table)

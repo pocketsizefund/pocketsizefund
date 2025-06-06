@@ -1,7 +1,6 @@
 import base64
 
 import buckets  # noqa: F401
-from pulumi import export
 import topics
 from environment_variables import (
     ALPACA_API_KEY_ID,
@@ -14,6 +13,7 @@ from environment_variables import (
     create_environment_variable,
 )
 from project import platform_service_account
+from pulumi import export
 from pulumi_gcp import cloudscheduler, pubsub
 from services import create_service
 

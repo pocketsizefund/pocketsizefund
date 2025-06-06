@@ -1,8 +1,8 @@
+from project import PROJECT, platform_service_account
 from pulumi import Output, export
 from pulumi.config import Config
 from pulumi_gcp.cloudrun import ServiceTemplateSpecContainerEnvArgs
 from pulumi_gcp.storage import HmacKey
-from project import platform_service_account, PROJECT
 
 config = Config()
 
