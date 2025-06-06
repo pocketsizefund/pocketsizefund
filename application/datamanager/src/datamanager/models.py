@@ -1,4 +1,5 @@
 import datetime
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import core_schema
@@ -6,7 +7,9 @@ from pydantic_core import core_schema
 
 class SummaryDate(BaseModel):
     date: datetime.date = Field(
-        default_factory=lambda: datetime.datetime.now(tz=datetime.UTC).date(),
+        default_factory=lambda: datetime.datetime.now(
+            ZoneInfo("America/New_York")
+        ).date(),
     )
 
     @field_validator("date", mode="before")
@@ -17,7 +20,7 @@ class SummaryDate(BaseModel):
             try:
                 return (
                     datetime.datetime.strptime(value, fmt)
-                    .replace(tzinfo=datetime.UTC)
+                    .replace(tzinfo=ZoneInfo("America/New_York"))
                     .date()
                 )
             except ValueError:

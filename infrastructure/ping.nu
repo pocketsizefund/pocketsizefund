@@ -9,6 +9,12 @@ let services = gcloud run services list --format=json
   }
 }
 
+services
+| each {|service| http get --full --headers $headers $"($service)/health" }
+
+
 let datamanager_url = ($services | where service == "datamanager" | get url.0)
 
-http get --full --headers $headers $"($datamanager_url)/health"
+{date: "2025-01-04"}
+| to json
+| http post --full --headers $headers $"($datamanager_url)/equity-bars" 
