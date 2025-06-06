@@ -22,8 +22,8 @@ def get_identity_token() -> str:
 @task
 def fetch_dates(start_date: str, end_date: str) -> pl.DataFrame | pl.Series:
     client = run_v2.ServicesClient()
-    project = "fund-alpha"
-    region = "us-east1"
+    project = os.getenv("GCP_PROJECT", "fund-alpha")
+    region = os.getenv("GCP_REGION", "us-east1")
     parent: str = f"projects/{project}/locations/{region}"
 
     datamanager_url: str | None = next(
