@@ -40,4 +40,4 @@ An unordered and non-exhaustive list we work towards:
 
 ### Links
 
-Checkout [our tasks](https://github.com/orgs/pocketsizefund/projects/11) to see what we're working on or ping [either](https://x.com/forstmeier) of [us](https://x.com/hyperpriorai) for anything else.  
+Check out [our tasks](https://github.com/orgs/pocketsizefund/projects/11) to see what we're working on or ping [either](https://x.com/forstmeier) of [us](https://x.com/hyperpriorai) for anything else.  
