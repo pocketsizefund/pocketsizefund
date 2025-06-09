@@ -2,8 +2,9 @@ import os
 import traceback
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import requests
@@ -100,7 +101,7 @@ async def create_predictions(
     request: Request,
 ) -> PredictionResponse:
     try:
-        end_date = datetime.now(tz=UTC).date()
+        end_date = datetime.now(tz=ZoneInfo("America/New_York")).date()
         start_date = end_date - timedelta(days=SEQUENCE_LENGTH)
 
         logger.info(f"Fetching data from {start_date} to {end_date}")
