@@ -1,6 +1,7 @@
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import polars as pl
 import requests
@@ -14,6 +15,7 @@ from .models import DateRange, Money, PredictionPayload
 from .portfolio import PortfolioOptimizer
 
 trading_days_per_year = 252
+
 
 application = FastAPI()
 Instrumentator().instrument(application).expose(application)
@@ -48,9 +50,11 @@ def create_position(payload: PredictionPayload) -> dict[str, Any]:
             detail=f"Error getting cash balance: {e!r}",
         ) from e
 
+    eastern_timezone = ZoneInfo("America/New_York")
+
     date_range = DateRange(
-        start=datetime.now(tz=UTC) - timedelta(days=trading_days_per_year),
-        end=datetime.now(tz=UTC),
+        start=datetime.now(tz=eastern_timezone) - timedelta(days=trading_days_per_year),
+        end=datetime.now(tz=eastern_timezone),
     )
 
     try:
