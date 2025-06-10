@@ -28,6 +28,7 @@ datamanager_service = create_service(
         DUCKDB_SECRET,
         POLYGON_API_KEY,
     ],
+    memory="32Gi",
 )
 
 DATAMANAGER_BASE_URL = create_environment_variable(
