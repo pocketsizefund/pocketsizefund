@@ -11,6 +11,7 @@ from pulumi_gcp.cloudrun import (
     ServiceTemplateArgs,
     ServiceTemplateSpecArgs,
     ServiceTemplateSpecContainerArgs,
+    ServiceTemplateSpecContainerResourcesArgs,
     ServiceTemplateSpecContainerStartupProbeArgs,
     ServiceTemplateSpecContainerStartupProbeHttpGetArgs,
 )
@@ -19,7 +20,9 @@ config = Config()
 
 
 def create_service(
-    name: str, envs: list[ENVIRONMENT_VARIABLE] | None = None
+    name: str,
+    envs: list[ENVIRONMENT_VARIABLE] | None = None,
+    memory: str | None = None,
 ) -> Service:
     if envs is None:
         envs = []
@@ -67,6 +70,11 @@ def create_service(
                     ServiceTemplateSpecContainerArgs(
                         image=f"pocketsizefund/{name}:{version}",
                         envs=envs,
+                        resources=ServiceTemplateSpecContainerResourcesArgs(
+                            limits={"memory": memory}
+                        )
+                        if memory
+                        else None,
                         startup_probe=ServiceTemplateSpecContainerStartupProbeArgs(
                             initial_delay_seconds=60,
                             period_seconds=60,
