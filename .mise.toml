@@ -22,7 +22,7 @@ uvx vulture \
 [tasks."python:lint"]
 depends = ["python:dead-code"]
 description = "Run Python code quality checks"
-# temporarily commented out ty check due to hangnig failure
+# temporarily commented out ty check due to hanging failure
 run = """
 ruff check \
     --output-format=github \
