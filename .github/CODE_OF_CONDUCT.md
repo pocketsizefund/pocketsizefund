@@ -2,4 +2,4 @@
 
 > Working on the project 💡
 
-The **Code of Conduct** for **pocketsizefund** is to work collaboratively and publicly. Contact the project maintainers via [Discord](https://discord.com/channels/1230911601704435752/1230911601704435755) with questions or concerns.  
+The **Code of Conduct** for **pocketsizefund** is to follow the [project principles](https://github.com/pocketsizefund/pocketsizefund?tab=readme-ov-file#principles). [Contact the project maintainers](https://x.com/pocketsizefund) with questions or concerns.  
