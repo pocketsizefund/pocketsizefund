@@ -3,9 +3,9 @@ import project
 from pulumi.config import Config
 from pulumi_gcp import cloudrun, secretmanager, storage
 
-config = Config()
+configuration = Config()
 
-grafana_administrator_password = config.require_secret("GRAFANA_ADMIN_PASSWORD")
+grafana_administrator_password = configuration.require_secret("GRAFANA_ADMIN_PASSWORD")
 
 grafana_administrator_password_secret = secretmanager.Secret(
     "grafana-administrator-password",
@@ -28,7 +28,7 @@ grafana_administrator_password_version = secretmanager.SecretVersion(
     secret_data=grafana_administrator_password,
 )
 
-prometheus_config = """
+prometheus_configuration = """
 global:
   scrape_interval: 30s
 
@@ -42,9 +42,9 @@ scrape_configs:
 """
 
 prometheus_config_object = storage.BucketObject(
-    "prometheus-config",
+    "prometheus-configuration",
     bucket=buckets.grafana_dashboards_bucket.name,
-    content=prometheus_config,
+    content=prometheus_configuration,
     content_type="text/yaml",
     name="prometheus.yaml",
 )
@@ -67,7 +67,7 @@ prometheus_service = cloudrun.Service(
                     ),
                     volume_mounts=[
                         cloudrun.ServiceTemplateSpecContainerVolumeMountArgs(
-                            name="prometheus-config-volume",
+                            name="prometheus-configuration-volume",
                             mount_path="/etc/prometheus",
                         ),
                     ],
@@ -80,7 +80,7 @@ prometheus_service = cloudrun.Service(
             ],
             volumes=[
                 cloudrun.ServiceTemplateSpecVolumeArgs(
-                    name="prometheus-config-volume",
+                    name="prometheus-configuration-volume",
                     csi=cloudrun.ServiceTemplateSpecVolumeCsiArgs(
                         driver="gcsfuse.run.app",
                         read_only=True,
@@ -91,7 +91,8 @@ prometheus_service = cloudrun.Service(
                     ),
                 ),
                 cloudrun.ServiceTemplateSpecVolumeArgs(
-                    name="prometheus-data", empty_dir={}
+                    name="prometheus-data",
+                    empty_dir=None,
                 ),
             ],
         ),
