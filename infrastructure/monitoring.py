@@ -92,7 +92,7 @@ prometheus_service = cloudrun.Service(
                 ),
                 cloudrun.ServiceTemplateSpecVolumeArgs(
                     name="prometheus-data",
-                    empty_dir=None,
+                    empty_dir=cloudrun.ServiceTemplateSpecVolumeEmptyDirArgs(),
                 ),
             ],
         ),
