@@ -1,0 +1,21 @@
+---
+name: Launch datamanager service
+on: workflow_dispatch
+jobs:
+  launch_datamanager_service:
+    name: Deploy datamanager service
+    runs-on: ubuntu-latest
+    environment: pulumi
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Deploy datamanager with Pulumi
+        uses: flox/activate-action@v1
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        with:
+          command: |
+            cd infrastructure
+            pulumi up --target urn:pulumi:${{ github.ref_name }}::pocketsizefund-infrastructure::gcp:cloudrun/service:Service::datamanager --yes
