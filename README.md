@@ -40,8 +40,4 @@ An unordered and non-exhaustive list we work towards:
 
 ### Links
 
-Here are some places to get started:  
-
-1. [Our tasks](https://github.com/orgs/pocketsizefund/projects/11) that we're currently working on  
-2. [Open a discussion](https://discord.com/channels/1230911601704435752/1230911601704435755) to ask questions or share ideas  
-3. [Send a direct message](https://twitter.com/pocketsizefund) on everything else  
+Check out [our tasks](https://github.com/orgs/pocketsizefund/projects/11) to see what we're working on or ping [either](https://x.com/forstmeier) of [us](https://x.com/hyperpriorai) for anything else.  
