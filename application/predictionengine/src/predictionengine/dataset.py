@@ -208,7 +208,8 @@ class DataSet:
                 )
 
             targets = batch_data[: self.batch_size, close_price_idx].reshape(
-                self.batch_size, 1
+                self.batch_size,
+                1,
             )
 
             yield tickers, historical_features, targets

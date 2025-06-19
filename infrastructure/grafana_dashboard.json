@@ -1,0 +1,270 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Pocket Size Fund Metrics",
+    "tags": ["pocketsizefund", "open-source", "quantitative", "hedge-fund"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Equity Bars Data Volume",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "equity_bars_total_rows",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Portfolio Total Value",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "portfolio_total_value",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 2
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 6,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Cash Balance",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "portfolio_cash_balance",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 2
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 4,
+        "title": "Number of Positions",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "portfolio_positions_count",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 18,
+          "y": 0
+        }
+      },
+      {
+        "id": 5,
+        "title": "Portfolio Value Over Time",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "portfolio_total_value",
+            "refId": "A",
+            "legendFormat": "Total Portfolio Value"
+          },
+          {
+            "expr": "portfolio_cash_balance",
+            "refId": "B",
+            "legendFormat": "Cash Balance"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 2
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "visible",
+            "placement": "bottom"
+          }
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 6,
+        "title": "Position Values by Symbol",
+        "type": "barchart",
+        "targets": [
+          {
+            "expr": "portfolio_position_value",
+            "refId": "A",
+            "legendFormat": "{{symbol}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 2
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "visible",
+            "placement": "right"
+          }
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        }
+      },
+      {
+        "id": 7,
+        "title": "Position Profit and Loss by Symbol",
+        "type": "barchart",
+        "targets": [
+          {
+            "expr": "portfolio_position_profit_and_loss",
+            "refId": "A",
+            "legendFormat": "{{symbol}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 2,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 0
+                }
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "visible",
+            "placement": "right"
+          }
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 17
+        }
+      },
+      {
+        "id": 8,
+        "title": "Data Volume Trend",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "equity_bars_total_rows",
+            "refId": "A",
+            "legendFormat": "Total Rows"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "visible",
+            "placement": "bottom"
+          }
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 12,
+          "y": 17
+        }
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "refresh": "5m"
+  },
+  "overwrite": true
+}
