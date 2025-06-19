@@ -3,7 +3,7 @@ name: Code quality check
 on:
   push
 jobs:
-  python_quality_check:
+  run_python_quality_check:
     name: Run Python quality checks
     runs-on: ubuntu-latest
     steps:

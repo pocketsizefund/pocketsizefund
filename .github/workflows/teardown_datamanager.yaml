@@ -1,0 +1,39 @@
+---
+name: Teardown datamanager service
+on:
+  schedule:
+    - cron: '0 * * * *' # run every hour
+jobs:
+  teardown_datamanager_service:
+    name: Teardown datamanager service
+    runs-on: ubuntu-latest
+    environment: pulumi
+    steps:
+      - name: Check if within market hours
+        id: check-hours
+        run: |
+          current_time=$(TZ='America/New_York' date '+%H%M')
+          current_day=$(TZ='America/New_York' date '+%u')  # 1=Monday, 7=Sunday
+          
+          if [ "$current_day" -gt 5 ]; then
+            echo "should_teardown=true" >> $GITHUB_OUTPUT
+          elif [ $((10#$current_time)) -lt 930 ] || [ $((10#$current_time)) -ge 1600 ]; then
+            echo "should_teardown=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_teardown=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Checkout code
+        if: steps.check-hours.outputs.should_teardown == 'true'
+        uses: actions/checkout@v4
+      - name: Install Flox
+        if: steps.check-hours.outputs.should_teardown == 'true'
+        uses: flox/install-flox-action@v2
+      - name: Teardown datamanager service
+        if: steps.check-hours.outputs.should_teardown == 'true'
+        uses: flox/activate-action@v1
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        with:
+          command: |
+            cd infrastructure
+            pulumi destroy --target urn:pulumi:${{ github.ref_name }}::pocketsizefund-infrastructure::gcp:cloudrun/service:Service::datamanager --yes
