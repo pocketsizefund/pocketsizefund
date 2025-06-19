@@ -17,6 +17,7 @@ from google.api_core.exceptions import GoogleAPIError
 from google.cloud import storage  # type: ignore
 from loguru import logger
 from polars.exceptions import ComputeError
+from prometheus_client import Gauge
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from .config import Settings
@@ -75,10 +76,45 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 application = FastAPI(lifespan=lifespan)
 Instrumentator().instrument(application).expose(application)
 
+equity_bars_total_rows = Gauge(
+    "equity_bars_total_rows",
+    "Total number of rows in equity bars bucket",
+)
+
 
 @application.get("/health")
 async def health_check() -> Response:
     return Response(status_code=status.HTTP_200_OK)
+
+
+@application.get("/metrics")
+async def update_metrics(request: Request) -> dict[str, int]:
+    settings: Settings = request.app.state.settings
+
+    count_query = f"""
+        SELECT COUNT(*) as total_rows
+        FROM read_parquet(
+            'gs://{settings.gcp.bucket.name}/equity/bars/*/*/*/*', 
+            HIVE_PARTITIONING=1
+        )
+    """  # noqa: S608
+
+    try:
+        result = request.app.state.connection.execute(count_query).fetchone()
+        total_rows = result[0] if result else 0
+        equity_bars_total_rows.set(total_rows)
+
+        logger.info(f"Updated equity_bars_total_rows metric: {total_rows}")
+        return {"total_rows": total_rows}  # noqa: TRY300
+
+    except (
+        duckdb.Error,
+        IOException,
+        ComputeError,
+        GoogleAPIError,
+    ) as e:
+        logger.error(f"Error updating metrics: {e}")
+        return {"total_rows": 0}
 
 
 @application.get("/equity-bars")

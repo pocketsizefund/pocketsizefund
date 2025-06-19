@@ -72,3 +72,13 @@ datamanager_job = cloudscheduler.Job(
 
 
 export("DATAMANAGER_BASE_URL", datamanager_service.statuses[0].url)
+
+export(
+    "DATAMANAGER_METRICS_URL",
+    datamanager_service.statuses[0].url.apply(lambda url: f"{url}/metrics"),
+)
+
+export(
+    "POSITIONMANAGER_METRICS_URL",
+    positionmanager_service.statuses[0].url.apply(lambda url: f"{url}/metrics"),
+)
