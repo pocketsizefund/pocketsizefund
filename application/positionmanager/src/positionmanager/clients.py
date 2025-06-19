@@ -1,4 +1,4 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import polars as pl
 import pyarrow as pa
@@ -8,6 +8,9 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.trading.requests import MarketOrderRequest
 
 from .models import DateRange, Money
+
+if TYPE_CHECKING:
+    from alpaca.trading.models import Position, TradeAccount
 
 
 class AlpacaClient:
@@ -23,7 +26,10 @@ class AlpacaClient:
             raise ValueError(message)
 
         self.trading_client: TradingClient = TradingClient(
-            api_key, api_secret, paper=paper
+            api_key,
+            api_secret,
+            paper=paper,
+            raw_data=False,
         )
 
     def get_cash_balance(self) -> Money:
@@ -62,6 +68,39 @@ class AlpacaClient:
             "status": "success",
             "message": "All positions have been closed",
         }
+
+    def get_account_information(self) -> dict[str, Any]:
+        account: TradeAccount = cast("TradeAccount", self.trading_client.get_account())
+        return {
+            "portfolio_value": float(account.portfolio_value or 0),
+            "cash": float(account.cash or 0),
+            "buying_power": float(account.buying_power or 0),
+            "equity": float(account.equity or 0),
+        }
+
+    def get_positions(self) -> list[dict[str, Any]]:
+        positions: list[Position] = cast(
+            "list[Position]",
+            self.trading_client.get_all_positions(),
+        )
+        position_list = []
+
+        for position in positions:
+            position_data = {
+                "symbol": position.symbol,
+                "quantity": float(position.qty or 0),
+                "market_value": float(position.market_value or 0),
+                "cost_basis": float(position.cost_basis or 0),
+                "unrealized_profit_and_loss": float(position.unrealized_pl or 0),
+                "unrealized_profit_and_loss_percent": float(
+                    position.unrealized_plpc or 0
+                ),
+                "current_price": float(position.current_price or 0),
+                "side": position.side.value,
+            }
+            position_list.append(position_data)
+
+        return position_list
 
 
 class DataClient:
