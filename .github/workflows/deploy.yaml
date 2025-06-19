@@ -36,8 +36,4 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         with:
-          command: |
-            set -e
-            cd infrastructure
-            uv run pulumi up --yes
-            nu ping.nu
+          command: mise tasks run infrastructure:up

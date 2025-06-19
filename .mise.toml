@@ -84,3 +84,12 @@ run = """
 nu linter.nu
 yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" . 
 """
+
+[tasks."infrastructure:up"]
+description = "Launch cloud infrastructure"
+run = """
+set -e
+cd infrastructure
+uv run pulumi up --yes
+nu ping.nu
+"""
