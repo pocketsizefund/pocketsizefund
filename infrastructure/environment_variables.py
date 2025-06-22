@@ -19,15 +19,15 @@ GCP_PROJECT = create_environment_variable(
     name="GCP_PROJECT", value=config.require_secret("GCP_PROJECT")
 )
 
-ALPACA_API_KEY_ID = create_environment_variable(
-    name="ALPACA_API_KEY_ID", value=config.require_secret("ALPACA_API_KEY_ID")
+ALPACA_API_KEY = create_environment_variable(
+    name="ALPACA_API_KEY", value=config.require_secret("ALPACA_API_KEY")
 )
-ALPACA_API_SECRET_KEY = create_environment_variable(
-    name="ALPACA_API_SECRET_KEY", value=config.require_secret("ALPACA_API_SECRET_KEY")
+ALPACA_API_SECRET = create_environment_variable(
+    name="ALPACA_API_SECRET", value=config.require_secret("ALPACA_API_SECRET")
 )
 
-DATA_BUCKET = create_environment_variable(
-    name="DATA_BUCKET", value=config.require_secret("DATA_BUCKET")
+DATA_BUCKET_NAME = create_environment_variable(
+    name="DATA_BUCKET_NAME", value=config.require_secret("DATA_BUCKET_NAME")
 )
 POLYGON_API_KEY = create_environment_variable(
     name="POLYGON_API_KEY", value=config.require_secret("POLYGON_API_KEY")
@@ -44,5 +44,5 @@ DUCKDB_ACCESS_KEY = create_environment_variable(
 )
 DUCKDB_SECRET = create_environment_variable(name="DUCKDB_SECRET", value=hmac_key.secret)
 
-export("duckdb_access_key", hmac_key.access_id)
-export("duckdb_secret", hmac_key.secret)
+export("DUCKDB_ACCESS_KEY", hmac_key.access_id)
+export("DUCKDB_SECRET", hmac_key.secret)

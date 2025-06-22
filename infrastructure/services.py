@@ -50,8 +50,8 @@ def create_service(
         registries=[
             docker_build.RegistryArgs(
                 address="docker.io",
-                username=config.require_secret("dockerhub_username"),
-                password=config.require_secret("dockerhub_password"),
+                username=config.require_secret("DOCKERHUB_USERNAME"),
+                password=config.require_secret("DOCKERHUB_PASSWORD"),
             )
         ],
     )

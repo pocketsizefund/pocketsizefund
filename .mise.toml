@@ -90,6 +90,14 @@ description = "Launch cloud infrastructure"
 run = """
 set -e
 cd infrastructure
-uv run pulumi up --yes
+uv run pulumi up --yes --stack pocketsizefund/pocketsizefund/production
 nu ping.nu
+"""
+
+[tasks."infrastructure:down"]
+description = "Teardown cloud infrastructure"
+run = """
+set -e
+cd infrastructure
+uv run pulumi down --yes --stack pocketsizefund/pocketsizefund/production
 """

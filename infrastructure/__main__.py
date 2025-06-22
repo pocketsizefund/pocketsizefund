@@ -3,9 +3,9 @@ import base64
 import buckets  # noqa: F401
 import topics
 from environment_variables import (
-    ALPACA_API_KEY_ID,
-    ALPACA_API_SECRET_KEY,
-    DATA_BUCKET,
+    ALPACA_API_KEY,
+    ALPACA_API_SECRET,
+    DATA_BUCKET_NAME,
     DUCKDB_ACCESS_KEY,
     DUCKDB_SECRET,
     GCP_PROJECT,
@@ -20,10 +20,10 @@ from services import create_service
 datamanager_service = create_service(
     name="datamanager",
     envs=[
-        ALPACA_API_KEY_ID,
-        ALPACA_API_SECRET_KEY,
+        ALPACA_API_KEY,
+        ALPACA_API_SECRET,
         GCP_PROJECT,
-        DATA_BUCKET,
+        DATA_BUCKET_NAME,
         DUCKDB_ACCESS_KEY,
         DUCKDB_SECRET,
         POLYGON_API_KEY,
@@ -42,8 +42,8 @@ predictionengine_service = create_service(
 positionmanager_service = create_service(
     "positionmanager",
     envs=[
-        ALPACA_API_KEY_ID,
-        ALPACA_API_SECRET_KEY,
+        ALPACA_API_KEY,
+        ALPACA_API_SECRET,
         DATAMANAGER_BASE_URL,
     ],
 )
