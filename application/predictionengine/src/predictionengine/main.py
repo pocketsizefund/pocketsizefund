@@ -28,6 +28,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     datamanager_base_url = os.getenv("DATAMANAGER_BASE_URL", "")
     app.state.datamanager_base_url = datamanager_base_url
 
+    positionmanager_base_url = os.getenv("POSITIONMANAGER_BASE_URL", "")
+    app.state.positionmanager_base_url = positionmanager_base_url
+
     app.state.model = None
     yield
 
@@ -96,10 +99,32 @@ def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTrans
     return model
 
 
+# temporarily including with knative unavailable
+def send_predictions(
+    positionmanager_base_url: str,
+    predictions: dict[str, dict[str, float]],
+) -> None:
+    url = f"{positionmanager_base_url}/predictions"
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(
+        url=url,
+        json={"predictions": predictions},
+        headers=headers,
+        timeout=SEQUENCE_LENGTH,
+    )
+
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            f"Failed to send predictions to position manager: {response.status_code} - {response.text}"  # noqa: E501
+        )
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Failed to send predictions: {response.text}",
+        )
+
+
 @application.post("/create-predictions")
-async def create_predictions(
-    request: Request,
-) -> PredictionResponse:
+async def create_predictions(request: Request) -> PredictionResponse:
     try:
         end_date = datetime.now(tz=ZoneInfo("America/New_York")).date()
         start_date = end_date - timedelta(days=SEQUENCE_LENGTH)
@@ -158,6 +183,8 @@ async def create_predictions(
             raise HTTPException(  # noqa: TRY301
                 status_code=404, detail="No predictions could be generated"
             )
+
+        send_predictions(request.app.state.positionmanager_base_url, predictions)
 
         return PredictionResponse(predictions=predictions)
 

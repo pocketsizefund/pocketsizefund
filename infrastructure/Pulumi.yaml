@@ -1,4 +1,4 @@
 ---
-name: pocketsizefund-infrastructure
+name: pocketsizefund
 runtime: python
-description: Pocket Size Fund Infrastructure
+description: Pocket Size Fund infrastructure

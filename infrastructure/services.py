@@ -9,6 +9,7 @@ from pulumi.config import Config
 from pulumi_gcp.cloudrun import (
     Service,
     ServiceTemplateArgs,
+    ServiceTemplateMetadataArgs,
     ServiceTemplateSpecArgs,
     ServiceTemplateSpecContainerArgs,
     ServiceTemplateSpecContainerStartupProbeArgs,
@@ -19,10 +20,12 @@ config = Config()
 
 
 def create_service(
-    name: str, envs: list[ENVIRONMENT_VARIABLE] | None = None
+    name: str,
+    environment_variables: list[ENVIRONMENT_VARIABLE] | None = None,
+    enable_prometheus: bool = True,  # noqa: FBT001, FBT002
 ) -> Service:
-    if envs is None:
-        envs = []
+    if environment_variables is None:
+        environment_variables = []
 
     try:
         with Path("pyproject.toml").open("rb") as f:
@@ -30,16 +33,16 @@ def create_service(
             version = project_data.get("project", {}).get("version")
 
     except (FileNotFoundError, tomllib.TOMLDecodeError, ValueError) as e:
-        msg = f"Failed to read version from pyproject.toml: {e}"
-        raise RuntimeError(msg) from e
+        message = f"Failed to read version from pyproject.toml: {e}"
+        raise RuntimeError(message) from e
 
     service_dir = Path("../application") / name
     if not service_dir.exists():
-        msg = f"Service directory not found: {service_dir}"
-        raise FileNotFoundError(msg)
+        message = f"Service directory not found: {service_dir}"
+        raise FileNotFoundError(message)
 
     image = docker_build.Image(
-        f"{name}-image",
+        resource_name=f"{name}-image",
         tags=[f"pocketsizefund/{name}:{version}"],
         context=docker_build.BuildContextArgs(location=str(service_dir)),
         platforms=[
@@ -50,23 +53,37 @@ def create_service(
         registries=[
             docker_build.RegistryArgs(
                 address="docker.io",
-                username=config.require_secret("dockerhub_username"),
-                password=config.require_secret("dockerhub_password"),
+                username=config.require_secret("DOCKERHUB_USERNAME"),
+                password=config.require_secret("DOCKERHUB_PASSWORD"),
             )
         ],
     )
 
+    # annotations for Managed Service for Prometheus
+    annotations = {}
+    if enable_prometheus:
+        annotations.update(
+            {
+                "run.googleapis.com/cpu-throttling": "false",
+                "prometheus.googleapis.com/scrape": "true",
+                "prometheus.googleapis.com/port": "8080",
+                "prometheus.googleapis.com/path": "/metrics",
+                "prometheus.googleapis.com/scrape_interval": "60s",
+            }
+        )
+
     return Service(
-        name,
-        opts=ResourceOptions(depends_on=[image]),
+        resource_name=name,
+        opts=ResourceOptions(depends_on=[image, project.cloudrun]),
         location=project.REGION,
         template=ServiceTemplateArgs(
+            metadata=ServiceTemplateMetadataArgs(annotations=annotations),
             spec=ServiceTemplateSpecArgs(
                 service_account_name=project.platform_service_account.email,
                 containers=[
                     ServiceTemplateSpecContainerArgs(
                         image=f"pocketsizefund/{name}:{version}",
-                        envs=envs,
+                        envs=environment_variables,
                         startup_probe=ServiceTemplateSpecContainerStartupProbeArgs(
                             initial_delay_seconds=60,
                             period_seconds=60,

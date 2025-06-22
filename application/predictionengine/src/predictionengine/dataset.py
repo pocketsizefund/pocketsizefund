@@ -2,8 +2,111 @@ from collections.abc import Generator
 from typing import Any
 
 import polars as pl
-from category_encoders import OrdinalEncoder
 from tinygrad.tensor import Tensor
+
+
+class OrdinalEncoder:  # implemented due to category-encoders package dependency issues
+    def __init__(
+        self,
+        columns: list[str] | None = None,
+        handle_unknown: str = "use_encoded_value",
+        handle_missing: str = "use_encoded_value",
+    ) -> None:
+        self.columns: list[str] = columns or []
+        self.mapping_: dict[str, dict[str, int]] = {}
+        self.handle_unknown: str = handle_unknown
+        self.handle_missing: str = handle_missing
+
+    def fit_transform(self, transformation_input: pl.DataFrame) -> pl.DataFrame:
+        result = transformation_input.clone()
+
+        for column in self.columns:
+            if column not in transformation_input.columns:
+                continue
+
+            unique_values = (
+                transformation_input.select(column)
+                .drop_nulls()
+                .unique()
+                .to_series()
+                .to_list()
+            )
+
+            self.mapping_[column] = {
+                str(val): idx + 1 for idx, val in enumerate(unique_values)
+            }
+
+            if self.handle_unknown == "use_encoded_value":
+                self.mapping_[column]["__unknown__"] = 0
+            if self.handle_missing == "use_encoded_value":
+                self.mapping_[column]["__missing__"] = 0
+
+            result = result.with_columns(
+                pl.col(column)
+                .fill_null("__missing__")
+                .cast(pl.Utf8)
+                .map_elements(
+                    lambda x, col=column: self.mapping_[col].get(
+                        str(x), self.mapping_[col].get("__unknown__", 0)
+                    ),
+                    return_dtype=pl.Int32,
+                )
+                .alias(column)
+            )
+
+        return result
+
+    def transform(self, transformation_input: pl.DataFrame) -> pl.DataFrame:
+        result = transformation_input.clone()
+
+        for column in self.columns:
+            if (
+                column not in transformation_input.columns
+                or column not in self.mapping_
+            ):
+                continue
+
+            result = result.with_columns(
+                pl.col(column)
+                .fill_null("__missing__")
+                .cast(pl.Utf8)
+                .map_elements(
+                    lambda x, col=column: self.mapping_[col].get(
+                        str(x), self.mapping_[col].get("__unknown__", 0)
+                    ),
+                    return_dtype=pl.Int32,
+                )
+                .alias(column)
+            )
+
+        return result
+
+    def inverse_transform(self, transformation_input: pl.DataFrame) -> pl.DataFrame:
+        result = transformation_input.clone()
+
+        for column in self.columns:
+            if (
+                column not in transformation_input.columns
+                or column not in self.mapping_
+            ):
+                continue
+
+            reverse_mapping = {v: k for k, v in self.mapping_[column].items()}
+
+            result = result.with_columns(
+                pl.col(column)
+                .cast(pl.Int32)
+                .map_elements(
+                    lambda x, reverse_mapping=reverse_mapping: reverse_mapping.get(
+                        int(x), "__unknown__"
+                    ),
+                    return_dtype=pl.Utf8,
+                )
+                .alias(column)
+            )
+
+        return result
+
 
 continuous_variable_columns = [
     "open_price",
@@ -94,16 +197,16 @@ class DataSet:
 
     def _encode_tickers(self, data: pl.DataFrame) -> pl.DataFrame:
         ticker_encoder = OrdinalEncoder(
-            cols=["ticker"],
+            columns=["ticker"],
             handle_unknown="use_encoded_value",
             handle_missing="use_encoded_value",
         )
         self.preprocessors["ticker_encoder"] = ticker_encoder
 
-        ticker_df = data.select("ticker").to_pandas()
-        encoded_tickers = ticker_encoder.fit_transform(ticker_df)
+        ticker_df = data.select("ticker")
+        encoded_data = ticker_encoder.fit_transform(ticker_df)
 
-        return data.with_columns(pl.Series("ticker", encoded_tickers["ticker"]))
+        return data.with_columns(encoded_data.select("ticker"))
 
     def _compute_scalers(self, data: pl.DataFrame) -> None:
         if len(self.scalers) == 0:

@@ -1,15 +1,15 @@
 import numpy as np
 import polars as pl
-from category_encoders import OrdinalEncoder
 from tinygrad.tensor import Tensor
 
+from application.predictionengine.src.predictionengine.dataset import OrdinalEncoder
 from application.predictionengine.src.predictionengine.post_processor import (
     PostProcessor,
 )
 
 
 def test_post_processor_initialization() -> None:
-    ticker_encoder = OrdinalEncoder(cols=["ticker"])
+    ticker_encoder = OrdinalEncoder(columns=["ticker"])
     means_by_ticker = {"AAPL": Tensor([150.0])}
     standard_deviations_by_ticker = {"AAPL": Tensor([5.0])}
 
@@ -27,8 +27,8 @@ def test_post_processor_initialization() -> None:
 def test_post_processor_predictions() -> None:
     tickers = ["AAPL", "GOOGL"]
 
-    ticker_encoder = OrdinalEncoder(cols=["ticker"])
-    ticker_encoder.fit(pl.DataFrame({"ticker": tickers}).to_pandas())
+    ticker_encoder = OrdinalEncoder(columns=["ticker"])
+    ticker_encoder.fit_transform(transformation_input=pl.DataFrame({"ticker": tickers}))
 
     means_by_ticker = {
         "AAPL": Tensor([150.0]),
@@ -41,7 +41,7 @@ def test_post_processor_predictions() -> None:
     }
 
     encoded_tickers = ticker_encoder.transform(
-        pl.DataFrame({"ticker": tickers}).to_pandas()
+        transformation_input=pl.DataFrame({"ticker": tickers})
     )["ticker"].to_numpy()
 
     predictions = np.array(
@@ -78,14 +78,16 @@ def test_post_processor_predictions() -> None:
 
 
 def test_post_processor_single_ticker() -> None:
-    ticker_encoder = OrdinalEncoder(cols=["ticker"])
-    ticker_encoder.fit(pl.DataFrame({"ticker": ["AAPL"]}).to_pandas())
+    ticker_encoder = OrdinalEncoder(columns=["ticker"])
+    ticker_encoder.fit_transform(
+        transformation_input=pl.DataFrame({"ticker": ["AAPL"]})
+    )
 
     means_by_ticker = {"AAPL": Tensor([100.0])}
     standard_deviations_by_ticker = {"AAPL": Tensor([10.0])}
 
     encoded_tickers = ticker_encoder.transform(
-        pl.DataFrame({"ticker": ["AAPL"]}).to_pandas()
+        transformation_input=pl.DataFrame({"ticker": ["AAPL"]})
     )["ticker"].to_numpy()
     predictions = np.array([[0.5, 1.0, 1.5]])  # single prediction
 

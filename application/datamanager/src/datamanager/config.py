@@ -13,13 +13,13 @@ class Polygon(BaseModel):
 
 
 class Bucket(BaseModel):
-    name: str = Field(default=os.getenv("DATA_BUCKET", ""))
+    name: str = Field(default=os.getenv("DATA_BUCKET_NAME", ""))
     project: str = Field(default=os.getenv("GCP_PROJECT", ""))
 
     @computed_field
     def daily_bars_path(self) -> str:
         if self.name is None:
-            msg = "DATA_BUCKET environment variable is required"
+            msg = "DATA_BUCKET_NAME environment variable is required"
             raise ValueError(msg)
         return f"gs://{self.name}/equity/bars/"
 

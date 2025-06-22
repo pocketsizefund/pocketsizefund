@@ -6,9 +6,8 @@
 .python_coverage.*
 __pycache__/
 infrastructure/Pulumi.infrastructure.yaml
+infrastructure/Pulumi.production.yaml
 .envrc
 .coverage*
 .coverage/
 coverage.xml
-
-todos.md
