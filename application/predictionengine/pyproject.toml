@@ -12,6 +12,7 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.1.0",
     "loguru>=0.7.3",
     "numpy>=2.2.6",
+    "pyarrow>=20.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

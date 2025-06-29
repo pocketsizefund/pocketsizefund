@@ -135,6 +135,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = ["S101"]
 "**/features/steps/**/*.py" = ["S101"]
+"application/predictionengine/src/predictionengine/main.py" = ["ERA001"] # temporary
 
 [tool.ty.rules]
 unresolved-import = "ignore"

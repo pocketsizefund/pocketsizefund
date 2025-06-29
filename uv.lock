@@ -1000,7 +1000,7 @@ wheels = [
 
 [[package]]
 name = "infrastructure"
-version = "20250628.1"
+version = "20250629.1"
 source = { virtual = "infrastructure" }
 dependencies = [
     { name = "loguru" },
@@ -1572,6 +1572,7 @@ dependencies = [
     { name = "numpy" },
     { name = "polars" },
     { name = "prometheus-fastapi-instrumentator" },
+    { name = "pyarrow" },
     { name = "requests" },
     { name = "tinygrad" },
     { name = "uvicorn" },
@@ -1584,6 +1585,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.2.6" },
     { name = "polars", specifier = ">=1.29.0" },
     { name = "prometheus-fastapi-instrumentator", specifier = ">=7.1.0" },
+    { name = "pyarrow", specifier = ">=20.0.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "tinygrad", specifier = ">=0.10.3" },
     { name = "uvicorn", specifier = ">=0.34.2" },

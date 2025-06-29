@@ -179,7 +179,9 @@ class MiniatureTemporalFusionTransformer:
         tickers: Tensor,
         input_: Tensor,
     ) -> tuple[
-        npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
     ]:
         predictions, _, _ = self.forward(tickers, input_)
 

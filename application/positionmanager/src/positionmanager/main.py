@@ -148,7 +148,7 @@ def create_position(payload: PredictionPayload) -> dict[str, Any]:
 
     try:
         optimized_portfolio = portfolio_optimizer.get_optimized_portfolio(
-            data=historical_data,
+            historical_data=historical_data,
             portfolio_value=cash_balance,
             predictions=payload.predictions,
         )
