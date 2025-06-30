@@ -1,4 +1,5 @@
 import os
+import random
 import traceback
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -7,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import polars as pl
+import pyarrow as pa
 import requests
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from loguru import logger
@@ -28,6 +30,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     datamanager_base_url = os.getenv("DATAMANAGER_BASE_URL", "")
     app.state.datamanager_base_url = datamanager_base_url
 
+    positionmanager_base_url = os.getenv("POSITIONMANAGER_BASE_URL", "")
+    app.state.positionmanager_base_url = positionmanager_base_url
+
     app.state.model = None
     yield
 
@@ -42,7 +47,9 @@ async def health_check() -> Response:
 
 
 def fetch_historical_data(
-    datamanager_url: str, start_date: date, end_date: date
+    datamanager_url: str,
+    start_date: date,
+    end_date: date,
 ) -> pl.DataFrame:
     url = f"{datamanager_url}/equity-bars"
     parameters = {
@@ -50,10 +57,8 @@ def fetch_historical_data(
         "end_date": end_date.isoformat(),
     }
 
-    response = requests.get(url, params=parameters, timeout=SEQUENCE_LENGTH)
+    response = requests.get(url, params=parameters, timeout=120)
     response.raise_for_status()
-
-    import pyarrow as pa
 
     buffer = pa.py_buffer(response.content)
     reader = pa.ipc.RecordBatchStreamReader(buffer)
@@ -96,10 +101,32 @@ def load_or_initialize_model(data: pl.DataFrame) -> MiniatureTemporalFusionTrans
     return model
 
 
+# temporarily including with knative unavailable
+def send_predictions(
+    positionmanager_base_url: str,
+    predictions: dict[str, float],
+) -> None:
+    url = f"{positionmanager_base_url}/predictions"
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(
+        url=url,
+        json={"predictions": predictions},
+        headers=headers,
+        timeout=SEQUENCE_LENGTH,
+    )
+
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            f"Failed to send predictions to position manager: {response.status_code} - {response.text}"  # noqa: E501
+        )
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Failed to send predictions: {response.text}",
+        )
+
+
 @application.post("/create-predictions")
-async def create_predictions(
-    request: Request,
-) -> PredictionResponse:
+async def create_predictions(request: Request) -> PredictionResponse:
     try:
         end_date = datetime.now(tz=ZoneInfo("America/New_York")).date()
         start_date = end_date - timedelta(days=SEQUENCE_LENGTH)
@@ -114,52 +141,71 @@ async def create_predictions(
                 status_code=404, detail="No data available for prediction"
             )
 
-        if request.app.state.model is None:
-            logger.info("Initializing model")
-            request.app.state.model = load_or_initialize_model(data)
-
-        model = request.app.state.model
-
         unique_tickers = data["ticker"].unique().to_list()
-        predictions = {}
+        selected_tickers = random.sample(unique_tickers, min(10, len(unique_tickers)))
 
-        for ticker in unique_tickers:
+        average_prices = {}
+        for ticker in selected_tickers:
             ticker_data = data.filter(pl.col("ticker") == ticker)
-            if len(ticker_data) < SEQUENCE_LENGTH:
-                logger.warning(f"Insufficient data for ticker {ticker}")
-                continue
+            if not ticker_data.is_empty():
+                avg_price = ticker_data.select(
+                    ((pl.col("open_price") + pl.col("close_price")) / 2).mean()
+                ).item()
+                average_prices[ticker] = avg_price
 
-            recent_data = ticker_data.tail(SEQUENCE_LENGTH)
+        send_predictions(request.app.state.positionmanager_base_url, average_prices)
 
-            dataset = DataSet(
-                batch_size=1,
-                sequence_length=SEQUENCE_LENGTH,
-                sample_count=1,
-            )
-            dataset.load_data(recent_data)
+        return PredictionResponse(predictions=average_prices)  # this is temporary
 
-            try:
-                tickers_batch, features_batch, _ = next(iter(dataset.batches()))
-            except StopIteration:
-                logger.warning(f"No batches available for ticker {ticker}")
-                continue
+        # if request.app.state.model is None:
+        #     logger.info("Initializing model")
+        #     request.app.state.model = load_or_initialize_model(data)
 
-            percentile_25, percentile_50, percentile_75 = model.predict(
-                tickers_batch, features_batch
-            )
+        # model = request.app.state.model
 
-            predictions[ticker] = {
-                "percentile_25": float(percentile_25[0]),
-                "percentile_50": float(percentile_50[0]),
-                "percentile_75": float(percentile_75[0]),
-            }
+        # unique_tickers = data["ticker"].unique().to_list()
+        # predictions = {}
 
-        if not predictions:
-            raise HTTPException(  # noqa: TRY301
-                status_code=404, detail="No predictions could be generated"
-            )
+        # for ticker in unique_tickers:
+        #     ticker_data = data.filter(pl.col("ticker") == ticker)
+        #     if len(ticker_data) < SEQUENCE_LENGTH:
+        #         logger.warning(f"Insufficient data for ticker {ticker}")
+        #         continue
 
-        return PredictionResponse(predictions=predictions)
+        #     recent_data = ticker_data.tail(SEQUENCE_LENGTH)
+
+        #     dataset = DataSet(
+        #         batch_size=1,
+        #         sequence_length=SEQUENCE_LENGTH,
+        #         sample_count=1,
+        #     )
+        #     dataset.load_data(recent_data)
+
+        #     try:
+        #         tickers_batch, features_batch, _ = next(iter(dataset.batches()))
+        #     except StopIteration:
+        #         logger.warning(f"No batches available for ticker {ticker}")
+        #         continue
+
+        #     percentile_25, percentile_50, percentile_75 = model.predict(
+        #         tickers_batch,
+        #         features_batch,
+        #     )
+
+        #     predictions[ticker] = {
+        #         "percentile_25": float(percentile_25[0]),
+        #         "percentile_50": float(percentile_50[0]),
+        #         "percentile_75": float(percentile_75[0]),
+        #     }
+
+        # if not predictions:
+        #     raise HTTPException(
+        #         status_code=404, detail="No predictions could be generated"
+        #     )
+
+        # send_predictions(request.app.state.positionmanager_base_url, predictions)
+
+        # return PredictionResponse(predictions=predictions)
 
     except HTTPException:
         raise

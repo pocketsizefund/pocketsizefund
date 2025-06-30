@@ -9,7 +9,7 @@ services:
       - 8080:8080
     environment:
       - POLYGON_API_KEY=${POLYGON_API_KEY}
-      - DATA_BUCKET=${DATA_BUCKET}
+      - DATA_BUCKET_NAME=${DATA_BUCKET_NAME}
       - GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json
       - DUCKDB_ACCESS_KEY=${DUCKDB_ACCESS_KEY}
       - DUCKDB_SECRET=${DUCKDB_SECRET}

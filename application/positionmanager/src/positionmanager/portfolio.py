@@ -17,12 +17,12 @@ class PortfolioOptimizer:
 
     def get_optimized_portfolio(
         self,
-        data: pl.DataFrame,
+        historical_data: pl.DataFrame,
         portfolio_value: Money,
         predictions: dict[str, float],
         prediction_weight: float = 0.3,
     ) -> dict[str, int]:
-        converted_data = data.to_pandas()
+        converted_data = historical_data.to_pandas()
 
         if "date" in converted_data.columns:
             converted_data = converted_data.set_index("date")

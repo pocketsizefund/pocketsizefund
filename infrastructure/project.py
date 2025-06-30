@@ -6,21 +6,23 @@ PROJECT = pulumi.Config("gcp").require("project")
 REGION = pulumi.Config("gcp").require("region")
 
 cloudrun = Service(
-    "enable-run",
+    resource_name="enable-run",
     project=PROJECT,
     service="run.googleapis.com",
     disable_dependent_services=True,
     disable_on_destroy=True,
 )
+
 eventarc = Service(
-    "enable-eventarc",
+    resource_name="enable-eventarc",
     project=PROJECT,
     service="eventarc.googleapis.com",
     disable_dependent_services=True,
     disable_on_destroy=True,
 )
+
 secretmanager = Service(
-    "enable-secretmanager",
+    resource_name="enable-secretmanager",
     project=PROJECT,
     service="secretmanager.googleapis.com",
     disable_dependent_services=True,
@@ -28,7 +30,7 @@ secretmanager = Service(
 )
 
 pubsub_api = Service(
-    "enable-pubsub",
+    resource_name="enable-pubsub",
     project=PROJECT,
     service="pubsub.googleapis.com",
     disable_dependent_services=True,
@@ -36,23 +38,47 @@ pubsub_api = Service(
 )
 
 container_registry = Service(
-    "enable-containerregistry",
+    resource_name="enable-containerregistry",
     project=PROJECT,
     service="containerregistry.googleapis.com",
     disable_dependent_services=True,
     disable_on_destroy=True,
 )
 
+cloudbuild = Service(
+    resource_name="enable-cloudbuild",
+    project=PROJECT,
+    service="cloudbuild.googleapis.com",
+    disable_dependent_services=True,
+    disable_on_destroy=True,
+)
+
+monitoring_api = Service(
+    resource_name="enable-monitoring",
+    project=PROJECT,
+    service="monitoring.googleapis.com",
+    disable_dependent_services=True,
+    disable_on_destroy=True,
+)
+
+cloudscheduler_api = Service(
+    resource_name="enable-cloudscheduler",
+    project=PROJECT,
+    service="cloudscheduler.googleapis.com",
+    disable_dependent_services=True,
+    disable_on_destroy=True,
+)
+
 
 platform_service_account = Account(
-    "platform-service-account",
+    resource_name="platform-service-account",
     account_id="platform",
     display_name="Platform-Wide Cloud Run Service Account",
 )
 
 
 IAMMember(
-    "pubsub-token-access",
+    resource_name="pubsub-token-access",
     project=PROJECT,
     role="roles/pubsub.subscriber",
     member=platform_service_account.email.apply(
@@ -61,7 +87,7 @@ IAMMember(
 )
 
 IAMMember(
-    "platform-service-account-owner",
+    resource_name="platform-service-account-owner",
     project=PROJECT,
     role="roles/owner",
     member=platform_service_account.email.apply(lambda e: f"serviceAccount:{e}"),  # type: ignore

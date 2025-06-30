@@ -1,8 +1,9 @@
 import numpy as np
 import numpy.typing as npt
 import polars as pl
-from category_encoders import OrdinalEncoder
 from tinygrad.tensor import Tensor
+
+from .dataset import OrdinalEncoder
 
 TensorMapping = dict[str, Tensor]
 
@@ -29,13 +30,18 @@ class PostProcessor:
         npt.NDArray[np.float64],
         npt.NDArray[np.float64],
     ]:
-        decoded_tickers = self.ticker_encoder.inverse_transform(
-            pl.DataFrame(
-                {
-                    "ticker": encoded_tickers,
-                }
-            ).to_pandas()
-        )["ticker"]
+        decoded_tickers = (
+            self.ticker_encoder.inverse_transform(
+                transformation_input=pl.DataFrame(
+                    {
+                        "ticker": encoded_tickers,
+                    }
+                )
+            )
+            .select("ticker")
+            .to_series()
+            .to_list()
+        )
 
         rescaled_predictions = np.empty_like(predictions)
 

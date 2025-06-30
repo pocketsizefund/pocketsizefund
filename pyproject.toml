@@ -17,6 +17,7 @@ members = [
     "application/datamanager",
     "application/positionmanager",
     "application/predictionengine",
+    "application/eventtrigger",
     "workflows",
 ]
 
@@ -24,6 +25,7 @@ members = [
 datamanager = { workspace = true }
 positionmanager = { workspace = true }
 predictionengine = { workspace = true }
+eventtrigger = { workspace = true }
 workflows = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
@@ -45,6 +47,7 @@ testpaths = [
     "application/datamanager/tests",
     "application/positionmanager/tests", 
     "application/predictionengine/tests",
+    "application/eventtrigger/tests",
 ]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -132,6 +135,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = ["S101"]
 "**/features/steps/**/*.py" = ["S101"]
+"application/predictionengine/src/predictionengine/main.py" = ["ERA001"] # temporary
 
 [tool.ty.rules]
 unresolved-import = "ignore"

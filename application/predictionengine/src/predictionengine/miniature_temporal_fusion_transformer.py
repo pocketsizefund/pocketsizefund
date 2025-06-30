@@ -1,6 +1,5 @@
 import numpy as np
 import numpy.typing as npt
-from category_encoders import OrdinalEncoder
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import (
     get_parameters,
@@ -11,7 +10,7 @@ from tinygrad.nn.state import (
 )
 from tinygrad.tensor import Tensor
 
-from .dataset import DataSet
+from .dataset import DataSet, OrdinalEncoder
 from .gated_residual_network import GatedResidualNetwork
 from .long_short_term_memory import LongShortTermMemory
 from .loss_function import quantile_loss
@@ -73,7 +72,6 @@ class MiniatureTemporalFusionTransformer:
         self.parameters = get_parameters(self)
 
     def get_parameters(self) -> list[Tensor]:
-        """Return all trainable parameters of the model."""
         return self.parameters
 
     def forward(
@@ -181,7 +179,9 @@ class MiniatureTemporalFusionTransformer:
         tickers: Tensor,
         input_: Tensor,
     ) -> tuple[
-        npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
     ]:
         predictions, _, _ = self.forward(tickers, input_)
 
