@@ -1,9 +1,9 @@
 [env]
-COMPOSE_BAKE=true
+COMPOSE_BAKE = true
 
 [tasks."python:install"]
 description = "Install Python dependencies"
-run = "uv sync --all-packages"
+run = "uv sync --all-packages --all-groups"
 
 [tasks."python:format"]
 description = "Format Python code"
@@ -87,11 +87,14 @@ yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" .
 
 [tasks."infrastructure:up"]
 description = "Launch cloud infrastructure"
+# temporarily comment out ping test due to non-exposed endpoints
 run = """
 set -e
 cd infrastructure
 uv run pulumi up --yes --stack pocketsizefund/pocketsizefund/production
-nu ping.nu
+pulumi stack output KUBECONFIG  > kubeconfig.json
+export KUBECONFIG=<(pulumi stack output KUBECONFIG)
+# nu ping.nu
 """
 
 [tasks."infrastructure:down"]

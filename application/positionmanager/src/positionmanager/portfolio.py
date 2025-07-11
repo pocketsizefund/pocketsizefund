@@ -19,7 +19,7 @@ class PortfolioOptimizer:
         self,
         historical_data: pl.DataFrame,
         portfolio_value: Money,
-        predictions: dict[str, float],
+        predictions: dict[str, list[float]],
         prediction_weight: float = 0.3,
     ) -> dict[str, int]:
         converted_data = historical_data.to_pandas()

@@ -1,27 +1,28 @@
+import json
 import os
 import traceback
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import duckdb
-import httpx
 import polars as pl
 import pyarrow as pa
 import pyarrow.lib
 import requests
+from cloudevents.pydantic.v2 import CloudEvent
 from duckdb import IOException
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, Request, Response, status
 from google.api_core import exceptions
 from google.api_core.exceptions import GoogleAPIError
-from google.cloud import storage  # type: ignore
 from loguru import logger
 from polars.exceptions import ComputeError
 from prometheus_client import Gauge
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from .config import Settings
-from .models import BarsSummary, SummaryDate
+from .clients import PolygonClient, S3Client
+from .models import SummaryDate
 
 
 def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
@@ -49,10 +50,11 @@ def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    app.state.settings = Settings()
-    app.state.bucket = storage.Client(os.getenv("GCP_PROJECT")).bucket(
-        app.state.settings.gcp.bucket.name,
+    app.state.polygon_client = PolygonClient(
+        polygon_api_key=os.getenv("POLYGON_API_KEY", ""),
     )
+
+    app.state.s3_client = S3Client(data_bucket_name=os.getenv("DATA_BUCKET_NAME", ""))
 
     DUCKDB_ACCESS_KEY = os.getenv("DUCKDB_ACCESS_KEY")  # noqa: N806
     DUCKDB_SECRET = os.getenv("DUCKDB_SECRET")  # noqa: N806
@@ -72,6 +74,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
+    if hasattr(app.state, "connection"):
+        app.state.connection.close()
+
 
 application = FastAPI(lifespan=lifespan)
 Instrumentator().instrument(application).expose(application)
@@ -83,29 +88,34 @@ equity_bars_total_rows = Gauge(
 
 
 @application.get("/health")
-async def health_check() -> Response:
+def get_health() -> Response:
     return Response(status_code=status.HTTP_200_OK)
 
 
 @application.get("/metrics")
-async def update_metrics(request: Request) -> dict[str, int]:
-    settings: Settings = request.app.state.settings
-
-    count_query = f"""
-        SELECT COUNT(*) as total_rows
-        FROM read_parquet(
-            'gs://{settings.gcp.bucket.name}/equity/bars/*/*/*/*', 
-            HIVE_PARTITIONING=1
-        )
-    """  # noqa: S608
-
+def get_metrics(request: Request) -> Response:
     try:
+        count_query = f"""
+            SELECT COUNT(*) as total_rows
+            FROM read_parquet(
+                'gs://{request.app.state.s3_client.data_bucket_name}/equity/bars/*/*/*/*', 
+                HIVE_PARTITIONING=1
+            )
+        """  # noqa: S608
+
         result = request.app.state.connection.execute(count_query).fetchone()
+
         total_rows = result[0] if result else 0
+
         equity_bars_total_rows.set(total_rows)
 
         logger.info(f"Updated equity_bars_total_rows metric: {total_rows}")
-        return {"total_rows": total_rows}  # noqa: TRY300
+
+        return Response(
+            status_code=status.HTTP_200_OK,
+            content=json.dumps({"total_rows": total_rows}),
+            media_type="application/json",
+        )
 
     except (
         duckdb.Error,
@@ -114,19 +124,30 @@ async def update_metrics(request: Request) -> dict[str, int]:
         GoogleAPIError,
     ) as e:
         logger.error(f"Error updating metrics: {e}")
-        return {"total_rows": 0}
+
+        return Response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=json.dumps({"error": "Failed to fetch metrics"}),
+            media_type="application/json",
+        )
+
+    except requests.RequestException as e:  # TEMP
+        logger.error(f"Request error while fetching metrics: {e}")
+        return Response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=json.dumps({"error": "Failed to fetch metrics"}),
+            media_type="application/json",
+        )
 
 
 @application.get("/equity-bars")
-async def get_equity_bars(
+def get_equity_bars(
     request: Request,
     start_date: date,
     end_date: date,
 ) -> Response:
-    settings: Settings = request.app.state.settings
-
     query = bars_query(
-        bucket=settings.gcp.bucket.name,
+        bucket=request.app.state.s3_client.data_bucket_name,
         start_date=start_date,
         end_date=end_date,
     )
@@ -135,9 +156,13 @@ async def get_equity_bars(
         data = request.app.state.connection.execute(query).arrow()
 
         if data.num_rows == 0:
-            return Response(status_code=status.HTTP_404_NOT_FOUND)
+            return Response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content=json.dumps({"error": "No data found for the given date range"}),
+                media_type="application/json",
+            )
 
-        logger.info(f"Query returned {data.num_rows} rows")
+        logger.info(f"Query returned rows count: {data.num_rows}")
         sink = pa.BufferOutputStream()
         with pa.ipc.RecordBatchStreamWriter(sink, data.schema) as writer:
             writer.write_table(data)
@@ -165,32 +190,37 @@ async def get_equity_bars(
     ) as e:
         logger.error(f"Error querying data: {e}")
         logger.error(traceback.format_exc())
-        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=json.dumps({"error": f"Failed to query data: {e!s}"}),
+            media_type="application/json",
+        )
 
 
-@application.post("/equity-bars")
-async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> BarsSummary:
-    polygon = request.app.state.settings.polygon
-    bucket = request.app.state.settings.gcp.bucket
+@application.post("/equity-bars/fetch", response_model=None)
+def fetch_equity_bars(
+    request: Request,
+    summary_date: SummaryDate | None,
+) -> CloudEvent:
+    polygon_client = request.app.state.polygon_client
+    daily_equity_bars_path = request.app.state.s3_client.daily_equity_bars_path
+
+    if summary_date is None:
+        summary_date = SummaryDate(
+            date=datetime.now(tz=ZoneInfo("America/New_York")).date()
+        )
 
     request_summary_date: str = summary_date.date.strftime("%Y-%m-%d")
-    url = f"{polygon.base_url}{polygon.daily_bars}{request_summary_date}"
-    logger.info(f"polygon_api_endpoint={url}")
 
-    params = {"adjusted": "true", "apiKey": polygon.api_key}
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            url,
-            params=params,
-        )
-    response.raise_for_status()
-    payload = response.json().get("results", [])
+    all_equity_bars_response = polygon_client.get_all_equity_bars(
+        date=request_summary_date,
+    )
 
-    bars = pl.DataFrame(payload)
-    count = len(bars)
+    all_equity_bars = pl.DataFrame(all_equity_bars_response)
+    count = len(all_equity_bars)
     if count > 0:
         try:
-            bars.with_columns(
+            all_equity_bars.with_columns(
                 [
                     pl.from_epoch("t", time_unit="ms").alias("datetime"),
                     pl.from_epoch("t", time_unit="ms").dt.year().alias("year"),
@@ -198,7 +228,7 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
                     pl.from_epoch("t", time_unit="ms").dt.day().alias("day"),
                 ],
             ).write_parquet(
-                bucket.daily_bars_path,
+                file=daily_equity_bars_path,
                 partition_by=["year", "month", "day"],
             )
         except (
@@ -210,28 +240,53 @@ async def fetch_equity_bars(request: Request, summary_date: SummaryDate) -> Bars
         ) as e:
             logger.error(f"Error writing parquet file: {e}")
             logger.error(traceback.format_exc())
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to write data",
-            ) from e
-    return BarsSummary(date=request_summary_date, count=count)
+
+            return CloudEvent(
+                attributes={
+                    "source": "datamanager",
+                    "type": "application.datamanager.equity.bars.errored",
+                },
+                data={
+                    "date": request_summary_date,
+                    "error": str(e),
+                },
+            )
+
+    return CloudEvent(
+        attributes={
+            "source": "datamanager",
+            "type": "application.datamanager.equity.bars.created",
+        },
+        data={
+            "date": request_summary_date,
+            "count": count,
+        },
+    )
 
 
 @application.delete("/equity-bars")
-async def delete_equity_bars(request: Request, summary_date: SummaryDate) -> Response:
-    bucket = request.app.state.bucket
+def delete_equity_bars(request: Request, summary_date: SummaryDate) -> Response:
+    s3_client = request.app.state.s3_client
     year = summary_date.date.year
     month = summary_date.date.month
     day = summary_date.date.day
     prefix = f"equity/bars/{year=}/{month=}/{day=}"
 
     try:
-        blobs = list(bucket.list_blobs(prefix=prefix))
+        blobs = list(s3_client.list_objects(prefix=prefix))
     except exceptions.NotFound:
-        return Response(status_code=status.HTTP_404_NOT_FOUND)
+        return Response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=json.dumps({"error": "No equity bars found"}),
+            media_type="application/json",
+        )
     if not blobs:
-        return Response(status_code=status.HTTP_404_NOT_FOUND)
+        return Response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=json.dumps({"error": "No equity bars found for the given date"}),
+            media_type="application/json",
+        )
 
-    logger.info(f"deleting {prefix=}")
-    bucket.delete_blobs(blobs)
+    logger.info(f"Deleting prefix: {prefix=}")
+    s3_client.delete_objects(blobs)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

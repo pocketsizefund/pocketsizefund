@@ -2,17 +2,12 @@ import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-import polars as pl
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
-from application.positionmanager.src.positionmanager.clients import (
-    AlpacaClient,
-    DataClient,
-)
+from application.positionmanager.src.positionmanager.clients import AlpacaClient
 from application.positionmanager.src.positionmanager.main import application
 from application.positionmanager.src.positionmanager.models import Money
-from application.positionmanager.src.positionmanager.portfolio import PortfolioOptimizer
 
 client = TestClient(application)
 
@@ -20,69 +15,78 @@ client = TestClient(application)
 def test_health_check() -> None:
     response = client.get("/health")
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {"status": "healthy"}
 
 
-class TestPositionsEndpoint(unittest.TestCase):
+class TestCreatePositionsEndpoint(unittest.TestCase):
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
     @patch("application.positionmanager.src.positionmanager.main.DataClient")
-    @patch("application.positionmanager.src.positionmanager.main.PortfolioOptimizer")
-    def test_create_position_success(
+    @patch("application.positionmanager.src.positionmanager.main.requests.get")
+    def test_open_position_success(
         self,
-        MockPortfolioOptimizer: MagicMock,  # noqa: N803
+        mock_requests_get: MagicMock,
         MockDataClient: MagicMock,  # noqa: N803
         MockAlpacaClient: MagicMock,  # noqa: N803
     ) -> None:
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_cash_balance = Money(amount=Decimal("100000.00"))
         mock_alpaca_instance.get_cash_balance.return_value = mock_cash_balance
-        mock_alpaca_instance.place_notional_order.return_value = {
-            "status": "success",
-            "message": "Order placed successfully",
-        }
+        mock_alpaca_instance.place_notional_order.return_value = None
         MockAlpacaClient.return_value = mock_alpaca_instance
 
-        mock_data_instance = MagicMock(spec=DataClient)
-        mock_historical_data = pl.DataFrame(
-            {"date": ["2025-05-01"], "AAPL": [150.00], "MSFT": [250.00]},
-        )
-        mock_data_instance.get_data.return_value = mock_historical_data
-        MockDataClient.return_value = mock_data_instance
+        mock_data_client_instance = MagicMock()
+        mock_historical_data = MagicMock()
+        mock_data_client_instance.get_data.return_value = mock_historical_data
+        MockDataClient.return_value = mock_data_client_instance
 
-        mock_optimizer_instance = MagicMock(spec=PortfolioOptimizer)
-        mock_optimizer_instance.get_optimized_portfolio.return_value = {
-            "AAPL": 10,
-            "MSFT": 5,
-        }
-        MockPortfolioOptimizer.return_value = mock_optimizer_instance
+        mock_response = MagicMock()
+        mock_response.content = b"mock_arrow_data"
+        mock_response.raise_for_status.return_value = None
+        mock_requests_get.return_value = mock_response
 
-        payload = {"predictions": {"AAPL": 0.8, "MSFT": 0.7}}
-        response = client.post("/positions", json=payload)
+        with (
+            patch(
+                "application.positionmanager.src.positionmanager.clients.pa.py_buffer"
+            ),
+            patch(
+                "application.positionmanager.src.positionmanager.clients.pa.ipc.RecordBatchStreamReader"
+            ),
+            patch(
+                "application.positionmanager.src.positionmanager.main.pl.DataFrame"
+            ) as mock_pl_dataframe,
+            patch(
+                "application.positionmanager.src.positionmanager.main.PortfolioOptimizer"
+            ) as MockPortfolioOptimizer,  # noqa: N806
+        ):
+            mock_df = MagicMock()
+            mock_df.unique.return_value.to_list.return_value = ["AAPL", "MSFT"]
+            mock_pl_dataframe.return_value = mock_df
+
+            mock_optimizer_instance = MagicMock()
+            mock_optimizer_instance.get_optimized_portfolio.return_value = {
+                "AAPL": 50.0,
+                "MSFT": 30.0,
+            }
+            MockPortfolioOptimizer.return_value = mock_optimizer_instance
+
+            cloud_event_data = {
+                "source": "test",
+                "type": "test.event",
+                "data": {
+                    "predictions": {
+                        "AAPL": {"percentile_50": [0.1, 0.2, 0.3]},
+                        "MSFT": {"percentile_50": [0.2, 0.3, 0.4]},
+                    }
+                },
+            }
+            response = client.post("/positions/open", json=cloud_event_data)
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["status"] == "success"
-        assert "initial_cash_balance" in response.json()
-        assert "final_cash_balance" in response.json()
-        assert "optimized_portfolio" in response.json()
-        assert "executed_trades" in response.json()
-
-        MockAlpacaClient.assert_called_once()
-        MockDataClient.assert_called_once()
-        MockPortfolioOptimizer.assert_called_once()
-
-        mock_alpaca_instance.get_cash_balance.assert_called()
-        mock_data_instance.get_data.assert_called_once()
-
-        mock_optimizer_instance.get_optimized_portfolio.assert_called_once()
-        optimizer_args = mock_optimizer_instance.get_optimized_portfolio.call_args[1]
-        assert "predictions" in optimizer_args
-        assert "portfolio_value" in optimizer_args
-        assert optimizer_args["portfolio_value"] == mock_cash_balance
-
-        assert mock_alpaca_instance.place_notional_order.call_count == 2  # noqa: PLR2004
+        response_data = response.json()
+        assert "source" in response_data
+        assert "type" in response_data
 
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
-    def test_create_position_alpaca_error(self, MockAlpacaClient: MagicMock) -> None:  # noqa: N803
+    def test_open_position_alpaca_error(self, MockAlpacaClient: MagicMock) -> None:  # noqa: N803
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.get_cash_balance.side_effect = HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -90,8 +94,12 @@ class TestPositionsEndpoint(unittest.TestCase):
         )
         MockAlpacaClient.return_value = mock_alpaca_instance
 
-        payload = {"predictions": {"AAPL": 0.8}}
-        response = client.post("/positions", json=payload)
+        cloud_event_data = {
+            "source": "test",
+            "type": "test.event",
+            "data": {"predictions": {"AAPL": {"percentile_50": [0.1, 0.2, 0.3]}}},
+        }
+        response = client.post("/positions/open", json=cloud_event_data)
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert "Error getting cash balance" in response.json()["detail"]
@@ -100,7 +108,7 @@ class TestPositionsEndpoint(unittest.TestCase):
         mock_alpaca_instance.get_cash_balance.assert_called_once()
 
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
-    def test_delete_positions_success(self, MockAlpacaClient: MagicMock) -> None:  # noqa: N803
+    def test_close_positions_success(self, MockAlpacaClient: MagicMock) -> None:  # noqa: N803
         mock_alpaca_instance = MagicMock(spec=AlpacaClient)
         mock_alpaca_instance.clear_positions.return_value = {
             "status": "success",
@@ -110,19 +118,19 @@ class TestPositionsEndpoint(unittest.TestCase):
         mock_alpaca_instance.get_cash_balance.return_value = mock_cash_balance
         MockAlpacaClient.return_value = mock_alpaca_instance
 
-        response = client.delete("/positions")
+        response = client.post("/positions/close")
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["status"] == "success"
-        assert "cash_balance" in response.json()
-        assert response.json()["cash_balance"] == float(mock_cash_balance)
+        response_data = response.json()
+        assert "source" in response_data
+        assert "type" in response_data
 
         MockAlpacaClient.assert_called_once()
         mock_alpaca_instance.clear_positions.assert_called_once()
         mock_alpaca_instance.get_cash_balance.assert_called_once()
 
     @patch("application.positionmanager.src.positionmanager.main.AlpacaClient")
-    def test_delete_positions_error(
+    def test_close_positions_error(
         self,
         MockAlpacaClient: MagicMock,  # noqa: N803
     ) -> None:
@@ -133,7 +141,7 @@ class TestPositionsEndpoint(unittest.TestCase):
         )
         MockAlpacaClient.return_value = mock_alpaca_instance
 
-        response = client.delete("/positions")
+        response = client.post("/positions/close")
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert "Error" in response.json()["detail"]

@@ -7,7 +7,7 @@ permissions:
   issues: write
   pull-requests: write
 jobs:
-  stale:
+  check_stale_items:
     name: Close stale issues and pull requests
     runs-on: ubuntu-latest
     steps:

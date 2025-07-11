@@ -11,3 +11,4 @@ infrastructure/Pulumi.production.yaml
 .coverage*
 .coverage/
 coverage.xml
+infrastructure/kubeconfig.json

@@ -3,13 +3,6 @@ name = "pocketsizefund"
 version = "20250602.4"
 description = "Open source quantitative hedge fund 🍊"
 requires-python = "==3.12.10"
-dependencies = [
-    "flytekit>=1.15.4",
-    "httpx>=0.28.1",
-    "pulumi-docker-build>=0.0.12",
-    "pulumi-gcp>=8.32.0",
-    "requests>=2.32.3",
-]
 
 [tool.uv.workspace]
 members = [
@@ -17,7 +10,6 @@ members = [
     "application/datamanager",
     "application/positionmanager",
     "application/predictionengine",
-    "application/eventtrigger",
     "workflows",
 ]
 
@@ -25,7 +17,6 @@ members = [
 datamanager = { workspace = true }
 positionmanager = { workspace = true }
 predictionengine = { workspace = true }
-eventtrigger = { workspace = true }
 workflows = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
@@ -36,18 +27,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = [
-    "coverage>=7.8.0",
-    "pytest>=8.3.5",
-    "behave>=1.2.6",
-]
+dev = ["coverage>=7.8.0", "pytest>=8.3.5", "behave>=1.2.6"]
 
 [tool.pytest.ini_options]
 testpaths = [
     "application/datamanager/tests",
-    "application/positionmanager/tests", 
+    "application/positionmanager/tests",
     "application/predictionengine/tests",
-    "application/eventtrigger/tests",
 ]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -57,7 +43,7 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--color=yes",
-    "--rootdir=/tests"
+    "--rootdir=/tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:websockets.legacy.*",
@@ -77,65 +63,62 @@ output = "coverage_output/.python_coverage.xml"
 
 [tool.ruff.lint]
 select = [
-  "A",     # flake8 builtins
-  "ANN",   # type annotations
-  "ARG",   # unused args
-  "ASYNC",
-  "B",     # bugbear
-  "COM",   # commas
-  "C4",    # comprehensions
-  "C90",   # complexity
-  "BLE",   # no blind exceptions
-  "DTZ",   # datetimes
-  "E",     # whitespace
-  "EM",    # error messages
-  "ERA",   # dead code
-  "EXE",   # executables
-  "F",     # pyflakes
-  "FA",    # future annotations
-  "FAST",  # fastapi
-  "FIX",   # no fixme/todo comments
-  "FLY",   # f strings
-  "FBT",   # boolean traps
-  "FURB",  # refurb
-  "G",     # logging format
-  "ICN",   # import conventions
-  "ISC",   # implicit string concatenation
-  "I",    # isort
-  "LOG",   # logging
-  "N",     # naming
-  "NPY",   # numpy
-  "PD",    # pandas
-  "PERF",  # performance
-  "PIE",   # misc lints
-  "PL",    # pylint
-  "PT",    # pytest style
-  "PTH",   # use pathlib
-  "PYI",   # type hints
-  "Q",     # quotes
-  "RSE",   # raises
-  "RET",   # returns
-  "RUF",   # ruff
-  "S",     # bandit (security)
-  "SIM",   # simplicity
-  "SLF",   # self
-  "SLOT",  # slots
-  "TC",    # type checking
-  "TID",   # tidy imports
-  "TRY",   # trys
-  "T10",   # debugger
-  "T20",   # printing
-  "UP",    # pyupgrade
-  "YTT"    # flake8
+    "A",     # flake8 builtins
+    "ANN",   # type annotations
+    "ARG",   # unused args
+    "ASYNC",
+    "B",     # bugbear
+    "COM",   # commas
+    "C4",    # comprehensions
+    "C90",   # complexity
+    "BLE",   # no blind exceptions
+    "DTZ",   # datetimes
+    "E",     # whitespace
+    "EM",    # error messages
+    "ERA",   # dead code
+    "EXE",   # executables
+    "F",     # pyflakes
+    "FA",    # future annotations
+    "FAST",  # fastapi
+    "FIX",   # no fixme/todo comments
+    "FLY",   # f strings
+    "FBT",   # boolean traps
+    "FURB",  # refurb
+    "G",     # logging format
+    "ICN",   # import conventions
+    "ISC",   # implicit string concatenation
+    "I",     # isort
+    "LOG",   # logging
+    "N",     # naming
+    "NPY",   # numpy
+    "PD",    # pandas
+    "PERF",  # performance
+    "PIE",   # misc lints
+    "PL",    # pylint
+    "PT",    # pytest style
+    "PTH",   # use pathlib
+    "PYI",   # type hints
+    "Q",     # quotes
+    "RSE",   # raises
+    "RET",   # returns
+    "RUF",   # ruff
+    "S",     # bandit (security)
+    "SIM",   # simplicity
+    "SLF",   # self
+    "SLOT",  # slots
+    "TC",    # type checking
+    "TID",   # tidy imports
+    "TRY",   # trys
+    "T10",   # debugger
+    "T20",   # printing
+    "UP",    # pyupgrade
+    "YTT",   # flake8
 ]
-ignore = [
-    "COM812",
-]
+ignore = ["COM812"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = ["S101"]
 "**/features/steps/**/*.py" = ["S101"]
-"application/predictionengine/src/predictionengine/main.py" = ["ERA001"] # temporary
 
 [tool.ty.rules]
 unresolved-import = "ignore"
