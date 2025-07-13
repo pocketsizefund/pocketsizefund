@@ -6,8 +6,9 @@ from cluster import (
     create_kubernetes_provider,
     update_kubernetes_cluster_access,
 )
-from environment_variables import environment_variables
+from environment_variables import create_environment_variables
 from images import build_image
+from keys import create_duckdb_user_access_key
 from monitors import create_prometheus_scraper
 from publishers_subscribers import (
     create_knative_broker,
@@ -64,6 +65,10 @@ datamanager_image = build_image(
     service_version=version,
 )
 
+
+duckdb_user_access_key = create_duckdb_user_access_key()
+
+environment_variables = create_environment_variables(duckdb_user_access_key)
 
 datamanager_service = create_knative_service(
     kubernetes_provider=kubernetes_provider,
