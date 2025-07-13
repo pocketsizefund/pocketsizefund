@@ -26,7 +26,7 @@ from .models import SummaryDate
 
 
 def bars_query(*, bucket: str, start_date: date, end_date: date) -> str:
-    path_pattern = f"gs://{bucket}/equity/bars/*/*/*/*"
+    path_pattern = f"s3://{bucket}/equity/bars/*/*/*/*"
 
     return f""" 
         SELECT *
@@ -56,8 +56,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     app.state.s3_client = S3Client(data_bucket_name=os.getenv("DATA_BUCKET_NAME", ""))
 
-    DUCKDB_ACCESS_KEY = os.getenv("DUCKDB_ACCESS_KEY")  # noqa: N806
-    DUCKDB_SECRET = os.getenv("DUCKDB_SECRET")  # noqa: N806
+    duckdb_user_access_key_id = os.getenv("DUCKDB_USER_ACCESS_KEY_ID")
+    duckdb_user_access_key_secret = os.getenv("DUCKDB_USER_ACCESS_KEY_SECRET")
+    aws_region = os.getenv("AWS_REGION", "us-east-1")
 
     app.state.connection = duckdb.connect()
     app.state.connection.execute(f"""
@@ -66,9 +67,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
       SET http_keep_alive=true;
       SET http_timeout=30000;
       CREATE SECRET (
-        TYPE GCS, 
-        KEY_ID '{DUCKDB_ACCESS_KEY}',
-        SECRET '{DUCKDB_SECRET}'
+        TYPE S3,
+        PROVIDER config, 
+        KEY_ID '{duckdb_user_access_key_id}',
+        SECRET '{duckdb_user_access_key_secret}',
+        REGION '{aws_region}'
       );
     """)
 
@@ -98,7 +101,7 @@ def get_metrics(request: Request) -> Response:
         count_query = f"""
             SELECT COUNT(*) as total_rows
             FROM read_parquet(
-                'gs://{request.app.state.s3_client.data_bucket_name}/equity/bars/*/*/*/*', 
+                's3://{request.app.state.s3_client.data_bucket_name}/equity/bars/*/*/*/*', 
                 HIVE_PARTITIONING=1
             )
         """  # noqa: S608
