@@ -1,6 +1,5 @@
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import core_schema
@@ -59,7 +58,3 @@ class DateRange(BaseModel):
             "start_date": self.start.isoformat(),
             "end_date": self.end.isoformat(),
         }
-
-
-class PredictionPayload(BaseModel):
-    predictions: dict[str, Any]

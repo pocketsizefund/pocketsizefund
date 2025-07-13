@@ -1,5 +1,5 @@
 import requests
-from behave import when
+from behave import when  # type: ignore
 from behave.runner import Context
 
 

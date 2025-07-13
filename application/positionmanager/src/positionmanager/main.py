@@ -1,18 +1,19 @@
+import json
 import os
 from datetime import datetime, timedelta
-from typing import Any
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import requests
 from alpaca.common.exceptions import APIError
-from fastapi import FastAPI, HTTPException
+from cloudevents.pydantic.v2 import CloudEvent
+from fastapi import FastAPI, HTTPException, Response, status
 from prometheus_client import Gauge
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import ValidationError
 
 from .clients import AlpacaClient, DataClient
-from .models import DateRange, Money, PredictionPayload
+from .models import DateRange, Money
 from .portfolio import PortfolioOptimizer
 
 trading_days_per_year = 252
@@ -50,12 +51,12 @@ portfolio_position_profit_and_loss_gauge = Gauge(
 
 
 @application.get("/health")
-def get_health() -> dict[str, str]:
-    return {"status": "healthy"}
+def get_health() -> Response:
+    return Response(status_code=status.HTTP_200_OK)
 
 
 @application.get("/metrics")
-def update_metrics() -> dict[str, Any]:
+def update_metrics() -> Response:
     alpaca_client = AlpacaClient(
         api_key=os.getenv("ALPACA_API_KEY", ""),
         api_secret=os.getenv("ALPACA_API_SECRET", ""),
@@ -92,12 +93,18 @@ def update_metrics() -> dict[str, Any]:
                 }
             )
 
-        return {
-            "portfolio_value": account_information["portfolio_value"],
-            "cash_balance": account_information["cash"],
-            "positions_count": len(positions),
-            "positions": position_metrics,
-        }
+        return Response(
+            status_code=status.HTTP_200_OK,
+            content=json.dumps(
+                {
+                    "portfolio_value": [account_information["portfolio_value"]],
+                    "cash_balance": [account_information["cash"]],
+                    "positions_count": [len(positions)],
+                    "positions": position_metrics,
+                }
+            ),
+            media_type="application/json",
+        )
 
     except (requests.RequestException, APIError, ValidationError) as e:
         raise HTTPException(
@@ -106,8 +113,8 @@ def update_metrics() -> dict[str, Any]:
         ) from e
 
 
-@application.post("/positions")
-def create_position(payload: PredictionPayload) -> dict[str, Any]:
+@application.post("/positions/open", response_model=None)
+def open_position(event: CloudEvent) -> CloudEvent:
     alpaca_client = AlpacaClient(
         api_key=os.getenv("ALPACA_API_KEY", ""),
         api_secret=os.getenv("ALPACA_API_SECRET", ""),
@@ -125,10 +132,7 @@ def create_position(payload: PredictionPayload) -> dict[str, Any]:
         cash_balance = alpaca_client.get_cash_balance()
 
     except (requests.RequestException, APIError, ValidationError) as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error getting cash balance: {e!r}",
-        ) from e
+        return create_cloud_event_error(f"Error opening position: {e!r}")
 
     eastern_timezone = ZoneInfo("America/New_York")
 
@@ -141,23 +145,31 @@ def create_position(payload: PredictionPayload) -> dict[str, Any]:
         historical_data = data_client.get_data(date_range=date_range)
 
     except (requests.RequestException, APIError, ValidationError) as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error getting historical data: {e!r}",
-        ) from e
+        return create_cloud_event_error(f"Error fetching historical data: {e!r}")
 
     try:
+        event_data = event.data
+        if not isinstance(event_data, dict):
+            return create_cloud_event_error(
+                "Invalid event data format, expected a dictionary."
+            )
+
+        predictions: dict[str, dict[str, list[float]]] = event_data.get(
+            "predictions", {}
+        )
+
+        predictions_percentile_50 = {
+            key: value["percentile_50"] for key, value in predictions.items()
+        }
+
         optimized_portfolio = portfolio_optimizer.get_optimized_portfolio(
             historical_data=historical_data,
             portfolio_value=cash_balance,
-            predictions=payload.predictions,
+            predictions=predictions_percentile_50,
         )
 
     except (requests.RequestException, APIError, ValidationError) as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error optimizing portfolio: {e!r}",
-        ) from e
+        return create_cloud_event_error(f"Error optimizing portfolio: {e!r}")
 
     executed_trades = []
     for ticker, share_count in optimized_portfolio.items():
@@ -176,6 +188,7 @@ def create_position(payload: PredictionPayload) -> dict[str, Any]:
                 },
             )
             continue
+
         latest_price = latest_prices.tail(1)[0, 0]
 
         notional_amount = Money.from_float(
@@ -207,18 +220,24 @@ def create_position(payload: PredictionPayload) -> dict[str, Any]:
 
     final_cash_balance = alpaca_client.get_cash_balance()
 
-    return {
-        "status": "success",
-        "initial_cash_balance": float(cash_balance),
-        "final_cash_balance": float(final_cash_balance),
-        "optimized_portfolio": optimized_portfolio,
-        "executed_trades": executed_trades,
-        "time_period": date_range.to_payload(),
-    }
+    return CloudEvent(
+        attributes={
+            "source": "positionmanager",
+            "type": "application.positionmanager.positions.opened",
+        },
+        data={
+            "date": date_range.end.isoformat(),
+            "initial_cash_balance": float(cash_balance),
+            "final_cash_balance": float(final_cash_balance),
+            "optimized_portfolio": optimized_portfolio,
+            "executed_trades": executed_trades,
+            "time_period": date_range.to_payload(),
+        },
+    )
 
 
-@application.delete("/positions")
-def delete_positions() -> dict[str, Any]:
+@application.post("/positions/close", response_model=None)
+def close_positions() -> CloudEvent:
     alpaca_client = AlpacaClient(
         api_key=os.getenv("ALPACA_API_KEY", ""),
         api_secret=os.getenv("ALPACA_API_SECRET", ""),
@@ -229,12 +248,32 @@ def delete_positions() -> dict[str, Any]:
         result = alpaca_client.clear_positions()
 
     except (requests.RequestException, APIError, ValidationError) as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        return create_cloud_event_error(str(e))
 
     cash_balance = alpaca_client.get_cash_balance()
 
-    return {
-        "status": result["status"],
-        "message": result["message"],
-        "cash_balance": float(cash_balance),
-    }
+    return CloudEvent(
+        attributes={
+            "source": "positionmanager",
+            "type": "application.positionmanager.positions.closed",
+        },
+        data={
+            "date": datetime.now(tz=ZoneInfo("America/New_York")).isoformat(),
+            "status": result["status"],
+            "message": result["message"],
+            "cash_balance": float(cash_balance),
+        },
+    )
+
+
+def create_cloud_event_error(error_message: str) -> CloudEvent:
+    return CloudEvent(
+        attributes={
+            "source": "positionmanager",
+            "type": "application.positionmanager.positions.errored",
+        },
+        data={
+            "date": datetime.now(tz=ZoneInfo("America/New_York")).isoformat(),
+            "error": error_message,
+        },
+    )

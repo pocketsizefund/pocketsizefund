@@ -1,17 +1,14 @@
 import os
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 import requests
-from behave import given, then, when
+from behave import given, then, when  # type: ignore
 from behave.runner import Context
 
 
 @given("I have date ranges")
 def step_impl_date_ranges(context: Context) -> None:
-    for row in context.table:  # ty: ignore
+    for row in context.table:  # type: ignore
         context.start_date = row["start_date"]
         context.end_date = row["end_date"]
 

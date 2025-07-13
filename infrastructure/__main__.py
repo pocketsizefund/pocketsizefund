@@ -1,141 +1,137 @@
-import buckets  # noqa: F401
-import monitoring  # noqa: F401
-import project
-import pulumi_std as std
-from environment_variables import (
-    ALPACA_API_KEY,
-    ALPACA_API_SECRET,
-    DATA_BUCKET_NAME,
-    DUCKDB_ACCESS_KEY,
-    DUCKDB_SECRET,
-    GCP_PROJECT,
-    POLYGON_API_KEY,
-    create_environment_variable,
-)
-from project import platform_service_account
-from pulumi import ResourceOptions, export
-from pulumi_gcp import cloudscheduler
-from services import create_service
+import tomllib
+from pathlib import Path
 
-datamanager_service = create_service(
-    name="datamanager",
-    environment_variables=[
-        ALPACA_API_KEY,
-        ALPACA_API_SECRET,
-        GCP_PROJECT,
-        DATA_BUCKET_NAME,
-        DUCKDB_ACCESS_KEY,
-        DUCKDB_SECRET,
-        POLYGON_API_KEY,
-    ],
+from cluster import (
+    create_kubernetes_cluster,
+    create_kubernetes_provider,
+    update_kubernetes_cluster_access,
+)
+from environment_variables import environment_variables
+from images import build_image
+from monitors import create_prometheus_scraper
+from publishers_subscribers import (
+    create_knative_broker,
+    create_knative_eventing_core,
+    create_knative_schedule,
+    create_knative_service,
+    create_knative_serving_core,
+    create_knative_trigger,
+)
+from pulumi.config import Config
+from roles import (
+    create_cluster_role,
+    create_node_role,
 )
 
-DATAMANAGER_BASE_URL = create_environment_variable(
-    name="DATAMANAGER_BASE_URL",
-    value=datamanager_service.statuses[0].url,
+configuration = Config()
+
+cluster_role = create_cluster_role()
+
+node_role = create_node_role()
+
+kubernetes_cluster = create_kubernetes_cluster(cluster_role, node_role)
+
+kubernetes_provider = create_kubernetes_provider(kubernetes_cluster)
+
+cluster_access_config = update_kubernetes_cluster_access(
+    cluster_role=cluster_role,
+    node_role=node_role,
+    kubernetes_provider=kubernetes_provider,
+    pulumi_user_arn=configuration.require_secret("AWS_EKS_IAM_PULUMI_USER_ARN"),
+    root_user_arn=configuration.require_secret("AWS_EKS_IAM_ROOT_USER_ARN"),
 )
 
-positionmanager_service = create_service(
-    name="positionmanager",
-    environment_variables=[
-        ALPACA_API_KEY,
-        ALPACA_API_SECRET,
-        DATAMANAGER_BASE_URL,
-    ],
+knative_serving_core = create_knative_serving_core(kubernetes_provider)
+
+knative_eventing_core = create_knative_eventing_core(kubernetes_provider)
+
+knative_broker = create_knative_broker(
+    kubernetes_provider=kubernetes_provider,
+    knative_eventing_core=knative_eventing_core,
 )
 
-POSITIONMANAGER_BASE_URL = create_environment_variable(
-    name="POSITIONMANAGER_BASE_URL",
-    value=positionmanager_service.statuses[0].url,
-)
+try:
+    with Path("pyproject.toml").open("rb") as f:
+        project_data = tomllib.load(f)
+        version = project_data.get("project", {}).get("version")
 
-predictionengine_service = create_service(
-    name="predictionengine",
-    environment_variables=[
-        DATAMANAGER_BASE_URL,
-        POSITIONMANAGER_BASE_URL,
-    ],
-)
+except (FileNotFoundError, tomllib.TOMLDecodeError, ValueError) as e:
+    message = f"Failed to read version from infrastructure pyproject.toml: {e}"
+    raise RuntimeError(message) from e
 
-PREDICTIONENGINE_BASE_URL = create_environment_variable(
-    name="PREDICTIONENGINE_BASE_URL",
-    value=predictionengine_service.statuses[0].url,
-)
-
-eventtrigger_service = create_service(
-    name="eventtrigger",
-    environment_variables=[
-        DATAMANAGER_BASE_URL,
-        POSITIONMANAGER_BASE_URL,
-        PREDICTIONENGINE_BASE_URL,
-    ],
-)
-
-datamanager_data_fetch = cloudscheduler.Job(
-    resource_name="datamanager-data-fetch",
-    description="Fetch prior day data for storage",
-    schedule="0 0 * * 1-5",
-    time_zone="America/New_York",
-    http_target=cloudscheduler.JobHttpTargetArgs(
-        uri=eventtrigger_service.statuses[0].url.apply(lambda url: f"{url}/trigger"),
-        http_method="POST",
-        body=std.base64encode(input='{"event": "fetch_data"}').result,
-        oidc_token=cloudscheduler.JobHttpTargetOidcTokenArgs(
-            service_account_email=platform_service_account.email
-        ),
-    ),
-    opts=ResourceOptions(depends_on=[project.cloudscheduler_api]),
-)
-
-predictionengine_create_positions = cloudscheduler.Job(
-    resource_name="predictionengine-create-positions",
-    description="Generate predictions and create positions",
-    schedule="0 10 * * 1",
-    time_zone="America/New_York",
-    http_target=cloudscheduler.JobHttpTargetArgs(
-        uri=eventtrigger_service.statuses[0].url.apply(lambda url: f"{url}/trigger"),
-        http_method="POST",
-        body=std.base64encode(input='{"event": "create_positions"}').result,
-        oidc_token=cloudscheduler.JobHttpTargetOidcTokenArgs(
-            service_account_email=platform_service_account.email
-        ),
-    ),
-    opts=ResourceOptions(depends_on=[project.cloudscheduler_api]),
+datamanager_image = build_image(
+    service_name="datamanager",
+    service_version=version,
 )
 
 
-positionmanager_close_positions = cloudscheduler.Job(
-    resource_name="positionmanager-close-positions",
-    description="Close open positions",
-    schedule="0 15 * * 5",
-    time_zone="America/New_York",
-    http_target=cloudscheduler.JobHttpTargetArgs(
-        uri=eventtrigger_service.statuses[0].url.apply(lambda url: f"{url}/trigger"),
-        http_method="POST",
-        body=std.base64encode(input='{"event": "close_positions"}').result,
-        oidc_token=cloudscheduler.JobHttpTargetOidcTokenArgs(
-            service_account_email=platform_service_account.email
-        ),
-    ),
-    opts=ResourceOptions(depends_on=[project.cloudscheduler_api]),
+datamanager_service = create_knative_service(
+    kubernetes_provider=kubernetes_provider,
+    service_name="datamanager",
+    image_reference=datamanager_image.ref,
+    environment_variables=environment_variables,
+    depends_on=[knative_serving_core],
 )
 
-export(
-    name="DATAMANAGER_BASE_URL",
-    value=datamanager_service.statuses[0].url,
+predictionengine_image = build_image(
+    service_name="predictionengine",
+    service_version=version,
 )
 
-export(
-    name="DATAMANAGER_METRICS_URL",
-    value=datamanager_service.statuses[0].url.apply(lambda url: f"{url}/metrics"),
+predictionengine_service = create_knative_service(
+    kubernetes_provider=kubernetes_provider,
+    service_name="predictionengine",
+    image_reference=predictionengine_image.ref,
+    environment_variables=environment_variables,
+    depends_on=[knative_serving_core],
 )
 
-export(
-    name="POSITIONMANAGER_METRICS_URL",
-    value=positionmanager_service.statuses[0].url.apply(lambda url: f"{url}/metrics"),
+positionmanager_image = build_image(
+    service_name="positionmanager",
+    service_version=version,
 )
 
-export(
-    name="EVENTTRIGGER_BASE_URL",
-    value=eventtrigger_service.statuses[0].url,
+positionmanager_service = create_knative_service(
+    kubernetes_provider=kubernetes_provider,
+    service_name="positionmanager",
+    image_reference=positionmanager_image.ref,
+    environment_variables=environment_variables,
+    depends_on=[knative_serving_core],
+)
+
+open_positions_from_predictions_trigger = create_knative_trigger(
+    kubernetes_provider=kubernetes_provider,
+    source_service_name="predictionengine",
+    source_attribute_type="application.predictionengine.predictions.created",
+    target_service_name="positionmanager",
+    depends_on=[predictionengine_service, positionmanager_service, knative_broker],
+)
+
+midnight_data_fetch_schedule = create_knative_schedule(
+    kubernetes_provider=kubernetes_provider,
+    target_service_name="datamanager",
+    target_path="/equity-bars/fetch",
+    cron_schedule="0 0 * * *",
+    depends_on=[datamanager_service, knative_eventing_core],
+)
+
+monday_morning_open_positions_schedule = create_knative_schedule(
+    kubernetes_provider=kubernetes_provider,
+    target_service_name="predictionengine",
+    target_path="/predictions/create",
+    cron_schedule="0 10 * * 1",
+    depends_on=[predictionengine_service, knative_eventing_core],
+)
+
+friday_evening_close_positions_schedule = create_knative_schedule(
+    kubernetes_provider=kubernetes_provider,
+    target_service_name="positionmanager",
+    target_path="/positions/close",
+    cron_schedule="0 13 * * 5",
+    depends_on=[positionmanager_service, knative_eventing_core],
+)
+
+cluster_monitoring_scraper = create_prometheus_scraper(
+    workspace_arn=configuration.require_secret("AWS_PROMETHEUS_WORKSPACE_ARN"),
+    cluster=kubernetes_cluster,
 )
