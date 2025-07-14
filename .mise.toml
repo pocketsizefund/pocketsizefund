@@ -104,3 +104,9 @@ set -e
 cd infrastructure
 uv run pulumi down --yes --stack pocketsizefund/pocketsizefund/production
 """
+
+[tasks."cli:datamanager:authorize"]
+description = "Authorize the CLI with AWS credentials"
+run = """
+aws iam attach-user-policy --user-name {{arg(user-name="user-name")}} --policy-arn ${{pulumi stack output DATAMANAGER_API_ACCESS_POLICY_ARN}}
+"""

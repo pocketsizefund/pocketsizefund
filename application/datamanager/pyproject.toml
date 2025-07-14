@@ -25,6 +25,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = [
-    "behave>=1.2.6",
-]
+dev = ["behave>=1.2.6"]

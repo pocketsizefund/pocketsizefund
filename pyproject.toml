@@ -11,6 +11,7 @@ members = [
     "application/positionmanager",
     "application/predictionengine",
     "workflows",
+    "cli",
 ]
 
 [tool.uv.sources]
