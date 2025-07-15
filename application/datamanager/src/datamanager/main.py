@@ -200,7 +200,7 @@ def get_equity_bars(
         )
 
 
-@application.post("/equity-bars/fetch", response_model=None)
+@application.post("/equity-bars/fetch")
 def fetch_equity_bars(
     request: Request,
     summary_date: SummaryDate | None,
