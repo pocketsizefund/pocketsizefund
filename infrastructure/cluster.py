@@ -114,7 +114,7 @@ def create_kubernetes_cluster(
         desired_capacity=2,
         min_size=1,
         max_size=3,
-        instance_type="t3.medium",
+        instance_type="t3.small",
         instance_role=node_role,
         service_role=cluster_role,
         vpc_id=virtual_private_cloud.id,
