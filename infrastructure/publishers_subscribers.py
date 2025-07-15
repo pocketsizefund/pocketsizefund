@@ -132,6 +132,10 @@ def create_knative_service(
                             "image": image_reference,
                             "name": service_name,
                             "env": formatted_environment_variables,
+                            "resources": {
+                                "requests": {"cpu": "100m", "memory": "128Mi"},
+                                "limits": {"cpu": "500m", "memory": "512Mi"},
+                            },
                         }
                     ]
                 },
