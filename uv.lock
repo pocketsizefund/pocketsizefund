@@ -4,6 +4,7 @@ requires-python = "==3.12.10"
 
 [manifest]
 members = [
+    "cli",
     "datamanager",
     "infrastructure",
     "pocketsizefund",
@@ -357,6 +358,25 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e8/8d/1a933b8db929e2ce1f33bb9534c3fb0d1c83908d23d89d129a07a3f13536/clarabel-0.11.0-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:763cb448ba337e593bab1d442b671c854b85981ae551e6a64209fc864985098a", size = 1078244, upload-time = "2025-05-23T17:59:24.516Z" },
     { url = "https://files.pythonhosted.org/packages/9c/e8/361054c5d77185e780d126c4ef1520d7438863bb5b30c2f1fe6355b53a47/clarabel-0.11.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a08bb648b2cddce8ff80acb065da54aa80a76cf90ae1f2176f15a640f042cc2c", size = 1164905, upload-time = "2025-05-23T17:59:26.655Z" },
     { url = "https://files.pythonhosted.org/packages/19/89/d4caad4f3851e317e423359d31d9862b08321fd61db6281edb80455ca562/clarabel-0.11.0-cp39-abi3-win_amd64.whl", hash = "sha256:6b804f99741719531b7a8ce7e44c8162b4cac7782334ea48dad0c48d6904f7d7", size = 892575, upload-time = "2025-05-23T17:59:28.389Z" },
+]
+
+[[package]]
+name = "cli"
+version = "0.1.0"
+source = { virtual = "cli" }
+dependencies = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "loguru" },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "boto3", specifier = ">=1.34.0" },
+    { name = "botocore", specifier = ">=1.34.0" },
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "requests", specifier = ">=2.31.0" },
 ]
 
 [[package]]
@@ -1021,6 +1041,8 @@ name = "infrastructure"
 version = "20250709.1"
 source = { virtual = "infrastructure" }
 dependencies = [
+    { name = "boto3" },
+    { name = "botocore" },
     { name = "loguru" },
     { name = "pulumi" },
     { name = "pulumi-aws" },
@@ -1030,10 +1052,13 @@ dependencies = [
     { name = "pulumi-eks" },
     { name = "pulumi-kubernetes" },
     { name = "pulumi-std" },
+    { name = "requests" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "boto3", specifier = ">=1.34.0" },
+    { name = "botocore", specifier = ">=1.34.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "pulumi", specifier = ">=3.169.0" },
     { name = "pulumi-aws", specifier = ">=6.0.0" },
@@ -1043,6 +1068,7 @@ requires-dist = [
     { name = "pulumi-eks", specifier = ">=3.9.1" },
     { name = "pulumi-kubernetes", specifier = ">=4.23.0" },
     { name = "pulumi-std", specifier = ">=2.2.0" },
+    { name = "requests", specifier = ">=2.31.0" },
 ]
 
 [[package]]

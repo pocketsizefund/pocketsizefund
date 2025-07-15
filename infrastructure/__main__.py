@@ -1,6 +1,7 @@
 import tomllib
 from pathlib import Path
 
+import pulumi
 from cluster import (
     create_kubernetes_cluster,
     create_kubernetes_provider,
@@ -8,6 +9,13 @@ from cluster import (
 )
 from environment_variables import create_environment_variables
 from images import build_image
+from ingress import (
+    create_alb_controller,
+    create_alb_controller_role,
+    create_api_access_policy,
+    create_api_gateway_with_auth,
+    create_service_ingress,
+)
 from keys import create_duckdb_user_access_key
 from monitors import create_prometheus_scraper
 from publishers_subscribers import (
@@ -40,6 +48,14 @@ cluster_access_config = update_kubernetes_cluster_access(
     kubernetes_provider=kubernetes_provider,
     pulumi_user_arn=configuration.require_secret("AWS_EKS_IAM_PULUMI_USER_ARN"),
     root_user_arn=configuration.require_secret("AWS_EKS_IAM_ROOT_USER_ARN"),
+)
+
+alb_controller_role = create_alb_controller_role(kubernetes_cluster)
+
+alb_controller = create_alb_controller(
+    kubernetes_provider=kubernetes_provider,
+    cluster=kubernetes_cluster,
+    alb_controller_role=alb_controller_role,
 )
 
 knative_serving_core = create_knative_serving_core(kubernetes_provider)
@@ -140,3 +156,28 @@ cluster_monitoring_scraper = create_prometheus_scraper(
     workspace_arn=configuration.require_secret("AWS_PROMETHEUS_WORKSPACE_ARN"),
     cluster=kubernetes_cluster,
 )
+
+datamanager_ingress = create_service_ingress(
+    kubernetes_provider=kubernetes_provider,
+    service_name="datamanager",
+    cluster=kubernetes_cluster,
+    depends_on=[alb_controller, datamanager_service],
+)
+
+datamanager_alb_url = datamanager_ingress.status.load_balancer.ingress[
+    0
+].hostname.apply(lambda hostname: f"http://{hostname}")
+
+datamanager_api = create_api_gateway_with_auth(
+    service_name="datamanager",
+    target_url=datamanager_alb_url,
+)
+
+datamanager_api_access_policy = create_api_access_policy(
+    api_gateway=datamanager_api,
+    service_name="datamanager",
+)
+
+pulumi.export("DATAMANAGER_ALB_URL", datamanager_alb_url)
+pulumi.export("DATAMANAGER_API_GATEWAY_URL", datamanager_api.api_endpoint)
+pulumi.export("DATAMANAGER_API_ACCESS_POLICY_ARN", datamanager_api_access_policy.arn)
