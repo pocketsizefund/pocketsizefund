@@ -113,7 +113,7 @@ def update_metrics() -> Response:
         ) from e
 
 
-@application.post("/positions/open", response_model=None)
+@application.post("/positions/open")
 def open_position(event: CloudEvent) -> CloudEvent:
     alpaca_client = AlpacaClient(
         api_key=os.getenv("ALPACA_API_KEY", ""),
@@ -236,7 +236,7 @@ def open_position(event: CloudEvent) -> CloudEvent:
     )
 
 
-@application.post("/positions/close", response_model=None)
+@application.post("/positions/close")
 def close_positions() -> CloudEvent:
     alpaca_client = AlpacaClient(
         api_key=os.getenv("ALPACA_API_KEY", ""),

@@ -145,7 +145,7 @@ def get_predictions(
     return predictions
 
 
-@application.post("/predictions/create", response_model=None)
+@application.post("/predictions/create")
 def create_predictions(request: Request) -> CloudEvent:
     try:
         end_date = datetime.now(tz=ZoneInfo("America/New_York")).date()
