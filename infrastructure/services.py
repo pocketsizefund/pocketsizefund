@@ -1,5 +1,15 @@
+from typing import Any
+
 import pulumi
+import pulumi_aws as aws
+import pulumi_docker_build as docker_build
 import pulumi_kubernetes as k8s
+
+
+def create_service_environment_variables(
+    inputs: list[tuple[str, Any]],
+) -> pulumi.Output[dict[str, str]]:
+    return pulumi.Output.all(*inputs).apply(lambda secrets: dict(secrets))
 
 
 def create_knative_serving_core(
@@ -8,7 +18,10 @@ def create_knative_serving_core(
     knative_serving_namespace = k8s.core.v1.Namespace(
         resource_name="pocketsizefund-knative-serving-namespace",
         metadata={"name": "knative-serving"},
-        opts=pulumi.ResourceOptions(provider=kubernetes_provider),
+        opts=pulumi.ResourceOptions(
+            provider=kubernetes_provider,
+            depends_on=[kubernetes_provider],
+        ),
     )
 
     knative_serving_crds = k8s.yaml.v2.ConfigGroup(  # custom resource definition
@@ -18,7 +31,15 @@ def create_knative_serving_core(
         ],
         opts=pulumi.ResourceOptions(
             provider=kubernetes_provider,
-            depends_on=[knative_serving_namespace],
+            depends_on=[
+                kubernetes_provider,
+                knative_serving_namespace,
+            ],
+            custom_timeouts=pulumi.CustomTimeouts(
+                create="2m",
+                update="2m",
+                delete="2m",
+            ),
         ),
     )
 
@@ -29,16 +50,20 @@ def create_knative_serving_core(
         ],
         opts=pulumi.ResourceOptions(
             provider=kubernetes_provider,
-            depends_on=[knative_serving_crds],
+            depends_on=[
+                kubernetes_provider,
+                knative_serving_namespace,
+                knative_serving_crds,
+            ],
             custom_timeouts=pulumi.CustomTimeouts(
-                create="15m",
-                update="15m",
-                delete="15m",
+                create="2m",
+                update="2m",
+                delete="2m",
             ),
         ),
     )
 
-    # NEW ADDITION
+    # NOTE: check if this or its specific configurations are necessary
     k8s.core.v1.ConfigMap(
         resource_name="pocketsizefund-knative-configuration-network",
         metadata=k8s.meta.v1.ObjectMetaArgs(
@@ -52,7 +77,17 @@ def create_knative_serving_core(
         },
         opts=pulumi.ResourceOptions(
             provider=kubernetes_provider,
-            depends_on=[knative_serving_core],
+            depends_on=[
+                kubernetes_provider,
+                knative_serving_namespace,
+                knative_serving_core,
+                knative_serving_crds,
+            ],
+            custom_timeouts=pulumi.CustomTimeouts(
+                create="2m",
+                update="2m",
+                delete="2m",
+            ),
         ),
     )
 
@@ -65,7 +100,10 @@ def create_knative_eventing_core(
     knative_eventing_namespace = k8s.core.v1.Namespace(
         resource_name="pocketsizefund-eventing-namespace",
         metadata={"name": "knative-eventing"},
-        opts=pulumi.ResourceOptions(provider=kubernetes_provider),
+        opts=pulumi.ResourceOptions(
+            provider=kubernetes_provider,
+            depends_on=[kubernetes_provider],
+        ),
     )
 
     knative_eventing_crds = k8s.yaml.v2.ConfigGroup(
@@ -75,7 +113,15 @@ def create_knative_eventing_core(
         ],
         opts=pulumi.ResourceOptions(
             provider=kubernetes_provider,
-            depends_on=[knative_eventing_namespace],
+            depends_on=[
+                kubernetes_provider,
+                knative_eventing_namespace,
+            ],
+            custom_timeouts=pulumi.CustomTimeouts(
+                create="2m",
+                update="2m",
+                delete="2m",
+            ),
         ),
     )
 
@@ -86,69 +132,16 @@ def create_knative_eventing_core(
         ],
         opts=pulumi.ResourceOptions(
             provider=kubernetes_provider,
-            depends_on=[knative_eventing_crds],
+            depends_on=[
+                kubernetes_provider,
+                knative_eventing_namespace,
+                knative_eventing_crds,
+            ],
             custom_timeouts=pulumi.CustomTimeouts(
-                create="15m",
-                update="15m",
-                delete="15m",
+                create="2m",
+                update="2m",
+                delete="2m",
             ),
-        ),
-    )
-
-
-def create_knative_service(
-    kubernetes_provider: k8s.Provider,
-    service_name: str,
-    image_reference: pulumi.Output[str],
-    environment_variables: pulumi.Output[dict[str, str]] | None = None,
-    depends_on: list[pulumi.Resource] | None = None,
-) -> k8s.yaml.v2.ConfigGroup:
-    formatted_environment_variables = (
-        environment_variables.apply(
-            lambda env_vars: [
-                {"name": key, "value": value} for key, value in env_vars.items()
-            ]
-        )
-        if environment_variables
-        else []
-    )
-
-    content = {
-        "apiVersion": "serving.knative.dev/v1",
-        "kind": "Service",
-        "metadata": {"name": service_name, "namespace": "default"},
-        "spec": {
-            "template": {
-                "metadata": {
-                    "annotations": {
-                        "prometheus.io/scrape": "true",
-                        "prometheus.io/path": "/metrics",
-                        "prometheus.io/port": "8080",
-                    }
-                },
-                "spec": {
-                    "containers": [
-                        {
-                            "image": image_reference,
-                            "name": service_name,
-                            "env": formatted_environment_variables,
-                            "resources": {
-                                "requests": {"cpu": "100m", "memory": "128Mi"},
-                                "limits": {"cpu": "500m", "memory": "512Mi"},
-                            },
-                        }
-                    ]
-                },
-            }
-        },
-    }
-
-    return k8s.yaml.v2.ConfigGroup(
-        resource_name=f"pocketsizefund-knative-service-{service_name}",
-        objs=[content],
-        opts=pulumi.ResourceOptions(
-            provider=kubernetes_provider,
-            depends_on=depends_on,
         ),
     )
 
@@ -170,7 +163,90 @@ def create_knative_broker(
         resource_name="pocketsizefund-default-broker",
         objs=[content],
         opts=pulumi.ResourceOptions(
-            provider=kubernetes_provider, depends_on=[knative_eventing_core]
+            provider=kubernetes_provider,
+            depends_on=[kubernetes_provider, knative_eventing_core],
+            custom_timeouts=pulumi.CustomTimeouts(
+                create="2m",
+                update="2m",
+                delete="2m",
+            ),
+        ),
+    )
+
+
+def create_knative_service(  # noqa: PLR0913
+    kubernetes_provider: k8s.Provider,
+    service_name: str,
+    image: docker_build.Image,
+    application_load_balancer_service_target_group: aws.lb.TargetGroup,
+    knative_serving_core: k8s.yaml.v2.ConfigGroup,
+    environment_variables: pulumi.Output[dict[str, str]] | None = None,
+) -> k8s.yaml.v2.ConfigGroup:
+    formatted_environment_variables = (
+        environment_variables.apply(
+            lambda env_vars: [
+                {"name": key, "value": value} for key, value in env_vars.items()
+            ]
+        )
+        if environment_variables
+        else []
+    )
+
+    content = {
+        "apiVersion": "serving.knative.dev/v1",
+        "kind": "Service",
+        "metadata": {
+            "name": service_name,
+            "namespace": "default",
+        },
+        "spec": {
+            "template": {
+                "metadata": {
+                    "annotations": {
+                        "alb.ingress.kubernetes.io/scheme": "internet-facing",
+                        "alb.ingress.kubernetes.io/target-type": "ip",
+                        "alb.ingress.kubernetes.io/target-group-arn": application_load_balancer_service_target_group.arn,  # noqa: E501
+                        "prometheus.io/scrape": "true",
+                        "prometheus.io/path": "/metrics",
+                        "prometheus.io/port": "8080",
+                    }
+                },
+                "spec": {
+                    "containers": [
+                        {
+                            "image": image.ref,
+                            "name": service_name,
+                            "env": formatted_environment_variables,
+                            "resources": {
+                                "requests": {"cpu": "100m", "memory": "128Mi"},
+                                "limits": {"cpu": "1000m", "memory": "512Mi"},
+                            },
+                            "ports": [
+                                {"containerPort": 8080},
+                            ],
+                        }
+                    ]
+                },
+            }
+        },
+    }
+
+    return k8s.yaml.v2.ConfigGroup(
+        resource_name=f"pocketsizefund-knative-service-{service_name}",
+        objs=[content],
+        opts=pulumi.ResourceOptions(
+            provider=kubernetes_provider,
+            depends_on=[
+                kubernetes_provider,
+                image,
+                application_load_balancer_service_target_group,
+                knative_serving_core,
+            ],
+            custom_timeouts=pulumi.CustomTimeouts(
+                create="2m",
+                update="2m",
+                delete="2m",
+            ),
         ),
     )
 
@@ -180,7 +256,7 @@ def create_knative_trigger(
     source_service_name: str,
     source_attribute_type: str,
     target_service_name: str,
-    depends_on: list[pulumi.Resource] | None = None,
+    knative_eventing_core: k8s.yaml.v2.ConfigGroup,
 ) -> k8s.yaml.v2.ConfigGroup:
     resource_name = (
         f"pocketsizefund-{source_service_name}-to-{target_service_name}-trigger"
@@ -215,7 +291,12 @@ def create_knative_trigger(
         objs=[content],
         opts=pulumi.ResourceOptions(
             provider=kubernetes_provider,
-            depends_on=depends_on,
+            depends_on=[kubernetes_provider, knative_eventing_core],
+            custom_timeouts=pulumi.CustomTimeouts(
+                create="2m",
+                update="2m",
+                delete="2m",
+            ),
         ),
     )
 
@@ -225,7 +306,7 @@ def create_knative_schedule(
     target_service_name: str,
     target_path: str,
     cron_schedule: str,
-    depends_on: list[pulumi.Resource] | None = None,
+    knative_eventing_core: k8s.yaml.v2.ConfigGroup,
 ) -> k8s.yaml.v2.ConfigGroup:
     content = {
         "apiVersion": "sources.knative.dev/v1",
@@ -254,6 +335,11 @@ def create_knative_schedule(
         objs=[content],
         opts=pulumi.ResourceOptions(
             provider=kubernetes_provider,
-            depends_on=depends_on,
+            depends_on=[kubernetes_provider, knative_eventing_core],
+            custom_timeouts=pulumi.CustomTimeouts(
+                create="2m",
+                update="2m",
+                delete="2m",
+            ),
         ),
     )

@@ -9,13 +9,9 @@ services:
       - 8080:8080
     environment:
       - POLYGON_API_KEY=${POLYGON_API_KEY}
-      - DATA_BUCKET_NAME=${DATA_BUCKET_NAME}
-      - GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json
-      - DUCKDB_ACCESS_KEY=${DUCKDB_ACCESS_KEY}
-      - DUCKDB_SECRET=${DUCKDB_SECRET}
+      - AWS_S3_DATA_BUCKET_NAME=${AWS_S3_DATA_BUCKET_NAME}
     volumes:
       - ./:/app/datamanager
-      - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/health"]
       interval: 10s

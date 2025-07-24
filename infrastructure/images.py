@@ -10,13 +10,15 @@ configuration = Config()
 def build_image(
     service_name: str,
     service_version: str,
+    dockerhub_username: pulumi.Output[str],
+    dockerhub_password: pulumi.Output[str],
 ) -> docker_build.Image:
     service_directory = Path("../application") / service_name
     if not service_directory.exists():
         message = f"Service directory not found: {service_directory}"
         raise FileNotFoundError(message)
 
-    image = docker_build.Image(
+    return docker_build.Image(
         resource_name=f"pocketsizefund-{service_name}-image",
         tags=[f"pocketsizefund/{service_name}:{service_version}"],
         context=docker_build.BuildContextArgs(location=str(service_directory)),
@@ -28,12 +30,8 @@ def build_image(
         registries=[
             docker_build.RegistryArgs(
                 address="docker.io",
-                username=configuration.require_secret("DOCKERHUB_USERNAME"),
-                password=configuration.require_secret("DOCKERHUB_PASSWORD"),
+                username=dockerhub_username,
+                password=dockerhub_password,
             )
         ],
     )
-
-    pulumi.export(f"{service_name.upper()}_IMAGE", image.ref)
-
-    return image

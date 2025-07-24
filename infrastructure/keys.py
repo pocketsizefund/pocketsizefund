@@ -1,21 +1,23 @@
 import json
 
+import pulumi
 import pulumi_aws as aws
-from environment_variables import data_bucket_name
-from tags import common_tags
+from tags import pulumi_tags
 
 
-def create_duckdb_user_access_key() -> aws.iam.AccessKey:
+def create_duckdb_user_access_key(
+    data_bucket_name: pulumi.Output[str],
+) -> aws.iam.AccessKey:
     duckdb_user = aws.iam.User(
         resource_name="pocketsizefund-duckdb-user",
         name="pocketsizefund-duckdb-user",
-        tags=common_tags,
+        tags=pulumi_tags,
     )
 
     duckdb_policy = aws.iam.Policy(
         resource_name="pocketsizefund-duckdb-policy",
         name="pocketsizefund-duckdb-policy",
-        description="Policy for DuckDB access",
+        description="Policy for application service DuckDB access",
         policy=json.dumps(
             {
                 "Version": "2012-10-17",
@@ -36,7 +38,7 @@ def create_duckdb_user_access_key() -> aws.iam.AccessKey:
                 ],
             }
         ),
-        tags=common_tags,
+        tags=pulumi_tags,
     )
 
     aws.iam.UserPolicyAttachment(
