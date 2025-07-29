@@ -1,0 +1,55 @@
+import datetime
+from zoneinfo import ZoneInfo
+
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import core_schema
+
+
+class Date(BaseModel):
+    date: datetime.date = Field(
+        default_factory=lambda: datetime.datetime.now(
+            ZoneInfo("America/New_York")
+        ).date(),
+    )
+
+    @field_validator("date", mode="before")
+    def parse_date(cls, value: datetime.date | str) -> datetime.date:  # noqa: N805
+        if isinstance(value, datetime.date):
+            return value
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+            try:
+                return (
+                    datetime.datetime.strptime(value, fmt)
+                    .replace(tzinfo=ZoneInfo("America/New_York"))
+                    .date()
+                )
+            except ValueError:
+                continue
+        msg = "Invalid date format: expected YYYY-MM-DD or YYYY/MM/DD"
+        raise ValueError(msg)
+
+    model_config = {"json_encoders": {datetime.date: lambda d: d.strftime("%Y/%m/%d")}}
+
+
+class DateRange(BaseModel):
+    start: datetime.date
+    end: datetime.date
+
+    @field_validator("end")
+    @classmethod
+    def check_end_after_start(
+        cls,
+        end_value: datetime.datetime,
+        info: core_schema.ValidationInfo,
+    ) -> datetime.datetime:
+        start_value = info.data.get("start")
+        if start_value and end_value <= start_value:
+            msg = "End date must be after start date."
+            raise ValueError(msg)
+        return end_value
+
+    def to_object(self) -> dict[str, str]:
+        return {
+            "start_date": self.start.isoformat(),
+            "end_date": self.end.isoformat(),
+        }

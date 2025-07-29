@@ -35,8 +35,6 @@ An unordered and non-exhaustive list we work towards:
 > No code is good code  
 > Never write documentation  
 > Git is truth  
-> Communicate without speaking  
-> Make everything liquid  
 
 ### Links
 

@@ -41,7 +41,7 @@ docker compose --file tests.yaml down --volumes --remove-orphans
 """
 
 [tasks."application:service:run:production"]
-description = "Run the application service"
+description = "Run the service application"
 run = """
 docker run \
 --env-file .env \
@@ -50,30 +50,30 @@ pocketsizefund/{{arg(name="application_name")}}:latest \
 """
 
 [tasks."application:service:run:development"]
-description = "Run the application service locally with hot reloading"
+description = "Run the service application locally with hot reloading"
 run = """
-cd application/{{arg(name="service_name")}}
+cd applications/{{arg(name="service_name")}}
 uv run uvicorn src.{{arg(name="service_name")}}.main:application --reload
 """
 
 [tasks."application:service:test:integration"]
 description = "Run integration tests"
 run = """
-cd application/{{arg(name="service_name")}}
+cd applications/{{arg(name="service_name")}}
 docker compose up --build --abort-on-container-exit --remove-orphans
 """
 
 [tasks."application:service:test:behavioral"]
 description = "Run behavioral tests"
 run = """
-cd application/{{arg(name="service_name")}}
+cd applications/{{arg(name="service_name")}}
 docker compose up --build --abort-on-container-exit
 """
 
 [tasks."application:service:cleanup:behavioral"]
 description = "Clean up behavioral tests"
 run = """
-cd application/{{arg(name="service_name")}}
+cd applications/{{arg(name="service_name")}}
 docker compose down -v
 """
 
