@@ -3,7 +3,11 @@
 .flox/log/
 .flox/run/
 .env
+.ruff_cache/
+.pytest_cache/
+.venv/
 .python_coverage.*
+coverage_output/
 __pycache__/
 infrastructure/Pulumi.infrastructure.yaml
 infrastructure/Pulumi.production.yaml
@@ -12,3 +16,6 @@ infrastructure/Pulumi.production.yaml
 .coverage/
 coverage.xml
 infrastructure/kubeconfig.json
+*.egg-info
+wandb/
+*.csv

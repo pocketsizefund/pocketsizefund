@@ -3,39 +3,19 @@ name = "pocketsizefund"
 version = "20250602.4"
 description = "Open source quantitative hedge fund 🍊"
 requires-python = "==3.12.10"
-
-[tool.uv.workspace]
-members = [
-    "infrastructure",
-    "application/datamanager",
-    "application/positionmanager",
-    "application/predictionengine",
-    "workflows",
-    "cli",
-]
+dependencies = ["internal"]
 
 [tool.uv.sources]
-datamanager = { workspace = true }
-positionmanager = { workspace = true }
-predictionengine = { workspace = true }
-workflows = { workspace = true }
+internal = { workspace = true }
 
-[tool.hatch.build.targets.wheel]
-packages = ["pocketsizefund"]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.uv.workspace]
+members = ["applications/*", "libraries/python"]
 
 [dependency-groups]
 dev = ["coverage>=7.8.0", "pytest>=8.3.5", "behave>=1.2.6"]
 
 [tool.pytest.ini_options]
-testpaths = [
-    "application/datamanager/tests",
-    "application/positionmanager/tests",
-    "application/predictionengine/tests",
-]
+testpaths = ["applications/*/tests", "libraries/python/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

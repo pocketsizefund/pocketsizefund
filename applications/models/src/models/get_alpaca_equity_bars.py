@@ -1,0 +1,118 @@
+import os
+import time
+from datetime import datetime, timedelta
+from typing import cast
+from zoneinfo import ZoneInfo
+
+import polars as pl
+from alpaca.data.enums import Adjustment
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.models import BarSet
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+from alpaca.trading import TradingClient
+from alpaca.trading.enums import AssetClass, AssetStatus
+from alpaca.trading.models import Asset
+from alpaca.trading.requests import GetAssetsRequest
+from loguru import logger
+
+if __name__ == "__main__":
+    rate_limit_sleep = 0.5  # seconds
+
+    alpaca_trading_client = TradingClient(
+        api_key=os.getenv("ALPACA_API_KEY_ID"),
+        secret_key=os.getenv("ALPACA_API_SECRET_KEY"),
+        paper=os.getenv("ALPACA_PAPER", "true").lower() == "true",
+    )
+
+    alpaca_data_client = StockHistoricalDataClient(
+        api_key=os.getenv("ALPACA_API_KEY_ID"),
+        secret_key=os.getenv("ALPACA_API_SECRET_KEY"),
+        sandbox=os.getenv("ALPACA_PAPER", "true").lower() == "true",
+    )
+
+    assets: list[Asset] = cast(
+        "list[Asset]",
+        alpaca_trading_client.get_all_assets(
+            GetAssetsRequest(
+                status=AssetStatus.ACTIVE,
+                asset_class=AssetClass.US_EQUITY,
+                attributes="has_options",
+            )
+        ),
+    )
+
+    time.sleep(rate_limit_sleep)
+
+    end = datetime.now(tz=ZoneInfo("America/New_York"))
+    start = end - timedelta(days=365 * 6)
+
+    saved_files: list[str] = []
+    for i, asset in enumerate(assets):
+        ticker = asset.symbol
+
+        logger.info(f"Fetching {i + 1}/{len(assets)}: {ticker}")
+
+        equity_bars: BarSet = cast(
+            "BarSet",
+            alpaca_data_client.get_stock_bars(
+                StockBarsRequest(
+                    symbol_or_symbols=ticker,
+                    start=start,
+                    end=end,
+                    limit=10000,
+                    timeframe=TimeFrame(
+                        amount=1,
+                        unit=TimeFrameUnit("Day"),
+                    ),
+                    adjustment=Adjustment("All"),
+                )
+            ),
+        )
+
+        if len(equity_bars.dict()) == 0:
+            logger.info(f"No equity bars found for {ticker}.")
+
+            time.sleep(rate_limit_sleep)
+
+            continue
+
+        equity_bars_data = pl.DataFrame(equity_bars.dict())
+
+        equity_bars_data = equity_bars_data.rename(
+            {
+                "o": "open_price",
+                "h": "high_price",
+                "l": "low_price",
+                "c": "close_price",
+                "v": "volume",
+                "vw": "volume_weighted_average_price",
+                "t": "timestamp",
+            }
+        )
+        equity_bars_data = equity_bars_data.with_columns(pl.lit(ticker).alias("ticker"))
+        equity_bars_data = equity_bars_data.with_columns(
+            (
+                pl.col("timestamp").map_elements(
+                    lambda x: int(datetime.fromisoformat(x).timestamp() * 1000)
+                )
+            ).alias("timestamp")
+        )
+
+        file_path = f"equity_bars_{ticker}.csv"
+        equity_bars_data.write_csv(file_path)
+        saved_files.append(file_path)
+
+        logger.info(f"Saved bars for {ticker} to {file_path}.")
+
+        time.sleep(rate_limit_sleep)
+
+    logger.info("Finished fetching all tickers.")
+
+    if saved_files:
+        all_bars = pl.concat([pl.read_csv(fp) for fp in saved_files])
+        all_bars.write_csv("equity_bars_combined.csv")
+        logger.info("Finished saving combined equity bars.")
+
+    else:
+        logger.warning("No equity bars saved; skipping combined file.")

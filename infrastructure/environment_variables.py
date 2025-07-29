@@ -5,7 +5,7 @@ from pulumi.config import Config
 configuration = Config()
 
 
-alpaca_api_key = configuration.require_secret("ALPACA_API_KEY")
+alpaca_api_key_id = configuration.require_secret("ALPACA_API_KEY_ID")
 alpaca_api_secret = configuration.require_secret("ALPACA_API_SECRET")
 data_bucket_name = configuration.require_secret("DATA_BUCKET_NAME")
 polygon_api_key = configuration.require_secret("POLYGON_API_KEY")
@@ -19,7 +19,7 @@ def create_environment_variables(
 ) -> pulumi.Output[dict[str, str]]:
     return pulumi.Output.all(
         [
-            ("ALPACA_API_KEY", alpaca_api_key),
+            ("ALPACA_API_KEY_ID", alpaca_api_key_id),
             ("ALPACA_API_SECRET", alpaca_api_secret),
             ("DATA_BUCKET_NAME", data_bucket_name),
             ("POLYGON_API_KEY", polygon_api_key),
