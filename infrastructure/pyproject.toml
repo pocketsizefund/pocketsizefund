@@ -1,18 +1,12 @@
 [project]
 name = "infrastructure"
-version = "20250709.1"
+version = "20250716.1"
 requires-python = "==3.12.10"
 dependencies = [
     "pulumi>=3.169.0",
     "pulumi-aws>=6.0.0",
-    "pulumi-awsx>=2.0.0",
     "pulumi-eks>=3.9.1",
-    "pulumi-std>=2.2.0",
     "pulumi-docker>=3.0.0",
     "pulumi-docker-build>=0.0.12",
     "pulumi-kubernetes>=4.23.0",
-    "loguru>=0.7.3",
-    "boto3>=1.38.23",
-    "botocore>=1.38.23",
-    "requests>=2.32.0",            # fixes CVE-2024-35195
 ]

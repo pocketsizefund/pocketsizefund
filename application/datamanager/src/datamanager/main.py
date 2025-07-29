@@ -54,10 +54,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         polygon_api_key=os.getenv("POLYGON_API_KEY", ""),
     )
 
-    app.state.s3_client = S3Client(data_bucket_name=os.getenv("DATA_BUCKET_NAME", ""))
+    app.state.s3_client = S3Client(
+        data_bucket_name=os.getenv("AWS_S3_DATA_BUCKET_NAME", "")
+    )
 
-    duckdb_user_access_key_id = os.getenv("DUCKDB_USER_ACCESS_KEY_ID")
-    duckdb_user_access_key_secret = os.getenv("DUCKDB_USER_ACCESS_KEY_SECRET")
+    duckdb_user_access_key_id = os.getenv("AWS_IAM_DUCKDB_USER_ACCESS_KEY_ID")
+    duckdb_user_access_key_secret = os.getenv("AWS_IAM_DUCKDB_USER_ACCESS_KEY_SECRET")
     aws_region = os.getenv("AWS_REGION", "us-east-1")
 
     app.state.connection = duckdb.connect()
