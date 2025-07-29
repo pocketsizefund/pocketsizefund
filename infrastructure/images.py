@@ -11,7 +11,7 @@ def build_image(
     service_name: str,
     service_version: str,
 ) -> docker_build.Image:
-    service_directory = Path("../application") / service_name
+    service_directory = Path("../applications") / service_name
     if not service_directory.exists():
         message = f"Service directory not found: {service_directory}"
         raise FileNotFoundError(message)
