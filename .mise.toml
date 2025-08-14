@@ -71,18 +71,19 @@ depends = ["python:lint"]
 description = "Run code quality checks"
 run = """
 nu linter.nu
-yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" . 
+yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" .
 """
 
 [tasks."infrastructure:up"]
 description = "Launch cloud infrastructure"
-# temporarily comment out ping test due to non-exposed endpoints
+# TODO: temporarily comment out ping test due to non-exposed endpoints
 run = """
 set -e
 cd infrastructure
 uv run pulumi up --yes --stack pocketsizefund/pocketsizefund/production
 pulumi stack output KUBECONFIG  > kubeconfig.json
 export KUBECONFIG=<(pulumi stack output KUBECONFIG)
+
 # nu ping.nu
 """
 
