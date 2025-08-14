@@ -15,7 +15,4 @@ infrastructure/Pulumi.production.yaml
 .coverage*
 .coverage/
 coverage.xml
-infrastructure/kubeconfig.json
-*.egg-info
-wandb/
-*.csv
+infrastructure/swarm.pem

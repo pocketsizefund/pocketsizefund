@@ -16,7 +16,10 @@
       "Bash(cat:*)",
       "Bash(mise run:*)",
       "Bash(gh issue close:*)",
-      "Bash(ln:*)"
+      "Bash(ln:*)",
+      "WebSearch",
+      "Bash(docker build:*)",
+      "Bash(uv lock:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
