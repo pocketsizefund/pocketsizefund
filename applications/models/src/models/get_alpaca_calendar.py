@@ -32,8 +32,8 @@ if __name__ == "__main__":
             "list[Calendar]",
             alpaca_client.get_calendar(
                 GetCalendarRequest(
-                    start=start,
-                    end=end,
+                    start=start.date(),
+                    end=end.date(),
                 )
             ),
         )
