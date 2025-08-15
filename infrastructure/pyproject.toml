@@ -1,12 +1,12 @@
 [project]
 name = "infrastructure"
-version = "20250716.1"
+version = "0.1.0"
+description = "Infrastructure management with Pulumi"
+readme = "README.md"
 requires-python = "==3.12.10"
 dependencies = [
-    "pulumi>=3.169.0",
-    "pulumi-aws>=6.0.0",
-    "pulumi-eks>=3.9.1",
-    "pulumi-docker>=3.0.0",
-    "pulumi-docker-build>=0.0.12",
-    "pulumi-kubernetes>=4.23.0",
+    "pulumi>=3.189.0",
+    "pulumi-aws>=7.4.0",
+    "pulumi-command>=1.1.0",
+    "pulumi-tls>=5.2.1",
 ]

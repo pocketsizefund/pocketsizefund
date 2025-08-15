@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pulumi stack output:*)",
+      "Bash(nu:*)",
+      "Bash(docker stack ps:*)"
+    ],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "/Users/chrisaddy/Library/Application Support/nushell"
+    ]
+  }
+}
