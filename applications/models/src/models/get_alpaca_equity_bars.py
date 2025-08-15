@@ -19,28 +19,41 @@ from loguru import logger
 if __name__ == "__main__":
     rate_limit_sleep = 0.5  # seconds
 
+    api_key = os.getenv("ALPACA_API_KEY_ID")
+    secret_key = os.getenv("ALPACA_API_SECRET_KEY")
+
+    if not api_key or not secret_key:
+        message = "Missing required environment variables: ALPACA_API_KEY_ID and/or ALPACA_API_SECRET_KEY"  # noqa: E501
+        logger.error(message)
+        raise ValueError(message)
+
     alpaca_trading_client = TradingClient(
-        api_key=os.getenv("ALPACA_API_KEY_ID"),
-        secret_key=os.getenv("ALPACA_API_SECRET_KEY"),
+        api_key=api_key,
+        secret_key=secret_key,
         paper=os.getenv("ALPACA_PAPER", "true").lower() == "true",
     )
 
     alpaca_data_client = StockHistoricalDataClient(
-        api_key=os.getenv("ALPACA_API_KEY_ID"),
-        secret_key=os.getenv("ALPACA_API_SECRET_KEY"),
+        api_key=api_key,
+        secret_key=secret_key,
         sandbox=os.getenv("ALPACA_PAPER", "true").lower() == "true",
     )
 
-    assets: list[Asset] = cast(
-        "list[Asset]",
-        alpaca_trading_client.get_all_assets(
-            GetAssetsRequest(
-                status=AssetStatus.ACTIVE,
-                asset_class=AssetClass.US_EQUITY,
-                attributes="has_options",
-            )
-        ),
-    )
+    try:
+        assets: list[Asset] = cast(
+            "list[Asset]",
+            alpaca_trading_client.get_all_assets(
+                GetAssetsRequest(
+                    status=AssetStatus.ACTIVE,
+                    asset_class=AssetClass.US_EQUITY,
+                    attributes="has_options",
+                )
+            ),
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching Alpaca assets: {e}")
+        raise
 
     time.sleep(rate_limit_sleep)
 
@@ -53,22 +66,27 @@ if __name__ == "__main__":
 
         logger.info(f"Fetching {i + 1}/{len(assets)}: {ticker}")
 
-        equity_bars: BarSet = cast(
-            "BarSet",
-            alpaca_data_client.get_stock_bars(
-                StockBarsRequest(
-                    symbol_or_symbols=ticker,
-                    start=start,
-                    end=end,
-                    limit=10000,
-                    timeframe=TimeFrame(
-                        amount=1,
-                        unit=TimeFrameUnit("Day"),
-                    ),
-                    adjustment=Adjustment("All"),
-                )
-            ),
-        )
+        try:
+            equity_bars: BarSet = cast(
+                "BarSet",
+                alpaca_data_client.get_stock_bars(
+                    StockBarsRequest(
+                        symbol_or_symbols=ticker,
+                        start=start,
+                        end=end,
+                        limit=10000,
+                        timeframe=TimeFrame(
+                            amount=1,
+                            unit=TimeFrameUnit("Day"),
+                        ),
+                        adjustment=Adjustment("All"),
+                    )
+                ),
+            )
+
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Error fetching equity bars for {ticker}: {e}")
+            continue
 
         if len(equity_bars.dict()) == 0:
             logger.info(f"No equity bars found for {ticker}.")

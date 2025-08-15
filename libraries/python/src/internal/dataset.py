@@ -234,7 +234,7 @@ class TemporalFusionTransformerDataset:
             self.data.sort("timestamp")
             .group_by("ticker")
             .agg(pl.col("*").tail(maximum_encoder_length))
-            .explode(pl.col("*").exclude("ticker"))
+            .explode([col for col in self.data.columns if col != "ticker"])
         )
 
     def get_dimensions(self) -> dict[str, int]:
@@ -274,10 +274,10 @@ class TemporalFusionTransformerDataset:
             self.batch_data = self._get_prediction_data(input_length + output_length)
 
         minimum_date: datetime = self.batch_data.select(
-            self.data["datetime"].min()
+            self.batch_data["datetime"].min()
         ).item()
         maximum_date: datetime = self.batch_data.select(
-            self.data["datetime"].max()
+            self.batch_data["datetime"].max()
         ).item()
 
         total_days = (maximum_date - minimum_date).days + 1
@@ -314,7 +314,7 @@ class TemporalFusionTransformerDataset:
                         decoder_slice[self.categorical_columns].to_numpy()
                     ),  # future-known categorical data e.g. future day of week, scheduled events  # noqa: E501
                     "static_categorical_features": Tensor(
-                        ticker_data[self.static_categorical_columns].unique().to_numpy()
+                        ticker_data[self.static_categorical_columns].head(1).to_numpy()
                     ),  # constant categorical data per stock e.g. ticker, sector
                 }
 

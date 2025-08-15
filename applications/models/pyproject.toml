@@ -10,12 +10,12 @@ dependencies = [
     "requests>=2.31.0",
     "pyarrow>=20.0.0",
     "polygon-api-client>=1.14.6",
-    "internal",
     "flytekit>=1.16.1",
     "polars>=1.29.0",
     "loguru>=0.7.3",
     "pydantic>=2.8.2",
     "wandb>=0.21.1",
+    "alpaca-py>=0.42.0",
 ]
 
 [tool.uv.sources]

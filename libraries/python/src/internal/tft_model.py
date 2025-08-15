@@ -91,7 +91,7 @@ class TemporalFusionTransformer:
 
         self.pre_output_layer = Linear(
             in_features=parameters.hidden_size,
-            out_features=parameters.hidden_size,
+            out_features=parameters.output_size * len(parameters.quantiles),
         )
 
         self.output_layer = Linear(
@@ -102,8 +102,6 @@ class TemporalFusionTransformer:
         self.parameters = get_parameters(self)
 
     def forward(self, inputs: dict[str, Tensor]) -> dict[str, Tensor]:
-        # NOTE: rename all variables
-        # NOTE: potentially remove unused variables
         encoder_categorical_features = inputs["encoder_categorical_features"]
         encoder_continuous_features = inputs["encoder_continuous_features"]
 
@@ -123,7 +121,7 @@ class TemporalFusionTransformer:
         )
 
         static_categorical_features = inputs["static_categorical_features"]
-        # static_continuous_features = Tensor.zeros(self.batch_size, 1, 0)  # not currently used  # noqa: E501, ERA001
+        # TODO: static_continuous_features = Tensor.zeros(self.batch_size, 1, 0)  # noqa: E501, FIX002
 
         static_context = None  # NOTE: maybe remove
 
@@ -144,7 +142,7 @@ class TemporalFusionTransformer:
         decoder_input = Tensor(decoder_input * decoder_weights)
 
         encoder_static_context = static_context.unsqueeze(1).expand(
-            -1, self.batch_size, -1
+            -1, self.input_length, -1
         )
 
         decoder_static_context = static_context.unsqueeze(1).expand(
@@ -185,7 +183,9 @@ class TemporalFusionTransformer:
         )
 
         return {
-            "predictions": predictions,  # shape: (batch_size, output_length, output_size)  # noqa: E501
+            "predictions": quantiles[
+                :, :, :, len(self.quantiles) // 2
+            ],  # shape: (batch_size, output_length, output_size)
             "quantiles": quantiles,  # shape: (batch_size, output_length, output_size, len(quantiles))  # noqa: E501
         }
 
@@ -206,8 +206,10 @@ class TemporalFusionTransformer:
                 outputs = self.forward(inputs)
 
                 loss = quantile_loss(
-                    outputs["predictions"],
-                    inputs["targets"],
+                    outputs["quantiles"].reshape(
+                        -1, self.output_size, len(self.quantiles)
+                    ),
+                    inputs["targets"].reshape(-1, self.output_size),
                     self.quantiles,
                 )
 

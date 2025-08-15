@@ -8,6 +8,7 @@ from internal.tft_model import Parameters, TemporalFusionTransformer
 from loguru import logger
 
 import wandb
+from wandb import Run
 
 configuration = {
     "architecture": "TFT",
@@ -15,16 +16,6 @@ configuration = {
     "epoch_count": 10,
     "validation_split": 0.8,
 }
-
-
-if wandb.run is not None:
-    wandb.finish()  # close active run if it exists
-
-run = wandb.init(
-    project="Pocket Size Fund",
-    config=configuration,
-    name=f"tft-model-run-{datetime.now(tz=ZoneInfo('America/New_York')).strftime('%Y-%m-%d_%H-%M-%S')}",
-)
 
 timezone = ZoneInfo("America/New_York")
 
@@ -35,7 +26,7 @@ def read_local_data(filepath: str) -> TemporalFusionTransformerDataset:
     logger.info(f"Reading data from {filepath}")
     data = pl.read_csv(filepath)
 
-    runtime_seconds = (datetime.now(tz=timezone) - start_time).seconds
+    runtime_seconds = (datetime.now(tz=timezone) - start_time).total_seconds()
 
     logger.info(f"Data read successfully in {runtime_seconds} seconds")
 
@@ -45,6 +36,7 @@ def read_local_data(filepath: str) -> TemporalFusionTransformerDataset:
 @task
 def train_model(
     dataset: TemporalFusionTransformerDataset,
+    wandb_run: Run,
     validation_split: float = 0.8,
     epoch_count: int = 10,
     learning_rate: float = 1e-3,
@@ -88,11 +80,11 @@ def train_model(
     )
 
     for loss in losses:
-        run.log({"loss": loss})
+        wandb_run.log({"loss": loss})
 
-    run.finish()
+    wandb_run.finish()
 
-    runtime_seconds = (datetime.now(tz=timezone) - start_time).seconds
+    runtime_seconds = (datetime.now(tz=timezone) - start_time).total_seconds()
 
     logger.info(f"Model trained successfully in {runtime_seconds} seconds")
 
@@ -109,7 +101,7 @@ def validate_model(
     logger.info("Validating temporal fusion transformer model")
 
     batches = data.get_batches(
-        data_type="validation",
+        data_type="validate",
         validation_split=validation_split,
         input_length=model.input_length,
         output_length=model.output_length,
@@ -119,7 +111,7 @@ def validate_model(
         inputs_list=batches,
     )
 
-    runtime_seconds = (datetime.now(tz=timezone) - start_time).seconds
+    runtime_seconds = (datetime.now(tz=timezone) - start_time).total_seconds()
 
     logger.info(f"Validation completed in {runtime_seconds} seconds")
 
@@ -133,13 +125,22 @@ def save_model(model: TemporalFusionTransformer) -> None:
 
     model.save()
 
-    runtime_seconds = (datetime.now(tz=timezone) - start_time).seconds
+    runtime_seconds = (datetime.now(tz=timezone) - start_time).total_seconds()
 
     logger.info(f"Model saved successfully in {runtime_seconds} seconds")
 
 
 @workflow
 def train_tft_model() -> None:
+    if wandb.run is not None:
+        wandb.finish()  # close active run if it exists
+
+    wandb_run = wandb.init(
+        project="Pocket Size Fund",
+        config=configuration,
+        name=f"tft-model-run-{datetime.now(tz=ZoneInfo('America/New_York')).strftime('%Y-%m-%d_%H-%M-%S')}",
+    )
+
     dataset = read_local_data(
         filepath="applications/models/src/models/training_data.csv"
     )  # type: ignore[assignment]
@@ -149,6 +150,7 @@ def train_tft_model() -> None:
         validation_split=configuration["validation_split"],
         epoch_count=configuration["epoch_count"],
         learning_rate=configuration["learning_rate"],
+        wandb_run=wandb_run,
     )
 
     validate_model(
