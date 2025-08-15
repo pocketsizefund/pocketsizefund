@@ -19,8 +19,29 @@ configs:
     name: prometheus.yml
     file: ./prometheus.yml
 
+secrets:
+  ALPACA_API_KEY:
+    external: true
+  ALPACA_API_SECRET:
+    external: true
+  ALPACA_BASE_URL:
+    external: true
+  EDGAR_USER_AGENT:
+    external: true
+  DATA_BUCKET:
+    external: true
+  POLYGON_API_KEY:
+    external: true
+  DUCKDB_ACCESS_KEY:
+    external: true
+  DUCKDB_SECRET:
+    external: true
+  GRAFANA_ADMIN_PASSWORD:
+    external: true
+  WEIGHTS_AND_BIASES_API_KEY:
+    external: true
+
 services:
-  # Network Services
   traefik:
     image: traefik:v3.1
     command:
