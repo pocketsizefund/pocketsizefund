@@ -1,14 +1,14 @@
-from datetime import datetime
+from datetime import datetime  # noqa: I001
 from zoneinfo import ZoneInfo
 
 import polars as pl
 from flytekit import task, workflow
-from internal.dataset import TemporalFusionTransformerDataset
-from internal.tft_model import Parameters, TemporalFusionTransformer
 from loguru import logger
-
 import wandb
 from wandb import Run
+
+from internal.dataset import TemporalFusionTransformerDataset
+from internal.tft_model import Parameters, TemporalFusionTransformer
 
 configuration = {
     "architecture": "TFT",
