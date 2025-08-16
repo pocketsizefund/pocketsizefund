@@ -11,12 +11,13 @@ yamllint.pkg-path = "yamllint"
 nushell.pkg-path = "nushell"
 fselect.pkg-path = "fselect"
 google-cloud-sdk.pkg-path = "google-cloud-sdk"
-
+awscli.pkg-path = "awscli"
 
 [hook]
 on-activate = '''
-
 '''
+
+[build]
 
 [options]
 systems = [

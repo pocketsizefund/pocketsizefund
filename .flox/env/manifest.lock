@@ -3,6 +3,9 @@
   "manifest": {
     "version": 1,
     "install": {
+      "awscli": {
+        "pkg-path": "awscli"
+      },
       "fselect": {
         "pkg-path": "fselect"
       },
@@ -35,7 +38,7 @@
       }
     },
     "hook": {
-      "on-activate": "\n"
+      "on-activate": ""
     },
     "options": {
       "systems": [
@@ -47,6 +50,126 @@
     }
   },
   "packages": [
+    {
+      "attr_path": "awscli",
+      "broken": false,
+      "derivation": "/nix/store/admmm4b6lm869qnc1d487slsr6a9hl29-awscli-1.37.21.drv",
+      "description": "Unified tool to manage your AWS services",
+      "install_id": "awscli",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "awscli-1.37.21",
+      "pname": "awscli",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:22:53.969106Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.37.21",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/0kiij3r29vams4xdly1j6ib989d6dg98-awscli-1.37.21-dist",
+        "out": "/nix/store/kx0nyd82ar3ajzwbcdw56zzvbivh8phd-awscli-1.37.21"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "awscli",
+      "broken": false,
+      "derivation": "/nix/store/3q1rbz2a9c33wb3s2xj2yv4zan0kcxkr-awscli-1.37.21.drv",
+      "description": "Unified tool to manage your AWS services",
+      "install_id": "awscli",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "awscli-1.37.21",
+      "pname": "awscli",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:41:01.084768Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.37.21",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/0pkrgfbvr96wp9c5n7arv3iampydwv91-awscli-1.37.21-dist",
+        "out": "/nix/store/smz9bm1zf8slhl5p94klwd5i9ps3azr8-awscli-1.37.21"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "awscli",
+      "broken": false,
+      "derivation": "/nix/store/yxixxykij7vpbqsh0fzavvwrm0k7pa81-awscli-1.37.21.drv",
+      "description": "Unified tool to manage your AWS services",
+      "install_id": "awscli",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "awscli-1.37.21",
+      "pname": "awscli",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:56:58.790280Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.37.21",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/6knvfncqpmxx2yjcn2gswknqh63kq33d-awscli-1.37.21-dist",
+        "out": "/nix/store/r5819yiy7kh0z3xzv2jz90v58ky5h0kh-awscli-1.37.21"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "awscli",
+      "broken": false,
+      "derivation": "/nix/store/hixh89aq7lmk94rg19xc6p0yjgl187pl-awscli-1.37.21.drv",
+      "description": "Unified tool to manage your AWS services",
+      "install_id": "awscli",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "awscli-1.37.21",
+      "pname": "awscli",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T05:15:55.508752Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.37.21",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/n9rbikvnh6c8byvd7xc07193rib9caw7-awscli-1.37.21-dist",
+        "out": "/nix/store/l4n82nf5mq4bfx8pjm10hn38xb22s3f8-awscli-1.37.21"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
     {
       "attr_path": "fselect",
       "broken": false,

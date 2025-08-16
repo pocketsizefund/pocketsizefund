@@ -15,9 +15,11 @@
       "Bash(uv pip:*)",
       "Bash(cat:*)",
       "Bash(mise run:*)",
-      "Bash(gh issue close:*)"
+      "Bash(gh issue close:*)",
+      "Bash(ln:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   },
   "enableAllProjectMcpServers": false
 }
