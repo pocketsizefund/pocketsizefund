@@ -1,0 +1,326 @@
+from typing import TYPE_CHECKING
+
+import polars as pl
+from tinygrad.tensor import Tensor
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+
+class Scaler:
+    def __init__(self) -> None:
+        pass
+
+    def fit(self, data: pl.DataFrame) -> None:
+        self.means = data.mean()
+        self.standard_deviations = data.std()
+        self.standard_deviations = self.standard_deviations.select(
+            pl.all().replace(0, 1e-8)
+        )  # avoid division by zero
+
+    def transform(self, data: pl.DataFrame) -> pl.DataFrame:
+        return (data - self.means) / self.standard_deviations
+
+    def inverse_transform(self, data: pl.DataFrame) -> pl.DataFrame:
+        return data * self.standard_deviations + self.means
+
+
+class TemporalFusionTransformerDataset:
+    def __init__(self, data: pl.DataFrame) -> None:
+        raw_columns = (
+            "ticker",
+            "timestamp",
+            "open_price",
+            "high_price",
+            "low_price",
+            "close_price",
+            "volume",
+            "volume_weighted_average_price",
+            "sector",
+            "industry",
+            "is_holiday",
+        )
+
+        if set(data.columns) != set(raw_columns):
+            message = f"Expected columns {raw_columns} but got {data.columns}"
+            raise ValueError(message)
+
+        self.continuous_columns = [
+            "open_price",
+            "high_price",
+            "low_price",
+            "close_price",
+            "volume",
+            "volume_weighted_average_price",
+        ]
+
+        self.categorical_columns = [
+            "day_of_week",
+            "day_of_month",
+            "day_of_year",
+            "month",
+            "year",
+            "is_holiday",
+        ]
+
+        self.static_categorical_columns = [
+            "ticker",
+            "sector",
+            "industry",
+        ]
+
+        data = data.with_columns(
+            pl.col("timestamp").cast(pl.Datetime(time_unit="ms")).alias("datetime")
+        )
+
+        minimum_datetime: datetime = data.select(data["datetime"].min()).item()
+        maximum_datetime: datetime = data.select(data["datetime"].max()).item()
+
+        date_range = pl.DataFrame(
+            {
+                "datetime": pl.date_range(
+                    minimum_datetime,
+                    maximum_datetime,
+                    "1d",
+                    eager=True,
+                )
+            }
+        )
+
+        expanded_data = date_range.join(
+            pl.DataFrame({"ticker": data["ticker"].unique()}),
+            how="cross",
+        ).with_columns(
+            pl.col("datetime")
+            .cast(pl.Datetime)
+            .cast(pl.Int64)
+            .floordiv(1000)  # milliseconds
+            .alias("timestamp")
+        )
+
+        data = expanded_data.join(data, on=["ticker", "timestamp"], how="left")
+        data = data.fill_null(strategy="forward")
+
+        friday_number = 4
+
+        # set is_holiday value for missing weekdays
+        data = (
+            data.with_columns(
+                pl.col("datetime").dt.weekday().alias("temporary_weekday")
+            )
+            .with_columns(
+                pl.when(
+                    pl.col("is_holiday").is_null()
+                    & (pl.col("temporary_weekday") <= friday_number)
+                )
+                .then(True)  # noqa: FBT003
+                .when(
+                    pl.col("is_holiday").is_null()
+                    & (pl.col("temporary_weekday") > friday_number)
+                )
+                .then(False)  # noqa: FBT003
+                .otherwise(pl.col("is_holiday"))  # keep existing values
+                .alias("is_holiday")
+            )
+            .drop("temporary_weekday")
+        )
+
+        data = data.unique(subset=["ticker", "timestamp"])
+
+        # ensure all rows have values instead of nulls
+        data = data.with_columns(
+            [
+                pl.col("open_price").fill_null(0.0),
+                pl.col("high_price").fill_null(0.0),
+                pl.col("low_price").fill_null(0.0),
+                pl.col("close_price").fill_null(0.0),
+                pl.col("volume").fill_null(0.0),
+                pl.col("volume_weighted_average_price").fill_null(0.0),
+                pl.col("sector").fill_null("Not Available"),
+                pl.col("industry").fill_null("Not Available"),
+                pl.col("ticker").fill_null("UNKNOWN"),
+                pl.col("is_holiday").fill_null(False),  # noqa: FBT003
+            ]
+        )
+
+        data = data.with_columns(  # compute new columns
+            pl.col("datetime").dt.weekday().alias("day_of_week"),
+            pl.col("datetime").dt.day().alias("day_of_month"),
+            pl.col("datetime").dt.ordinal_day().alias("day_of_year"),
+            pl.col("datetime").dt.month().alias("month"),
+            pl.col("datetime").dt.year().alias("year"),
+        )
+
+        data = data.sort(["ticker", "timestamp"]).with_columns(  # add time index column
+            pl.col("timestamp")
+            .rank("dense")
+            .over("ticker")
+            .cast(pl.Int32)
+            .alias("time_idx")
+        )
+
+        self.scaler = Scaler()
+
+        self.scaler.fit(data[self.continuous_columns])
+
+        data = data.with_columns(  # scale continuous columns
+            *[
+                (pl.col(col) - self.scaler.means[col])
+                / self.scaler.standard_deviations[col]
+                for col in self.continuous_columns
+            ]
+        )
+
+        mapping_columns = [
+            "ticker",
+            "sector",
+            "industry",
+            "is_holiday",
+        ]
+
+        mappings: dict[str, dict[str, int]] = {}
+
+        for column in mapping_columns:
+            data, mapping = self._create_mapping_and_encoding(data, column)
+            mappings[column] = mapping
+
+        self.mappings = mappings
+
+        self.data = data
+
+    def _create_mapping_and_encoding(
+        self,
+        data: pl.DataFrame,
+        column: str,
+    ) -> tuple[pl.DataFrame, dict]:
+        unique_values = data[column].unique().to_list()
+
+        mapping = {val: idx for idx, val in enumerate(unique_values)}
+
+        data = data.with_columns(
+            pl.col(column).replace(mapping).cast(pl.Int32).alias(column)
+        )
+
+        return data, mapping
+
+    def _get_training_and_validation_data(
+        self,
+        validation_split: float = 0.8,
+    ) -> tuple[pl.DataFrame, pl.DataFrame]:
+        if validation_split in {0.0, 1.0}:
+            message = "Validation split must be between 0.0 and 1.0 (exclusive)."
+            raise ValueError(message)
+
+        minimum_datetime: datetime = self.data.select(
+            self.data["datetime"].min()
+        ).item()
+        maximum_datetime: datetime = self.data.select(
+            self.data["datetime"].max()
+        ).item()
+
+        time_difference = maximum_datetime - minimum_datetime
+        split_datetime = minimum_datetime + (time_difference * validation_split)
+
+        training_data = self.data.filter(pl.col("datetime") <= split_datetime)
+        validation_data = self.data.filter(pl.col("datetime") > split_datetime)
+
+        return training_data, validation_data
+
+    def _get_prediction_data(
+        self,
+        maximum_encoder_length: int = 35,
+    ) -> pl.DataFrame:
+        return (
+            self.data.sort("timestamp")
+            .group_by("ticker")
+            .agg(pl.col("*").tail(maximum_encoder_length))
+            .explode([col for col in self.data.columns if col != "ticker"])
+        )
+
+    def get_dimensions(self) -> dict[str, int]:
+        return {
+            "encoder_categorical_features": len(self.categorical_columns),
+            "encoder_continuous_features": len(self.continuous_columns),
+            "decoder_categorical_features": len(self.categorical_columns),
+            "decoder_continuous_features": 0,  # not using decoder_continuous_features for now # noqa: E501
+            "static_categorical_features": len(self.static_categorical_columns),
+            "static_continuous_features": 0,  # not using static_continuous_features for now # noqa: E501
+        }
+
+    def get_batches(
+        self,
+        data_type: str = "train",  # "train", "validate", or "predict"
+        validation_split: float = 0.8,
+        input_length: int = 35,
+        output_length: int = 7,
+    ) -> list[dict[str, Tensor]]:
+        batches = []
+
+        if data_type not in {"train", "validate", "predict"}:
+            message = f"Invalid data type: {data_type}. Must be 'train', 'validate', or 'predict'."  # noqa: E501
+            raise ValueError(message)
+
+        if data_type == "train":
+            self.batch_data, _ = self._get_training_and_validation_data(
+                validation_split
+            )
+
+        elif data_type == "validate":
+            _, self.batch_data = self._get_training_and_validation_data(
+                validation_split
+            )
+
+        elif data_type == "predict":
+            self.batch_data = self._get_prediction_data(input_length + output_length)
+
+        minimum_date: datetime = self.batch_data.select(
+            self.batch_data["datetime"].min()
+        ).item()
+        maximum_date: datetime = self.batch_data.select(
+            self.batch_data["datetime"].max()
+        ).item()
+
+        total_days = (maximum_date - minimum_date).days + 1
+        required_days = input_length + output_length
+
+        if total_days < required_days:
+            message = (
+                f"Total days available: {total_days}, required days: {required_days}."
+            )
+            raise ValueError(message)
+
+        for ticker in self.batch_data["ticker"].unique():
+            ticker_data = self.batch_data.filter(pl.col("ticker") == ticker).sort(
+                "time_idx"
+            )
+
+            for i in range(len(ticker_data) - input_length - output_length + 1):
+                encoder_slice = ticker_data[i : i + input_length]
+                decoder_slice = ticker_data[
+                    i + input_length : i + input_length + output_length
+                ]
+
+                # not using decoder_continuous_features (future-known numerical data
+                # e.g. economic indicators, if available) or static_continuous_features
+                # (constant numerical data per stock e.g. market cap, P/E ratio) for now
+                batch = {
+                    "encoder_categorical_features": Tensor(
+                        encoder_slice[self.categorical_columns].to_numpy()
+                    ),  # historical categorical data varying over time e.g. day of week, holiday status  # noqa: E501
+                    "encoder_continuous_features": Tensor(
+                        encoder_slice[self.continuous_columns].to_numpy()
+                    ),  # historical numerical data varying over time e.g. price, volume
+                    "decoder_categorical_features": Tensor(
+                        decoder_slice[self.categorical_columns].to_numpy()
+                    ),  # future-known categorical data e.g. future day of week, scheduled events  # noqa: E501
+                    "static_categorical_features": Tensor(
+                        ticker_data[self.static_categorical_columns].head(1).to_numpy()
+                    ),  # constant categorical data per stock e.g. ticker, sector
+                }
+
+                if data_type in {"train", "validate"}:
+                    batch["targets"] = Tensor(decoder_slice[["close_price"]].to_numpy())
+
+                batches.append(batch)
+
+        return batches

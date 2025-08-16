@@ -11,7 +11,7 @@
       "Bash(rm:*)",
       "WebFetch(domain:docs.github.com)",
       "Bash(git add:*)",
-      "Bash(python -m pytest application/datamanager/tests -v)",
+      "Bash(python -m pytest:*)",
       "Bash(uv pip:*)",
       "Bash(cat:*)",
       "Bash(mise run:*)",

@@ -1,0 +1,9 @@
+[project]
+name = "portfoliomanager"
+version = "0.1.0"
+description = "Portfolio prediction and construction service"
+requires-python = "==3.12.10"
+dependencies = ["internal"]
+
+[tool.uv.sources]
+internal = { workspace = true }

@@ -40,32 +40,6 @@ docker compose --file tests.yaml run --rm --no-TTY tests
 docker compose --file tests.yaml down --volumes --remove-orphans
 """
 
-[tasks."application:service:run"]
-description = "Run the application service locally with hot reloading"
-run = """
-cd application/{{option(name="service")}}
-uv run uvicorn src.{{option(name="service")}}.main:application --reload
-"""
-
-[tasks."application:service:test:integration"]
-description = "Run integration tests"
-run = """
-cd application/{{option(name="service")}}
-docker compose up --build --abort-on-container-exit --remove-orphans
-"""
-
-[tasks."application:service:test:behavioral"]
-description = "Run behavioral tests"
-run = """
-cd application/{{option(name="service")}}
-if [ {{flag(name="cleanup")}} == true ]
-then
-    docker compose down -v
-else
-    docker compose up --build --abort-on-container-exit
-fi
-"""
-
 [tasks."lint"]
 depends = ["python:lint"]
 description = "Run code quality checks"
@@ -92,17 +66,4 @@ run = """
 set -e
 cd infrastructure
 uv run pulumi down --yes --stack pocketsizefund/pocketsizefund/production
-"""
-
-[tasks."cli:datamanager:authorize"]
-description = "Authorize the CLI with AWS credentials"
-run = """
-aws iam attach-user-policy --user-name {{option(user-name="user-name")}} --policy-arn ${{pulumi stack output DATAMANAGER_API_ACCESS_POLICY_ARN}}
-"""
-
-[tasks."dashboard:upload"]
-description = "Upload Grafana dashboard"
-run = """
-cd infrastructure
-nu upload_grafana_dashboard.nu
 """

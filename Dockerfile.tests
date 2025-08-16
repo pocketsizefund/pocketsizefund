@@ -17,18 +17,20 @@ WORKDIR /tests
 
 COPY pyproject.toml uv.lock ./
 
-COPY application/datamanager/pyproject.toml ./application/datamanager/
+COPY applications/datamanager/pyproject.toml ./applications/datamanager/
 
-COPY application/positionmanager/pyproject.toml ./application/positionmanager/
+COPY applications/portfoliomanager/pyproject.toml ./applications/portfoliomanager/
 
-COPY application/predictionengine/pyproject.toml ./application/predictionengine/
+COPY applications/models/pyproject.toml ./applications/models/
 
 COPY infrastructure/pyproject.toml ./infrastructure/
 
-COPY workflows/pyproject.toml ./workflows/
+COPY libraries/python/pyproject.toml ./libraries/python/
 
 RUN uv sync --all-packages --dev
 
-COPY application/ ./application/
+COPY applications/ ./applications/
+
+COPY libraries/ ./libraries/
 
 RUN mkdir -p /tests/coverage_output
