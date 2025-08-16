@@ -5,7 +5,7 @@ from typing import cast
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from alpaca.data.enums import Adjustment
+from alpaca.data.enums import Adjustment, DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.models import BarSet
 from alpaca.data.requests import StockBarsRequest
@@ -79,13 +79,17 @@ if __name__ == "__main__":
                             amount=1,
                             unit=TimeFrameUnit("Day"),
                         ),
-                        adjustment=Adjustment("All"),
+                        adjustment=Adjustment("all"),
+                        feed=DataFeed("iex"),
                     )
                 ),
             )
 
         except Exception as e:  # noqa: BLE001
             logger.error(f"Error fetching equity bars for {ticker}: {e}")
+
+            time.sleep(rate_limit_sleep)
+
             continue
 
         if len(equity_bars.dict()) == 0:
@@ -95,25 +99,21 @@ if __name__ == "__main__":
 
             continue
 
-        equity_bars_data = pl.DataFrame(equity_bars.dict())
+        equity_bars_data = pl.DataFrame(equity_bars[ticker])
 
         equity_bars_data = equity_bars_data.rename(
             {
-                "o": "open_price",
-                "h": "high_price",
-                "l": "low_price",
-                "c": "close_price",
-                "v": "volume",
-                "vw": "volume_weighted_average_price",
-                "t": "timestamp",
+                "symbol": "ticker",
+                "open": "open_price",
+                "high": "high_price",
+                "low": "low_price",
+                "close": "close_price",
+                "vwap": "volume_weighted_average_price",
             }
         )
-        equity_bars_data = equity_bars_data.with_columns(pl.lit(ticker).alias("ticker"))
         equity_bars_data = equity_bars_data.with_columns(
             (
-                pl.col("timestamp").map_elements(
-                    lambda x: int(datetime.fromisoformat(x).timestamp() * 1000)
-                )
+                pl.col("timestamp").map_elements(lambda x: int(x.timestamp() * 1000))
             ).alias("timestamp")
         )
 
