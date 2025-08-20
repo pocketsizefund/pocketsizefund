@@ -38,7 +38,6 @@ class TemporalFusionTransformerDataset:
             "volume_weighted_average_price",
             "sector",
             "industry",
-            "is_holiday",
         )
 
         if set(data.columns) != set(raw_columns):
@@ -73,7 +72,8 @@ class TemporalFusionTransformerDataset:
             pl.col("timestamp")
             .cast(pl.Datetime(time_unit="ms"))
             .dt.date()
-            .alias("date")
+            .alias("date"),
+            pl.lit(False).alias("is_holiday"),  # noqa: FBT003
         )
 
         tickers = data.select(pl.col("ticker").unique())

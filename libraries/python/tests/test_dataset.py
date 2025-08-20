@@ -36,7 +36,6 @@ def test_dataset_load_data() -> None:
                 "Internet Services",
                 "Internet Services",
             ],
-            "is_holiday": [True, False, False, True, False, False],
         }
     )
 
@@ -62,7 +61,6 @@ def test_dataset_get_dimensions() -> None:
             "ticker": ["AAPL", "AAPL"],
             "sector": ["Technology", "Technology"],
             "industry": ["Consumer Electronics", "Consumer Electronics"],
-            "is_holiday": [True, False],
         }
     )
 
@@ -99,7 +97,6 @@ def test_dataset_batches() -> None:
                 "Consumer Electronics",
                 "Consumer Electronics",
             ],
-            "is_holiday": [True, False, False],
         }
     )
 
