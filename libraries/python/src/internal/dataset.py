@@ -4,7 +4,7 @@ import polars as pl
 from tinygrad.tensor import Tensor
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from datetime import date
 
 
 class Scaler:
@@ -70,44 +70,37 @@ class TemporalFusionTransformerDataset:
         ]
 
         data = data.with_columns(
-            pl.col("timestamp").cast(pl.Datetime(time_unit="ms")).alias("datetime")
+            pl.col("timestamp")
+            .cast(pl.Datetime(time_unit="ms"))
+            .dt.date()
+            .alias("date")
         )
 
-        minimum_datetime: datetime = data.select(data["datetime"].min()).item()
-        maximum_datetime: datetime = data.select(data["datetime"].max()).item()
+        tickers = data.select(pl.col("ticker").unique())
 
-        date_range = pl.DataFrame(
+        minimum_date: date = data.select(pl.col("date").min()).item()
+        maximum_date: date = data.select(pl.col("date").max()).item()
+
+        dates = pl.DataFrame(
             {
-                "datetime": pl.date_range(
-                    minimum_datetime,
-                    maximum_datetime,
+                "date": pl.date_range(
+                    minimum_date,
+                    maximum_date,
                     "1d",
                     eager=True,
                 )
             }
         )
 
-        expanded_data = date_range.join(
-            pl.DataFrame({"ticker": data["ticker"].unique()}),
-            how="cross",
-        ).with_columns(
-            pl.col("datetime")
-            .cast(pl.Datetime)
-            .cast(pl.Int64)
-            .floordiv(1000)  # milliseconds
-            .alias("timestamp")
-        )
+        dates_and_tickers = tickers.join(dates, how="cross")
 
-        data = expanded_data.join(data, on=["ticker", "timestamp"], how="left")
-        data = data.fill_null(strategy="forward")
+        data = dates_and_tickers.join(data, on=["ticker", "date"], how="left")
 
         friday_number = 4
 
         # set is_holiday value for missing weekdays
         data = (
-            data.with_columns(
-                pl.col("datetime").dt.weekday().alias("temporary_weekday")
-            )
+            data.with_columns(pl.col("date").dt.weekday().alias("temporary_weekday"))
             .with_columns(
                 pl.when(
                     pl.col("is_holiday").is_null()
@@ -139,16 +132,22 @@ class TemporalFusionTransformerDataset:
                 pl.col("sector").fill_null("Not Available"),
                 pl.col("industry").fill_null("Not Available"),
                 pl.col("ticker").fill_null("UNKNOWN"),
-                pl.col("is_holiday").fill_null(False),  # noqa: FBT003
+                pl.col("timestamp").fill_null(
+                    pl.col("date")
+                    .cast(pl.Datetime)
+                    .dt.replace_time_zone("America/New_York")
+                    .cast(pl.Int64)
+                    .floordiv(1000)
+                ),
             ]
         )
 
         data = data.with_columns(  # compute new columns
-            pl.col("datetime").dt.weekday().alias("day_of_week"),
-            pl.col("datetime").dt.day().alias("day_of_month"),
-            pl.col("datetime").dt.ordinal_day().alias("day_of_year"),
-            pl.col("datetime").dt.month().alias("month"),
-            pl.col("datetime").dt.year().alias("year"),
+            pl.col("date").dt.weekday().alias("day_of_week"),
+            pl.col("date").dt.day().alias("day_of_month"),
+            pl.col("date").dt.ordinal_day().alias("day_of_year"),
+            pl.col("date").dt.month().alias("month"),
+            pl.col("date").dt.year().alias("year"),
         )
 
         data = data.sort(["ticker", "timestamp"]).with_columns(  # add time index column
@@ -211,18 +210,14 @@ class TemporalFusionTransformerDataset:
             message = "Validation split must be between 0.0 and 1.0 (exclusive)."
             raise ValueError(message)
 
-        minimum_datetime: datetime = self.data.select(
-            self.data["datetime"].min()
-        ).item()
-        maximum_datetime: datetime = self.data.select(
-            self.data["datetime"].max()
-        ).item()
+        minimum_date: date = self.data.select(self.data["date"].min()).item()
+        maximum_date: date = self.data.select(self.data["date"].max()).item()
 
-        time_difference = maximum_datetime - minimum_datetime
-        split_datetime = minimum_datetime + (time_difference * validation_split)
+        time_difference = maximum_date - minimum_date
+        split_date = minimum_date + (time_difference * validation_split)
 
-        training_data = self.data.filter(pl.col("datetime") <= split_datetime)
-        validation_data = self.data.filter(pl.col("datetime") > split_datetime)
+        training_data = self.data.filter(pl.col("date") <= split_date)
+        validation_data = self.data.filter(pl.col("date") > split_date)
 
         return training_data, validation_data
 
@@ -273,11 +268,11 @@ class TemporalFusionTransformerDataset:
         elif data_type == "predict":
             self.batch_data = self._get_prediction_data(input_length + output_length)
 
-        minimum_date: datetime = self.batch_data.select(
-            self.batch_data["datetime"].min()
+        minimum_date: date = self.batch_data.select(
+            self.batch_data["date"].min()
         ).item()
-        maximum_date: datetime = self.batch_data.select(
-            self.batch_data["datetime"].max()
+        maximum_date: date = self.batch_data.select(
+            self.batch_data["date"].max()
         ).item()
 
         total_days = (maximum_date - minimum_date).days + 1
