@@ -9,6 +9,7 @@ dependencies = [
     "tinygrad>=0.10.3",
     "numpy>=2.2.6",
     "polars>=1.29.0",
+    "pandera[polars]>=0.26.0",
 ]
 
 [tool.uv]

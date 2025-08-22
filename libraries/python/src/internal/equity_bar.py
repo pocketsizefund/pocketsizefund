@@ -1,49 +1,67 @@
-from datetime import date
+import pandera.polars as pa
+import polars as pl
+from pandera.polars import PolarsData
 
-from pydantic import BaseModel, Field, field_validator
 
-
-class EquityBar(BaseModel):
-    ticker: str = Field(..., description="The stock symbol")
-    timestamp: date = Field(..., description="The date of the bar in YYYY-MM-DD format")
-    open_price: float = Field(..., description="The opening price")
-    high_price: float = Field(..., description="The highest price")
-    low_price: float = Field(..., description="The lowest price")
-    close_price: float = Field(..., description="The closing price")
-    volume: float = Field(..., description="The trading volume")
-    volume_weighted_average_price: float = Field(
-        ..., description="The volume-weighted average price"
+def is_uppercase(data: PolarsData) -> pl.LazyFrame:
+    return data.lazyframe.select(
+        pl.col(data.key).str.to_uppercase() == pl.col(data.key)
     )
 
-    @field_validator("ticker", mode="before")
-    @classmethod
-    def validate_ticker(cls, value: str) -> str:
-        if not value or not value.strip():
-            message = "Ticker cannot be empty."
-            raise ValueError(message)
-        return value.strip().upper()
 
-    @field_validator(
-        "open_price",
-        "high_price",
-        "low_price",
-        "close_price",
-        mode="before",
-    )
-    @classmethod
-    def validate_prices(cls, value: float) -> float:
-        if value < 0:
-            message = "Price cannot be negative."
-            raise ValueError(message)
-        return value
+def is_positive(data: PolarsData) -> pl.LazyFrame:
+    return data.lazyframe.select(pl.col(data.key) > 0)
 
-    @field_validator("timestamp", mode="before")
-    @classmethod
-    def validate_timestamp(cls, value: date | str) -> date:
-        if isinstance(value, date):
-            return value
-        try:
-            return date.fromisoformat(value)
-        except ValueError as e:
-            message = "Invalid date format: expected YYYY-MM-DD"
-            raise ValueError(message) from e
+
+equity_bar_schema = pa.DataFrameSchema(
+    {
+        "ticker": pa.Column(
+            dtype=str,
+            nullable=False,
+            coerce=True,
+            checks=[pa.Check(is_uppercase)],
+        ),
+        "timestamp": pa.Column(
+            dtype=int,
+            nullable=False,
+            coerce=True,
+            checks=[pa.Check(is_positive)],
+        ),
+        "open_price": pa.Column(
+            dtype=float,
+            nullable=False,
+            coerce=True,
+            checks=[pa.Check(is_positive)],
+        ),
+        "high_price": pa.Column(
+            dtype=float,
+            nullable=False,
+            coerce=True,
+            checks=[pa.Check(is_positive)],
+        ),
+        "low_price": pa.Column(
+            dtype=float,
+            nullable=False,
+            coerce=True,
+            checks=[pa.Check(is_positive)],
+        ),
+        "close_price": pa.Column(
+            dtype=float,
+            nullable=False,
+            coerce=True,
+            checks=[pa.Check(is_positive)],
+        ),
+        "volume": pa.Column(
+            dtype=int,
+            nullable=False,
+            coerce=True,
+            checks=[pa.Check(is_positive)],
+        ),
+        "volume_weighted_average_price": pa.Column(
+            dtype=float,
+            nullable=False,
+            coerce=True,
+            checks=[pa.Check(is_positive)],
+        ),
+    }
+)

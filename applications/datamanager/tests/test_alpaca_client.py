@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
 import polars as pl
+import pytest
 from datamanager.alpaca_client import AlpacaClient
 
 
@@ -103,10 +104,11 @@ def test_alpaca_client_fetch_latest_data_no_daily_bar() -> None:
         alpaca_client = AlpacaClient("test-key", "test-secret", True)  # noqa: FBT003
 
         current_date = date(2024, 1, 15)
-        result = alpaca_client.fetch_latest_data(current_date)
 
-        assert isinstance(result, pl.DataFrame)
-        assert len(result) == 0
+        with pytest.raises(
+            pl.exceptions.ColumnNotFoundError, match='unable to find column "ticker"'
+        ):
+            alpaca_client.fetch_latest_data(current_date)
 
 
 def test_alpaca_client_fetch_latest_data_wrong_date() -> None:
@@ -150,7 +152,8 @@ def test_alpaca_client_fetch_latest_data_wrong_date() -> None:
         alpaca_client = AlpacaClient("test-key", "test-secret", True)  # noqa: FBT003
 
         current_date = date(2024, 1, 15)
-        result = alpaca_client.fetch_latest_data(current_date)
 
-        assert isinstance(result, pl.DataFrame)
-        assert len(result) == 0
+        with pytest.raises(
+            pl.exceptions.ColumnNotFoundError, match='unable to find column "ticker"'
+        ):
+            alpaca_client.fetch_latest_data(current_date)
