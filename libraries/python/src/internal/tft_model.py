@@ -34,7 +34,7 @@ class Parameters(BaseModel):
 
 
 # https://arxiv.org/pdf/1912.09363
-class TemporalFusionTransformer:
+class TFTModel:
     def __init__(self, parameters: Parameters) -> None:
         self.hidden_size = parameters.hidden_size
         self.batch_size = parameters.input_length
