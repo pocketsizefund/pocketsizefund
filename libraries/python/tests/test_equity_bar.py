@@ -1,202 +1,253 @@
-from datetime import date
-
+import polars as pl
 import pytest
-from internal.equity_bar import EquityBar
-from pydantic import ValidationError
+from internal.equity_bar import equity_bar_schema
+from pandera.errors import SchemaError
 
 
-def test_equity_bar_valid_creation() -> None:
-    open_price = 150.0
-    high_price = 155.0
-    low_price = 149.0
-    close_price = 153.0
-    volume = 1000000
-    volume_weighted_average_price = 152.5
-
-    equity_bar = EquityBar(
-        ticker="AAPL",
-        timestamp=date(2023, 1, 15),
-        open_price=open_price,
-        high_price=high_price,
-        low_price=low_price,
-        close_price=close_price,
-        volume=volume,
-        volume_weighted_average_price=volume_weighted_average_price,
+def test_equity_bar_schema_valid_data() -> None:
+    valid_data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": [1674000000],
+            "open_price": [150.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [1000000],
+            "volume_weighted_average_price": [152.5],
+        }
     )
 
-    assert equity_bar.ticker == "AAPL"
-    assert equity_bar.timestamp == date(2023, 1, 15)
-    assert equity_bar.open_price == open_price
-    assert equity_bar.high_price == high_price
-    assert equity_bar.low_price == low_price
-    assert equity_bar.close_price == close_price
-    assert equity_bar.volume == volume
-    assert equity_bar.volume_weighted_average_price == volume_weighted_average_price
+    validated_df = equity_bar_schema.validate(valid_data)
+    assert validated_df.shape == (1, 8)
 
 
-def test_equity_bar_ticker_validation_uppercase() -> None:
-    equity_bar = EquityBar(
-        ticker="aapl",
-        timestamp=date(2023, 1, 15),
-        open_price=150.0,
-        high_price=155.0,
-        low_price=149.0,
-        close_price=153.0,
-        volume=1000000,
-        volume_weighted_average_price=152.5,
+def test_equity_bar_schema_ticker_lowercase_fails() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["aapl"],
+            "timestamp": [1674000000],
+            "open_price": [150.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [1000000],
+            "volume_weighted_average_price": [152.5],
+        }
     )
 
-    assert equity_bar.ticker == "AAPL"
+    with pytest.raises(SchemaError):
+        equity_bar_schema.validate(data)
 
 
-def test_equity_bar_ticker_validation_strip_whitespace() -> None:
-    equity_bar = EquityBar(
-        ticker="  GOOGL  ",
-        timestamp=date(2023, 1, 15),
-        open_price=100.0,
-        high_price=105.0,
-        low_price=99.0,
-        close_price=103.0,
-        volume=500000,
-        volume_weighted_average_price=102.0,
+def test_equity_bar_schema_ticker_uppercase_passes() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": [1674000000],
+            "open_price": [150.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [1000000],
+            "volume_weighted_average_price": [152.5],
+        }
     )
 
-    assert equity_bar.ticker == "GOOGL"
+    validated_df = equity_bar_schema.validate(data)
+    assert validated_df["ticker"][0] == "AAPL"
 
 
-def test_equity_bar_ticker_validation_empty() -> None:
-    with pytest.raises(ValidationError) as exc_info:
-        EquityBar(
-            ticker="",
-            timestamp=date(2023, 1, 15),
-            open_price=150.0,
-            high_price=155.0,
-            low_price=149.0,
-            close_price=153.0,
-            volume=1000000,
-            volume_weighted_average_price=152.5,
-        )
-
-    assert "Ticker cannot be empty" in str(exc_info.value)
-
-
-def test_equity_bar_ticker_validation_whitespace_only() -> None:
-    with pytest.raises(ValidationError) as exc_info:
-        EquityBar(
-            ticker="   ",
-            timestamp=date(2023, 1, 15),
-            open_price=150.0,
-            high_price=155.0,
-            low_price=149.0,
-            close_price=153.0,
-            volume=1000000,
-            volume_weighted_average_price=152.5,
-        )
-
-    assert "Ticker cannot be empty" in str(exc_info.value)
-
-
-def test_equity_bar_negative_price_validation() -> None:
-    with pytest.raises(ValidationError) as exc_info:
-        EquityBar(
-            ticker="AAPL",
-            timestamp=date(2023, 1, 15),
-            open_price=-150.0,
-            high_price=155.0,
-            low_price=149.0,
-            close_price=153.0,
-            volume=1000000,
-            volume_weighted_average_price=152.5,
-        )
-
-    assert "Price cannot be negative" in str(exc_info.value)
-
-
-def test_equity_bar_zero_price_allowed() -> None:
-    equity_bar = EquityBar(
-        ticker="AAPL",
-        timestamp=date(2023, 1, 15),
-        open_price=0.0,
-        high_price=0.0,
-        low_price=0.0,
-        close_price=0.0,
-        volume=1000000,
-        volume_weighted_average_price=0.0,
+def test_equity_bar_schema_negative_timestamp() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": [-1674000000],
+            "open_price": [150.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [1000000],
+            "volume_weighted_average_price": [152.5],
+        }
     )
 
-    assert equity_bar.open_price == 0.0
-    assert equity_bar.high_price == 0.0
-    assert equity_bar.low_price == 0.0
-    assert equity_bar.close_price == 0.0
+    with pytest.raises(SchemaError):
+        equity_bar_schema.validate(data)
 
 
-def test_equity_bar_timestamp_string_iso_format() -> None:
-    equity_bar = EquityBar(
-        ticker="AAPL",
-        timestamp=date.fromisoformat("2023-06-15"),
-        open_price=150.0,
-        high_price=155.0,
-        low_price=149.0,
-        close_price=153.0,
-        volume=1000000,
-        volume_weighted_average_price=152.5,
+def test_equity_bar_schema_zero_timestamp() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": [0],
+            "open_price": [150.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [1000000],
+            "volume_weighted_average_price": [152.5],
+        }
     )
 
-    assert equity_bar.timestamp == date(2023, 6, 15)
+    with pytest.raises(SchemaError):
+        equity_bar_schema.validate(data)
 
 
-def test_equity_bar_all_price_fields_negative() -> None:
-    price_fields = ["open_price", "high_price", "low_price", "close_price"]
+def test_equity_bar_schema_negative_prices() -> None:
+    price_fields = [
+        "open_price",
+        "high_price",
+        "low_price",
+        "close_price",
+        "volume_weighted_average_price",
+    ]
 
     for field in price_fields:
-        kwargs = {
-            "ticker": "AAPL",
-            "timestamp": date(2023, 1, 15),
-            "open_price": 150.0,
-            "high_price": 155.0,
-            "low_price": 149.0,
-            "close_price": 153.0,
-            "volume": 1000000,
-            "volume_weighted_average_price": 152.5,
-        }
-        kwargs[field] = -1.0
-
-        with pytest.raises(ValidationError) as exc_info:
-            EquityBar(**kwargs)
-
-        assert "Price cannot be negative" in str(exc_info.value)
-
-
-def test_equity_bar_large_volume() -> None:
-    volume = 10**12  # Large volume for testing
-
-    equity_bar = EquityBar(
-        ticker="NVDA",
-        timestamp=date(2023, 1, 15),
-        open_price=300.0,
-        high_price=305.0,
-        low_price=299.0,
-        close_price=303.0,
-        volume=volume,
-        volume_weighted_average_price=302.0,
-    )
-
-    assert equity_bar.volume == volume
-
-
-def test_equity_bar_special_ticker_symbols() -> None:
-    special_tickers = ["brk.b", "BF-B", "META"]
-
-    for ticker in special_tickers:
-        equity_bar = EquityBar(
-            ticker=ticker,
-            timestamp=date(2023, 1, 15),
-            open_price=100.0,
-            high_price=105.0,
-            low_price=99.0,
-            close_price=103.0,
-            volume=1000000,
-            volume_weighted_average_price=102.0,
+        data = pl.DataFrame(
+            {
+                "ticker": ["AAPL"],
+                "timestamp": [1674000000],
+                "open_price": [150.0],
+                "high_price": [155.0],
+                "low_price": [149.0],
+                "close_price": [153.0],
+                "volume": [1000000],
+                "volume_weighted_average_price": [152.5],
+            }
         )
 
-        assert equity_bar.ticker == ticker.upper()
+        data = data.with_columns(pl.lit(-1.0).alias(field))
+
+        with pytest.raises(SchemaError):
+            equity_bar_schema.validate(data)
+
+
+def test_equity_bar_schema_zero_prices_not_allowed() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": [1674000000],
+            "open_price": [0.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [1000000],
+            "volume_weighted_average_price": [152.5],
+        }
+    )
+
+    with pytest.raises(SchemaError):
+        equity_bar_schema.validate(data)
+
+
+def test_equity_bar_schema_negative_volume() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": [1674000000],
+            "open_price": [150.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [-1000000],
+            "volume_weighted_average_price": [152.5],
+        }
+    )
+
+    with pytest.raises(SchemaError):
+        equity_bar_schema.validate(data)
+
+
+def test_equity_bar_schema_zero_volume_not_allowed() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": [1674000000],
+            "open_price": [150.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [0],
+            "volume_weighted_average_price": [152.5],
+        }
+    )
+
+    with pytest.raises(SchemaError):
+        equity_bar_schema.validate(data)
+
+
+def test_equity_bar_schema_type_coercion() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": ["1674000000"],  # string that can be coerced to int
+            "open_price": ["150.0"],  # string that can be coerced to float
+            "high_price": [155],  # int that can be coerced to float
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": ["1000000"],  # string that can be coerced to int
+            "volume_weighted_average_price": [152.5],
+        }
+    )
+
+    validated_df = equity_bar_schema.validate(data)
+    assert validated_df["timestamp"].dtype == pl.Int64
+    assert validated_df["open_price"].dtype == pl.Float64
+    assert validated_df["high_price"].dtype == pl.Float64
+    assert validated_df["volume"].dtype == pl.Int64
+
+
+def test_equity_bar_schema_missing_required_column() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "timestamp": [1674000000],
+            # Missing open_price
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [1000000],
+            "volume_weighted_average_price": [152.5],
+        }
+    )
+
+    with pytest.raises((SchemaError, pl.exceptions.ColumnNotFoundError)):
+        equity_bar_schema.validate(data)
+
+
+def test_equity_bar_schema_null_values() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": [None],
+            "timestamp": [1674000000],
+            "open_price": [150.0],
+            "high_price": [155.0],
+            "low_price": [149.0],
+            "close_price": [153.0],
+            "volume": [1000000],
+            "volume_weighted_average_price": [152.5],
+        }
+    )
+
+    with pytest.raises(SchemaError):
+        equity_bar_schema.validate(data)
+
+
+def test_equity_bar_schema_multiple_rows() -> None:
+    data = pl.DataFrame(
+        {
+            "ticker": ["AAPL", "GOOGL", "NVDA"],
+            "timestamp": [1674000000, 1674000060, 1674000120],
+            "open_price": [150.0, 100.0, 300.0],
+            "high_price": [155.0, 105.0, 305.0],
+            "low_price": [149.0, 99.0, 299.0],
+            "close_price": [153.0, 103.0, 303.0],
+            "volume": [1000000, 500000, 750000],
+            "volume_weighted_average_price": [152.5, 102.0, 302.0],
+        }
+    )
+
+    validated_df = equity_bar_schema.validate(data)
+    assert validated_df.shape == (3, 8)
+    assert validated_df["ticker"].to_list() == ["AAPL", "GOOGL", "NVDA"]

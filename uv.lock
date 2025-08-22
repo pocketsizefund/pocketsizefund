@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = "==3.12.10"
 resolution-markers = [
     "sys_platform == 'linux'",
@@ -862,6 +862,7 @@ source = { editable = "libraries/python" }
 dependencies = [
     { name = "cloudevents" },
     { name = "numpy" },
+    { name = "pandera", extra = ["polars"] },
     { name = "polars" },
     { name = "pydantic" },
     { name = "tinygrad" },
@@ -871,6 +872,7 @@ dependencies = [
 requires-dist = [
     { name = "cloudevents", specifier = ">=1.12.0" },
     { name = "numpy", specifier = ">=2.2.6" },
+    { name = "pandera", extras = ["polars"], specifier = ">=0.26.0" },
     { name = "polars", specifier = ">=1.29.0" },
     { name = "pydantic", specifier = ">=2.8.2" },
     { name = "tinygrad", specifier = ">=0.10.3" },
@@ -1245,6 +1247,27 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/14/cec7760d7c9507f11c97d64f29022e12a6cc4fc03ac694535e89f88ad2ec/pandas-2.3.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:56a342b231e8862c96bdb6ab97170e203ce511f4d0429589c8ede1ee8ece48b8", size = 12767210, upload-time = "2025-07-07T19:19:02.944Z" },
     { url = "https://files.pythonhosted.org/packages/50/b9/6e2d2c6728ed29fb3d4d4d302504fb66f1a543e37eb2e43f352a86365cdf/pandas-2.3.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:ca7ed14832bce68baef331f4d7f294411bed8efd032f8109d690df45e00c4679", size = 13440571, upload-time = "2025-07-07T19:19:06.82Z" },
     { url = "https://files.pythonhosted.org/packages/80/a5/3a92893e7399a691bad7664d977cb5e7c81cf666c81f89ea76ba2bff483d/pandas-2.3.1-cp312-cp312-win_amd64.whl", hash = "sha256:ac942bfd0aca577bef61f2bc8da8147c4ef6879965ef883d8e8d5d2dc3e744b8", size = 10987601, upload-time = "2025-07-07T19:19:09.589Z" },
+]
+
+[[package]]
+name = "pandera"
+version = "0.26.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "typeguard" },
+    { name = "typing-extensions" },
+    { name = "typing-inspect" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e7/da/035a97d01fb8fdc87f5af27ca083c01c424a4e0ec0ec8a3bb0f1a4cba026/pandera-0.26.0.tar.gz", hash = "sha256:37dbca1e53d12f70e576c45d886a31e454b48990c40d92c3466c26d28141b07b", size = 556602, upload-time = "2025-08-13T01:13:27.997Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/b3/69a35fe27eda46e2b0adbab1c66a925efd7806f8fc814f4419d21442ab67/pandera-0.26.0-py3-none-any.whl", hash = "sha256:85e4ab058e8e6c1f13f364450e080fcb52c8320bb40ca952342ac8709d1a7a4e", size = 291592, upload-time = "2025-08-13T01:13:26.193Z" },
+]
+
+[package.optional-dependencies]
+polars = [
+    { name = "polars" },
 ]
 
 [[package]]
@@ -1776,6 +1799,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/26/ed13ccfe488d550726caaaacaf245aa79f40b9153ad6d5c99012a940cc5a/tinygrad-0.10.3.tar.gz", hash = "sha256:e79184ce68a42599e313bacd7283425f4ae2772cc117e0bb5b437465115cb1bf", size = 10352294, upload-time = "2025-05-14T22:46:28.606Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/23/92/6cab3019b093cda0ca863d72d37dc033e0e859ebd3828a89ae56d1145cc1/tinygrad-0.10.3-py3-none-any.whl", hash = "sha256:2b3e19cc427ed9d55d70e785d7e540b4ed2a3460b89a8ef411e4911b13b7e4c1", size = 10561815, upload-time = "2025-05-14T22:46:25.882Z" },
+]
+
+[[package]]
+name = "typeguard"
+version = "4.4.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c7/68/71c1a15b5f65f40e91b65da23b8224dad41349894535a97f63a52e462196/typeguard-4.4.4.tar.gz", hash = "sha256:3a7fd2dffb705d4d0efaed4306a704c89b9dee850b688f060a8b1615a79e5f74", size = 75203, upload-time = "2025-06-18T09:56:07.624Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/a9/e3aee762739c1d7528da1c3e06d518503f8b6c439c35549b53735ba52ead/typeguard-4.4.4-py3-none-any.whl", hash = "sha256:b5f562281b6bfa1f5492470464730ef001646128b180769880468bd84b68b09e", size = 34874, upload-time = "2025-06-18T09:56:05.999Z" },
 ]
 
 [[package]]

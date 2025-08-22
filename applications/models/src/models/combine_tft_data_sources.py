@@ -3,6 +3,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import polars as pl
+from internal.company_information import company_information_schema
+from internal.equity_bar import equity_bar_schema
 
 filepath = "applications/models/src/models/"
 
@@ -16,8 +18,8 @@ if not os.path.exists(equity_bars_path):  # noqa: PTH110
     message = f"Required file not found: {equity_bars_path}"
     raise FileNotFoundError(message)
 
-categories = pl.read_csv(categories_path)
-equity_bars = pl.read_csv(equity_bars_path)
+categories = company_information_schema.validate(pl.read_csv(categories_path))
+equity_bars = equity_bar_schema.validate(pl.read_csv(equity_bars_path))
 
 
 combined_data = equity_bars.join(

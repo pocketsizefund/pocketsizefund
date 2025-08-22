@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import polars as pl
+import pytest
 from datamanager.s3_client import S3Client
 
 
@@ -94,4 +95,7 @@ def test_s3_client_write_equity_bars_data_empty_dataframe() -> None:
 
         empty_data = pl.DataFrame()
 
-        s3_client.write_equity_bars_data(empty_data)
+        with pytest.raises(
+            pl.exceptions.ColumnNotFoundError, match='unable to find column "ticker"'
+        ):
+            s3_client.write_equity_bars_data(empty_data)
