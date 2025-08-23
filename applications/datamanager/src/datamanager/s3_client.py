@@ -102,8 +102,6 @@ class S3Client:
             end_date.day,
         )
 
-        result = self.duckdb_connection.execute(query, params).fetchdf()
-
-        equity_bars = pl.from_pandas(result)
+        equity_bars = self.duckdb_connection.execute(query, params).pl()
 
         return equity_bar_schema.validate(equity_bars)

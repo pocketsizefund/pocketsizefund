@@ -1,7 +1,6 @@
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import polars as pl
 import pytest
 from datamanager.s3_client import S3Client
@@ -53,7 +52,7 @@ def test_s3_client_read_equity_bars_data() -> None:
         mock_duckdb_connect.return_value = mock_duckdb_conn
 
         mock_result = MagicMock()
-        mock_result.fetchdf.return_value = pd.DataFrame(
+        mock_result.pl.return_value = pl.DataFrame(
             {
                 "ticker": ["AAPL", "GOOGL"],
                 "timestamp": [1640995200000, 1641081600000],
