@@ -3,7 +3,17 @@ name = "datamanager"
 version = "0.1.0"
 description = "Data collection and management service"
 requires-python = "==3.12.10"
-dependencies = ["internal"]
+dependencies = [
+    "internal",
+    "loguru>=0.7.3",
+    "alpaca-py>=0.42.0",
+    "boto3>=1.38.23",
+    "duckdb>=1.2.2",
+]
+
+[tool.uv]
+package = true
+src = ["src"]
 
 [tool.uv.sources]
 internal = { workspace = true }

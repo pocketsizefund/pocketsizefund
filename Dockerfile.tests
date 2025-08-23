@@ -9,8 +9,6 @@ RUN apt-get update && apt-get install -y \
     linux-libc-dev \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PYTEST_ADDOPTS="--rootdir=/tests"
-
 ENV PYTHON=1
 
 WORKDIR /tests
@@ -27,10 +25,12 @@ COPY infrastructure/pyproject.toml ./infrastructure/
 
 COPY libraries/python/pyproject.toml ./libraries/python/
 
-RUN uv sync --all-packages --dev
+RUN uv sync --all-packages --all-groups
 
 COPY applications/ ./applications/
 
 COPY libraries/ ./libraries/
+
+RUN uv sync --all-packages --all-groups
 
 RUN mkdir -p /tests/coverage_output

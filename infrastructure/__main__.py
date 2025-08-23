@@ -45,10 +45,10 @@ write_files:
 runcmd:
   - /usr/local/bin/install-docker.sh
   - bash -lc 'for i in {1..60}; do [ -x /usr/bin/docker ] && systemctl is-active --quiet docker && exit 0 || sleep 2; done; exit 1'
-"""
+"""  # noqa: E501
 
 
-def mk_instance(name: str, bundle_id: str):
+def mk_instance(name: str, bundle_id: str):  # noqa: ANN201
     inst = aws.lightsail.Instance(
         name,
         name=name,
@@ -114,18 +114,18 @@ def conn(host_output: pulumi.Output[str]) -> remote.ConnectionArgs:
 init_manager = remote.Command(
     "init-manager",
     connection=conn(mgr_ip.ip_address),
-    create=" && ".join(
+    create=" && ".join(  # noqa: FLY002
         [
-            "bash -lc 'for i in {1..120}; do sudo docker info >/dev/null 2>&1 && break || sleep 3; done'",
-            "bash -lc 'PUBIP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4); echo Using-Public-IP:$PUBIP'",
-            'bash -lc \'STATE=$(sudo docker info --format "{{.Swarm.LocalNodeState}}") || true; '
+            "bash -lc 'for i in {1..120}; do sudo docker info >/dev/null 2>&1 && break || sleep 3; done'",  # noqa: E501
+            "bash -lc 'PUBIP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4); echo Using-Public-IP:$PUBIP'",  # noqa: E501
+            'bash -lc \'STATE=$(sudo docker info --format "{{.Swarm.LocalNodeState}}") || true; '  # noqa: E501
             'CTRL=$(sudo docker info --format "{{.Swarm.ControlAvailable}}") || true; '
             '[ "$STATE" = active -a "$CTRL" = true ] || '
             "(sudo docker swarm leave --force || true; "
-            ' sudo docker swarm init --advertise-addr "$PUBIP" --listen-addr "0.0.0.0:2377")\'',
-            "bash -lc 'for i in {1..30}; do sudo ss -ltn | awk \"\\$4 ~ /:2377$/\" && break || sleep 2; done'",
-            "bash -lc 'sudo docker swarm join-token -q worker | sudo tee /home/ubuntu/worker.token >/dev/null'",
-            "bash -lc 'sudo docker swarm join-token -q manager | sudo tee /home/ubuntu/manager.token >/dev/null'",
+            ' sudo docker swarm init --advertise-addr "$PUBIP" --listen-addr "0.0.0.0:2377")\'',  # noqa: E501
+            "bash -lc 'for i in {1..30}; do sudo ss -ltn | awk \"\\$4 ~ /:2377$/\" && break || sleep 2; done'",  # noqa: E501
+            "bash -lc 'sudo docker swarm join-token -q worker | sudo tee /home/ubuntu/worker.token >/dev/null'",  # noqa: E501
+            "bash -lc 'sudo docker swarm join-token -q manager | sudo tee /home/ubuntu/manager.token >/dev/null'",  # noqa: E501
         ]
     ),
 )
@@ -143,7 +143,7 @@ worker_token = pulumi.Output.secret(get_worker_token.stdout).apply(lambda s: s.s
 def join_worker(res_name: str, worker_ip: pulumi.Output[str]) -> remote.Command:
     create_cmd = pulumi.Output.all(mgr_ip.ip_address, worker_token).apply(
         lambda vals: (
-            "bash -lc 'for i in {1..120}; do sudo docker info >/dev/null 2>&1 && break || sleep 3; done && "
+            "bash -lc 'for i in {1..120}; do sudo docker info >/dev/null 2>&1 && break || sleep 3; done && "  # noqa: E501
             f"sudo docker swarm join --token {vals[1]} {vals[0]}:2377'"
         )
     )
