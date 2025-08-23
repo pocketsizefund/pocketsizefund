@@ -1,340 +1,163 @@
-import json
-import tomllib
-from pathlib import Path
-
 import pulumi
 import pulumi_aws as aws
-from api import (
-    create_api_access_iam_role,
-    create_api_gateway,
-    create_knative_service_api_gateway_integrations,
-    create_virtual_private_cloud_link,
-)
-from cluster import (
-    create_kubernetes_cluster,
-    create_kubernetes_cluster_role,
-    create_kubernetes_node_role,
-    create_kubernetes_provider,
-    update_kubernetes_cluster_access,
-)
-from images import build_image
-from ingress import (
-    create_application_load_balancer,
-    create_application_load_balancer_listener,
-    create_application_load_balancer_security_group,
-    create_application_load_balancer_target_group,
-)
-from keys import create_duckdb_user_access_key
-from pulumi.config import Config
-from services import (
-    create_knative_broker,
-    create_knative_eventing_core,
-    create_knative_schedule,
-    create_knative_service,
-    create_knative_serving_core,
-    create_knative_trigger,
-    create_service_environment_variables,
-)
-from vpc import (
-    create_elastic_ip,
-    create_internet_gateway,
-    create_nat_gateway,
-    create_route_table,
-    create_subnet,
-    create_virtual_private_cloud,
+import pulumi_tls as tls
+from pulumi_command import remote
+
+az = pulumi.Config().get("az") or "us-east-1a"
+blueprint_id = pulumi.Config().get("blueprintId") or "ubuntu_24_04"
+bundle_mgr = pulumi.Config().get("bundleIdMgr") or "medium_2_0"
+bundle_wkr = pulumi.Config().get("bundleIdWkr") or "small_2_0"
+
+ssh_key = tls.PrivateKey("swarm-key", algorithm="RSA", rsa_bits=4096)
+ls_key = aws.lightsail.KeyPair(
+    "swarm-ls-key",
+    name="swarm-ls-key",
+    public_key=ssh_key.public_key_openssh,
 )
 
-configuration = Config()
+cloud_init = """#cloud-config
+package_update: true
+package_upgrade: true
+write_files:
+  - path: /usr/local/bin/install-docker.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      retry() { for i in {1..10}; do "$@" && break || { sleep 3; echo "retry $i"; }; done; }
 
-virtual_private_cloud = create_virtual_private_cloud()
+      retry apt-get update
+      retry apt-get install -y ca-certificates curl gnupg
 
-internet_gateway = create_internet_gateway(
-    virtual_private_cloud=virtual_private_cloud,
-)
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      chmod a+r /etc/apt/keyrings/docker.gpg
 
-public_route_table = create_route_table(
-    virtual_private_cloud=virtual_private_cloud,
-    internet_gateway=internet_gateway,
-)
+      . /etc/os-release
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" > /etc/apt/sources.list.d/docker.list
 
-aws_region = configuration.get("aws:region") or "us-east-1"
+      retry apt-get update
+      retry apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-availability_zones = aws.get_availability_zones(
-    state="available",
-    filters=[
-        {
-            "name": "region-name",
-            "values": [aws_region],
-        }
-    ],
-).names[:3]
+      usermod -aG docker ubuntu || true
+      systemctl enable --now docker
 
-public_subnets = [
-    create_subnet(
-        virtual_private_cloud=virtual_private_cloud,
-        route_table=public_route_table,
-        availability_zone=availability_zones[i],
-        subnet_number=i + 1,  # 1-3
-        visibility="public",
+runcmd:
+  - /usr/local/bin/install-docker.sh
+  - bash -lc 'for i in {1..60}; do [ -x /usr/bin/docker ] && systemctl is-active --quiet docker && exit 0 || sleep 2; done; exit 1'
+"""
+
+
+def mk_instance(name: str, bundle_id: str):
+    inst = aws.lightsail.Instance(
+        name,
+        name=name,
+        availability_zone=az,
+        blueprint_id=blueprint_id,
+        bundle_id=bundle_id,
+        key_pair_name=ls_key.name,
+        user_data=cloud_init,
+        tags={"role": name},
     )
-    for i in range(len(availability_zones))
-]
 
-elastic_ip = create_elastic_ip(virtual_private_cloud=virtual_private_cloud)
-
-nat_gateway = create_nat_gateway(
-    elastic_ip=elastic_ip,
-    public_subnet=public_subnets[0],  # one NAT instance for cost efficiency
-)
-
-private_route_table = create_route_table(
-    virtual_private_cloud=virtual_private_cloud,
-    nat_gateway=nat_gateway,
-)
-
-
-private_subnets = [
-    create_subnet(
-        virtual_private_cloud=virtual_private_cloud,
-        route_table=private_route_table,
-        availability_zone=availability_zones[i],
-        subnet_number=i + 4,  # 4-6
-        visibility="private",
+    aws.lightsail.InstancePublicPorts(
+        f"{name}-ports",
+        instance_name=inst.name,
+        port_infos=[
+            aws.lightsail.InstancePublicPortsPortInfoArgs(
+                from_port=22, to_port=22, protocol="tcp", cidrs=["0.0.0.0/0"]
+            ),
+            aws.lightsail.InstancePublicPortsPortInfoArgs(
+                from_port=2377, to_port=2377, protocol="tcp", cidrs=["0.0.0.0/0"]
+            ),
+            aws.lightsail.InstancePublicPortsPortInfoArgs(
+                from_port=7946, to_port=7946, protocol="tcp", cidrs=["0.0.0.0/0"]
+            ),
+            aws.lightsail.InstancePublicPortsPortInfoArgs(
+                from_port=7946, to_port=7946, protocol="udp", cidrs=["0.0.0.0/0"]
+            ),
+            aws.lightsail.InstancePublicPortsPortInfoArgs(
+                from_port=4789, to_port=4789, protocol="udp", cidrs=["0.0.0.0/0"]
+            ),
+            aws.lightsail.InstancePublicPortsPortInfoArgs(
+                from_port=80, to_port=80, protocol="tcp", cidrs=["0.0.0.0/0"]
+            ),
+            aws.lightsail.InstancePublicPortsPortInfoArgs(
+                from_port=443, to_port=443, protocol="tcp", cidrs=["0.0.0.0/0"]
+            ),
+        ],
     )
-    for i in range(len(availability_zones))
-]
 
-
-kubernetes_cluster_role = create_kubernetes_cluster_role()
-
-kubernetes_node_role = create_kubernetes_node_role()
-
-kubernetes_cluster = create_kubernetes_cluster(
-    virtual_private_cloud=virtual_private_cloud,
-    private_subnets=private_subnets,
-    kubernetes_cluster_role=kubernetes_cluster_role,
-    kubernetes_node_role=kubernetes_node_role,
-)
-
-kubernetes_provider = create_kubernetes_provider(kubernetes_cluster=kubernetes_cluster)
-
-cluster_access_configuration = update_kubernetes_cluster_access(
-    kubernetes_provider=kubernetes_provider,
-    kubernetes_cluster_role=kubernetes_cluster_role,
-    kubernetes_node_role=kubernetes_node_role,
-    pulumi_user_arn=configuration.require_secret("AWS_IAM_PULUMI_USER_ARN"),
-    root_user_arn=configuration.require_secret("AWS_IAM_ROOT_USER_ARN"),
-)
-
-knative_serving_core = create_knative_serving_core(
-    kubernetes_provider=kubernetes_provider,
-)
-
-knative_eventing_core = create_knative_eventing_core(
-    kubernetes_provider=kubernetes_provider,
-)
-
-knative_broker = create_knative_broker(
-    kubernetes_provider=kubernetes_provider,
-    knative_eventing_core=knative_eventing_core,
-)
-
-duckdb_user_access_key = create_duckdb_user_access_key(
-    data_bucket_name=configuration.require_secret("AWS_S3_DATA_BUCKET_NAME"),
-)
-
-service_environment_variables = create_service_environment_variables(
-    inputs=[
-        ("ALPACA_API_KEY", configuration.require_secret("ALPACA_API_KEY")),
-        ("ALPACA_API_SECRET", configuration.require_secret("ALPACA_API_SECRET")),
-        (
-            "AWS_S3_DATA_BUCKET_NAME",
-            configuration.require_secret("AWS_S3_DATA_BUCKET_NAME"),
-        ),
-        ("POLYGON_API_KEY", configuration.require_secret("POLYGON_API_KEY")),
-        ("AWS_IAM_DUCKDB_USER_ACCESS_KEY_ID", duckdb_user_access_key.id),
-        ("AWS_IAM_DUCKDB_USER_ACCESS_KEY_SECRET", duckdb_user_access_key.secret),
-        ("AWS_REGION", aws_region),
-    ],
-)
-
-application_load_balancer_security_group = (
-    create_application_load_balancer_security_group(
-        virtual_private_cloud=virtual_private_cloud,
+    ip = aws.lightsail.StaticIp(f"{name}-ip", name=f"{name}-ip")
+    aws.lightsail.StaticIpAttachment(
+        f"{name}-ip-attach",
+        instance_name=inst.name,
+        static_ip_name=ip.name,
     )
-)
 
-application_load_balancer = create_application_load_balancer(
-    application_load_balancer_security_group=application_load_balancer_security_group,
-    public_subnets=public_subnets,
-)
+    return inst, ip
 
-virtual_private_cloud_link = create_virtual_private_cloud_link(
-    application_load_balancer_security_group=application_load_balancer_security_group,
-    public_subnets=public_subnets,
-)
 
-api_gateway = create_api_gateway(
-    application_load_balancer_security_group=application_load_balancer_security_group,
-)
+mgr_inst, mgr_ip = mk_instance("swarm-mgr-1", bundle_mgr)
+w1_inst, w1_ip = mk_instance("swarm-wkr-1", bundle_wkr)
+w2_inst, w2_ip = mk_instance("swarm-wkr-2", bundle_wkr)
 
-target_group = create_application_load_balancer_target_group(
-    virtual_private_cloud=virtual_private_cloud,
-    application_load_balancer=application_load_balancer,
-)
 
-listener = create_application_load_balancer_listener(
-    application_load_balancer=application_load_balancer,
-    application_load_balancer_target_group=target_group,
-)
+def conn(host_output: pulumi.Output[str]) -> remote.ConnectionArgs:
+    return remote.ConnectionArgs(
+        host=host_output,
+        user="ubuntu",
+        private_key=ssh_key.private_key_pem,
+    )
 
-try:
-    with Path("pyproject.toml").open("rb") as f:
-        project_data = tomllib.load(f)
-        version = project_data.get("project", {}).get("version")
 
-except (FileNotFoundError, tomllib.TOMLDecodeError, ValueError) as e:
-    message = f"Failed to read version from infrastructure pyproject.toml: {e}"
-    raise RuntimeError(message) from e
-
-username = configuration.require_secret("DOCKERHUB_USERNAME")
-password = configuration.require_secret("DOCKERHUB_PASSWORD")
-
-datamanager_image = build_image(
-    service_name="datamanager",
-    service_version=version,
-    dockerhub_username=username,
-    dockerhub_password=password,
-)
-
-datamanager_knative_service = create_knative_service(
-    kubernetes_provider=kubernetes_provider,
-    service_name="datamanager",
-    image=datamanager_image,
-    application_load_balancer_service_target_group=target_group,
-    knative_serving_core=knative_serving_core,
-    environment_variables=service_environment_variables,
-)
-
-endpoint_information = [
-    {"path": "/health", "method": "GET"},
-    {"path": "/equity-bars", "method": "GET"},
-    {"path": "/equity-bars/fetch", "method": "POST"},
-    {"path": "/equity-bars", "method": "DELETE"},
-]
-
-create_knative_service_api_gateway_integrations(
-    service_name="datamanager",
-    endpoint_information=endpoint_information,
-    api_gateway=api_gateway,
-    application_load_balancer_listener=listener,
-    vpc_link=virtual_private_cloud_link,
-)
-
-api_access_iam_role = create_api_access_iam_role(
-    api_gateway=api_gateway,
-    pulumi_user_arn=configuration.require_secret("AWS_IAM_PULUMI_USER_ARN"),
-    endpoint_information=endpoint_information,
-)
-
-predictionengine_image = build_image(
-    service_name="predictionengine",
-    service_version=version,
-    dockerhub_username=username,
-    dockerhub_password=password,
-)
-
-predictionengine_knative_service = create_knative_service(
-    kubernetes_provider=kubernetes_provider,
-    service_name="predictionengine",
-    image=predictionengine_image,
-    application_load_balancer_service_target_group=target_group,
-    knative_serving_core=knative_serving_core,
-    environment_variables=service_environment_variables,
-)
-
-positionmanager_image = build_image(
-    service_name="positionmanager",
-    service_version=version,
-    dockerhub_username=username,
-    dockerhub_password=password,
-)
-
-positionmanager_knative_service = create_knative_service(
-    kubernetes_provider=kubernetes_provider,
-    service_name="positionmanager",
-    image=positionmanager_image,
-    application_load_balancer_service_target_group=target_group,
-    knative_serving_core=knative_serving_core,
-    environment_variables=service_environment_variables,
-)
-
-open_positions_from_predictions_trigger = create_knative_trigger(
-    kubernetes_provider=kubernetes_provider,
-    source_service_name="predictionengine",
-    source_attribute_type="application.predictionengine.predictions.created",
-    target_service_name="positionmanager",
-    knative_eventing_core=knative_eventing_core,
-)
-
-midnight_data_fetch_schedule = create_knative_schedule(
-    kubernetes_provider=kubernetes_provider,
-    target_service_name="datamanager",
-    target_path="/equity-bars/fetch",
-    cron_schedule="0 0 * * *",
-    knative_eventing_core=knative_eventing_core,
-)
-
-monday_morning_open_positions_schedule = create_knative_schedule(
-    kubernetes_provider=kubernetes_provider,
-    target_service_name="predictionengine",
-    target_path="/predictions/create",
-    cron_schedule="0 10 * * 1",
-    knative_eventing_core=knative_eventing_core,
-)
-
-friday_evening_close_positions_schedule = create_knative_schedule(
-    kubernetes_provider=kubernetes_provider,
-    target_service_name="positionmanager",
-    target_path="/positions/close",
-    cron_schedule="0 13 * * 5",
-    knative_eventing_core=knative_eventing_core,
+init_manager = remote.Command(
+    "init-manager",
+    connection=conn(mgr_ip.ip_address),
+    create=" && ".join(
+        [
+            "bash -lc 'for i in {1..120}; do sudo docker info >/dev/null 2>&1 && break || sleep 3; done'",
+            "bash -lc 'PUBIP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4); echo Using-Public-IP:$PUBIP'",
+            'bash -lc \'STATE=$(sudo docker info --format "{{.Swarm.LocalNodeState}}") || true; '
+            'CTRL=$(sudo docker info --format "{{.Swarm.ControlAvailable}}") || true; '
+            '[ "$STATE" = active -a "$CTRL" = true ] || '
+            "(sudo docker swarm leave --force || true; "
+            ' sudo docker swarm init --advertise-addr "$PUBIP" --listen-addr "0.0.0.0:2377")\'',
+            "bash -lc 'for i in {1..30}; do sudo ss -ltn | awk \"\\$4 ~ /:2377$/\" && break || sleep 2; done'",
+            "bash -lc 'sudo docker swarm join-token -q worker | sudo tee /home/ubuntu/worker.token >/dev/null'",
+            "bash -lc 'sudo docker swarm join-token -q manager | sudo tee /home/ubuntu/manager.token >/dev/null'",
+        ]
+    ),
 )
 
 
-pulumi.export("DATAMANAGER_SERVICE_IMAGE", datamanager_image.ref)
-
-pulumi.export(
-    "PREDICTIONENGINE_SERVICE_IMAGE",
-    predictionengine_image.ref,
+get_worker_token = remote.Command(
+    "get-worker-token",
+    connection=conn(mgr_ip.ip_address),
+    create="bash -lc 'sudo docker swarm join-token -q worker'",
+    opts=pulumi.ResourceOptions(depends_on=[init_manager]),
 )
+worker_token = pulumi.Output.secret(get_worker_token.stdout).apply(lambda s: s.strip())
 
-pulumi.export(
-    "POSITIONMANAGER_SERVICE_IMAGE",
-    positionmanager_image.ref,
-)
 
-pulumi.export(
-    "AWS_EKS_CLUSTER_NAME",
-    kubernetes_cluster.eks_cluster.name.apply(lambda cluster_name: f"{cluster_name}"),
-)
+def join_worker(res_name: str, worker_ip: pulumi.Output[str]) -> remote.Command:
+    create_cmd = pulumi.Output.all(mgr_ip.ip_address, worker_token).apply(
+        lambda vals: (
+            "bash -lc 'for i in {1..120}; do sudo docker info >/dev/null 2>&1 && break || sleep 3; done && "
+            f"sudo docker swarm join --token {vals[1]} {vals[0]}:2377'"
+        )
+    )
+    return remote.Command(
+        res_name,
+        connection=conn(worker_ip),
+        create=create_cmd,
+        opts=pulumi.ResourceOptions(depends_on=[get_worker_token]),
+    )
 
-pulumi.export(
-    "AWS_EKS_KUBECONFIG",
-    kubernetes_cluster.kubeconfig.apply(json.dumps),
-)
 
-pulumi.export(
-    "AWS_VIRTUAL_PRIVATE_CLOUD_ID",
-    virtual_private_cloud.id.apply(lambda vpc_id: f"{vpc_id}"),
-)
+join_w1 = join_worker("join-w1", w1_ip.ip_address)
+join_w2 = join_worker("join-w2", w2_ip.ip_address)
 
-pulumi.export(
-    "AWS_API_GATEWAY_ACCESS_IAM_ROLE_ARN",
-    api_access_iam_role.arn.apply(lambda arn: f"{arn}"),
-)
-
-pulumi.export(
-    "AWS_API_GATEWAY_ENDPOINT_URL",
-    api_gateway.api_endpoint.apply(lambda endpoint: f"{endpoint}/production"),
-)
+pulumi.export("managerIp", mgr_ip.ip_address)
+pulumi.export("workerIps", pulumi.Output.all(w1_ip.ip_address, w2_ip.ip_address))
+pulumi.export("sshPrivateKeyPem", pulumi.Output.secret(ssh_key.private_key_pem))

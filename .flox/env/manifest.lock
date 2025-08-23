@@ -3,8 +3,11 @@
   "manifest": {
     "version": 1,
     "install": {
-      "awscli": {
-        "pkg-path": "awscli"
+      "awscli2": {
+        "pkg-path": "awscli2"
+      },
+      "cargo": {
+        "pkg-path": "cargo"
       },
       "fselect": {
         "pkg-path": "fselect"
@@ -51,7 +54,243 @@
   },
   "packages": [
     {
-      "attr_path": "awscli",
+      "attr_path": "awscli2",
+      "broken": false,
+      "derivation": "/nix/store/v5gxglicwhyknfwswhngrbawzdwnapp5-awscli2-2.27.2.drv",
+      "description": "Unified tool to manage your AWS services",
+      "install_id": "awscli2",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "awscli2-2.27.2",
+      "pname": "awscli2",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:22:53.969182Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.27.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/sc270lyggbhz78lcxh9khqmggayqpp6i-awscli2-2.27.2-dist",
+        "out": "/nix/store/b5fa0fplfpiyx8zwc9y7d08a57lsk229-awscli2-2.27.2"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "awscli2",
+      "broken": false,
+      "derivation": "/nix/store/7ykn42yxjf7ncyl2z00700hq214xs4jn-awscli2-2.27.2.drv",
+      "description": "Unified tool to manage your AWS services",
+      "install_id": "awscli2",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "awscli2-2.27.2",
+      "pname": "awscli2",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:41:01.084855Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.27.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/ss8xqzwn1l8qdbwlml439bx1ik13vxlk-awscli2-2.27.2-dist",
+        "out": "/nix/store/161s22pbddllc4mabgr5rvrpmhiffsp4-awscli2-2.27.2"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "awscli2",
+      "broken": false,
+      "derivation": "/nix/store/id7b0p6cwlkcsnfb767s820ig9xj0qnp-awscli2-2.27.2.drv",
+      "description": "Unified tool to manage your AWS services",
+      "install_id": "awscli2",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "awscli2-2.27.2",
+      "pname": "awscli2",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:56:58.790359Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.27.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/q9rzj2ikpl9vn4sns3ydsy7i8sachnha-awscli2-2.27.2-dist",
+        "out": "/nix/store/l18j8wgidf145m0zw6ydg8blim44hrkq-awscli2-2.27.2"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "awscli2",
+      "broken": false,
+      "derivation": "/nix/store/j2ajkr3y4c0fg9lxl22z30hd4spb74d9-awscli2-2.27.2.drv",
+      "description": "Unified tool to manage your AWS services",
+      "install_id": "awscli2",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "awscli2-2.27.2",
+      "pname": "awscli2",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T05:15:55.508841Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.27.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dist": "/nix/store/r5cw3141myaf5lnzra9c0nc8prb2zv6y-awscli2-2.27.2-dist",
+        "out": "/nix/store/gx3hx0b3lbm11sishxl4k7a7ha4w405q-awscli2-2.27.2"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo",
+      "broken": false,
+      "derivation": "/nix/store/6665a8zg1cpw2fjamds6261fmg1pa458-cargo-1.86.0.drv",
+      "description": "Downloads your Rust project's dependencies and builds your project",
+      "install_id": "cargo",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "cargo-1.86.0",
+      "pname": "cargo",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:22:54.464772Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.86.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/v9kavzgzbym8adb6p7nxgid13jz76411-cargo-1.86.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo",
+      "broken": false,
+      "derivation": "/nix/store/jq0483mr9g99x5swkgvdf8w0hhj7yq73-cargo-1.86.0.drv",
+      "description": "Downloads your Rust project's dependencies and builds your project",
+      "install_id": "cargo",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "cargo-1.86.0",
+      "pname": "cargo",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:41:01.216082Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.86.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/4y830m5qm2xfvdacbsy3q1afxqnawihc-cargo-1.86.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo",
+      "broken": false,
+      "derivation": "/nix/store/za3xhiav2xk7z8g0synrxz3az6ai0i2f-cargo-1.86.0.drv",
+      "description": "Downloads your Rust project's dependencies and builds your project",
+      "install_id": "cargo",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "cargo-1.86.0",
+      "pname": "cargo",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T04:56:58.878560Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.86.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/mdqqq9g5zrisd3ng2j56a9gijr5fawp5-cargo-1.86.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo",
+      "broken": false,
+      "derivation": "/nix/store/3f2cdkg4a3gjsw9mnb604ihqk1kq2dp2-cargo-1.86.0.drv",
+      "description": "Downloads your Rust project's dependencies and builds your project",
+      "install_id": "cargo",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "name": "cargo-1.86.0",
+      "pname": "cargo",
+      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
+      "rev_count": 807377,
+      "rev_date": "2025-05-28T19:24:49Z",
+      "scrape_date": "2025-05-31T05:15:55.650404Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.86.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/npqlgsia03kfhv8m9mav6hfnbawpg0yg-cargo-1.86.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "fselect",
       "broken": false,
       "derivation": "/nix/store/admmm4b6lm869qnc1d487slsr6a9hl29-awscli-1.37.21.drv",
       "description": "Unified tool to manage your AWS services",
