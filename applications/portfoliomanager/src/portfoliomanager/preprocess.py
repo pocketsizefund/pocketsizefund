@@ -1,11 +1,12 @@
 import polars as pl
 
 
-def filter_equity_bars(data: pl.DataFrame) -> pl.DataFrame:
+def filter_equity_bars(
+    data: pl.DataFrame,
+    minimum_average_close_price: float = 10.0,
+    minimum_average_volume: float = 1_000_000.0,
+) -> pl.DataFrame:
     data = data.clone()
-
-    minimum_average_close_price = 10.0
-    minimum_average_volume = 1_000_000.0
 
     return (
         data.group_by("ticker")

@@ -162,7 +162,7 @@ class TFTDataset:
             .alias("time_idx")
         )
 
-        data = equity_bar_schema.validate(data)
+        data = dataset_schema.validate(data)
 
         self.scaler = Scaler()
 
@@ -327,25 +327,56 @@ class TFTDataset:
         return batches
 
 
-equity_bar_schema = pa.DataFrameSchema(
+dataset_schema = pa.DataFrameSchema(
     {
-        "ticker": pa.Column(str, required=True),
-        "timestamp": pa.Column(int, required=True),
-        "open_price": pa.Column(float, required=True),
-        "high_price": pa.Column(float, required=True),
-        "low_price": pa.Column(float, required=True),
-        "close_price": pa.Column(float, required=True),
-        "volume": pa.Column(float, required=True),
-        "volume_weighted_average_price": pa.Column(float, required=True),
-        "sector": pa.Column(str, required=True),
-        "industry": pa.Column(str, required=True),
-        "date": pa.Column(date, required=True),
-        "day_of_week": pa.Column(int, required=True),
-        "day_of_month": pa.Column(int, required=True),
-        "day_of_year": pa.Column(int, required=True),
-        "month": pa.Column(int, required=True),
-        "year": pa.Column(int, required=True),
-        "is_holiday": pa.Column(bool, required=True),
-        "time_idx": pa.Column(int, required=True),
+        "ticker": pa.Column(
+            str,
+            checks=pa.Check.str_matches(r"^[A-Z0-9.\-]+$"),
+            coerce=True,
+            required=True,
+        ),
+        "timestamp": pa.Column(
+            int,
+            checks=pa.Check.gt(0),
+            coerce=True,
+            required=True,
+        ),
+        "open_price": pa.Column(
+            float,
+            checks=pa.Check.ge(0),
+            coerce=True,
+            required=True,
+        ),
+        "high_price": pa.Column(
+            float, checks=pa.Check.ge(0), coerce=True, required=True
+        ),
+        "low_price": pa.Column(
+            float, checks=pa.Check.ge(0), coerce=True, required=True
+        ),
+        "close_price": pa.Column(
+            float, checks=pa.Check.ge(0), coerce=True, required=True
+        ),
+        "volume": pa.Column(
+            int,
+            checks=pa.Check.ge(0),
+            coerce=True,
+            required=True,
+        ),
+        "volume_weighted_average_price": pa.Column(
+            float,
+            checks=pa.Check.ge(0),
+            coerce=True,
+            required=True,
+        ),
+        "sector": pa.Column(str, coerce=True, required=True),
+        "industry": pa.Column(str, coerce=True, required=True),
+        "date": pa.Column(date, coerce=True, required=True),
+        "day_of_week": pa.Column(int, coerce=True, required=True),
+        "day_of_month": pa.Column(int, coerce=True, required=True),
+        "day_of_year": pa.Column(int, coerce=True, required=True),
+        "month": pa.Column(int, coerce=True, required=True),
+        "year": pa.Column(int, coerce=True, required=True),
+        "is_holiday": pa.Column(bool, coerce=True, required=True),
+        "time_idx": pa.Column(int, coerce=True, required=True),
     }
 )
