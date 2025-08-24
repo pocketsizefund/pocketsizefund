@@ -1,10 +1,8 @@
-from typing import TYPE_CHECKING
+from datetime import date
 
+import pandera.polars as pa
 import polars as pl
 from tinygrad.tensor import Tensor
-
-if TYPE_CHECKING:
-    from datetime import date
 
 
 class Scaler:
@@ -29,6 +27,8 @@ class TFTDataset:
     """Temporal fusion transformer dataset."""
 
     def __init__(self, data: pl.DataFrame) -> None:
+        data = data.clone()
+
         raw_columns = (
             "ticker",
             "timestamp",
@@ -137,28 +137,32 @@ class TFTDataset:
                 pl.col("timestamp").fill_null(
                     pl.col("date")
                     .cast(pl.Datetime)
-                    .dt.replace_time_zone("America/New_York")
+                    .dt.replace_time_zone("UTC")
                     .cast(pl.Int64)
                     .floordiv(1000)
                 ),
             ]
         )
 
-        data = data.with_columns(  # compute new columns
-            pl.col("date").dt.weekday().alias("day_of_week"),
-            pl.col("date").dt.day().alias("day_of_month"),
-            pl.col("date").dt.ordinal_day().alias("day_of_year"),
-            pl.col("date").dt.month().alias("month"),
-            pl.col("date").dt.year().alias("year"),
+        # compute new calendar columns
+        data = data.with_columns(
+            pl.col("date").dt.weekday().alias("day_of_week").cast(pl.Int64),
+            pl.col("date").dt.day().alias("day_of_month").cast(pl.Int64),
+            pl.col("date").dt.ordinal_day().alias("day_of_year").cast(pl.Int64),
+            pl.col("date").dt.month().alias("month").cast(pl.Int64),
+            pl.col("date").dt.year().alias("year").cast(pl.Int64),
         )
 
-        data = data.sort(["ticker", "timestamp"]).with_columns(  # add time index column
+        # add time index column
+        data = data.sort(["ticker", "timestamp"]).with_columns(
             pl.col("timestamp")
             .rank("dense")
             .over("ticker")
-            .cast(pl.Int32)
+            .cast(pl.Int64)
             .alias("time_idx")
         )
+
+        data = dataset_schema.validate(data)
 
         self.scaler = Scaler()
 
@@ -321,3 +325,58 @@ class TFTDataset:
                 batches.append(batch)
 
         return batches
+
+
+dataset_schema = pa.DataFrameSchema(
+    {
+        "ticker": pa.Column(
+            str,
+            checks=pa.Check.str_matches(r"^[A-Z0-9.\-]+$"),
+            coerce=True,
+            required=True,
+        ),
+        "timestamp": pa.Column(
+            int,
+            checks=pa.Check.gt(0),
+            coerce=True,
+            required=True,
+        ),
+        "open_price": pa.Column(
+            float,
+            checks=pa.Check.ge(0),
+            coerce=True,
+            required=True,
+        ),
+        "high_price": pa.Column(
+            float, checks=pa.Check.ge(0), coerce=True, required=True
+        ),
+        "low_price": pa.Column(
+            float, checks=pa.Check.ge(0), coerce=True, required=True
+        ),
+        "close_price": pa.Column(
+            float, checks=pa.Check.ge(0), coerce=True, required=True
+        ),
+        "volume": pa.Column(
+            int,
+            checks=pa.Check.ge(0),
+            coerce=True,
+            required=True,
+        ),
+        "volume_weighted_average_price": pa.Column(
+            float,
+            checks=pa.Check.ge(0),
+            coerce=True,
+            required=True,
+        ),
+        "sector": pa.Column(str, coerce=True, required=True),
+        "industry": pa.Column(str, coerce=True, required=True),
+        "date": pa.Column(date, coerce=True, required=True),
+        "day_of_week": pa.Column(int, coerce=True, required=True),
+        "day_of_month": pa.Column(int, coerce=True, required=True),
+        "day_of_year": pa.Column(int, coerce=True, required=True),
+        "month": pa.Column(int, coerce=True, required=True),
+        "year": pa.Column(int, coerce=True, required=True),
+        "is_holiday": pa.Column(bool, coerce=True, required=True),
+        "time_idx": pa.Column(int, coerce=True, required=True),
+    }
+)
