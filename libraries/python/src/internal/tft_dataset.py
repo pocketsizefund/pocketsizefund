@@ -25,7 +25,9 @@ class Scaler:
         return data * self.standard_deviations + self.means
 
 
-class TemporalFusionTransformerDataset:
+class TFTDataset:
+    """Temporal fusion transformer dataset."""
+
     def __init__(self, data: pl.DataFrame) -> None:
         raw_columns = (
             "ticker",

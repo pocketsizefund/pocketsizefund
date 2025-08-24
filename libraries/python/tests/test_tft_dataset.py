@@ -1,8 +1,8 @@
 import polars as pl
-from internal.dataset import TemporalFusionTransformerDataset
+from internal.tft_dataset import TFTDataset
 
 
-def test_dataset_load_data() -> None:
+def test_tft_dataset_load_data() -> None:
     data = pl.DataFrame(
         {
             "timestamp": [
@@ -39,13 +39,13 @@ def test_dataset_load_data() -> None:
         }
     )
 
-    dataset = TemporalFusionTransformerDataset(data=data)
+    dataset = TFTDataset(data=data)
 
     assert hasattr(dataset, "data")
     assert hasattr(dataset, "mappings")
 
 
-def test_dataset_get_dimensions() -> None:
+def test_tft_dataset_get_dimensions() -> None:
     data = pl.DataFrame(
         {
             "timestamp": [
@@ -64,7 +64,7 @@ def test_dataset_get_dimensions() -> None:
         }
     )
 
-    dataset = TemporalFusionTransformerDataset(data=data)
+    dataset = TFTDataset(data=data)
 
     dimensions = dataset.get_dimensions()
 
@@ -76,7 +76,7 @@ def test_dataset_get_dimensions() -> None:
     assert "static_continuous_features" in dimensions
 
 
-def test_dataset_batches() -> None:
+def test_tft_dataset_batches() -> None:
     data = pl.DataFrame(
         {
             "timestamp": [
@@ -100,7 +100,7 @@ def test_dataset_batches() -> None:
         }
     )
 
-    dataset = TemporalFusionTransformerDataset(data=data)
+    dataset = TFTDataset(data=data)
 
     expected_input_length = 2
     expected_output_length = 1

@@ -7,8 +7,8 @@ from loguru import logger
 import wandb
 from wandb import Run
 
-from internal.dataset import TemporalFusionTransformerDataset
-from internal.tft_model import Parameters, TemporalFusionTransformer
+from internal.tft_dataset import TFTDataset
+from internal.tft_model import Parameters, TFTModel
 
 configuration = {
     "architecture": "TFT",
@@ -21,7 +21,7 @@ timezone = ZoneInfo("America/New_York")
 
 
 @task
-def read_local_data(filepath: str) -> TemporalFusionTransformerDataset:
+def read_local_data(filepath: str) -> TFTDataset:
     start_time = datetime.now(tz=timezone)
     logger.info(f"Reading data from {filepath}")
     data = pl.read_csv(filepath)
@@ -30,17 +30,17 @@ def read_local_data(filepath: str) -> TemporalFusionTransformerDataset:
 
     logger.info(f"Data read successfully in {runtime_seconds} seconds")
 
-    return TemporalFusionTransformerDataset(data=data)
+    return TFTDataset(data=data)
 
 
 @task
 def train_model(
-    dataset: TemporalFusionTransformerDataset,
+    dataset: TFTDataset,
     wandb_run: Run,
     validation_split: float = 0.8,
     epoch_count: int = 10,
     learning_rate: float = 1e-3,
-) -> TemporalFusionTransformer:
+) -> TFTModel:
     start_time = datetime.now(tz=timezone)
     logger.info("Training temporal fusion transformer model")
     dimensions = dataset.get_dimensions()
@@ -62,7 +62,7 @@ def train_model(
         output_length=7,
     )
 
-    model = TemporalFusionTransformer(parameters=parameters)
+    model = TFTModel(parameters=parameters)
 
     batches = dataset.get_batches(
         data_type="train",
@@ -93,8 +93,8 @@ def train_model(
 
 @task
 def validate_model(
-    data: TemporalFusionTransformerDataset,
-    model: TemporalFusionTransformer,
+    data: TFTDataset,
+    model: TFTModel,
     validation_split: float = 0.8,
 ) -> None:
     start_time = datetime.now(tz=timezone)
@@ -119,7 +119,7 @@ def validate_model(
 
 
 @task
-def save_model(model: TemporalFusionTransformer) -> None:
+def save_model(model: TFTModel) -> None:
     start_time = datetime.now(tz=timezone)
     logger.info("Saving temporal fusion transformer model")
 
