@@ -4,6 +4,7 @@ from datetime import date
 import boto3
 import duckdb
 import polars as pl
+from internal.equity_bar import equity_bar_schema
 from loguru import logger
 
 
@@ -40,6 +41,8 @@ class S3Client:
         self.close()
 
     def write_equity_bars_data(self, data: pl.DataFrame) -> None:
+        data = equity_bar_schema.validate(data)
+
         count = len(data)
         if count > 0:
             try:
@@ -99,6 +102,6 @@ class S3Client:
             end_date.day,
         )
 
-        result = self.duckdb_connection.execute(query, params).fetchdf()
+        equity_bars = self.duckdb_connection.execute(query, params).pl()
 
-        return pl.from_pandas(result)
+        return equity_bar_schema.validate(equity_bars)

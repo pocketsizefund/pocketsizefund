@@ -14,6 +14,7 @@ from alpaca.trading import TradingClient
 from alpaca.trading.enums import AssetClass, AssetStatus
 from alpaca.trading.models import Asset
 from alpaca.trading.requests import GetAssetsRequest
+from internal.equity_bar import equity_bar_schema
 from loguru import logger
 
 if __name__ == "__main__":
@@ -128,8 +129,9 @@ if __name__ == "__main__":
     logger.info("Finished fetching all tickers.")
 
     if saved_files:
-        all_bars = pl.concat([pl.read_csv(fp) for fp in saved_files])
-        all_bars.write_csv("equity_bars_combined.csv")
+        all_equity_bars = pl.concat([pl.read_csv(fp) for fp in saved_files])
+        all_equity_bars = equity_bar_schema.validate(all_equity_bars)
+        all_equity_bars.write_csv("equity_bars.csv")
         logger.info("Finished saving combined equity bars.")
 
     else:

@@ -11,6 +11,7 @@ from alpaca.data.requests import StockSnapshotRequest
 from alpaca.trading import TradingClient
 from alpaca.trading.enums import AssetClass, AssetStatus
 from alpaca.trading.requests import GetAssetsRequest
+from internal.equity_bar import equity_bar_schema
 from loguru import logger
 
 if TYPE_CHECKING:
@@ -132,7 +133,7 @@ class AlpacaClient:
                             "volume_weighted_average_price": (
                                 float(daily_equity_bar.vwap)
                                 if daily_equity_bar.vwap is not None
-                                else None
+                                else math.nan
                             ),
                         }
                     )
@@ -166,4 +167,4 @@ class AlpacaClient:
             f"Collected {len(equity_bars)} equity bar records from {len(tickers)} tickers"  # noqa: E501
         )
 
-        return pl.DataFrame(equity_bars)
+        return equity_bar_schema.validate(pl.DataFrame(equity_bars))
