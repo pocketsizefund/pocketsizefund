@@ -14,6 +14,9 @@ google-cloud-sdk.pkg-path = "google-cloud-sdk"
 awscli2.pkg-path = "awscli2"
 cargo.pkg-path = "cargo"
 gum.pkg-path = "gum"
+bacon.pkg-path = "bacon"
+cargo-watch.pkg-path = "cargo-watch"
+cargo-nextest.pkg-path = "cargo-nextest"
 
 
 [hook]
