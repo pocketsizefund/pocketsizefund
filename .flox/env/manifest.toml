@@ -13,6 +13,7 @@ fselect.pkg-path = "fselect"
 google-cloud-sdk.pkg-path = "google-cloud-sdk"
 awscli2.pkg-path = "awscli2"
 cargo.pkg-path = "cargo"
+gum.pkg-path = "gum"
 
 
 [hook]

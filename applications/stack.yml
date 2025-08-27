@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  datamanager:
+    image: pocketsizefund/datamanager:latest
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      placement:
+        constraints: []
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    environment:
+      - PYTHONPATH=/app/src
+
+  portfoliomanager:
+    image: pocketsizefund/portfoliomanager:latest
+    ports:
+      - "8081:8081"
+    networks:
+      - app-network
+    depends_on:
+      - datamanager
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      placement:
+        constraints: []
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    environment:
+      - PYTHONPATH=/app/src
+      - DATAMANAGER_URL=http://datamanager:8080
+
+networks:
+  app-network:
+    driver: overlay
+    attachable: true

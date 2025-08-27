@@ -15,6 +15,9 @@
       "google-cloud-sdk": {
         "pkg-path": "google-cloud-sdk"
       },
+      "gum": {
+        "pkg-path": "gum"
+      },
       "mise": {
         "pkg-path": "mise"
       },
@@ -56,28 +59,28 @@
     {
       "attr_path": "awscli2",
       "broken": false,
-      "derivation": "/nix/store/v5gxglicwhyknfwswhngrbawzdwnapp5-awscli2-2.27.2.drv",
+      "derivation": "/nix/store/a43dgdv7nbg7jcvhxawml2igwvcswgca-awscli2-2.28.1.drv",
       "description": "Unified tool to manage your AWS services",
       "install_id": "awscli2",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "awscli2-2.27.2",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "awscli2-2.28.1",
       "pname": "awscli2",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:22:53.969182Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:52.178118Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2.27.2",
+      "version": "2.28.1",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/sc270lyggbhz78lcxh9khqmggayqpp6i-awscli2-2.27.2-dist",
-        "out": "/nix/store/b5fa0fplfpiyx8zwc9y7d08a57lsk229-awscli2-2.27.2"
+        "dist": "/nix/store/cpxy2pkb9jvrzvhkq8h70qf3c20mkich-awscli2-2.28.1-dist",
+        "out": "/nix/store/jg3mq99j92671mkxsv2y595mhz1idm0z-awscli2-2.28.1"
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
@@ -86,28 +89,28 @@
     {
       "attr_path": "awscli2",
       "broken": false,
-      "derivation": "/nix/store/7ykn42yxjf7ncyl2z00700hq214xs4jn-awscli2-2.27.2.drv",
+      "derivation": "/nix/store/d5h42iqd9sd7w2ccbqama2w0x34hqvqm-awscli2-2.28.1.drv",
       "description": "Unified tool to manage your AWS services",
       "install_id": "awscli2",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "awscli2-2.27.2",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "awscli2-2.28.1",
       "pname": "awscli2",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:41:01.084855Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:24.537933Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2.27.2",
+      "version": "2.28.1",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/ss8xqzwn1l8qdbwlml439bx1ik13vxlk-awscli2-2.27.2-dist",
-        "out": "/nix/store/161s22pbddllc4mabgr5rvrpmhiffsp4-awscli2-2.27.2"
+        "dist": "/nix/store/ff74pp94wldmpxdzizlqv2fib9qckk0h-awscli2-2.28.1-dist",
+        "out": "/nix/store/zysgkg1r1fkha1cniq8ypn1b4fs6qgyg-awscli2-2.28.1"
       },
       "system": "aarch64-linux",
       "group": "toplevel",
@@ -116,28 +119,28 @@
     {
       "attr_path": "awscli2",
       "broken": false,
-      "derivation": "/nix/store/id7b0p6cwlkcsnfb767s820ig9xj0qnp-awscli2-2.27.2.drv",
+      "derivation": "/nix/store/vygdhy1930j5waqcdw2hh3br76j4mvhw-awscli2-2.28.1.drv",
       "description": "Unified tool to manage your AWS services",
       "install_id": "awscli2",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "awscli2-2.27.2",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "awscli2-2.28.1",
       "pname": "awscli2",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:56:58.790359Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:24.859793Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2.27.2",
+      "version": "2.28.1",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/q9rzj2ikpl9vn4sns3ydsy7i8sachnha-awscli2-2.27.2-dist",
-        "out": "/nix/store/l18j8wgidf145m0zw6ydg8blim44hrkq-awscli2-2.27.2"
+        "dist": "/nix/store/ymhmqj49kkxn7c681y3m3r5rpd9j952f-awscli2-2.28.1-dist",
+        "out": "/nix/store/r8f0d1zjf9y9ms8cq06011xfn47ksp2n-awscli2-2.28.1"
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
@@ -146,28 +149,28 @@
     {
       "attr_path": "awscli2",
       "broken": false,
-      "derivation": "/nix/store/j2ajkr3y4c0fg9lxl22z30hd4spb74d9-awscli2-2.27.2.drv",
+      "derivation": "/nix/store/7jcbal1gy7snrzncyaaa9rvvgq57nw3w-awscli2-2.28.1.drv",
       "description": "Unified tool to manage your AWS services",
       "install_id": "awscli2",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "awscli2-2.27.2",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "awscli2-2.28.1",
       "pname": "awscli2",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T05:15:55.508841Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:25.512454Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2.27.2",
+      "version": "2.28.1",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/r5cw3141myaf5lnzra9c0nc8prb2zv6y-awscli2-2.27.2-dist",
-        "out": "/nix/store/gx3hx0b3lbm11sishxl4k7a7ha4w405q-awscli2-2.27.2"
+        "dist": "/nix/store/v5djmz4hra1bph7sya08qjacw8l4n696-awscli2-2.28.1-dist",
+        "out": "/nix/store/44hz642ffm3dzsfwqg8mqavbrp3nli4z-awscli2-2.28.1"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -176,27 +179,27 @@
     {
       "attr_path": "cargo",
       "broken": false,
-      "derivation": "/nix/store/6665a8zg1cpw2fjamds6261fmg1pa458-cargo-1.86.0.drv",
+      "derivation": "/nix/store/bakxj3wri0v57p4cb7gxm10blaw9mdjw-cargo-1.88.0.drv",
       "description": "Downloads your Rust project's dependencies and builds your project",
       "install_id": "cargo",
       "license": "[ MIT, Apache-2.0 ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "cargo-1.86.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-1.88.0",
       "pname": "cargo",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:22:54.464772Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:52.294787Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "1.86.0",
+      "version": "1.88.0",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/v9kavzgzbym8adb6p7nxgid13jz76411-cargo-1.86.0"
+        "out": "/nix/store/3iyviwimri8mq0cqv4abg9mibkcyc1cy-cargo-1.88.0"
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
@@ -205,27 +208,27 @@
     {
       "attr_path": "cargo",
       "broken": false,
-      "derivation": "/nix/store/jq0483mr9g99x5swkgvdf8w0hhj7yq73-cargo-1.86.0.drv",
+      "derivation": "/nix/store/xkn4nvdn6hjfm860dqgx3l6k3y12ybqv-cargo-1.88.0.drv",
       "description": "Downloads your Rust project's dependencies and builds your project",
       "install_id": "cargo",
       "license": "[ MIT, Apache-2.0 ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "cargo-1.86.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-1.88.0",
       "pname": "cargo",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:41:01.216082Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:24.701444Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "1.86.0",
+      "version": "1.88.0",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/4y830m5qm2xfvdacbsy3q1afxqnawihc-cargo-1.86.0"
+        "out": "/nix/store/6w7lghpjhkd5pw9y0hnnmg5w341jswyd-cargo-1.88.0"
       },
       "system": "aarch64-linux",
       "group": "toplevel",
@@ -234,27 +237,27 @@
     {
       "attr_path": "cargo",
       "broken": false,
-      "derivation": "/nix/store/za3xhiav2xk7z8g0synrxz3az6ai0i2f-cargo-1.86.0.drv",
+      "derivation": "/nix/store/x63zvjypdk7bd3fx80jkzqscfwvc4l20-cargo-1.88.0.drv",
       "description": "Downloads your Rust project's dependencies and builds your project",
       "install_id": "cargo",
       "license": "[ MIT, Apache-2.0 ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "cargo-1.86.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-1.88.0",
       "pname": "cargo",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:56:58.878560Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:24.987011Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "1.86.0",
+      "version": "1.88.0",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/mdqqq9g5zrisd3ng2j56a9gijr5fawp5-cargo-1.86.0"
+        "out": "/nix/store/8kwb2jmbf9xjhr18nw8sa66c0kivsqc4-cargo-1.88.0"
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
@@ -263,147 +266,27 @@
     {
       "attr_path": "cargo",
       "broken": false,
-      "derivation": "/nix/store/3f2cdkg4a3gjsw9mnb604ihqk1kq2dp2-cargo-1.86.0.drv",
+      "derivation": "/nix/store/gbxirn273y3mab26yhpx2gcwsw94wmz8-cargo-1.88.0.drv",
       "description": "Downloads your Rust project's dependencies and builds your project",
       "install_id": "cargo",
       "license": "[ MIT, Apache-2.0 ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "cargo-1.86.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-1.88.0",
       "pname": "cargo",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T05:15:55.650404Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:25.706690Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "1.86.0",
+      "version": "1.88.0",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/npqlgsia03kfhv8m9mav6hfnbawpg0yg-cargo-1.86.0"
-      },
-      "system": "x86_64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "fselect",
-      "broken": false,
-      "derivation": "/nix/store/admmm4b6lm869qnc1d487slsr6a9hl29-awscli-1.37.21.drv",
-      "description": "Unified tool to manage your AWS services",
-      "install_id": "awscli",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "awscli-1.37.21",
-      "pname": "awscli",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:22:53.969106Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "1.37.21",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "dist": "/nix/store/0kiij3r29vams4xdly1j6ib989d6dg98-awscli-1.37.21-dist",
-        "out": "/nix/store/kx0nyd82ar3ajzwbcdw56zzvbivh8phd-awscli-1.37.21"
-      },
-      "system": "aarch64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "awscli",
-      "broken": false,
-      "derivation": "/nix/store/3q1rbz2a9c33wb3s2xj2yv4zan0kcxkr-awscli-1.37.21.drv",
-      "description": "Unified tool to manage your AWS services",
-      "install_id": "awscli",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "awscli-1.37.21",
-      "pname": "awscli",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:41:01.084768Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "1.37.21",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "dist": "/nix/store/0pkrgfbvr96wp9c5n7arv3iampydwv91-awscli-1.37.21-dist",
-        "out": "/nix/store/smz9bm1zf8slhl5p94klwd5i9ps3azr8-awscli-1.37.21"
-      },
-      "system": "aarch64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "awscli",
-      "broken": false,
-      "derivation": "/nix/store/yxixxykij7vpbqsh0fzavvwrm0k7pa81-awscli-1.37.21.drv",
-      "description": "Unified tool to manage your AWS services",
-      "install_id": "awscli",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "awscli-1.37.21",
-      "pname": "awscli",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T04:56:58.790280Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "1.37.21",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "dist": "/nix/store/6knvfncqpmxx2yjcn2gswknqh63kq33d-awscli-1.37.21-dist",
-        "out": "/nix/store/r5819yiy7kh0z3xzv2jz90v58ky5h0kh-awscli-1.37.21"
-      },
-      "system": "x86_64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "awscli",
-      "broken": false,
-      "derivation": "/nix/store/hixh89aq7lmk94rg19xc6p0yjgl187pl-awscli-1.37.21.drv",
-      "description": "Unified tool to manage your AWS services",
-      "install_id": "awscli",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "name": "awscli-1.37.21",
-      "pname": "awscli",
-      "rev": "96ec055edbe5ee227f28cdbc3f1ddf1df5965102",
-      "rev_count": 807377,
-      "rev_date": "2025-05-28T19:24:49Z",
-      "scrape_date": "2025-05-31T05:15:55.508752Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "1.37.21",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "dist": "/nix/store/n9rbikvnh6c8byvd7xc07193rib9caw7-awscli-1.37.21-dist",
-        "out": "/nix/store/l4n82nf5mq4bfx8pjm10hn38xb22s3f8-awscli-1.37.21"
+        "out": "/nix/store/kg6psfcz4vjcvv8bpyvw422vrndrcq50-cargo-1.88.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -416,13 +299,13 @@
       "description": "Find files with SQL-like queries",
       "install_id": "fselect",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "fselect-0.9.0",
       "pname": "fselect",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:26:12.620192Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:53.069822Z",
       "stabilities": [
         "unstable"
       ],
@@ -445,13 +328,13 @@
       "description": "Find files with SQL-like queries",
       "install_id": "fselect",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "fselect-0.9.0",
       "pname": "fselect",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T01:59:39.053607Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:25.933250Z",
       "stabilities": [
         "unstable"
       ],
@@ -474,13 +357,13 @@
       "description": "Find files with SQL-like queries",
       "install_id": "fselect",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "fselect-0.9.0",
       "pname": "fselect",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:32:16.673494Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:25.774613Z",
       "stabilities": [
         "unstable"
       ],
@@ -503,13 +386,13 @@
       "description": "Find files with SQL-like queries",
       "install_id": "fselect",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "fselect-0.9.0",
       "pname": "fselect",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:13:25.966552Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:27.101212Z",
       "stabilities": [
         "unstable"
       ],
@@ -532,13 +415,13 @@
       "description": "Tools for the google cloud platform",
       "install_id": "google-cloud-sdk",
       "license": "Unspecified free software license",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "google-cloud-sdk-529.0.0",
       "pname": "google-cloud-sdk",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:26:12.870512Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:53.921750Z",
       "stabilities": [
         "unstable"
       ],
@@ -561,13 +444,13 @@
       "description": "Tools for the google cloud platform",
       "install_id": "google-cloud-sdk",
       "license": "Unspecified free software license",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "google-cloud-sdk-529.0.0",
       "pname": "google-cloud-sdk",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T01:59:39.864067Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:26.751810Z",
       "stabilities": [
         "unstable"
       ],
@@ -590,13 +473,13 @@
       "description": "Tools for the google cloud platform",
       "install_id": "google-cloud-sdk",
       "license": "Unspecified free software license",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "google-cloud-sdk-529.0.0",
       "pname": "google-cloud-sdk",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:32:17.016315Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:26.137968Z",
       "stabilities": [
         "unstable"
       ],
@@ -619,13 +502,13 @@
       "description": "Tools for the google cloud platform",
       "install_id": "google-cloud-sdk",
       "license": "Unspecified free software license",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "google-cloud-sdk-529.0.0",
       "pname": "google-cloud-sdk",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:13:26.878159Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:28.079182Z",
       "stabilities": [
         "unstable"
       ],
@@ -642,29 +525,145 @@
       "priority": 5
     },
     {
-      "attr_path": "mise",
+      "attr_path": "gum",
       "broken": false,
-      "derivation": "/nix/store/wvkjklbcrwqc1zb3z1l99saalqmmrbgx-mise-2025.8.6.drv",
-      "description": "Front-end to your dev env",
-      "install_id": "mise",
+      "derivation": "/nix/store/pg3cdd51qdyvz1y4f40sppnzi48w6kql-gum-0.16.2.drv",
+      "description": "Tasty Bubble Gum for your shell",
+      "install_id": "gum",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "name": "mise-2025.8.6",
-      "pname": "mise",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:26:15.081436Z",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "gum-0.16.2",
+      "pname": "gum",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:54.054101Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2025.8.6",
+      "version": "0.16.2",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/nnhr9arv6p3whvdzc7xvkifi9zvkj2d8-mise-2025.8.6"
+        "out": "/nix/store/s9w5fifwbcl92x3r55r9lbiwmlyrlfig-gum-0.16.2"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "gum",
+      "broken": false,
+      "derivation": "/nix/store/h7k81r0f4j065q10xnl4h3dib8vyw8qj-gum-0.16.2.drv",
+      "description": "Tasty Bubble Gum for your shell",
+      "install_id": "gum",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "gum-0.16.2",
+      "pname": "gum",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:26.984400Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.16.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/7z4r5akxz40nfji1jz4bdk99k1biwdkc-gum-0.16.2"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "gum",
+      "broken": false,
+      "derivation": "/nix/store/yv03ry4f80wp5cgxdb1d13l67n89lrv0-gum-0.16.2.drv",
+      "description": "Tasty Bubble Gum for your shell",
+      "install_id": "gum",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "gum-0.16.2",
+      "pname": "gum",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:26.288938Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.16.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/r6q70l6jqmgmmv8br9dpvh23c4lqkapq-gum-0.16.2"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "gum",
+      "broken": false,
+      "derivation": "/nix/store/1rl9xkxjazii9zr7ci73sjk20dp4v2yp-gum-0.16.2.drv",
+      "description": "Tasty Bubble Gum for your shell",
+      "install_id": "gum",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "gum-0.16.2",
+      "pname": "gum",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:28.362539Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.16.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ghqbmfsmdhccms652yx3n0mkj86jlz8r-gum-0.16.2"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "mise",
+      "broken": false,
+      "derivation": "/nix/store/7w57p5s1b4106h9in0lscvvs60dkwjsc-mise-2025.8.10.drv",
+      "description": "Front-end to your dev env",
+      "install_id": "mise",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "mise-2025.8.10",
+      "pname": "mise",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:56.567392Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2025.8.10",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/x94gym8q9idh94dyfjvr53d1kh6vy2qf-mise-2025.8.10"
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
@@ -673,27 +672,27 @@
     {
       "attr_path": "mise",
       "broken": false,
-      "derivation": "/nix/store/dqlas8pkisrd49k59qsa3riz9skq14rj-mise-2025.8.6.drv",
+      "derivation": "/nix/store/hqp5m0pir2gfw5nlg7hpqmb5jzlmm8s6-mise-2025.8.10.drv",
       "description": "Front-end to your dev env",
       "install_id": "mise",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "name": "mise-2025.8.6",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "mise-2025.8.10",
       "pname": "mise",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T01:59:49.801432Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:37.035331Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2025.8.6",
+      "version": "2025.8.10",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/szp56d7i8360b8r0s64fskb052vkr6wm-mise-2025.8.6"
+        "out": "/nix/store/z8lyj43yndbcqydydq8nvz3qkv3x68rv-mise-2025.8.10"
       },
       "system": "aarch64-linux",
       "group": "toplevel",
@@ -702,27 +701,27 @@
     {
       "attr_path": "mise",
       "broken": false,
-      "derivation": "/nix/store/q7n6h077wd3xqh8m9ylvz69jr41rcmvy-mise-2025.8.6.drv",
+      "derivation": "/nix/store/hxz7rgbwh3v09k3p1b6zanaalfrqrvfp-mise-2025.8.10.drv",
       "description": "Front-end to your dev env",
       "install_id": "mise",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "name": "mise-2025.8.6",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "mise-2025.8.10",
       "pname": "mise",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:32:19.614307Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:28.790678Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2025.8.6",
+      "version": "2025.8.10",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/skik69gqc1kadavrd3hkhja8qmwl6n2f-mise-2025.8.6"
+        "out": "/nix/store/0d0hgbin6fhhigmvwi3dyxkff01wq83i-mise-2025.8.10"
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
@@ -731,27 +730,27 @@
     {
       "attr_path": "mise",
       "broken": false,
-      "derivation": "/nix/store/1cyg8v3wskbkg2xwjgh9dy3c27772qh6-mise-2025.8.6.drv",
+      "derivation": "/nix/store/32pn0bh7dz78cinkq5wf02miwpw3ppz8-mise-2025.8.10.drv",
       "description": "Front-end to your dev env",
       "install_id": "mise",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "name": "mise-2025.8.6",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "mise-2025.8.10",
       "pname": "mise",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:13:39.000824Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:40.546450Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2025.8.6",
+      "version": "2025.8.10",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/7kxwlzg2dn4pa6ngif1hl7lcxsjpvibq-mise-2025.8.6"
+        "out": "/nix/store/5akarcdrqqss4rr2jipmncv71dmdpb1n-mise-2025.8.10"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -764,13 +763,13 @@
       "description": "Modern shell written in Rust",
       "install_id": "nushell",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "nushell-0.106.1",
       "pname": "nushell",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:26:15.733915Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:57.321054Z",
       "stabilities": [
         "unstable"
       ],
@@ -793,13 +792,13 @@
       "description": "Modern shell written in Rust",
       "install_id": "nushell",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "nushell-0.106.1",
       "pname": "nushell",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T01:59:51.473137Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:38.806106Z",
       "stabilities": [
         "unstable"
       ],
@@ -822,13 +821,13 @@
       "description": "Modern shell written in Rust",
       "install_id": "nushell",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "nushell-0.106.1",
       "pname": "nushell",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:32:20.392232Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:29.560970Z",
       "stabilities": [
         "unstable"
       ],
@@ -851,13 +850,13 @@
       "description": "Modern shell written in Rust",
       "install_id": "nushell",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "nushell-0.106.1",
       "pname": "nushell",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:13:40.953445Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:42.522527Z",
       "stabilities": [
         "unstable"
       ],
@@ -880,13 +879,13 @@
       "description": "Cloud development platform that makes creating cloud programs easy and productive",
       "install_id": "pulumi",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "pulumi-3.185.0",
       "pname": "pulumi",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:26:22.054956Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:39:05.336003Z",
       "stabilities": [
         "unstable"
       ],
@@ -909,13 +908,13 @@
       "description": "Cloud development platform that makes creating cloud programs easy and productive",
       "install_id": "pulumi",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "pulumi-3.185.0",
       "pname": "pulumi",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:00:06.056158Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:53.897916Z",
       "stabilities": [
         "unstable"
       ],
@@ -938,13 +937,13 @@
       "description": "Cloud development platform that makes creating cloud programs easy and productive",
       "install_id": "pulumi",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "pulumi-3.185.0",
       "pname": "pulumi",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:32:27.943149Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:37.376526Z",
       "stabilities": [
         "unstable"
       ],
@@ -967,13 +966,13 @@
       "description": "Cloud development platform that makes creating cloud programs easy and productive",
       "install_id": "pulumi",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "pulumi-3.185.0",
       "pname": "pulumi",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:13:56.426861Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:58.544355Z",
       "stabilities": [
         "unstable"
       ],
@@ -996,13 +995,13 @@
       "description": "Language host for Pulumi programs written in Python",
       "install_id": "pulumi-python",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "pulumi-python-3.185.0",
       "pname": "pulumi-python",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:26:22.064739Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:39:05.349455Z",
       "stabilities": [
         "unstable"
       ],
@@ -1025,13 +1024,13 @@
       "description": "Language host for Pulumi programs written in Python",
       "install_id": "pulumi-python",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "pulumi-python-3.185.0",
       "pname": "pulumi-python",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:00:06.075355Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:53.917252Z",
       "stabilities": [
         "unstable"
       ],
@@ -1054,13 +1053,13 @@
       "description": "Language host for Pulumi programs written in Python",
       "install_id": "pulumi-python",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "pulumi-python-3.185.0",
       "pname": "pulumi-python",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:32:27.954954Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:37.388944Z",
       "stabilities": [
         "unstable"
       ],
@@ -1083,13 +1082,13 @@
       "description": "Language host for Pulumi programs written in Python",
       "install_id": "pulumi-python",
       "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "pulumi-python-3.185.0",
       "pname": "pulumi-python",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:13:56.452524Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:58.563478Z",
       "stabilities": [
         "unstable"
       ],
@@ -1112,13 +1111,13 @@
       "description": "Extremely fast Python linter and code formatter",
       "install_id": "ruff",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "ruff-0.12.4",
       "pname": "ruff",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:26:48.523662Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:39:42.999111Z",
       "stabilities": [
         "unstable"
       ],
@@ -1141,13 +1140,13 @@
       "description": "Extremely fast Python linter and code formatter",
       "install_id": "ruff",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "ruff-0.12.4",
       "pname": "ruff",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:00:55.335510Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:06:47.837355Z",
       "stabilities": [
         "unstable"
       ],
@@ -1170,13 +1169,13 @@
       "description": "Extremely fast Python linter and code formatter",
       "install_id": "ruff",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "ruff-0.12.4",
       "pname": "ruff",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:33:00.323658Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:30:11.549125Z",
       "stabilities": [
         "unstable"
       ],
@@ -1199,13 +1198,13 @@
       "description": "Extremely fast Python linter and code formatter",
       "install_id": "ruff",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "ruff-0.12.4",
       "pname": "ruff",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:14:48.280945Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:58:51.307453Z",
       "stabilities": [
         "unstable"
       ],
@@ -1228,13 +1227,13 @@
       "description": "Extremely fast Python package installer and resolver, written in Rust",
       "install_id": "uv",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "uv-0.8.2",
       "pname": "uv",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:27:16.729256Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:40:23.781590Z",
       "stabilities": [
         "unstable"
       ],
@@ -1257,13 +1256,13 @@
       "description": "Extremely fast Python package installer and resolver, written in Rust",
       "install_id": "uv",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "uv-0.8.2",
       "pname": "uv",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:01:44.564146Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:07:42.514089Z",
       "stabilities": [
         "unstable"
       ],
@@ -1286,13 +1285,13 @@
       "description": "Extremely fast Python package installer and resolver, written in Rust",
       "install_id": "uv",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "uv-0.8.2",
       "pname": "uv",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:33:35.880116Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:30:48.943480Z",
       "stabilities": [
         "unstable"
       ],
@@ -1315,13 +1314,13 @@
       "description": "Extremely fast Python package installer and resolver, written in Rust",
       "install_id": "uv",
       "license": "[ Apache-2.0, MIT ]",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "uv-0.8.2",
       "pname": "uv",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:15:39.576767Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:59:43.505055Z",
       "stabilities": [
         "unstable"
       ],
@@ -1340,17 +1339,17 @@
     {
       "attr_path": "python313Packages.vulture",
       "broken": false,
-      "derivation": "/nix/store/32nihzi1nx446pk383g78d6mw6xc734s-python3.13-vulture-2.14.drv",
+      "derivation": "/nix/store/1cdyhxsd5fcm42c9gnq3df14kmr7vyf2-python3.12-vulture-2.14.drv",
       "description": "Finds unused code in Python programs",
       "install_id": "vulture",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "name": "python3.13-vulture-2.14",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "python3.12-vulture-2.14",
       "pname": "vulture",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:26:43.523561Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:39:18.274864Z",
       "stabilities": [
         "unstable"
       ],
@@ -1360,8 +1359,8 @@
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/g4w4vfh1hgm5vfxqxxy7a0rlc1hybixh-python3.13-vulture-2.14-dist",
-        "out": "/nix/store/cjpzb97gl8giy0awwhzs2fxrzbldjdw7-python3.13-vulture-2.14"
+        "dist": "/nix/store/prlwip9g83wjvjfhvn929s79fgxk309d-python3.12-vulture-2.14-dist",
+        "out": "/nix/store/nc3qhy5wkg2ix4xrkg2d8whq6vkq0di0-python3.12-vulture-2.14"
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
@@ -1370,17 +1369,17 @@
     {
       "attr_path": "python313Packages.vulture",
       "broken": false,
-      "derivation": "/nix/store/45pjsi9x9x3lk7d8gv2yl8749gfdbh6x-python3.13-vulture-2.14.drv",
+      "derivation": "/nix/store/d13csg2i23c6ldnq781ysc6rn0zda7id-python3.12-vulture-2.14.drv",
       "description": "Finds unused code in Python programs",
       "install_id": "vulture",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "name": "python3.13-vulture-2.14",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "python3.12-vulture-2.14",
       "pname": "vulture",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:00:45.953676Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:06:13.274078Z",
       "stabilities": [
         "unstable"
       ],
@@ -1390,8 +1389,8 @@
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/4c6lq83d3q593vrs8x22fmv052i9gfb7-python3.13-vulture-2.14-dist",
-        "out": "/nix/store/nk1cwmm3n2zwmhv1134sq5yh8mpkgc2b-python3.13-vulture-2.14"
+        "dist": "/nix/store/3843mxlcpkcp0hz508477fckxciw6iqq-python3.12-vulture-2.14-dist",
+        "out": "/nix/store/yxl6yjn3wirqzmsy648xjzi8567jx69c-python3.12-vulture-2.14"
       },
       "system": "aarch64-linux",
       "group": "toplevel",
@@ -1400,17 +1399,17 @@
     {
       "attr_path": "python313Packages.vulture",
       "broken": false,
-      "derivation": "/nix/store/ndpdvvqw75hnr9p4gq0sa0q1sanjf3rn-python3.13-vulture-2.14.drv",
+      "derivation": "/nix/store/a5432g3swgky0xdg7l2mxr2d49qj9iyz-python3.12-vulture-2.14.drv",
       "description": "Finds unused code in Python programs",
       "install_id": "vulture",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "name": "python3.13-vulture-2.14",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "python3.12-vulture-2.14",
       "pname": "vulture",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:32:54.078468Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:48.871215Z",
       "stabilities": [
         "unstable"
       ],
@@ -1420,8 +1419,8 @@
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/9q4vnqp0rpggp04c5w9pjk7sp21d0xsy-python3.13-vulture-2.14-dist",
-        "out": "/nix/store/6bhr50lfglxdmpv9n3jhmi98hbzacggj-python3.13-vulture-2.14"
+        "dist": "/nix/store/8an3lm4pc8m5wk5nr0c83rnmh1641nwc-python3.12-vulture-2.14-dist",
+        "out": "/nix/store/kfdv2lsh0wls4x5fqgyc8kqpvqwzyryc-python3.12-vulture-2.14"
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
@@ -1430,17 +1429,17 @@
     {
       "attr_path": "python313Packages.vulture",
       "broken": false,
-      "derivation": "/nix/store/4sgflvdh30xvfd2a55025afj6v97m664-python3.13-vulture-2.14.drv",
+      "derivation": "/nix/store/3mwcz6b8jk8vf5dz5f3yhpxzl8mwiy8q-python3.12-vulture-2.14.drv",
       "description": "Finds unused code in Python programs",
       "install_id": "vulture",
       "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "name": "python3.13-vulture-2.14",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "python3.12-vulture-2.14",
       "pname": "vulture",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:14:38.091751Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:58:17.484983Z",
       "stabilities": [
         "unstable"
       ],
@@ -1450,8 +1449,8 @@
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/b4hhs9y36f2b96l505bpp54hp7lifpwm-python3.13-vulture-2.14-dist",
-        "out": "/nix/store/gnffvcxchixrzy552h98v2jccav27bnf-python3.13-vulture-2.14"
+        "dist": "/nix/store/cc5pk4ic26v348ww0yd0qy05hdd3b3mp-python3.12-vulture-2.14-dist",
+        "out": "/nix/store/cq7g4h7p69vy01wkrk1yv7mf9b0h5kcg-python3.12-vulture-2.14"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -1464,13 +1463,13 @@
       "description": "Linter for YAML files",
       "install_id": "yamllint",
       "license": "GPL-3.0-or-later",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "python3.13-yamllint-1.37.1",
       "pname": "yamllint",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T00:27:24.798276Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:40:35.150003Z",
       "stabilities": [
         "unstable"
       ],
@@ -1494,13 +1493,13 @@
       "description": "Linter for YAML files",
       "install_id": "yamllint",
       "license": "GPL-3.0-or-later",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "python3.13-yamllint-1.37.1",
       "pname": "yamllint",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:01:59.340541Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:07:58.981342Z",
       "stabilities": [
         "unstable"
       ],
@@ -1524,13 +1523,13 @@
       "description": "Linter for YAML files",
       "install_id": "yamllint",
       "license": "GPL-3.0-or-later",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "python3.13-yamllint-1.37.1",
       "pname": "yamllint",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T02:33:46.012406Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:30:59.574663Z",
       "stabilities": [
         "unstable"
       ],
@@ -1554,13 +1553,13 @@
       "description": "Linter for YAML files",
       "install_id": "yamllint",
       "license": "GPL-3.0-or-later",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
       "name": "python3.13-yamllint-1.37.1",
       "pname": "yamllint",
-      "rev": "005433b926e16227259a1843015b5b2b7f7d1fc3",
-      "rev_count": 843472,
-      "rev_date": "2025-08-12T19:39:21Z",
-      "scrape_date": "2025-08-14T03:15:55.394937Z",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:59:59.715484Z",
       "stabilities": [
         "unstable"
       ],
