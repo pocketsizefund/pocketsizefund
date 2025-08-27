@@ -473,7 +473,7 @@ wheels = [
 [[package]]
 name = "datamanager"
 version = "0.1.0"
-source = { editable = "applications/datamanager" }
+source = { virtual = "applications/datamanager" }
 dependencies = [
     { name = "fastapi" },
     { name = "structlog" },
@@ -1412,7 +1412,7 @@ wheels = [
 [[package]]
 name = "portfoliomanager"
 version = "0.1.0"
-source = { editable = "applications/portfoliomanager" }
+source = { virtual = "applications/portfoliomanager" }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },

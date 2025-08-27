@@ -6,8 +6,17 @@
       "awscli2": {
         "pkg-path": "awscli2"
       },
+      "bacon": {
+        "pkg-path": "bacon"
+      },
       "cargo": {
         "pkg-path": "cargo"
+      },
+      "cargo-nextest": {
+        "pkg-path": "cargo-nextest"
+      },
+      "cargo-watch": {
+        "pkg-path": "cargo-watch"
       },
       "fselect": {
         "pkg-path": "fselect"
@@ -177,6 +186,122 @@
       "priority": 5
     },
     {
+      "attr_path": "bacon",
+      "broken": false,
+      "derivation": "/nix/store/6jh954i70qz8vi0sjkh4kh68kj3vy6lw-bacon-3.17.0.drv",
+      "description": "Background rust code checker",
+      "install_id": "bacon",
+      "license": "AGPL-3.0-only",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "bacon-3.17.0",
+      "pname": "bacon",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:52.199074Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.17.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/8n1bwc0gh0b6zizxfnbldb5fnrcc5sf4-bacon-3.17.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "bacon",
+      "broken": false,
+      "derivation": "/nix/store/lmpfngqxqbr1ibpbswa63wl45kj2ryyf-bacon-3.17.0.drv",
+      "description": "Background rust code checker",
+      "install_id": "bacon",
+      "license": "AGPL-3.0-only",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "bacon-3.17.0",
+      "pname": "bacon",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:24.563051Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.17.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/7kdvkgwpmag2dvw2f1jwav4qn6qh3hr6-bacon-3.17.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "bacon",
+      "broken": false,
+      "derivation": "/nix/store/mg3wwq19khbr27i6lw41vhw447482k3f-bacon-3.17.0.drv",
+      "description": "Background rust code checker",
+      "install_id": "bacon",
+      "license": "AGPL-3.0-only",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "bacon-3.17.0",
+      "pname": "bacon",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:24.886991Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.17.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/p3xsl5w217gi481ggvvd1jy9jx6kh629-bacon-3.17.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "bacon",
+      "broken": false,
+      "derivation": "/nix/store/b1avd7ia6n09xpgh20p9vl6zpxl5rizy-bacon-3.17.0.drv",
+      "description": "Background rust code checker",
+      "install_id": "bacon",
+      "license": "AGPL-3.0-only",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "bacon-3.17.0",
+      "pname": "bacon",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:25.542860Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.17.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/2qxh55lli06bbngxz7w55v2gnyinqp8k-bacon-3.17.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
       "attr_path": "cargo",
       "broken": false,
       "derivation": "/nix/store/bakxj3wri0v57p4cb7gxm10blaw9mdjw-cargo-1.88.0.drv",
@@ -287,6 +412,238 @@
       ],
       "outputs": {
         "out": "/nix/store/kg6psfcz4vjcvv8bpyvw422vrndrcq50-cargo-1.88.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-nextest",
+      "broken": false,
+      "derivation": "/nix/store/5rkr32zm9pw8gsi4z2n1mxkqia2km433-cargo-nextest-0.9.102.drv",
+      "description": "Next-generation test runner for Rust projects",
+      "install_id": "cargo-nextest",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-nextest-0.9.102",
+      "pname": "cargo-nextest",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:52.305327Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.9.102",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/9g84727nljh0z9lrryf9yd1821ihrx09-cargo-nextest-0.9.102"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-nextest",
+      "broken": false,
+      "derivation": "/nix/store/d36l1vii61dj3plsf6icam87mbz5isc1-cargo-nextest-0.9.102.drv",
+      "description": "Next-generation test runner for Rust projects",
+      "install_id": "cargo-nextest",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-nextest-0.9.102",
+      "pname": "cargo-nextest",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:24.713569Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.9.102",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/6ckgr1wh5h6wxrq0hcy2zln8c6hmirk2-cargo-nextest-0.9.102"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-nextest",
+      "broken": false,
+      "derivation": "/nix/store/kril53jrrkxz1gjc2cs43sin9w65093m-cargo-nextest-0.9.102.drv",
+      "description": "Next-generation test runner for Rust projects",
+      "install_id": "cargo-nextest",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-nextest-0.9.102",
+      "pname": "cargo-nextest",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:24.999397Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.9.102",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/pysfvzr9rkiw3blj0sk3c9z52rxc6iz5-cargo-nextest-0.9.102"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-nextest",
+      "broken": false,
+      "derivation": "/nix/store/69nl8dlhwzx6l4virgbalsfv0r1fkip8-cargo-nextest-0.9.102.drv",
+      "description": "Next-generation test runner for Rust projects",
+      "install_id": "cargo-nextest",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-nextest-0.9.102",
+      "pname": "cargo-nextest",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:25.719891Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.9.102",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/6av950vkxavbpm56881p09hg08iln0z8-cargo-nextest-0.9.102"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-watch",
+      "broken": false,
+      "derivation": "/nix/store/cr2z9rc0f6nhhxb36sfbc3bjj98gn9ib-cargo-watch-8.5.3.drv",
+      "description": "Cargo subcommand for watching over Cargo project's source",
+      "install_id": "cargo-watch",
+      "license": "CC0-1.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-watch-8.5.3",
+      "pname": "cargo-watch",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T15:38:52.315844Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "8.5.3",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/asdsancbsyn12l7psc43xlhhdcii4b1x-cargo-watch-8.5.3"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-watch",
+      "broken": false,
+      "derivation": "/nix/store/kpzsafc528j8b0kwj2vww4bbhkawzwk0-cargo-watch-8.5.3.drv",
+      "description": "Cargo subcommand for watching over Cargo project's source",
+      "install_id": "cargo-watch",
+      "license": "CC0-1.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-watch-8.5.3",
+      "pname": "cargo-watch",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:05:24.721290Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "8.5.3",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/5l3psfx9r3m3bp5i8zh1hh8pzxn38q2l-cargo-watch-8.5.3"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-watch",
+      "broken": false,
+      "derivation": "/nix/store/9frxjf2wq9s07ld1xlwg7r1xhyxjc5yj-cargo-watch-8.5.3.drv",
+      "description": "Cargo subcommand for watching over Cargo project's source",
+      "install_id": "cargo-watch",
+      "license": "CC0-1.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-watch-8.5.3",
+      "pname": "cargo-watch",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:29:25.005974Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "8.5.3",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/8a6wq156n6nj5pdv9av8pprr9hkk4cr9-cargo-watch-8.5.3"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-watch",
+      "broken": false,
+      "derivation": "/nix/store/lgcyaka5c996jhpk2laywqza95zldmfm-cargo-watch-8.5.3.drv",
+      "description": "Cargo subcommand for watching over Cargo project's source",
+      "install_id": "cargo-watch",
+      "license": "CC0-1.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
+      "name": "cargo-watch-8.5.3",
+      "pname": "cargo-watch",
+      "rev": "20075955deac2583bb12f07151c2df830ef346b4",
+      "rev_count": 846535,
+      "rev_date": "2025-08-19T15:00:17Z",
+      "scrape_date": "2025-08-24T16:57:25.728246Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "8.5.3",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/wrzbcakywsw1s1jcc6gxxm4drwfzd6r6-cargo-watch-8.5.3"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -1339,17 +1696,17 @@
     {
       "attr_path": "python313Packages.vulture",
       "broken": false,
-      "derivation": "/nix/store/1cdyhxsd5fcm42c9gnq3df14kmr7vyf2-python3.12-vulture-2.14.drv",
+      "derivation": "/nix/store/32nihzi1nx446pk383g78d6mw6xc734s-python3.13-vulture-2.14.drv",
       "description": "Finds unused code in Python programs",
       "install_id": "vulture",
       "license": "MIT",
       "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
-      "name": "python3.12-vulture-2.14",
+      "name": "python3.13-vulture-2.14",
       "pname": "vulture",
       "rev": "20075955deac2583bb12f07151c2df830ef346b4",
       "rev_count": 846535,
       "rev_date": "2025-08-19T15:00:17Z",
-      "scrape_date": "2025-08-24T15:39:18.274864Z",
+      "scrape_date": "2025-08-24T15:39:35.811975Z",
       "stabilities": [
         "unstable"
       ],
@@ -1359,8 +1716,8 @@
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/prlwip9g83wjvjfhvn929s79fgxk309d-python3.12-vulture-2.14-dist",
-        "out": "/nix/store/nc3qhy5wkg2ix4xrkg2d8whq6vkq0di0-python3.12-vulture-2.14"
+        "dist": "/nix/store/g4w4vfh1hgm5vfxqxxy7a0rlc1hybixh-python3.13-vulture-2.14-dist",
+        "out": "/nix/store/cjpzb97gl8giy0awwhzs2fxrzbldjdw7-python3.13-vulture-2.14"
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
@@ -1369,17 +1726,17 @@
     {
       "attr_path": "python313Packages.vulture",
       "broken": false,
-      "derivation": "/nix/store/d13csg2i23c6ldnq781ysc6rn0zda7id-python3.12-vulture-2.14.drv",
+      "derivation": "/nix/store/45pjsi9x9x3lk7d8gv2yl8749gfdbh6x-python3.13-vulture-2.14.drv",
       "description": "Finds unused code in Python programs",
       "install_id": "vulture",
       "license": "MIT",
       "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
-      "name": "python3.12-vulture-2.14",
+      "name": "python3.13-vulture-2.14",
       "pname": "vulture",
       "rev": "20075955deac2583bb12f07151c2df830ef346b4",
       "rev_count": 846535,
       "rev_date": "2025-08-19T15:00:17Z",
-      "scrape_date": "2025-08-24T16:06:13.274078Z",
+      "scrape_date": "2025-08-24T16:06:37.526694Z",
       "stabilities": [
         "unstable"
       ],
@@ -1389,8 +1746,8 @@
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/3843mxlcpkcp0hz508477fckxciw6iqq-python3.12-vulture-2.14-dist",
-        "out": "/nix/store/yxl6yjn3wirqzmsy648xjzi8567jx69c-python3.12-vulture-2.14"
+        "dist": "/nix/store/4c6lq83d3q593vrs8x22fmv052i9gfb7-python3.13-vulture-2.14-dist",
+        "out": "/nix/store/nk1cwmm3n2zwmhv1134sq5yh8mpkgc2b-python3.13-vulture-2.14"
       },
       "system": "aarch64-linux",
       "group": "toplevel",
@@ -1399,17 +1756,17 @@
     {
       "attr_path": "python313Packages.vulture",
       "broken": false,
-      "derivation": "/nix/store/a5432g3swgky0xdg7l2mxr2d49qj9iyz-python3.12-vulture-2.14.drv",
+      "derivation": "/nix/store/ndpdvvqw75hnr9p4gq0sa0q1sanjf3rn-python3.13-vulture-2.14.drv",
       "description": "Finds unused code in Python programs",
       "install_id": "vulture",
       "license": "MIT",
       "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
-      "name": "python3.12-vulture-2.14",
+      "name": "python3.13-vulture-2.14",
       "pname": "vulture",
       "rev": "20075955deac2583bb12f07151c2df830ef346b4",
       "rev_count": 846535,
       "rev_date": "2025-08-19T15:00:17Z",
-      "scrape_date": "2025-08-24T16:29:48.871215Z",
+      "scrape_date": "2025-08-24T16:30:04.825291Z",
       "stabilities": [
         "unstable"
       ],
@@ -1419,8 +1776,8 @@
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/8an3lm4pc8m5wk5nr0c83rnmh1641nwc-python3.12-vulture-2.14-dist",
-        "out": "/nix/store/kfdv2lsh0wls4x5fqgyc8kqpvqwzyryc-python3.12-vulture-2.14"
+        "dist": "/nix/store/9q4vnqp0rpggp04c5w9pjk7sp21d0xsy-python3.13-vulture-2.14-dist",
+        "out": "/nix/store/6bhr50lfglxdmpv9n3jhmi98hbzacggj-python3.13-vulture-2.14"
       },
       "system": "x86_64-darwin",
       "group": "toplevel",
@@ -1429,17 +1786,17 @@
     {
       "attr_path": "python313Packages.vulture",
       "broken": false,
-      "derivation": "/nix/store/3mwcz6b8jk8vf5dz5f3yhpxzl8mwiy8q-python3.12-vulture-2.14.drv",
+      "derivation": "/nix/store/4sgflvdh30xvfd2a55025afj6v97m664-python3.13-vulture-2.14.drv",
       "description": "Finds unused code in Python programs",
       "install_id": "vulture",
       "license": "MIT",
       "locked_url": "https://github.com/flox/nixpkgs?rev=20075955deac2583bb12f07151c2df830ef346b4",
-      "name": "python3.12-vulture-2.14",
+      "name": "python3.13-vulture-2.14",
       "pname": "vulture",
       "rev": "20075955deac2583bb12f07151c2df830ef346b4",
       "rev_count": 846535,
       "rev_date": "2025-08-19T15:00:17Z",
-      "scrape_date": "2025-08-24T16:58:17.484983Z",
+      "scrape_date": "2025-08-24T16:58:41.047021Z",
       "stabilities": [
         "unstable"
       ],
@@ -1449,8 +1806,8 @@
         "out"
       ],
       "outputs": {
-        "dist": "/nix/store/cc5pk4ic26v348ww0yd0qy05hdd3b3mp-python3.12-vulture-2.14-dist",
-        "out": "/nix/store/cq7g4h7p69vy01wkrk1yv7mf9b0h5kcg-python3.12-vulture-2.14"
+        "dist": "/nix/store/b4hhs9y36f2b96l505bpp54hp7lifpwm-python3.13-vulture-2.14-dist",
+        "out": "/nix/store/gnffvcxchixrzy552h98v2jccav27bnf-python3.13-vulture-2.14"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
