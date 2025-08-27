@@ -14,6 +14,10 @@ volumes:
   prom_data:
   grafana_data:
 
+secrets:
+  GRAFANA_ADMIN_PASSWORD:
+    external: true
+
 configs:
   prometheus.yml:
     name: prometheus.yml
@@ -120,8 +124,9 @@ services:
     image: grafana/grafana:10.4.2
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      # TODO: Change this to a random password
-      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/GRAFANA_ADMIN_PASSWORD
+    secrets:
+      - GRAFANA_ADMIN_PASSWORD
     volumes:
       - grafana_data:/var/lib/grafana
     deploy:

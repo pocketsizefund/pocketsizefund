@@ -7,6 +7,13 @@ az = pulumi.Config().get("az") or "us-east-1a"
 blueprint_id = pulumi.Config().get("blueprintId") or "ubuntu_24_04"
 bundle_mgr = pulumi.Config().get("bundleIdMgr") or "medium_2_0"
 bundle_wkr = pulumi.Config().get("bundleIdWkr") or "small_2_0"
+allowed_ssh_cidrs = pulumi.Config().get_object("allowedSshCidrs") or ["0.0.0.0/0"]
+swarm_manager_allowed_cidrs = pulumi.Config().get_object(
+    "swarmManagerAllowedCidrs"
+) or ["10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12"]
+swarm_cluster_allowed_cidrs = pulumi.Config().get_object(
+    "swarmClusterAllowedCidrs"
+) or ["10.0.0.0/16"]
 
 ssh_key = tls.PrivateKey("swarm-key", algorithm="RSA", rsa_bits=4096)
 ls_key = aws.lightsail.KeyPair(
@@ -68,16 +75,28 @@ def mk_instance(name: str, bundle_id: str):  # noqa: ANN201
                 from_port=22, to_port=22, protocol="tcp", cidrs=["0.0.0.0/0"]
             ),
             aws.lightsail.InstancePublicPortsPortInfoArgs(
-                from_port=2377, to_port=2377, protocol="tcp", cidrs=["0.0.0.0/0"]
+                from_port=2377,
+                to_port=2377,
+                protocol="tcp",
+                cidrs=swarm_manager_allowed_cidrs,
             ),
             aws.lightsail.InstancePublicPortsPortInfoArgs(
-                from_port=7946, to_port=7946, protocol="tcp", cidrs=["0.0.0.0/0"]
+                from_port=7946,
+                to_port=7946,
+                protocol="tcp",
+                cidrs=swarm_cluster_allowed_cidrs,
             ),
             aws.lightsail.InstancePublicPortsPortInfoArgs(
-                from_port=7946, to_port=7946, protocol="udp", cidrs=["0.0.0.0/0"]
+                from_port=7946,
+                to_port=7946,
+                protocol="udp",
+                cidrs=swarm_cluster_allowed_cidrs,
             ),
             aws.lightsail.InstancePublicPortsPortInfoArgs(
-                from_port=4789, to_port=4789, protocol="udp", cidrs=["0.0.0.0/0"]
+                from_port=4789,
+                to_port=4789,
+                protocol="udp",
+                cidrs=swarm_cluster_allowed_cidrs,
             ),
             aws.lightsail.InstancePublicPortsPortInfoArgs(
                 from_port=80, to_port=80, protocol="tcp", cidrs=["0.0.0.0/0"]
