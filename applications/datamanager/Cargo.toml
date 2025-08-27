@@ -1,0 +1,19 @@
+[package]
+name = "datamanager"
+version = "0.1.0"
+edition = "2024"
+
+[patch.crates-io]
+planus = "=1.1.1"
+
+[dependencies]
+axum = "0.8.4"
+chrono = { version = "0.4.41", features = ["serde"] }
+polars = "0.50.0"
+reqwest = "0.12.23"
+serde = { version = "1.0.219", features = ["derive"] }
+tokio = { version = "1.47.1", features = ["full"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.6", features = ["trace"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt"] }
