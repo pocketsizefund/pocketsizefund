@@ -12,7 +12,9 @@
       "Bash(kill:*)",
       "Bash(RUST_LOG=info cargo run)",
       "Bash(pkill:*)",
-      "Bash(RUST_LOG=debug cargo run)"
+      "Bash(RUST_LOG=debug cargo run)",
+      "Bash(brew install:*)",
+      "Bash(export:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
