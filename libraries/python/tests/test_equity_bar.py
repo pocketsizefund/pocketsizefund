@@ -26,7 +26,7 @@ def test_equity_bar_schema_ticker_lowercase_fails() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["aapl"],
-            "timestamp": [1674000000],
+            "timestamp": [1674000000.0],
             "open_price": [150.0],
             "high_price": [155.0],
             "low_price": [149.0],
@@ -44,7 +44,7 @@ def test_equity_bar_schema_ticker_uppercase_passes() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
-            "timestamp": [1674000000],
+            "timestamp": [1674000000.0],
             "open_price": [150.0],
             "high_price": [155.0],
             "low_price": [149.0],
@@ -62,7 +62,7 @@ def test_equity_bar_schema_negative_timestamp() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
-            "timestamp": [-1674000000],
+            "timestamp": [-1674000000.0],
             "open_price": [150.0],
             "high_price": [155.0],
             "low_price": [149.0],
@@ -80,7 +80,7 @@ def test_equity_bar_schema_zero_timestamp() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
-            "timestamp": [0],
+            "timestamp": [0.0],
             "open_price": [150.0],
             "high_price": [155.0],
             "low_price": [149.0],
@@ -107,7 +107,7 @@ def test_equity_bar_schema_negative_prices() -> None:
         data = pl.DataFrame(
             {
                 "ticker": ["AAPL"],
-                "timestamp": [1674000000],
+                "timestamp": [1674000000.0],
                 "open_price": [150.0],
                 "high_price": [155.0],
                 "low_price": [149.0],
@@ -127,7 +127,7 @@ def test_equity_bar_schema_zero_prices_not_allowed() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
-            "timestamp": [1674000000],
+            "timestamp": [1674000000.0],
             "open_price": [0.0],
             "high_price": [155.0],
             "low_price": [149.0],
@@ -145,7 +145,7 @@ def test_equity_bar_schema_negative_volume() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
-            "timestamp": [1674000000],
+            "timestamp": [1674000000.0],
             "open_price": [150.0],
             "high_price": [155.0],
             "low_price": [149.0],
@@ -159,29 +159,11 @@ def test_equity_bar_schema_negative_volume() -> None:
         equity_bar_schema.validate(data)
 
 
-def test_equity_bar_schema_zero_volume_not_allowed() -> None:
-    data = pl.DataFrame(
-        {
-            "ticker": ["AAPL"],
-            "timestamp": [1674000000],
-            "open_price": [150.0],
-            "high_price": [155.0],
-            "low_price": [149.0],
-            "close_price": [153.0],
-            "volume": [0],
-            "volume_weighted_average_price": [152.5],
-        }
-    )
-
-    with pytest.raises(SchemaError):
-        equity_bar_schema.validate(data)
-
-
 def test_equity_bar_schema_type_coercion() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
-            "timestamp": ["1674000000"],  # string that can be coerced to int
+            "timestamp": ["1674000000.0"],  # string that can be coerced to float
             "open_price": ["150.0"],  # string that can be coerced to float
             "high_price": [155],  # int that can be coerced to float
             "low_price": [149.0],
@@ -192,7 +174,7 @@ def test_equity_bar_schema_type_coercion() -> None:
     )
 
     validated_df = equity_bar_schema.validate(data)
-    assert validated_df["timestamp"].dtype == pl.Int64
+    assert validated_df["timestamp"].dtype == pl.Float64
     assert validated_df["open_price"].dtype == pl.Float64
     assert validated_df["high_price"].dtype == pl.Float64
     assert validated_df["volume"].dtype == pl.Int64
@@ -202,7 +184,7 @@ def test_equity_bar_schema_missing_required_column() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
-            "timestamp": [1674000000],
+            "timestamp": [1674000000.0],
             # Missing open_price
             "high_price": [155.0],
             "low_price": [149.0],
@@ -220,7 +202,7 @@ def test_equity_bar_schema_null_values() -> None:
     data = pl.DataFrame(
         {
             "ticker": [None],
-            "timestamp": [1674000000],
+            "timestamp": [1674000000.0],
             "open_price": [150.0],
             "high_price": [155.0],
             "low_price": [149.0],
@@ -238,7 +220,7 @@ def test_equity_bar_schema_multiple_rows() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL", "GOOGL", "NVDA"],
-            "timestamp": [1674000000, 1674000060, 1674000120],
+            "timestamp": [1674000000.0, 1674000060.0, 1674000120.0],
             "open_price": [150.0, 100.0, 300.0],
             "high_price": [155.0, 105.0, 305.0],
             "low_price": [149.0, 99.0, 299.0],

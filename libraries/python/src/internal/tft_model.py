@@ -18,7 +18,7 @@ from .variable_selection_network import VariableSelectionNetwork
 
 class Parameters(BaseModel):
     hidden_size: int = 64
-    output_size: int = 1  # closing price
+    output_size: int = 1  # daily return
     lstm_layer_count: int = 3
     attention_head_size: int = 4
     dropout_rate: float = 0.1
@@ -121,7 +121,7 @@ class TFTModel:
         )
 
         static_categorical_features = inputs["static_categorical_features"]
-        # TODO: static_continuous_features = Tensor.zeros(self.batch_size, 1, 0)
+        # NOTE: static_continuous_features = Tensor.zeros(self.batch_size, 1, 0)  # noqa: E501, ERA001
 
         static_context = None  # NOTE: maybe remove
 
@@ -165,8 +165,6 @@ class TFTModel:
 
         attended_output, _ = self.self_attention.forward(
             Tensor(sequence + expanded_static_context),
-            # sequence, # NOTE: unused (?)
-            # sequence, # NOTE: unused (?)
         )
 
         decoder_attended = attended_output[:, -self.output_length :, :]
