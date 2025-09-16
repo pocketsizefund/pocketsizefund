@@ -121,7 +121,6 @@ class TFTModel:
         )
 
         static_categorical_features = inputs["static_categorical_features"]
-        # TODO: static_continuous_features = Tensor.zeros(self.batch_size, 1, 0)
 
         static_context = None  # NOTE: maybe remove
 
@@ -165,8 +164,6 @@ class TFTModel:
 
         attended_output, _ = self.self_attention.forward(
             Tensor(sequence + expanded_static_context),
-            # sequence, # NOTE: unused (?)
-            # sequence, # NOTE: unused (?)
         )
 
         decoder_attended = attended_output[:, -self.output_length :, :]

@@ -16,6 +16,3 @@ def check_portfolio() -> Response:
     logger.info("I was called by the portfoliomanager")
 
     return Response(status_code=status.HTTP_200_OK)
-
-
-application = app
