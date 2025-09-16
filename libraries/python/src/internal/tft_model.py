@@ -121,7 +121,6 @@ class TFTModel:
         )
 
         static_categorical_features = inputs["static_categorical_features"]
-        # NOTE: static_continuous_features = Tensor.zeros(self.batch_size, 1, 0)  # noqa: E501, ERA001
 
         static_context = None  # NOTE: maybe remove
 

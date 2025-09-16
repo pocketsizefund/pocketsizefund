@@ -2,7 +2,17 @@
   "permissions": {
     "allow": [
       "Bash(cat:*)",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Bash(cargo:*)",
+      "Bash(http POST:*)",
+      "Bash(curl:*)",
+      "Bash(RUST_LOG=debug curl -X POST -H \"Content-Type: application/json\" -d '{\"\"date\"\": \"\"2025-08-25\"\"}' http://localhost:8089/equity)",
+      "Bash(RUST_BACKTRACE=1 cargo run)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "Bash(RUST_LOG=info cargo run)",
+      "Bash(pkill:*)",
+      "Bash(RUST_LOG=debug cargo run)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
