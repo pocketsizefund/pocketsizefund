@@ -98,8 +98,9 @@ def test_company_information_schema_null_sector() -> None:
         }
     )
 
-    with pytest.raises(SchemaError):
-        company_information_schema.validate(data)
+    validated_df = company_information_schema.validate(data)
+    assert validated_df["sector"][0] == "NOT AVAILABLE"
+    assert validated_df["industry"][0] == "SOFTWARE"
 
 
 def test_company_information_schema_null_industry() -> None:
@@ -110,8 +111,9 @@ def test_company_information_schema_null_industry() -> None:
         }
     )
 
-    with pytest.raises(SchemaError):
-        company_information_schema.validate(data)
+    validated_df = company_information_schema.validate(data)
+    assert validated_df["industry"][0] == "NOT AVAILABLE"
+    assert validated_df["sector"][0] == "TECHNOLOGY"
 
 
 def test_company_information_schema_missing_sector_column() -> None:
@@ -137,7 +139,6 @@ def test_company_information_schema_missing_industry_column() -> None:
 
 
 def test_company_information_schema_type_coercion() -> None:
-    # test that numeric inputs get coerced to strings
     data = pl.DataFrame(
         {
             "sector": [123],  # coerced to string

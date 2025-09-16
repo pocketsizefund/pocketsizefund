@@ -1,25 +1,21 @@
-use tracing::{debug, info};
-use chrono::Utc;
-
+use crate::AppState;
 use aws_credential_types::provider::ProvideCredentials;
 use aws_sdk_s3::primitives::ByteStream;
+use axum::{
+    body::Body,
+    extract::{Json, State},
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Router,
+};
 use chrono::NaiveDate;
+use chrono::Utc;
 use duckdb::{Connection, Result as DuckResult};
 use polars::prelude::ParquetWriter;
 use polars::prelude::*;
-
 use std::io::Cursor;
-
-use axum::{
-    Router,
-    extract::{Json, State},
-    http::{StatusCode, header},
-    response::{IntoResponse, Response},
-    routing::{get, post},
-    body::Body,
-};
-
-use crate::AppState;
+use tracing::{debug, info};
 
 #[derive(serde::Deserialize)]
 struct DailySync {
@@ -126,11 +122,13 @@ async fn fetch(State(state): State<AppState>, query: Option<Json<DateRangeQuery>
             );
             response.headers_mut().insert(
                 "Content-Disposition",
-                "attachment; filename=\"equity_data.parquet\"".parse().unwrap(),
+                "attachment; filename=\"equity_data.parquet\""
+                    .parse()
+                    .unwrap(),
             );
             *response.status_mut() = StatusCode::OK;
             response
-        },
+        }
         Err(err) => {
             info!("Failed to query S3 data: {}", err);
             (
@@ -215,8 +213,11 @@ async fn query_s3_parquet_data(
         .join(" UNION ALL ");
 
     // Create a temporary parquet file path
-    let temp_file = format!("/tmp/query_result_{}.parquet", Utc::now().timestamp_micros());
-    
+    let temp_file = format!(
+        "/tmp/query_result_{}.parquet",
+        Utc::now().timestamp_micros()
+    );
+
     let export_sql = format!(
         "
         COPY (
@@ -234,8 +235,7 @@ async fn query_s3_parquet_data(
             ORDER BY timestamp, ticker
         ) TO '{}' (FORMAT PARQUET)
         ",
-        s3_paths_str,
-        temp_file
+        s3_paths_str, temp_file
     );
 
     debug!("Executing export SQL: {}", export_sql);
@@ -243,16 +243,17 @@ async fn query_s3_parquet_data(
     conn.execute(&export_sql, [])
         .map_err(|e| format!("Failed to execute parquet export: {}", e))?;
 
-    // Read the parquet file into memory
-    let parquet_data = std::fs::read(&temp_file)
-        .map_err(|e| format!("Failed to read parquet file: {}", e))?;
-    
-    // Clean up temp file
+    let parquet_data =
+        std::fs::read(&temp_file).map_err(|e| format!("Failed to read parquet file: {}", e))?;
+
     if let Err(e) = std::fs::remove_file(&temp_file) {
         info!("Failed to clean up temp file {}: {}", temp_file, e);
     }
 
-    info!("Query exported {} bytes of parquet data", parquet_data.len());
+    info!(
+        "Query exported {} bytes of parquet data",
+        parquet_data.len()
+    );
     Ok(parquet_data)
 }
 
@@ -317,7 +318,11 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
         Some(results) => results,
         None => {
             info!("No results field found in response");
-            return (StatusCode::OK, "No market data available for this date").into_response();
+            return (
+                StatusCode::NO_CONTENT,
+                "No market data available for this date",
+            )
+                .into_response();
         }
     };
 
@@ -325,7 +330,7 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
         Ok(bars) => bars,
         Err(err) => {
             info!("Failed to parse results into BarResult structs: {}", err);
-            return (StatusCode::OK, raw_text).into_response();
+            return (StatusCode::BAD_GATEWAY, raw_text).into_response();
         }
     };
 
@@ -374,7 +379,7 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
                     info!("Failed to upload to S3: {}", err);
                     let json_output = df.to_string();
                     (
-                        StatusCode::OK,
+                        StatusCode::BAD_GATEWAY,
                         format!(
                             "DataFrame created but S3 upload failed: {}\n\n{}",
                             err, json_output
@@ -386,7 +391,7 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
         }
         Err(err) => {
             info!("Failed to create DataFrame: {}", err);
-            (StatusCode::OK, raw_text).into_response()
+            (StatusCode::INTERNAL_SERVER_ERROR, raw_text).into_response()
         }
     }
 }
