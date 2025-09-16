@@ -1,10 +1,10 @@
 use tracing::{debug, info};
 
-use chrono::NaiveDate;
-use polars::prelude::*;
-use polars::prelude::ParquetWriter;
 use aws_sdk_s3::primitives::ByteStream;
+use chrono::NaiveDate;
 use duckdb::{Connection, Result as DuckResult};
+use polars::prelude::ParquetWriter;
+use polars::prelude::*;
 
 use std::io::Cursor;
 
@@ -56,33 +56,40 @@ struct PolygonResponse {
 }
 
 async fn upload_dataframe_to_s3(
-    df: &DataFrame, 
-    state: &AppState, 
-    date: &NaiveDate
+    df: &DataFrame,
+    state: &AppState,
+    date: &NaiveDate,
 ) -> Result<String, String> {
     let year = date.format("%Y");
     let month = date.format("%m");
     let day = date.format("%d");
-    
-    let key = format!("equity/bars/daily/year={}/month={}/day={}/data.parquet", year, month, day);
-    
+
+    let key = format!(
+        "equity/bars/daily/year={}/month={}/day={}/data.parquet",
+        year, month, day
+    );
+
     let mut buffer = Vec::new();
     {
         let cursor = Cursor::new(&mut buffer);
         let writer = ParquetWriter::new(cursor);
         match writer.finish(&mut df.clone()) {
             Ok(_) => {
-                info!("DataFrame successfully converted to parquet, size: {} bytes", buffer.len());
-            },
+                info!(
+                    "DataFrame successfully converted to parquet, size: {} bytes",
+                    buffer.len()
+                );
+            }
             Err(err) => {
                 return Err(format!("Failed to write parquet: {}", err));
             }
         }
     }
-    
+
     let body = ByteStream::from(buffer);
-    
-    match state.s3_client
+
+    match state
+        .s3_client
         .put_object()
         .bucket(&state.bucket_name)
         .key(&key)
@@ -92,12 +99,13 @@ async fn upload_dataframe_to_s3(
         .await
     {
         Ok(_) => {
-            info!("Successfully uploaded parquet file to s3://{}/{}", state.bucket_name, key);
+            info!(
+                "Successfully uploaded parquet file to s3://{}/{}",
+                state.bucket_name, key
+            );
             Ok(key)
-        },
-        Err(err) => {
-            Err(format!("Failed to upload to S3: {}", err))
         }
+        Err(err) => Err(format!("Failed to upload to S3: {}", err)),
     }
 }
 
@@ -167,7 +175,11 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
         Some(results) => results,
         None => {
             info!("No results field found in response");
-            return (StatusCode::OK, "No market data available for this date").into_response();
+            return (
+                StatusCode::NO_CONTENT,
+                "No market data available for this date",
+            )
+                .into_response();
         }
     };
 
@@ -175,7 +187,7 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
         Ok(bars) => bars,
         Err(err) => {
             info!("Failed to parse results into BarResult structs: {}", err);
-            return (StatusCode::OK, raw_text).into_response();
+            return (StatusCode::BAD_GATEWAY, raw_text).into_response();
         }
     };
 
@@ -213,19 +225,30 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
             match upload_dataframe_to_s3(&df, &state, &payload.date).await {
                 Ok(s3_key) => {
                     info!("Successfully uploaded DataFrame to S3 at key: {}", s3_key);
-                    let response_msg = format!("DataFrame created with {} rows and uploaded to S3: {}", df.height(), s3_key);
+                    let response_msg = format!(
+                        "DataFrame created with {} rows and uploaded to S3: {}",
+                        df.height(),
+                        s3_key
+                    );
                     (StatusCode::OK, response_msg).into_response()
                 }
                 Err(err) => {
                     info!("Failed to upload to S3: {}", err);
                     let json_output = df.to_string();
-                    (StatusCode::OK, format!("DataFrame created but S3 upload failed: {}\n\n{}", err, json_output)).into_response()
+                    (
+                        StatusCode::BAD_GATEWAY,
+                        format!(
+                            "DataFrame created but S3 upload failed: {}\n\n{}",
+                            err, json_output
+                        ),
+                    )
+                        .into_response()
                 }
             }
         }
         Err(err) => {
             info!("Failed to create DataFrame: {}", err);
-            (StatusCode::OK, raw_text).into_response()
+            (StatusCode::INTERNAL_SERVER_ERROR, raw_text).into_response()
         }
     }
 }
