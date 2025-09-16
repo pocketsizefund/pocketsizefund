@@ -64,10 +64,10 @@ impl AppState {
     }
 }
 
-pub async fn create_app() -> Router {
+pub async fn create_app() -> Router<AppState> {
     let state = AppState::from_env().await;
 
-    Router::new()
+    Router::<AppState>::new()
         .route("/health", get(health::check))
         .merge(equity::router())
         .with_state(state)

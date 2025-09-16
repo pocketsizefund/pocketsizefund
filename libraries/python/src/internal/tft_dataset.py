@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 
 import pandera.polars as pa
 import polars as pl
@@ -24,9 +24,12 @@ class Scaler:
 
 
 class TFTDataset:
-    """Temporal fusion transformer dataset."""
+    """Temporal fusion transformer dataset preprocessing and postprocessing."""
 
-    def __init__(self, data: pl.DataFrame) -> None:
+    def __init__(self) -> None:
+        pass
+
+    def preprocess_and_set_data(self, data: pl.DataFrame) -> None:
         data = data.clone()
 
         raw_columns = (
@@ -53,6 +56,7 @@ class TFTDataset:
             "close_price",
             "volume",
             "volume_weighted_average_price",
+            "daily_return",
         ]
 
         self.categorical_columns = [
@@ -161,6 +165,12 @@ class TFTDataset:
             .cast(pl.Int64)
             .alias("time_idx")
         )
+
+        data = data.with_columns(
+            pl.col("close_price").pct_change().over("ticker").alias("daily_return")
+        )
+
+        data = data.filter(pl.col("daily_return").is_not_null())
 
         data = dataset_schema.validate(data)
 
@@ -320,63 +330,113 @@ class TFTDataset:
                 }
 
                 if data_type in {"train", "validate"}:
-                    batch["targets"] = Tensor(decoder_slice[["close_price"]].to_numpy())
+                    batch["targets"] = Tensor(
+                        decoder_slice[["daily_return"]].to_numpy()
+                    )
 
                 batches.append(batch)
 
         return batches
 
+    def postprocess_predictions(
+        self,
+        input_batch: Tensor,  # static_categorical_features
+        predictions: Tensor,  # quantiles
+        current_datetime: datetime,
+    ) -> pl.DataFrame:
+        predictions_array = predictions.numpy()
+
+        batch_size, output_length, _, _ = predictions_array.shape
+
+        ticker_reverse_mapping = {v: k for k, v in self.mappings["ticker"].items()}
+
+        rows = []
+        for batch_idx in range(batch_size):
+            ticker_encoded = int(
+                input_batch["static_categorical_features"][batch_idx, 0, 0].item()
+            )
+            ticker_str = ticker_reverse_mapping[ticker_encoded]
+
+            for time_idx in range(output_length):
+                timestamp = int(
+                    (current_datetime + timedelta(days=time_idx))
+                    .replace(
+                        hour=0,
+                        minute=0,
+                        second=0,
+                        microsecond=0,
+                    )
+                    .timestamp()
+                )
+
+                quantile_values = predictions_array[batch_idx, time_idx, 0, :]
+
+                daily_return_mean = self.scaler.means["daily_return"]
+                daily_return_standard_deviation = self.scaler.standard_deviations[
+                    "daily_return"
+                ]
+
+                unscaled_quantiles = (
+                    quantile_values * daily_return_standard_deviation
+                ) + daily_return_mean
+
+                row = {
+                    "ticker": ticker_str,
+                    "timestamp": timestamp,
+                    "quantile_10": unscaled_quantiles[0],
+                    "quantile_50": unscaled_quantiles[1],
+                    "quantile_90": unscaled_quantiles[2],
+                }
+                rows.append(row)
+
+        return pl.DataFrame(rows)
+
 
 dataset_schema = pa.DataFrameSchema(
     {
         "ticker": pa.Column(
-            str,
+            dtype=str,
             checks=pa.Check.str_matches(r"^[A-Z0-9.\-]+$"),
-            coerce=True,
-            required=True,
         ),
         "timestamp": pa.Column(
-            int,
-            checks=pa.Check.gt(0),
-            coerce=True,
-            required=True,
+            dtype=int,
+            checks=pa.Check.greater_than(0),
         ),
         "open_price": pa.Column(
-            float,
-            checks=pa.Check.ge(0),
-            coerce=True,
-            required=True,
+            dtype=float,
+            checks=pa.Check.greater_than(0),
         ),
         "high_price": pa.Column(
-            float, checks=pa.Check.ge(0), coerce=True, required=True
+            dtype=float,
+            checks=pa.Check.greater_than(0),
         ),
         "low_price": pa.Column(
-            float, checks=pa.Check.ge(0), coerce=True, required=True
+            dtype=float,
+            checks=pa.Check.greater_than(0),
         ),
         "close_price": pa.Column(
-            float, checks=pa.Check.ge(0), coerce=True, required=True
+            dtype=float,
+            checks=pa.Check.greater_than(0),
         ),
         "volume": pa.Column(
-            int,
-            checks=pa.Check.ge(0),
-            coerce=True,
-            required=True,
+            dtype=int,
+            checks=pa.Check.greater_than_or_equal_to(0),
         ),
         "volume_weighted_average_price": pa.Column(
-            float,
-            checks=pa.Check.ge(0),
-            coerce=True,
-            required=True,
+            dtype=float,
+            checks=pa.Check.greater_than_or_equal_to(0),
         ),
-        "sector": pa.Column(str, coerce=True, required=True),
-        "industry": pa.Column(str, coerce=True, required=True),
-        "date": pa.Column(date, coerce=True, required=True),
-        "day_of_week": pa.Column(int, coerce=True, required=True),
-        "day_of_month": pa.Column(int, coerce=True, required=True),
-        "day_of_year": pa.Column(int, coerce=True, required=True),
-        "month": pa.Column(int, coerce=True, required=True),
-        "year": pa.Column(int, coerce=True, required=True),
-        "is_holiday": pa.Column(bool, coerce=True, required=True),
-        "time_idx": pa.Column(int, coerce=True, required=True),
-    }
+        "sector": pa.Column(dtype=str),
+        "industry": pa.Column(dtype=str),
+        "date": pa.Column(dtype=date),
+        "day_of_week": pa.Column(dtype=int),
+        "day_of_month": pa.Column(dtype=int),
+        "day_of_year": pa.Column(dtype=int),
+        "month": pa.Column(dtype=int),
+        "year": pa.Column(dtype=int),
+        "is_holiday": pa.Column(dtype=bool),
+        "time_idx": pa.Column(dtype=int),
+        "daily_return": pa.Column(dtype=float),
+    },
+    coerce=True,
 )
