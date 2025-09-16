@@ -1,5 +1,5 @@
-use tracing::{debug, info};
 use chrono::Utc;
+use tracing::{debug, info};
 
 use aws_credential_types::provider::ProvideCredentials;
 use aws_sdk_s3::primitives::ByteStream;
@@ -11,12 +11,12 @@ use polars::prelude::*;
 use std::io::Cursor;
 
 use axum::{
-    Router,
+    body::Body,
     extract::{Json, State},
-    http::{StatusCode, header},
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
-    body::Body,
+    Router,
 };
 
 use crate::AppState;
@@ -126,11 +126,13 @@ async fn fetch(State(state): State<AppState>, query: Option<Json<DateRangeQuery>
             );
             response.headers_mut().insert(
                 "Content-Disposition",
-                "attachment; filename=\"equity_data.parquet\"".parse().unwrap(),
+                "attachment; filename=\"equity_data.parquet\""
+                    .parse()
+                    .unwrap(),
             );
             *response.status_mut() = StatusCode::OK;
             response
-        },
+        }
         Err(err) => {
             info!("Failed to query S3 data: {}", err);
             (
@@ -215,8 +217,11 @@ async fn query_s3_parquet_data(
         .join(" UNION ALL ");
 
     // Create a temporary parquet file path
-    let temp_file = format!("/tmp/query_result_{}.parquet", Utc::now().timestamp_micros());
-    
+    let temp_file = format!(
+        "/tmp/query_result_{}.parquet",
+        Utc::now().timestamp_micros()
+    );
+
     let export_sql = format!(
         "
         COPY (
@@ -234,8 +239,7 @@ async fn query_s3_parquet_data(
             ORDER BY timestamp, ticker
         ) TO '{}' (FORMAT PARQUET)
         ",
-        s3_paths_str,
-        temp_file
+        s3_paths_str, temp_file
     );
 
     debug!("Executing export SQL: {}", export_sql);
@@ -244,15 +248,18 @@ async fn query_s3_parquet_data(
         .map_err(|e| format!("Failed to execute parquet export: {}", e))?;
 
     // Read the parquet file into memory
-    let parquet_data = std::fs::read(&temp_file)
-        .map_err(|e| format!("Failed to read parquet file: {}", e))?;
-    
+    let parquet_data =
+        std::fs::read(&temp_file).map_err(|e| format!("Failed to read parquet file: {}", e))?;
+
     // Clean up temp file
     if let Err(e) = std::fs::remove_file(&temp_file) {
         info!("Failed to clean up temp file {}: {}", temp_file, e);
     }
 
-    info!("Query exported {} bytes of parquet data", parquet_data.len());
+    info!(
+        "Query exported {} bytes of parquet data",
+        parquet_data.len()
+    );
     Ok(parquet_data)
 }
 

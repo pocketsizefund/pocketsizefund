@@ -19,4 +19,4 @@ infrastructure/swarm.pem
 *.csv
 *.egg-info/
 wandb/
-**/*/target/
+**/target/
