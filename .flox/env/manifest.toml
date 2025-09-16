@@ -18,6 +18,23 @@ bacon.pkg-path = "bacon"
 cargo-watch.pkg-path = "cargo-watch"
 cargo-nextest.pkg-path = "cargo-nextest"
 cargo.pkg-path = "cargo"
+cargo.pkg-group = "rust-toolchain"
+rustc.pkg-path = "rustc"
+rustc.pkg-group = "rust-toolchain"
+clippy.pkg-path = "clippy"
+clippy.pkg-group = "rust-toolchain"
+rustfmt.pkg-path = "rustfmt"
+rustfmt.pkg-group = "rust-toolchain"
+rust-lib-src.pkg-path = "rustPlatform.rustLibSrc"
+rust-lib-src.pkg-group = "rust-toolchain"
+libiconv.pkg-path = "libiconv"
+libiconv.systems = ["aarch64-darwin", "x86_64-darwin"]
+rust-analyzer.pkg-path = "rust-analyzer"
+rust-analyzer.pkg-group = "rust-analyzer"
+gcc.pkg-path = "gcc"
+gcc.systems = ["aarch64-linux", "x86_64-linux"]
+clang.pkg-path = "clang"
+clang.systems = ["aarch64-darwin", "x86_64-darwin"]
 
 [hook]
 on-activate = '''
