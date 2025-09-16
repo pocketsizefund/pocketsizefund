@@ -36,7 +36,7 @@ class MultiHeadSelfAttentionNetwork:
 
         shape = (batch_size, sequence_length, self.heads_count, self.heads_dimension)
 
-        # shape: (batch, heads_count, sequence_length, head_dimension) # noqa: ERA001
+        # shape: (batch, heads_count, sequence_length, head_dimension)  # noqa: ERA001
         query_weights = query_weights.view(shape).transpose(1, 2)
         key_weights = key_weights.view(shape).transpose(1, 2)
         value_weights = value_weights.view(shape).transpose(1, 2)

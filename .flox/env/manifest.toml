@@ -13,11 +13,11 @@ fselect.pkg-path = "fselect"
 google-cloud-sdk.pkg-path = "google-cloud-sdk"
 awscli2.pkg-path = "awscli2"
 gum.pkg-path = "gum"
+mask.pkg-path = "mask"
 bacon.pkg-path = "bacon"
 cargo-watch.pkg-path = "cargo-watch"
 cargo-nextest.pkg-path = "cargo-nextest"
 cargo.pkg-path = "cargo"
-
 
 [hook]
 on-activate = '''
@@ -26,9 +26,4 @@ on-activate = '''
 [build]
 
 [options]
-systems = [
-  "aarch64-darwin",
-  "aarch64-linux",
-  "x86_64-darwin",
-  "x86_64-linux",
-]
+systems = ["aarch64-darwin", "aarch64-linux", "x86_64-darwin", "x86_64-linux"]

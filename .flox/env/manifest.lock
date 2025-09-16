@@ -27,6 +27,9 @@
       "gum": {
         "pkg-path": "gum"
       },
+      "mask": {
+        "pkg-path": "mask"
+      },
       "mise": {
         "pkg-path": "mise"
       },
@@ -992,6 +995,122 @@
       ],
       "outputs": {
         "out": "/nix/store/jbjrj4hbf2bgdvr6vl4dalwn31s669p4-gum-0.17.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "mask",
+      "broken": false,
+      "derivation": "/nix/store/szjnp3963v7dswjzffggb0yqnrmqg3pa-mask-0.11.6.drv",
+      "description": "CLI task runner defined by a simple markdown file",
+      "install_id": "mask",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "mask-0.11.6",
+      "pname": "mask",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:01:02.794961Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.11.6",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/2g2qvzgjq5zw0l146va1p03mc39xy4va-mask-0.11.6"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "mask",
+      "broken": false,
+      "derivation": "/nix/store/a9zcvh6x9342bi0l5jyz1l8a74y0zdr7-mask-0.11.6.drv",
+      "description": "CLI task runner defined by a simple markdown file",
+      "install_id": "mask",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "mask-0.11.6",
+      "pname": "mask",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:30:13.874798Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.11.6",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/yr6j5mkqg8y7w1c9v8kv1crjy83vnpby-mask-0.11.6"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "mask",
+      "broken": false,
+      "derivation": "/nix/store/8lhg3symrg5ggm6d8jpk0hj1c55cnsyy-mask-0.11.6.drv",
+      "description": "CLI task runner defined by a simple markdown file",
+      "install_id": "mask",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "mask-0.11.6",
+      "pname": "mask",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:56:55.479919Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.11.6",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/xdassl0ji7vs1zljimqa1n24y8myvw7p-mask-0.11.6"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "mask",
+      "broken": false,
+      "derivation": "/nix/store/72yafxkmwfh8gaan7nkzd3m9pqlv4rry-mask-0.11.6.drv",
+      "description": "CLI task runner defined by a simple markdown file",
+      "install_id": "mask",
+      "license": "MIT",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "mask-0.11.6",
+      "pname": "mask",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T03:27:32.404732Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.11.6",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/8h9hdwpgzknxadrz6fwinix214dbvm4c-mask-0.11.6"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

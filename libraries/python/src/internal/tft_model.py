@@ -18,7 +18,7 @@ from .variable_selection_network import VariableSelectionNetwork
 
 class Parameters(BaseModel):
     hidden_size: int = 64
-    output_size: int = 1  # closing price
+    output_size: int = 1  # daily return
     lstm_layer_count: int = 3
     attention_head_size: int = 4
     dropout_rate: float = 0.1
