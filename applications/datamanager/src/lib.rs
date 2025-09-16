@@ -1,8 +1,8 @@
-use axum::{Router, routing::get};
+use aws_sdk_s3::Client as S3Client;
+use axum::{routing::get, Router};
 use reqwest::Client;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use aws_sdk_s3::Client as S3Client;
 
 pub mod routes;
 use routes::equity;
@@ -64,12 +64,13 @@ impl AppState {
     }
 }
 
-pub async fn create_app() -> Router {
+pub async fn create_app() -> Router<AppState> {
     let state = AppState::from_env().await;
 
-    Router::new()
+    Router::<AppState>::new()
         .route("/health", get(health::check))
         .merge(equity::router())
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
+

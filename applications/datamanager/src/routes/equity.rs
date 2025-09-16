@@ -11,7 +11,7 @@ use axum::{
 };
 use chrono::NaiveDate;
 use chrono::Utc;
-use duckdb::{Connection, Result as DuckResult};
+use duckdb::Connection;
 use polars::prelude::ParquetWriter;
 use polars::prelude::*;
 use std::io::Cursor;
@@ -151,9 +151,10 @@ async fn query_s3_parquet_data(
         .map_err(|e| format!("Failed to load httpfs extension: {}", e))?;
 
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let credentials = config
+    let provider = config
         .credentials_provider()
-        .unwrap()
+        .ok_or_else(|| "No AWS credentials provider available".to_string())?;
+    let credentials = provider
         .provide_credentials()
         .await
         .map_err(|e| format!("Failed to get AWS credentials: {}", e))?;
