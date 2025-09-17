@@ -335,14 +335,14 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
     };
 
     let tickers: Vec<String> = bars.iter().map(|b| b.ticker.clone()).collect();
-    let volumes: Vec<Option<u64>> = bars.iter().map(|b| b.v.map(|v| v)).collect();
+    let volumes: Vec<Option<u64>> = bars.iter().map(|b| b.v).collect();
     let vw_prices: Vec<Option<f64>> = bars.iter().map(|b| b.vw.map(|vw| vw as f64)).collect();
     let open_prices: Vec<Option<f64>> = bars.iter().map(|b| b.o.map(|o| o as f64)).collect();
     let close_prices: Vec<Option<f64>> = bars.iter().map(|b| b.c.map(|c| c as f64)).collect();
     let high_prices: Vec<Option<f64>> = bars.iter().map(|b| b.h.map(|h| h as f64)).collect();
     let low_prices: Vec<Option<f64>> = bars.iter().map(|b| b.l.map(|l| l as f64)).collect();
     let timestamps: Vec<i64> = bars.iter().map(|b| b.t as i64).collect();
-    let num_transactions: Vec<Option<u64>> = bars.iter().map(|b| b.n.map(|n| n)).collect();
+    let num_transactions: Vec<Option<u64>> = bars.iter().map(|b| b.n).collect();
 
     let df_result = df! {
         "ticker" => tickers,

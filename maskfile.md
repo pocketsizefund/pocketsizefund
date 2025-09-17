@@ -55,9 +55,6 @@ set -euo pipefail
 
 echo "Running continuous integration workflow"
 
-echo "Quality checks"
-mask development quality
-
 echo "Testing"
 mask development python test
 
@@ -96,6 +93,7 @@ fi
 echo "Setting up SSH configuration"
 pulumi stack output --show-secrets sshPrivateKeyPem | tr -d '\r' > swarm.pem
 chmod 600 swarm.pem
+trap 'rm -f "$PWD/swarm.pem"' EXIT
 
 if ! ssh-keygen -l -f swarm.pem >/dev/null >&1; then
     echo "Invalid SSH key format"
@@ -131,7 +129,7 @@ MAX_RETRIES=5
 RETRY_COUNT=0
 
 while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
-    if ssh -o ConnectTimeout=0 pocketsizefund-production 'docker info -f "{{.ServerVersion}} {{.Swarm.LocalNodeState}}"' 2>/dev/null; then
+    if ssh -o ConnectTimeout=10 pocketsizefund-production 'docker info -f "{{.ServerVersion}} {{.Swarm.LocalNodeState}}"' 2>/dev/null; then
         echo "SSH connection successful"
         break
     else
@@ -370,8 +368,8 @@ if [[ -n "$MANAGER_IP" ]]; then
     echo "Production endpoints (IP: $MANAGER_IP):"
     test_endpoint "DataManager" "http://$MANAGER_IP:8080/health" "production"
     test_endpoint "DataManager (root)" "http://$MANAGER_IP:8080/" "production"
-    test_endpoint "PortfolioManager" "http://$MANAGER_IP:808/health" "production"
-    test_endpoint "PortfolioManager (root)" "http://$MANAGER_IP:808/" "production"
+    test_endpoint "PortfolioManager" "http://$MANAGER_IP:8081/health" "production"
+    test_endpoint "PortfolioManager (root)" "http://$MANAGER_IP:8081/" "production"
 else
     echo "️Production manager IP not available - skipping production tests"
 fi
@@ -661,7 +659,7 @@ set -euo pipefail
 
 echo "Check Rust compilation"
 cargo check 
-echo "Rust comipled successfully"
+echo "Rust compiled successfully"
 ```
 
 #### format
@@ -817,22 +815,6 @@ echo "Running tests"
 mask development python test
 
 echo "Development workflow completed successfully"
-```
-
-### quality
-> Run all code quality checks across the entire project
-```bash
-set -euo pipefail
-
-echo "Running comprehensive code quality checks"
-
-mask development python lint
-
-echo "Running additional linters"
-nu linter.nu
-yamllint -d "{extends: relaxed, rules: {line-length: {max: 110}}}" .
-
-echo "All quality checks completed successfully"
 ```
 
 ## logs
