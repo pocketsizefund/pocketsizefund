@@ -2,11 +2,11 @@ use aws_sdk_s3::Client as S3Client;
 use axum::{routing::get, Router};
 use reqwest::Client;
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub mod routes;
 use routes::equity;
 use routes::health;
+use routes::prediction;
 
 #[derive(Clone)]
 pub struct AlpacaSecrets {
@@ -69,6 +69,7 @@ pub async fn create_app() -> Router<AppState> {
 
     Router::<AppState>::new()
         .route("/health", get(health::check))
+        .merge(prediction::router())
         .merge(equity::router())
         .with_state(state)
         .layer(TraceLayer::new_for_http())

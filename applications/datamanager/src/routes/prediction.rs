@@ -37,6 +37,7 @@ struct SavePredictionsPayload {
 #[derive(serde::Deserialize)]
 struct QueryPredictionsPayload {
     positions: Vec<QueryPredictionsPositionPayload>,
+    #[allow(dead_code)]
     timestamp: DateTime<Utc>,
 }
 
@@ -184,21 +185,27 @@ async fn query_s3_parquet_data(
     connection.execute_batch("INSTALL httpfs; LOAD httpfs;")?;
 
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let credentials = config
+    let provider = config
         .credentials_provider()
-        .unwrap()
-        .provide_credentials()
-        .await?;
-
+        .ok_or_else(|| Error::OtherError("No AWS credentials provider found".into()))?;
+    let credentials = provider.provide_credentials().await?;
+    let region = config
+        .region()
+        .map(|r| r.as_ref().to_string())
+        .unwrap_or_else(|| "us-east-1".to_string());
+    let session_token = credentials.session_token().unwrap_or_default();
     let s3_config = format!(
         "
-            SET s3_region='us-east-1';
+            SET s3_region='{}';
             SET s3_url_style='path';
             SET s3_access_key_id='{}';
             SET s3_secret_access_key='{}';
+            SET s3_session_token='{}';
         ",
+        region,
         credentials.access_key_id(),
-        credentials.secret_access_key()
+        credentials.secret_access_key(),
+        session_token
     );
 
     connection.execute_batch(&s3_config)?;
@@ -237,17 +244,15 @@ async fn query_s3_parquet_data(
 
     let query = format!(
         "
-        COPY (
-            SELECT
-                ticker,
-                timestamp,
-                quantile_10,
-                quantile_50,
-                quantile_90
-            FROM ({})
-            WHERE ticker IN ({})
-            ORDER BY timestamp, ticker
-        )
+        SELECT
+            ticker,
+            timestamp,
+            quantile_10,
+            quantile_50,
+            quantile_90
+        FROM ({})
+        WHERE ticker IN ({})
+        ORDER BY timestamp, ticker
         ",
         s3_paths_query, tickers_query,
     );

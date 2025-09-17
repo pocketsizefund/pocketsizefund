@@ -32,16 +32,14 @@ struct DateRangeQuery {
 struct BarResult {
     #[serde(rename = "T")]
     ticker: String,
-    // TODO: money types
-    c: Option<f64>,
-    h: Option<f64>,
-    l: Option<f64>,
-    n: Option<f64>,
-    o: Option<f64>,
-    // otc: bool,
-    t: i64,
-    v: Option<f64>,
-    vw: Option<f64>,
+    c: Option<u64>,
+    h: Option<u64>,
+    l: Option<u64>,
+    n: Option<u64>,
+    o: Option<u64>,
+    t: u64,
+    v: Option<u64>,
+    vw: Option<u64>,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -337,12 +335,12 @@ async fn sync(State(state): State<AppState>, payload: Json<DailySync>) -> impl I
 
     let tickers: Vec<String> = bars.iter().map(|b| b.ticker.clone()).collect();
     let volumes: Vec<Option<u64>> = bars.iter().map(|b| b.v.map(|v| v as u64)).collect();
-    let vw_prices: Vec<Option<f64>> = bars.iter().map(|b| b.vw).collect();
-    let open_prices: Vec<Option<f64>> = bars.iter().map(|b| b.o).collect();
-    let close_prices: Vec<Option<f64>> = bars.iter().map(|b| b.c).collect();
-    let high_prices: Vec<Option<f64>> = bars.iter().map(|b| b.h).collect();
-    let low_prices: Vec<Option<f64>> = bars.iter().map(|b| b.l).collect();
-    let timestamps: Vec<i64> = bars.iter().map(|b| b.t).collect();
+    let vw_prices: Vec<Option<f64>> = bars.iter().map(|b| b.vw.map(|vw| vw as f64)).collect();
+    let open_prices: Vec<Option<f64>> = bars.iter().map(|b| b.o.map(|o| o as f64)).collect();
+    let close_prices: Vec<Option<f64>> = bars.iter().map(|b| b.c.map(|c| c as f64)).collect();
+    let high_prices: Vec<Option<f64>> = bars.iter().map(|b| b.h.map(|h| h as f64)).collect();
+    let low_prices: Vec<Option<f64>> = bars.iter().map(|b| b.l.map(|l| l as f64)).collect();
+    let timestamps: Vec<i64> = bars.iter().map(|b| b.t as i64).collect();
     let num_transactions: Vec<Option<u64>> = bars.iter().map(|b| b.n.map(|n| n as u64)).collect();
 
     let df_result = df! {
