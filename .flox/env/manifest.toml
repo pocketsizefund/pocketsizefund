@@ -35,6 +35,7 @@ gcc.pkg-path = "gcc"
 gcc.systems = ["aarch64-linux", "x86_64-linux"]
 clang.pkg-path = "clang"
 clang.systems = ["aarch64-darwin", "x86_64-darwin"]
+duckdb.pkg-path = "duckdb"
 
 [hook]
 on-activate = '''

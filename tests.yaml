@@ -1,6 +1,5 @@
 ---
 name: pocketsizefund-tests
-
 services:
   tests:
     image: pocketsizefund-tests:latest

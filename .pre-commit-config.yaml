@@ -2,15 +2,21 @@
 repos:
   - repo: local
     hooks:
-      - id: quality
-        name: Python quality check
-        entry: mise run python:lint
+      - id: python
+        name: Check all Python code
+        entry: mask development python all
         pass_filenames: false
-        types: [file, python]
+        types:
+          - file
+          - python
         language: system
-      - id: test
-        name: Python test
-        entry: mise run python:test
+        fail_fast: true
+      - id: rust
+        name: Check all Rust code
+        entry: mask development rust all
         pass_filenames: false
-        types: [file, python]
+        types:
+          - file
+          - rust
         language: system
+        fail_fast: true

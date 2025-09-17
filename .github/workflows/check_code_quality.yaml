@@ -1,9 +1,8 @@
 ---
 name: Code quality check
-on:
-  push
+on: push
 jobs:
-  run_python_quality_check:
+  run_python_quality_checks:
     name: Run Python quality checks
     runs-on: ubuntu-latest
     steps:
@@ -14,4 +13,16 @@ jobs:
       - name: Run Python quality checks
         uses: flox/activate-action@v1
         with:
-          command: mise tasks run python:lint
+          command: mask development python all
+  run_rust_quality_checks:
+    name: Run Rust quality checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Run Rust quality checks
+        uses: flox/activate-action@v1
+        with:
+          command: mask development rust all

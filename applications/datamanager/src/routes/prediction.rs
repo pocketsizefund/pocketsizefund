@@ -21,11 +21,11 @@ use tracing::{debug, info};
 #[derive(ThisError, Debug)]
 enum Error {
     #[error("DuckDB error: {0}")]
-    DuckDBError(#[from] DuckError),
+    DuckDB(#[from] DuckError),
     #[error("Credentials error: {0}")]
-    CredentialsError(#[from] CredentialsError),
+    Credentials(#[from] CredentialsError),
     #[error("Other error: {0}")]
-    OtherError(String),
+    Other(String),
 }
 
 #[derive(serde::Deserialize)]
@@ -115,10 +115,7 @@ async fn upload_dataframe_to_s3(
                 );
             }
             Err(err) => {
-                return Err(Error::OtherError(format!(
-                    "Failed to write parquet: {}",
-                    err
-                )));
+                return Err(Error::Other(format!("Failed to write parquet: {}", err)));
             }
         }
     }
@@ -142,10 +139,7 @@ async fn upload_dataframe_to_s3(
             );
             Ok(key)
         }
-        Err(err) => Err(Error::OtherError(format!(
-            "Failed to upload to S3: {}",
-            err
-        ))),
+        Err(err) => Err(Error::Other(format!("Failed to upload to S3: {}", err))),
     }
 }
 
@@ -187,7 +181,7 @@ async fn query_s3_parquet_data(
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let provider = config
         .credentials_provider()
-        .ok_or_else(|| Error::OtherError("No AWS credentials provider found".into()))?;
+        .ok_or_else(|| Error::Other("No AWS credentials provider found".into()))?;
     let credentials = provider.provide_credentials().await?;
     let region = config
         .region()
@@ -273,7 +267,7 @@ async fn query_s3_parquet_data(
 
     let predictions: Vec<Prediction> = predictions_iterator
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| Error::OtherError(format!("Failed to collect predictions: {}", e)))?;
+        .map_err(|e| Error::Other(format!("Failed to collect predictions: {}", e)))?;
 
     df!(
         "ticker" => predictions.iter().map(|p| p.ticker.as_str()).collect::<Vec<_>>(),
@@ -282,7 +276,7 @@ async fn query_s3_parquet_data(
         "quantile_50" => predictions.iter().map(|p| p.quantile_50).collect::<Vec<_>>(),
         "quantile_90" => predictions.iter().map(|p| p.quantile_90).collect::<Vec<_>>(),
     )
-    .map_err(|e| Error::OtherError(format!("Failed to create DataFrame: {}", e)))
+    .map_err(|e| Error::Other(format!("Failed to create DataFrame: {}", e)))
 }
 
 pub fn router() -> Router<AppState> {
