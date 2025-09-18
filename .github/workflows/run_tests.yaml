@@ -27,22 +27,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      # - name: Install dependencies
-      #   run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - name: Install Flox
         uses: flox/install-flox-action@v2
-      # - name: Check OpenSSL version
-      #   run: openssl version
-      # - name: Check for OpenSSL headers
-      #   run: ls /usr/include/openssl/
       - name: Run unit tests with coverage
         uses: flox/activate-action@v1
-        # env:
-        #   OPENSSL_DIR: /usr
-        env:
-          OPENSSL_DIR: /usr
-          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
-          OPENSSL_INCLUDE_DIR: /usr/include
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
         with:
           command: mask development rust all
