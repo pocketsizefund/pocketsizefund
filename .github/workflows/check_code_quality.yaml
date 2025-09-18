@@ -2,11 +2,18 @@
 name: Code quality check
 on:
   push:
+    paths:
+      - '**/*.rs'
+      - '**/*.py'
   pull_request:
+    paths:
+      - '**/*.rs'
+      - '**/*.py'
 jobs:
   run_python_quality_checks:
     name: Run Python quality checks
     runs-on: ubuntu-latest
+    if: contains(github.event.commits.*.added, '*.py') || contains(github.event.commits.*.modified, '*.py') || contains(github.event.pull_request.files.*.filename, '*.py')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,6 +26,7 @@ jobs:
   run_rust_quality_checks:
     name: Run Rust quality checks
     runs-on: ubuntu-latest
+    if: contains(github.event.commits.*.added, '*.rs') || contains(github.event.commits.*.modified, '*.rs') || contains(github.event.pull_request.files.*.filename, '*.rs')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

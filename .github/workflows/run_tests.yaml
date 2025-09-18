@@ -2,11 +2,18 @@
 name: Test and coverage check
 on:
   push:
+    paths:
+      - '**/*.rs'
+      - '**/*.py'
   pull_request:
+    paths:
+      - '**/*.rs'
+      - '**/*.py'
 jobs:
   run_python_tests_and_coverage:
     name: Run Python tests
     runs-on: ubuntu-latest
+    if: contains(github.event.commits.*.added, '*.py') || contains(github.event.commits.*.modified, '*.py') || contains(github.event.pull_request.files.*.filename, '*.py')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,10 +27,11 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: coverage_output/.python_coverage.xml
+          path-to-lcov: coverage_output/.python_cov<D-s>erage.xml
   run_rust_tests_and_coverage:
     name: Run Rust tests
     runs-on: ubuntu-latest
+    if: contains(github.event.commits.*.added, '*.rs') || contains(github.event.commits.*.modified, '*.rs') || contains(github.event.pull_request.files.*.filename, '*.rs')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
