@@ -699,16 +699,12 @@ set -euo pipefail
 
 echo "Running Rust development checks"
 
-echo "Check compilation"
 mask development rust check
 
-echo "Running formatting"
 mask development rust format
 
-echo "Running linting"
 mask development rust lint
 
-echo "Running tests"
 mask development rust test
 
 echo "Rust development workflow completed successfully"
@@ -799,19 +795,14 @@ set -euo pipefail
 
 echo "Running Python development checks"
 
-echo "Installing dependencies"
 mask development python install
 
-echo "Running formatting"
 mask development python format
 
-echo "Running linting"
 mask development python lint
 
-echo "Running dead code analysis"
 mask development python dead-code
 
-echo "Running tests"
 mask development python test
 
 echo "Development workflow completed successfully"

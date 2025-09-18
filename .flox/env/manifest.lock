@@ -65,6 +65,12 @@
       "nushell": {
         "pkg-path": "nushell"
       },
+      "openssl": {
+        "pkg-path": "openssl"
+      },
+      "pkgconf": {
+        "pkg-path": "pkgconf"
+      },
       "pulumi": {
         "pkg-path": "pulumi"
       },
@@ -2280,6 +2286,272 @@
       ],
       "outputs": {
         "out": "/nix/store/7pn92hjbp0c3jn4p0jvbjisddvx9y6fp-nushell-0.106.1"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "openssl",
+      "broken": false,
+      "derivation": "/nix/store/z4lr6rqyi0w7hgsyv5kvnhjrakirr751-openssl-3.5.1.drv",
+      "description": "Cryptographic library that implements the SSL and TLS protocols",
+      "install_id": "openssl",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "openssl-3.5.1",
+      "pname": "openssl",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:01:08.506148Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.5.1",
+      "outputs_to_install": [
+        "bin",
+        "man"
+      ],
+      "outputs": {
+        "bin": "/nix/store/bpawzvf8z4yjmwr3zc7haxhv99sl8s2a-openssl-3.5.1-bin",
+        "dev": "/nix/store/4fwifkd3zn4m6y7zacyhpwy5frj63knk-openssl-3.5.1-dev",
+        "doc": "/nix/store/69p0m85qi4rw0ka8jqciba0p9q3140b0-openssl-3.5.1-doc",
+        "man": "/nix/store/2jh1wcwhjylfxzly4hbb5fz55b1lxxm5-openssl-3.5.1-man",
+        "out": "/nix/store/0ais7wnqw8xzj0331c2jka53s6g14wqb-openssl-3.5.1"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "openssl",
+      "broken": false,
+      "derivation": "/nix/store/ka1rgg9jrhim4p54h6cb4jih6g51qcww-openssl-3.5.1.drv",
+      "description": "Cryptographic library that implements the SSL and TLS protocols",
+      "install_id": "openssl",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "openssl-3.5.1",
+      "pname": "openssl",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:30:22.445758Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.5.1",
+      "outputs_to_install": [
+        "bin",
+        "man"
+      ],
+      "outputs": {
+        "bin": "/nix/store/4zzrcin7jdph1ybm7pkwlypv4khmqgf3-openssl-3.5.1-bin",
+        "debug": "/nix/store/n0r6fn7sd0bvmpwm8s5nlmm626jilcra-openssl-3.5.1-debug",
+        "dev": "/nix/store/hg5ryywl9xqg82kvzwvqkx4m2yckkdsg-openssl-3.5.1-dev",
+        "doc": "/nix/store/91mrccm5jwv94w8lvh7c0wf0cygj0yal-openssl-3.5.1-doc",
+        "man": "/nix/store/slgd9x3x372g5bm73qbijj41rqb560fd-openssl-3.5.1-man",
+        "out": "/nix/store/rzlvprd99wlbiv2wsqgp23kmxhkm1yfr-openssl-3.5.1"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "openssl",
+      "broken": false,
+      "derivation": "/nix/store/ncpm3s6gw15xqq45zs140p0m8rx5axnp-openssl-3.5.1.drv",
+      "description": "Cryptographic library that implements the SSL and TLS protocols",
+      "install_id": "openssl",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "openssl-3.5.1",
+      "pname": "openssl",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:57:01.027570Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.5.1",
+      "outputs_to_install": [
+        "bin",
+        "man"
+      ],
+      "outputs": {
+        "bin": "/nix/store/4w92hq61lhdzin9mkvzlxvd603pgwm9w-openssl-3.5.1-bin",
+        "dev": "/nix/store/63827r05nfpr7bg23zpivb9sn33cshy4-openssl-3.5.1-dev",
+        "doc": "/nix/store/3kbg9sqs4i8j7rkr6q7gb25c0bjqylyr-openssl-3.5.1-doc",
+        "man": "/nix/store/h59wasb1qrmvsgz79bl0sqnrhx0vccha-openssl-3.5.1-man",
+        "out": "/nix/store/v3cq87zwjd4f91y0i1023kkb9wvwc71z-openssl-3.5.1"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "openssl",
+      "broken": false,
+      "derivation": "/nix/store/7d5p0ip9nd3aj3r1a2pmhsxxizqqnis8-openssl-3.5.1.drv",
+      "description": "Cryptographic library that implements the SSL and TLS protocols",
+      "install_id": "openssl",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "openssl-3.5.1",
+      "pname": "openssl",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T03:27:41.383379Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "3.5.1",
+      "outputs_to_install": [
+        "bin",
+        "man"
+      ],
+      "outputs": {
+        "bin": "/nix/store/nn4b544v4sanvsf22mjiw3qh8mwh6pzh-openssl-3.5.1-bin",
+        "debug": "/nix/store/rj7yspi9mw9zcbma7v3h2zbh03bkjb82-openssl-3.5.1-debug",
+        "dev": "/nix/store/qqfiw89h8j4pilcyqapldzq5vf0vqgxy-openssl-3.5.1-dev",
+        "doc": "/nix/store/g9nxr4sig9dkhfvgc0ma1qb6fs3xm5dn-openssl-3.5.1-doc",
+        "man": "/nix/store/kmyzbfp60f9b85lhpr3njswxlm76b0av-openssl-3.5.1-man",
+        "out": "/nix/store/gi615r79j260ihhzdkhrg6qva9wfrbyy-openssl-3.5.1"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pkgconf",
+      "broken": false,
+      "derivation": "/nix/store/04hwp9239wg0qgpp59zxmz3nqvigs53a-pkgconf-wrapper-2.4.3.drv",
+      "description": "Package compiler and linker metadata toolkit (wrapper script)",
+      "install_id": "pkgconf",
+      "license": "ISC",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "pkgconf-wrapper-2.4.3",
+      "pname": "pkgconf",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:01:19.590063Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.4.3",
+      "outputs_to_install": [
+        "man",
+        "out"
+      ],
+      "outputs": {
+        "doc": "/nix/store/flxmxlx5yngm9iahiaqxs9yssifqlb0s-pkgconf-wrapper-2.4.3-doc",
+        "man": "/nix/store/wxfhr42czigr07v0hc7z3a70v6z6kzrq-pkgconf-wrapper-2.4.3-man",
+        "out": "/nix/store/3m1pxpp6mmygcsmfkcdm8ilb9rmlwl73-pkgconf-wrapper-2.4.3"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pkgconf",
+      "broken": false,
+      "derivation": "/nix/store/ynafcxlpih0ibvy7vh05iqkbhs4v9kz6-pkgconf-wrapper-2.4.3.drv",
+      "description": "Package compiler and linker metadata toolkit (wrapper script)",
+      "install_id": "pkgconf",
+      "license": "ISC",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "pkgconf-wrapper-2.4.3",
+      "pname": "pkgconf",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:30:37.176468Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.4.3",
+      "outputs_to_install": [
+        "man",
+        "out"
+      ],
+      "outputs": {
+        "doc": "/nix/store/hgkjq5603abx9rwj11syrwzc2j4p34fq-pkgconf-wrapper-2.4.3-doc",
+        "man": "/nix/store/6h4gdhgyd5dg95pwwpzf8m2j8zzk6hfy-pkgconf-wrapper-2.4.3-man",
+        "out": "/nix/store/a6dz1nlij42svhps4ks0b7r0byhxi15i-pkgconf-wrapper-2.4.3"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pkgconf",
+      "broken": false,
+      "derivation": "/nix/store/im2s3ri9qabghvvhg2cq255jg5k0p0ll-pkgconf-wrapper-2.4.3.drv",
+      "description": "Package compiler and linker metadata toolkit (wrapper script)",
+      "install_id": "pkgconf",
+      "license": "ISC",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "pkgconf-wrapper-2.4.3",
+      "pname": "pkgconf",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:57:12.187997Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.4.3",
+      "outputs_to_install": [
+        "man",
+        "out"
+      ],
+      "outputs": {
+        "doc": "/nix/store/s6ifvb059132y92mzqqrna22zjncq9js-pkgconf-wrapper-2.4.3-doc",
+        "man": "/nix/store/3lp94590v7pl6w72i6abplky5kx5v4n7-pkgconf-wrapper-2.4.3-man",
+        "out": "/nix/store/d81wrf9kj80iqkqp9yp06jmpqbjqdd9r-pkgconf-wrapper-2.4.3"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pkgconf",
+      "broken": false,
+      "derivation": "/nix/store/0hw1djq9bcvxf0pf51mfjq6ar0nnys9k-pkgconf-wrapper-2.4.3.drv",
+      "description": "Package compiler and linker metadata toolkit (wrapper script)",
+      "install_id": "pkgconf",
+      "license": "ISC",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "pkgconf-wrapper-2.4.3",
+      "pname": "pkgconf",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T03:27:56.835240Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.4.3",
+      "outputs_to_install": [
+        "man",
+        "out"
+      ],
+      "outputs": {
+        "doc": "/nix/store/8x9xcfr5pqhlh14rlvw1zqhqa83ryghg-pkgconf-wrapper-2.4.3-doc",
+        "man": "/nix/store/k3fabn4ms19p23wqavm7c3akc7cc3b7r-pkgconf-wrapper-2.4.3-man",
+        "out": "/nix/store/8jqc8ncn0whif781s3124cjsndfhkmid-pkgconf-wrapper-2.4.3"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

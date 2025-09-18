@@ -36,6 +36,8 @@ gcc.systems = ["aarch64-linux", "x86_64-linux"]
 clang.pkg-path = "clang"
 clang.systems = ["aarch64-darwin", "x86_64-darwin"]
 duckdb.pkg-path = "duckdb"
+openssl.pkg-path = "openssl"                            # Provides libssl-dev equivalent
+pkgconf.pkg-path = "pkgconf"                            # Provides pkg-config
 
 [hook]
 on-activate = '''
