@@ -2,11 +2,7 @@
 name: Python code checks
 on:
   push:
-    paths:
-      - '**.py'
   pull_request:
-    paths:
-      - '**.py'
 jobs:
   run_python_code_checks:
     name: Run Python code checks
