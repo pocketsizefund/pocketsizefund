@@ -1,18 +1,18 @@
 ---
-name: Test and coverage check
+name: Python code checks
 on:
   push:
   pull_request:
 jobs:
-  run_python_tests_and_coverage:
-    name: Run Python tests
+  run_python_code_checks:
+    name: Run Python code checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Install Flox
         uses: flox/install-flox-action@v2
-      - name: Run unit tests with coverage
+      - name: Run Python code checks
         uses: flox/activate-action@v1
         with:
           command: mask development python all
@@ -21,15 +21,3 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: coverage_output/.python_coverage.xml
-  run_rust_tests_and_coverage:
-    name: Run Rust tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Install Flox
-        uses: flox/install-flox-action@v2
-      - name: Run unit tests with coverage
-        uses: flox/activate-action@v1
-        with:
-          command: mask development rust all
