@@ -34,7 +34,7 @@ jobs:
       - name: Install Flox
         uses: flox/install-flox-action@v2
       - name: Check for OpenSSL headers
-        run: ls /usr/include/openssl/opensslconf.h
+        run: ls /usr/include/openssl/
       - name: Run unit tests with coverage
         uses: flox/activate-action@v1
         env:
