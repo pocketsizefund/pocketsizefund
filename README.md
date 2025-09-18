@@ -2,7 +2,7 @@
 
 > Open source quantitative hedge fund 🍊  
 
-[![Code quality check](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/quality.yaml/badge.svg?branch=master)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/quality.yaml) [![Test and coverage check](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/test.yaml) 
+[![Python code checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/run_python_code_checks.yaml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/run_python_code_checks.yaml) [![Rust code checks](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/run_rust_code_checks.yaml/badge.svg)](https://github.com/pocketsizefund/pocketsizefund/actions/workflows/run_rust_code_checks.yaml)  
 
 ## About
 
@@ -21,8 +21,8 @@ Run the commands below the repository root directory.
 ```sh
 brew install flox # https://flox.dev/ for more information
 flox activate
-mise tasks # see all available Mise tasks
-mise tasks run python:install
+mask --help # see all available Mask tasks
+mask development python install
 ```
 
 ### Principles
