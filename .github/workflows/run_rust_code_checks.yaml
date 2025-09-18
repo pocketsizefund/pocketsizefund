@@ -1,0 +1,22 @@
+---
+name: Rust code checks
+on:
+  push:
+    paths:
+      - '**.rs'
+  pull_request:
+    paths:
+      - '**.rs'
+jobs:
+  run_rust_code_checks:
+    name: Run Rust code checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Run Rust quality checks
+        uses: flox/activate-action@v1
+        with:
+          command: mask development rust all
