@@ -16,6 +16,9 @@
       "cargo-nextest": {
         "pkg-path": "cargo-nextest"
       },
+      "cargo-tarpaulin": {
+        "pkg-path": "cargo-tarpaulin"
+      },
       "cargo-watch": {
         "pkg-path": "cargo-watch"
       },
@@ -43,9 +46,6 @@
           "x86_64-linux"
         ]
       },
-      "google-cloud-sdk": {
-        "pkg-path": "google-cloud-sdk"
-      },
       "gum": {
         "pkg-path": "gum"
       },
@@ -58,9 +58,6 @@
       },
       "mask": {
         "pkg-path": "mask"
-      },
-      "mise": {
-        "pkg-path": "mise"
       },
       "nushell": {
         "pkg-path": "nushell"
@@ -1174,6 +1171,122 @@
       "priority": 5
     },
     {
+      "attr_path": "cargo-tarpaulin",
+      "broken": false,
+      "derivation": "/nix/store/afhbhbhjjfn5zh3sxgyy5nk5nyp92fsk-cargo-tarpaulin-0.32.8.drv",
+      "description": "Code coverage tool for Rust projects",
+      "install_id": "cargo-tarpaulin",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "cargo-tarpaulin-0.32.8",
+      "pname": "cargo-tarpaulin",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:00:42.313470Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.32.8",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/p4l4znf9xpiynnk8aa94c5k9hkwmvhjd-cargo-tarpaulin-0.32.8"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-tarpaulin",
+      "broken": false,
+      "derivation": "/nix/store/shdjnigsgncgcxr5ri3d952zisvrbn6c-cargo-tarpaulin-0.32.8.drv",
+      "description": "Code coverage tool for Rust projects",
+      "install_id": "cargo-tarpaulin",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "cargo-tarpaulin-0.32.8",
+      "pname": "cargo-tarpaulin",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:29:40.226629Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.32.8",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/xdr17pam7xsk73l9fmv1jym0gvh0jiss-cargo-tarpaulin-0.32.8"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-tarpaulin",
+      "broken": false,
+      "derivation": "/nix/store/zg28lka7z3xr62xkksk0wf8r69cpfqx2-cargo-tarpaulin-0.32.8.drv",
+      "description": "Code coverage tool for Rust projects",
+      "install_id": "cargo-tarpaulin",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "cargo-tarpaulin-0.32.8",
+      "pname": "cargo-tarpaulin",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T02:56:35.709003Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.32.8",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/qi4sp9iqam5nq9y5j11q6w60m0x3z2dk-cargo-tarpaulin-0.32.8"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cargo-tarpaulin",
+      "broken": false,
+      "derivation": "/nix/store/20dz8xn891k2x3vs4j1cldx61873fcw6-cargo-tarpaulin-0.32.8.drv",
+      "description": "Code coverage tool for Rust projects",
+      "install_id": "cargo-tarpaulin",
+      "license": "[ MIT, Apache-2.0 ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "name": "cargo-tarpaulin-0.32.8",
+      "pname": "cargo-tarpaulin",
+      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
+      "rev_count": 861038,
+      "rev_date": "2025-09-13T06:43:22Z",
+      "scrape_date": "2025-09-15T03:26:56.311327Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.32.8",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/im5q945spww3clfrgn340l1ci28m97pm-cargo-tarpaulin-0.32.8"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
       "attr_path": "cargo-watch",
       "broken": false,
       "derivation": "/nix/store/50xch411hq51l4xscdpycxh8wrgn6hzw-cargo-watch-8.5.3.drv",
@@ -1652,122 +1765,6 @@
       "priority": 5
     },
     {
-      "attr_path": "google-cloud-sdk",
-      "broken": false,
-      "derivation": "/nix/store/j7dg8h52jqvj800l0jh864rcg27ja3mw-google-cloud-sdk-537.0.0.drv",
-      "description": "Tools for the google cloud platform",
-      "install_id": "google-cloud-sdk",
-      "license": "Unspecified free software license",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "name": "google-cloud-sdk-537.0.0",
-      "pname": "google-cloud-sdk",
-      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "rev_count": 861038,
-      "rev_date": "2025-09-13T06:43:22Z",
-      "scrape_date": "2025-09-15T02:00:43.982132Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "537.0.0",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/5hmfd2vpdpm94lkj1m6wpdg8vbdakrwr-google-cloud-sdk-537.0.0"
-      },
-      "system": "aarch64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "google-cloud-sdk",
-      "broken": false,
-      "derivation": "/nix/store/kfzs3mbxq6d1319jafs14z7hiajq70na-google-cloud-sdk-537.0.0.drv",
-      "description": "Tools for the google cloud platform",
-      "install_id": "google-cloud-sdk",
-      "license": "Unspecified free software license",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "name": "google-cloud-sdk-537.0.0",
-      "pname": "google-cloud-sdk",
-      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "rev_count": 861038,
-      "rev_date": "2025-09-13T06:43:22Z",
-      "scrape_date": "2025-09-15T02:29:42.198404Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "537.0.0",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/ljmr1jyxx1l37v6kv1f9awqjdkmpdlql-google-cloud-sdk-537.0.0"
-      },
-      "system": "aarch64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "google-cloud-sdk",
-      "broken": false,
-      "derivation": "/nix/store/56b669d7vs6wpn9n1ngiy8w75p519v90-google-cloud-sdk-537.0.0.drv",
-      "description": "Tools for the google cloud platform",
-      "install_id": "google-cloud-sdk",
-      "license": "Unspecified free software license",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "name": "google-cloud-sdk-537.0.0",
-      "pname": "google-cloud-sdk",
-      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "rev_count": 861038,
-      "rev_date": "2025-09-13T06:43:22Z",
-      "scrape_date": "2025-09-15T02:56:36.847751Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "537.0.0",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/9zgqafjwy7g9hmgxmi1bijsaz80m8bnc-google-cloud-sdk-537.0.0"
-      },
-      "system": "x86_64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "google-cloud-sdk",
-      "broken": false,
-      "derivation": "/nix/store/9wp4531brkq7l887frya1ldhr0g382lb-google-cloud-sdk-537.0.0.drv",
-      "description": "Tools for the google cloud platform",
-      "install_id": "google-cloud-sdk",
-      "license": "Unspecified free software license",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "name": "google-cloud-sdk-537.0.0",
-      "pname": "google-cloud-sdk",
-      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "rev_count": 861038,
-      "rev_date": "2025-09-13T06:43:22Z",
-      "scrape_date": "2025-09-15T03:26:58.480581Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "537.0.0",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/ajidfivbi1zw53rlbq38pzjf1mmz80h6-google-cloud-sdk-537.0.0"
-      },
-      "system": "x86_64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
       "attr_path": "gum",
       "broken": false,
       "derivation": "/nix/store/i7da40pyfvk25xwk2xkg7rlzv3zqf4s3-gum-0.17.0.drv",
@@ -2054,122 +2051,6 @@
       ],
       "outputs": {
         "out": "/nix/store/8h9hdwpgzknxadrz6fwinix214dbvm4c-mask-0.11.6"
-      },
-      "system": "x86_64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "mise",
-      "broken": false,
-      "derivation": "/nix/store/is0wk2gxk5w5b3b5sqn4kc7z92xmm1zm-mise-2025.8.20.drv",
-      "description": "Front-end to your dev env",
-      "install_id": "mise",
-      "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "name": "mise-2025.8.20",
-      "pname": "mise",
-      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "rev_count": 861038,
-      "rev_date": "2025-09-13T06:43:22Z",
-      "scrape_date": "2025-09-15T02:01:03.311772Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "2025.8.20",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/4ly7y56vxb33iyc1sql6i3samrc2qn9x-mise-2025.8.20"
-      },
-      "system": "aarch64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "mise",
-      "broken": false,
-      "derivation": "/nix/store/na97sn0xhb63cf8ajkzil6fjsnxbracw-mise-2025.8.20.drv",
-      "description": "Front-end to your dev env",
-      "install_id": "mise",
-      "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "name": "mise-2025.8.20",
-      "pname": "mise",
-      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "rev_count": 861038,
-      "rev_date": "2025-09-13T06:43:22Z",
-      "scrape_date": "2025-09-15T02:30:14.862857Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "2025.8.20",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/xvb5ahjgpm47wa3mm0y0sz1m5q0rv9ss-mise-2025.8.20"
-      },
-      "system": "aarch64-linux",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "mise",
-      "broken": false,
-      "derivation": "/nix/store/l70b1k82dkcnkkrr9697c8q90chg8891-mise-2025.8.20.drv",
-      "description": "Front-end to your dev env",
-      "install_id": "mise",
-      "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "name": "mise-2025.8.20",
-      "pname": "mise",
-      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "rev_count": 861038,
-      "rev_date": "2025-09-13T06:43:22Z",
-      "scrape_date": "2025-09-15T02:56:55.968113Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "2025.8.20",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/id69d77ipcw1kaapqh3fx1jfz7p8scal-mise-2025.8.20"
-      },
-      "system": "x86_64-darwin",
-      "group": "toplevel",
-      "priority": 5
-    },
-    {
-      "attr_path": "mise",
-      "broken": false,
-      "derivation": "/nix/store/h8krcismdpw2adk2yilyv3issqj5dzgs-mise-2025.8.20.drv",
-      "description": "Front-end to your dev env",
-      "install_id": "mise",
-      "license": "MIT",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "name": "mise-2025.8.20",
-      "pname": "mise",
-      "rev": "c23193b943c6c689d70ee98ce3128239ed9e32d1",
-      "rev_count": 861038,
-      "rev_date": "2025-09-13T06:43:22Z",
-      "scrape_date": "2025-09-15T03:27:33.496815Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "2025.8.20",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/s9npfg1387g1vhb6rv1v3vy99c5dpf2n-mise-2025.8.20"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

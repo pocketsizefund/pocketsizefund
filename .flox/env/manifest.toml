@@ -1,7 +1,6 @@
 version = 1
 
 [install]
-mise.pkg-path = "mise"
 pulumi.pkg-path = "pulumi"
 pulumi-python.pkg-path = "pulumiPackages.pulumi-python"
 ruff.pkg-path = "ruff"
@@ -10,13 +9,13 @@ vulture.pkg-path = "python313Packages.vulture"
 yamllint.pkg-path = "yamllint"
 nushell.pkg-path = "nushell"
 fselect.pkg-path = "fselect"
-google-cloud-sdk.pkg-path = "google-cloud-sdk"
 awscli2.pkg-path = "awscli2"
 gum.pkg-path = "gum"
 mask.pkg-path = "mask"
 bacon.pkg-path = "bacon"
 cargo-watch.pkg-path = "cargo-watch"
 cargo-nextest.pkg-path = "cargo-nextest"
+cargo-tarpaulin.pkg-path = "cargo-tarpaulin"
 cargo.pkg-path = "cargo"
 cargo.pkg-group = "rust-toolchain"
 rustc.pkg-path = "rustc"
@@ -36,8 +35,8 @@ gcc.systems = ["aarch64-linux", "x86_64-linux"]
 clang.pkg-path = "clang"
 clang.systems = ["aarch64-darwin", "x86_64-darwin"]
 duckdb.pkg-path = "duckdb"
-openssl.pkg-path = "openssl"                            # Provides libssl-dev equivalent
-pkgconf.pkg-path = "pkgconf"                            # Provides pkg-config
+openssl.pkg-path = "openssl"
+pkgconf.pkg-path = "pkgconf"
 
 [hook]
 on-activate = '''
