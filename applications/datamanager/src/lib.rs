@@ -64,7 +64,7 @@ impl AppState {
     }
 }
 
-pub async fn create_app() -> Router<AppState> {
+pub async fn create_app() -> Router {
     let state = AppState::from_env().await;
 
     Router::<AppState>::new()

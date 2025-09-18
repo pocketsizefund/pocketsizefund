@@ -20,15 +20,15 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "--verbose",
-    "--tb=short",
-    "--strict-markers",
-    "--color=yes",
-    "--rootdir=/tests",
+  "--verbose",
+  "--tb=short",
+  "--strict-markers",
+  "--color=yes",
+  "--rootdir=/tests",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning:websockets.legacy.*",
-    "ignore::DeprecationWarning",
+  "ignore::DeprecationWarning:websockets.legacy.*",
+  "ignore::DeprecationWarning",
 ]
 
 [tool.coverage.run]
@@ -44,56 +44,56 @@ output = "coverage_output/.python_coverage.xml"
 
 [tool.ruff.lint]
 select = [
-    "A",     # flake8 builtins
-    "ANN",   # type annotations
-    "ARG",   # unused args
-    "ASYNC",
-    "B",     # bugbear
-    "COM",   # commas
-    "C4",    # comprehensions
-    "C90",   # complexity
-    "BLE",   # no blind exceptions
-    "DTZ",   # datetimes
-    "E",     # whitespace
-    "EM",    # error messages
-    "ERA",   # dead code
-    "EXE",   # executables
-    "F",     # pyflakes
-    "FA",    # future annotations
-    "FAST",  # fastapi
-    "FIX",   # no fixme/todo comments
-    "FLY",   # f strings
-    "FBT",   # boolean traps
-    "FURB",  # refurb
-    "G",     # logging format
-    "ICN",   # import conventions
-    "ISC",   # implicit string concatenation
-    "I",     # isort
-    "LOG",   # logging
-    "N",     # naming
-    "NPY",   # numpy
-    "PD",    # pandas
-    "PERF",  # performance
-    "PIE",   # misc lints
-    "PL",    # pylint
-    "PT",    # pytest style
-    "PTH",   # use pathlib
-    "PYI",   # type hints
-    "Q",     # quotes
-    "RSE",   # raises
-    "RET",   # returns
-    "RUF",   # ruff
-    "S",     # bandit (security)
-    "SIM",   # simplicity
-    "SLF",   # self
-    "SLOT",  # slots
-    "TC",    # type checking
-    "TID",   # tidy imports
-    "TRY",   # trys
-    "T10",   # debugger
-    "T20",   # printing
-    "UP",    # pyupgrade
-    "YTT",   # flake8
+  "A",     # flake8 builtins
+  "ANN",   # type annotations
+  "ARG",   # unused args
+  "ASYNC",
+  "B",     # bugbear
+  "COM",   # commas
+  "C4",    # comprehensions
+  "C90",   # complexity
+  "BLE",   # no blind exceptions
+  "DTZ",   # datetimes
+  "E",     # whitespace
+  "EM",    # error messages
+  "ERA",   # dead code
+  "EXE",   # executables
+  "F",     # pyflakes
+  "FA",    # future annotations
+  "FAST",  # fastapi
+  "FIX",   # no fixme/todo comments
+  "FLY",   # f strings
+  "FBT",   # boolean traps
+  "FURB",  # refurb
+  "G",     # logging format
+  "ICN",   # import conventions
+  "ISC",   # implicit string concatenation
+  "I",     # isort
+  "LOG",   # logging
+  "N",     # naming
+  "NPY",   # numpy
+  "PD",    # pandas
+  "PERF",  # performance
+  "PIE",   # misc lints
+  "PL",    # pylint
+  "PT",    # pytest style
+  "PTH",   # use pathlib
+  "PYI",   # type hints
+  "Q",     # quotes
+  "RSE",   # raises
+  "RET",   # returns
+  "RUF",   # ruff
+  "S",     # bandit (security)
+  "SIM",   # simplicity
+  "SLF",   # self
+  "SLOT",  # slots
+  "TC",    # type checking
+  "TID",   # tidy imports
+  "TRY",   # trys
+  "T10",   # debugger
+  "T20",   # printing
+  "UP",    # pyupgrade
+  "YTT",   # flake8
 ]
 ignore = ["COM812"]
 
