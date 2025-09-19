@@ -1,16 +1,13 @@
 version: "3.9"
 
 networks:
-  public:
-    driver: overlay
-    attachable: true
   internal:
     driver: overlay
     attachable: true
+    driver_opts:
+      com.docker.network.driver.mtu: "1280" # good over Tailscale
 
 volumes:
-  traefik_letsencrypt:
-  portainer_data:
   prom_data:
   grafana_data:
 
@@ -20,57 +17,9 @@ secrets:
 
 configs:
   prometheus.yml:
-    name: prometheus.yml
     file: ./prometheus.yml
 
 services:
-  # Network Services
-  traefik:
-    image: traefik:v3.1
-    command:
-      - --providers.swarm.endpoint=unix:///var/run/docker.sock
-      - --providers.swarm.exposedByDefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --api.dashboard=true
-      - --metrics.prometheus=true
-      - --metrics.prometheus.addEntryPointsLabels=true
-      - --metrics.prometheus.addServicesLabels=true
-    ports:
-      - target: 80
-        published: 80
-        protocol: tcp
-        mode: host
-      - target: 443
-        published: 443
-        protocol: tcp
-        mode: host
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    deploy:
-      placement:
-        constraints: [node.role == manager]
-      update_config:
-        parallelism: 1
-        order: start-first
-    networks: [public]
-
-  portainer:
-    image: portainer/portainer-ce:latest
-    ports:
-      - "9000:9000"
-      - "9443:9443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
-    networks:
-      - public
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
-
-  # Monitoring Services
   prometheus:
     image: prom/prometheus:v2.52.0
     command:
@@ -78,18 +27,14 @@ services:
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
       - --web.enable-lifecycle
-    volumes:
-      - prom_data:/prometheus
+    volumes: ["prom_data:/prometheus"]
     configs:
       - source: prometheus.yml
         target: /etc/prometheus/prometheus.yml
+    networks: [internal]
     deploy:
       placement:
-        constraints: [node.role == manager]
-      resources:
-        reservations: { memory: 256M }
-        limits: { memory: 1G }
-    networks: [internal]
+        constraints: ["node.role == manager"]
 
   node-exporter:
     image: prom/node-exporter:v1.8.1
@@ -97,28 +42,22 @@ services:
       - --path.rootfs=/host
       - --collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|var/lib/docker/.+|var/lib/kubelet/.+|var/lib/containers/.+)($$|/)
       - --no-collector.hwmon
-    deploy:
-      mode: global
-      resources:
-        reservations: { memory: 64M }
-        limits: { memory: 256M }
     volumes:
       - /:/host:ro,rslave
     networks: [internal]
+    deploy:
+      mode: global
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
-    deploy:
-      mode: global
-      resources:
-        reservations: { memory: 128M }
-        limits: { memory: 512M }
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
     networks: [internal]
+    deploy:
+      mode: global
 
   grafana:
     image: grafana/grafana:10.4.2
@@ -129,15 +68,12 @@ services:
       - GRAFANA_ADMIN_PASSWORD
     volumes:
       - grafana_data:/var/lib/grafana
+    networks: [internal]
+    ports: # expose only for Tailscale access
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: host # bound only on the node running grafana
     deploy:
       placement:
-        constraints: [node.role == manager]
-      resources:
-        reservations: { memory: 128M }
-        limits: { memory: 512M }
-      labels:
-        - traefik.enable=true
-        - traefik.http.routers.grafana.rule=Host(`grafana.example.com`)
-        - traefik.http.routers.grafana.entrypoints=web
-        - traefik.http.services.grafana.loadbalancer.server.port=3000
-    networks: [public, internal]
+        constraints: ["node.role == manager"]

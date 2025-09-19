@@ -56,7 +56,7 @@ def test_lstm_different_sequence_lengths() -> None:
 
     for sequence_length in [5, 10, 20]:
         input_tensor = Tensor(rng.standard_normal((2, sequence_length, 8)))
-        output, hidden_state = lstm.forward(input_tensor)
+        output, _ = lstm.forward(input_tensor)
 
         assert output.shape == (2, sequence_length, 16)
 

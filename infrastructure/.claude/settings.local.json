@@ -1,13 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pulumi stack output:*)",
-      "Bash(nu:*)",
-      "Bash(docker stack ps:*)"
+      "Bash(docker stack ps:*)",
+      "WebSearch",
+      "Bash(python:*)",
+      "Bash(uv run:*)",
+      "Bash(docker:*)"
     ],
     "defaultMode": "acceptEdits",
-    "additionalDirectories": [
-      "/Users/chrisaddy/Library/Application Support/nushell"
-    ]
+    "additionalDirectories": []
   }
 }
+

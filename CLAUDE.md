@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Core Development
+
 - **Install dependencies**: `mask development python install` (after `flox activate`)
 - **Format code**: `mask development python format` (uses ruff)
 - **Lint code**: `mask development python lint` (ruff with comprehensive ruleset)
@@ -13,18 +14,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Run all quality checks**: `mask development quality`
 
 ### Testing
+
 - **Run tests with coverage**: `uv run coverage run --parallel-mode -m pytest && uv run coverage combine && uv run coverage report`
 - **Single test file**: `uv run pytest applications/*/tests/test_<name>.py`
 - **Coverage output**: Available in `coverage_output/.python_coverage.xml`
 
 ### Infrastructure & Deployment
+
 - **Deploy infrastructure**: `mask infrastructure base up`
-- **Teardown infrastructure**: `mask infrastructure base down` 
+- **Teardown infrastructure**: `mask infrastructure base down`
 - **Deploy applications**: `mask applications up`
 - **Test endpoints**: `mask test`
 - **Check Docker contexts**: `docker context ls`
 
 ### Development Environment
+
 - **Environment manager**: Flox (`flox activate` to enter development shell)
 - **Package manager**: uv (workspace with `applications/*` and `libraries/python`)
 - **Python version**: 3.12.10 (strict requirement across all projects)
@@ -32,6 +36,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture Overview
 
 ### Workspace Structure
+
 This is a **UV workspace** with multiple applications and shared libraries:
 
 - **Root workspace** (`pyproject.toml`): Main project configuration with workspace members
@@ -40,29 +45,32 @@ This is a **UV workspace** with multiple applications and shared libraries:
   - `portfoliomanager`: Portfolio prediction service (FastAPI on port 8081)  
   - `models`: ML model training and data processing workflows
 - **Libraries** (`libraries/python/`): Shared `internal` package with common utilities
-- **Infrastructure** (`infrastructure/`): Pulumi-based cloud deployment
 
 ### Shared Internal Library (`libraries/python/src/internal/`)
+
 Core components used across applications:
+
 - **ML Components**: TFT models, LSTM/MHSA networks, loss functions
 - **Data Types**: Equity bars, datasets, cloud events, money types
 - **Utilities**: Date handling, data summaries
 
 ### Deployment Architecture
+
 - **Local Development**: Docker Swarm on localhost
-- **Production**: Pulumi-managed cloud infrastructure with Docker Swarm
 - **Container Registry**: DockerHub (`pocketsizefund/*` images)
-- **Monitoring**: Grafana, Prometheus, Portainer
-- **Networking**: Traefik reverse proxy with Let's Encrypt TLS
+- **Monitoring**: Grafana, Prometheus
+- **Networking**: Tailscale-only; no public reverse proxy
 
 ### Service Communication
+
 - **HTTP APIs**: FastAPI applications with health endpoints (`/health`)
 - **Cloud Events**: Standardized event format for inter-service communication
-- **Docker Networks**: Overlay networks (`public`, `internal`, `app-network`)
+- **Docker Networks**: Overlay networks (`internal` )
 
 ## Code Standards
 
 ### Python Configuration
+
 - **Formatter**: Ruff (replaces black/isort)
 - **Linter**: Ruff with comprehensive ruleset (90+ rule categories enabled)
 - **Type Checking**: Pyright with relaxed import resolution
@@ -70,6 +78,7 @@ Core components used across applications:
 - **Coverage**: Line coverage tracking with parallel execution
 
 ### Key Dependencies
+
 - **Web Framework**: FastAPI (consistent across services)
 - **ML Stack**: TinyGrad, NumPy, Polars
 - **Data**: PyArrow, Polars for data processing
@@ -79,6 +88,7 @@ Core components used across applications:
 ## Development Principles
 
 From the project README, the team follows these principles:
+
 - Test in production
 - Always roll forward  
 - Systems over process
@@ -89,6 +99,7 @@ From the project README, the team follows these principles:
 ## Infrastructure Secrets
 
 Required Docker Swarm secrets for deployment:
+
 - `GRAFANA_ADMIN_PASSWORD`
 - `ALPACA_API_KEY`, `ALPACA_API_SECRET`, `ALPACA_BASE_URL`
 - `EDGAR_USER_AGENT`, `DATA_BUCKET`

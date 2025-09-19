@@ -1,7 +1,9 @@
 # Pocket Size Fund Task Manager
 
 ## setup
+>
 > Initial system setup and prerequisite configuration
+
 ```bash
 set -euo pipefail
 
@@ -14,10 +16,6 @@ if ! command -v docker >/dev/null >&1; then
     missing_deps+=("Docker")
 fi
 
-if ! command -v pulumi >/dev/null >&1; then
-    missing_deps+=("Pulumi CLI")
-fi
-
 if [[ ${#missing_deps[@]} -gt 0 ]]; then
     echo "Missing prerequisites: ${missing_deps[*]}"
     echo "Please install the following:"
@@ -25,9 +23,6 @@ if [[ ${#missing_deps[@]} -gt 0 ]]; then
         case $dep in
             "Docker")
                 echo "  - Docker: https://docs.docker.com/get-docker/"
-                ;;
-            "Pulumi CLI")
-                echo "  - Pulumi CLI: https://www.pulumi.com/docs/get-started/install/"
                 ;;
         esac
     done
@@ -48,223 +43,78 @@ fi
 echo "Prerequisites check completed"
 ```
 
-## continuous_integration
-> Continuous integration workflow
-```bash
-set -euo pipefail
+## dev
+>
+> Full development cycle (install, format, lint, test)
 
-echo "Running continuous integration workflow"
+```sh
 
-echo "Testing"
+echo "Running full development workflow"
+echo "==================================="
+
+echo " Installing dependencies..."
+mask development python install
+
+echo ""
+echo " Running quality checks..."
+mask development quality
+
+echo ""
+echo " Running tests..."
 mask development python test
 
-echo "Building applications"
-mask infrastructure applications build
-
-echo "Continuous integration workflow completed successfully"
+echo ""
+echo "Development workflow completed successfully!"
 ```
 
 ## infrastructure
+>
 > Manage infrastructure deployments
+>
 ### base
+>
 > Base infrastructure deployment
+>
 #### up
-> Deploy complete infrastructure stack (Pulumi + Docker) to local and production environments.
+>
+> Deploy complete infrastructure stack (Lightsail + Docker Swarm) to local and production environments. Creates cloud resources, SSH configuration, Docker contexts, and deploys both infrastructure and application services.
+
 ```bash
-set -euo pipefail
-
-echo "Starting infrastructure deployment"
-
 cd infrastructure
-
-echo "Deploying infrastructure with Pulumi"
-if ! pulumi up --yes; then
-    echo "Pulumi deployment failed"
-    exit 1
-fi
-
-echo "Getting infrastructure outputs"
-MANAGER_IP=$(pulumi stack output managerIp | tr -d '\r\n')
-if [[ -z "$MANAGER_IP" ]]; then
-    echo "Failed to get manager IP from Pulumi"
-    exit 1
-fi
-
-echo "Setting up SSH configuration"
-pulumi stack output --show-secrets sshPrivateKeyPem | tr -d '\r' > swarm.pem
-chmod 600 swarm.pem
-trap 'rm -f "$PWD/swarm.pem"' EXIT
-
-if ! ssh-keygen -l -f swarm.pem >/dev/null >&1; then
-    echo "Invalid SSH key format"
-    exit 1
-fi
-
-SSH_CONFIG="$HOME/.ssh/config"
-mkdir -p "$(dirname "$SSH_CONFIG")"
-
-if [[ -f "$SSH_CONFIG" ]]; then
-    sed -i.bak '/^Host pocketsizefund-production$/,/^Host /{ /^Host pocketsizefund-production$/d; /^Host /!d; }' "$SSH_CONFIG" || true
-    sed -i.bak '${ /^Host /!d; }' "$SSH_CONFIG" || true
-fi
-
-cat >> "$SSH_CONFIG" << EOF
-
-Host pocketsizefund-production
-  HostName $MANAGER_IP
-  User ubuntu
-  IdentityFile $PWD/swarm.pem
-  IdentitiesOnly yes
-  StrictHostKeyChecking accept-new
-  ServerAliveInterval 60
-  ServerAliveCountMax 3
-EOF
-
-echo "Updating SSH known hosts"
-ssh-keygen -R "$MANAGER_IP" >/dev/null >&1 || true
-ssh-keyscan -H "$MANAGER_IP" 2>/dev/null >> "$HOME/.ssh/known_hosts"
-
-echo "Testing SSH connection"
-MAX_RETRIES=5
-RETRY_COUNT=0
-
-while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
-    if ssh -o ConnectTimeout=10 pocketsizefund-production 'docker info -f "{{.ServerVersion}} {{.Swarm.LocalNodeState}}"' 2>/dev/null; then
-        echo "SSH connection successful"
-        break
-    else
-        ((RETRY_COUNT++))
-        echo "SSH connection attempt $RETRY_COUNT/$MAX_RETRIES failed, retrying in 5 seconds"
-        sleep 5
-    fi
-done
-
-if [[ $RETRY_COUNT -eq $MAX_RETRIES ]]; then
-    echo "Failed to establish SSH connection after $MAX_RETRIES attempts"
-    exit 1
-fi
-
-echo "Setting up Docker contexts"
-
-for context in pocketsizefund-production pocketsizefund-local; do
-    if docker context ls --format '{{.Name}}' | grep -q "^${context}$"; then
-        docker context use default >/dev/null >&1 || true
-        docker context rm -f "$context" >/dev/null >&1 || true
-    fi
-done
-
-if ! docker context create pocketsizefund-production --docker "host=ssh://pocketsizefund-production"; then
-    echo "Failed to create production Docker context"
-    exit 1
-fi
-
-if ! docker context create pocketsizefund-local --docker "host=unix:///var/run/docker.sock"; then
-    echo "Failed to create local Docker context"
-    exit 1
-fi
-
-echo "Ensuring local Docker swarm is initialized"
-docker context use pocketsizefund-local
-if ! docker info --format '{{.Swarm.LocalNodeState}}' | grep -q active; then
-    docker swarm init --advertise-addr 127.0.0.1 >/dev/null 2>&1 || true
-fi
-
-echo "Deploying infrastructure stack to production"
-docker context use pocketsizefund-production
-if ! docker stack deploy -c stack.yml infrastructure --with-registry-auth; then
-    echo "Failed to deploy infrastructure stack to production"
-    exit 1
-fi
-
-echo "Deploying infrastructure stack to local"
-docker context use pocketsizefund-local
-if ! docker stack deploy -c stack.yml infrastructure --with-registry-auth; then
-    echo "Failed to deploy infrastructure stack to local"
-    exit 1
-fi
-
-echo "Deploying application services"
-cd ../applications
-echo "Deploying applications to production"
-docker context use pocketsizefund-production
-if ! docker stack deploy -c stack.yml applications --with-registry-auth; then
-    echo "Failed to deploy applications to production"
-    exit 1
-fi
-
-echo "Deploying applications to local"
-docker context use pocketsizefund-local
-if ! docker stack deploy -c stack.yml applications --with-registry-auth; then
-    echo "Failed to deploy applications to local"
-    exit 1
-fi
-
-echo "Cluster status:"
-docker context use pocketsizefund-production
-echo "Production cluster:"
-docker node ls >/dev/null || echo " Unable to list production nodes"
-
-docker context use pocketsizefund-local
-echo "Local cluster:"
-docker node ls >/dev/null || echo " Unable to list local nodes"
-
-echo "Infrastructure deployment completed successfully"
+uv run python -m infrastructure up
 ```
 
 #### down
-
+>
 > Completely tear down infrastructure and services.
 
 ```bash
-set -euo pipefail
-
-echo "Taking down infrastructure"
-
 cd infrastructure
 
-echo "Removing application stacks"
-for context in pocketsizefund-production pocketsizefund-local; do
-    echo "Removing from $context"
-    if docker context ls --format '{{.Name}}' | grep -q "^${context}$"; then
-        docker context use "$context"
-        docker stack rm applications >/dev/null || echo " applications not found in $context"
-        docker stack rm infrastructure >/dev/null || echo " infrastructure stack not found in $context"
-    else
-        echo "Context $context not found"
-    fi
-done
+uv run python -m infrastructure down
+echo "📝 Summary: All cloud resources destroyed, contexts removed, SSH config cleaned"
+```
 
-echo "Waiting for services to stop"
-sleep 10
+### monitoring
 
-echo "️Destroying cloud infrastructure"
-if ! pulumi destroy --yes; then
-    echo "Pulumi destroy failed"
-    exit 1
-fi
+ deploy monitoring stack
 
-echo "Cleaning up SSH configuration"
-SSH_CONFIG="$HOME/.ssh/config"
-if [[ -f "$SSH_CONFIG" ]]; then
-    sed -i.bak '/^Host pocketsizefund-production$/,/^Host /{ /^Host pocketsizefund-production$/d; /^Host /!d; }' "$SSH_CONFIG" || true
-    sed -i.bak '${ /^Host /!d; }' "$SSH_CONFIG" || true
-fi
+#### deploy
 
-rm -f swarm.pem
-
-echo "Removing Docker contexts"
-docker context use default >/dev/null >&1 || true
-for context in pocketsizefund-production pocketsizefund-local; do
-    docker context rm -f "$context" >/dev/null >&1 || true
-done
-
-echo "Infrastructure taken down successfully"
+```nu
+cd infrastructure
+$env.GRAFANA_ADMIN_PASSWORD | docker secret create GRAFANA_ADMIN_PASSWORD -
+docker stack deploy -c stack.yml monitoring
 ```
 
 ### applications
+>
 > Build and deploy application containers
+>
 #### build
+>
 > Build and push application Docker images to DockerHub
+
 ```bash
 set -euo pipefail
 
@@ -294,92 +144,27 @@ echo "All application images built and pushed successfully"
 ```
 
 #### deploy
+>
 > Deploy applications to both local and production Docker swarm
-```bash
-set -euo pipefail
 
+```nu
 echo "Deploying applications"
 
-if docker context ls --format '{{.Name}}' | grep -q "^pocketsizefund-production$"; then
-    echo "Deploying to production"
-    docker context use pocketsizefund-production
-    docker stack deploy -c applications/stack.yml applications --with-registry-auth
-else
-    echo "️Production context not found, skipping production deployment"
-fi
-
-if docker context ls --format '{{.Name}}' | grep -q "^pocketsizefund-local$"; then
-    echo "Deploying to local"
-    docker context use pocketsizefund-local
-    docker stack deploy -c applications/stack.yml applications --with-registry-auth
-else
-    echo "️Local context not found, skipping local deployment"
-fi
-
-docker context use default >/dev/null >&1 || true
+cd applications
+# $env.ALPACA_API_KEY | docker secret create ALPACA_API_KEY -
+docker stack deploy -c stack.yml applications
 
 echo "Application deployment completed"
 ```
 
 ## test
+>
 > Test application endpoints and service health across environments
 
-### endpoints
-> Test HTTP endpoints for DataManager and PortfolioManager services
-```bash
-set -euo pipefail
-
-echo "Testing application endpoints"
-
-test_endpoint() {
-    local name="1$"
-    local url="2$"
-    local context="3$"
-
-    printf "%-25s %-15s " "$name" "[$context]"
-
-    if timeout 10 curl -sf "$url" >/dev/null 2>&1; then
-        echo " OK"
-        return 0
-    elif timeout 10 curl -s "$url" >/dev/null 2>&1; then
-        echo " RESPONDING (non-200)"
-        return 1
-    else
-        echo " FAILED"
-        return 1
-    fi
-}
-
-cd infrastructure
-MANAGER_IP=""
-if pulumi stack --show-name >/dev/null 2>&1; then
-    MANAGER_IP=$(pulumi stack output managerIp 2>/dev/null || echo "")
-fi
-cd ..
-
-echo "Local endpoints:"
-test_endpoint "DataManager" "http://localhost:8080/health" "local"
-test_endpoint "DataManager (root)" "http://localhost:8080/" "local"
-test_endpoint "PortfolioManager" "http://localhost:8081/health" "local"
-test_endpoint "PortfolioManager (root)" "http://localhost:8081/" "local"
-
-if [[ -n "$MANAGER_IP" ]]; then
-    echo ""
-    echo "Production endpoints (IP: $MANAGER_IP):"
-    test_endpoint "DataManager" "http://$MANAGER_IP:8080/health" "production"
-    test_endpoint "DataManager (root)" "http://$MANAGER_IP:8080/" "production"
-    test_endpoint "PortfolioManager" "http://$MANAGER_IP:8081/health" "production"
-    test_endpoint "PortfolioManager (root)" "http://$MANAGER_IP:8081/" "production"
-else
-    echo "️Production manager IP not available - skipping production tests"
-fi
-
-docker context use default >/dev/null >&1 || true
-echo " Endpoint testing completed"
-```
-
 ### health
+>
 > Check Docker service health across all contexts
+
 ```bash
 set -euo pipefail
 
@@ -408,7 +193,9 @@ docker context use default >/dev/null >&1 || true
 ```
 
 ### all
+>
 > Run complete test suite (endpoints + health checks)
+
 ```bash
 set -euo pipefail
 
@@ -421,12 +208,17 @@ echo "Complete test suite finished"
 ```
 
 ## docker
+>
 > Docker context and service management commands
 
 ### context
+>
 > Switch Docker context between local and production environments
+>
 #### local
+>
 > Switch to local Docker swarm context
+
 ```bash
 docker context use pocketsizefund-local
 echo "Switched to local context"
@@ -434,7 +226,9 @@ docker context ls | grep "\*"
 ```
 
 #### production
+>
 > Switch to production Docker swarm context
+
 ```bash
 docker context use pocketsizefund-production
 echo "Switched to production context"
@@ -442,16 +236,22 @@ docker context ls | grep "\*"
 ```
 
 #### default
+>
 > Switch back to default Docker context
+
 ```bash
 docker context use default
 echo "Switched to default context"
 ```
 
 ### services
+>
 > Docker swarm service management
+>
 #### ls
+>
 > List all Docker services with health status
+
 ```bash
 echo "Docker services status:"
 docker service ls
@@ -465,7 +265,9 @@ docker service ls --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}\t{{.Ports
 ```
 
 #### logs
+>
 > View logs for a specific service (interactive selection)
+
 ```bash
 echo "Available services:"
 services=($(docker service ls --format '{{.Name}}'))
@@ -488,7 +290,9 @@ done
 ```
 
 #### inspect
+>
 > Inspect service configuration and status
+
 ```bash
 echo "Available services:"
 services=($(docker service ls --format '{{.Name}}'))
@@ -514,16 +318,22 @@ done
 ```
 
 ### stack
+>
 > Docker stack operations for infrastructure and applications
+>
 #### ls
+>
 > List all deployed stacks
+
 ```bash
 echo "Deployed Docker stacks:"
 docker stack ls
 ```
 
 #### ps
+>
 > Show tasks for infrastructure and application stacks
+
 ```bash
 echo "️Infrastructure stack:"
 docker stack ps infrastructure >/dev/null || echo "Infrastructure stack not deployed"
@@ -532,7 +342,9 @@ docker stack ps applications >/dev/null || echo "Applications stack not deployed
 ```
 
 #### rm
+>
 > Remove infrastructure and application stacks
+
 ```bash
 echo "Removing Docker stacks"
 docker stack rm applications >/dev/null && echo "Applications stack removed" || echo "Applications stack not found"
@@ -543,7 +355,9 @@ echo "Stack removal completed"
 ```
 
 ## status
+>
 > Show comprehensive system status across all environments
+
 ```bash
 set -euo pipefail
 
@@ -551,20 +365,6 @@ echo "System status"
 
 echo "Docker contexts:"
 docker context ls
-
-echo "️Infrastructure status:"
-cd infrastructure
-if pulumi stack --show-name >/dev/null; then
-    echo "Current stack: $(pulumi stack --show-name)"
-    if MANAGER_IP=$(pulumi stack output managerIp 2>/dev/null); then
-        echo "Manager IP: $MANAGER_IP"
-    else
-        echo "Manager IP: Not available (stack may be down)"
-    fi
-else
-    echo "No active Pulumi stack found"
-fi
-cd ..
 
 echo "Docker stacks:"
 if docker context use pocketsizefund-local >/dev/null >&1; then
@@ -582,10 +382,13 @@ echo "Status check completed"
 ```
 
 ## secrets
+>
 > Manage Docker Swarm secrets for application configuration
 
 ### list
+>
 > List all Docker secrets (requires active swarm context)
+
 ```bash
 echo "Docker secrets:"
 if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q active; then
@@ -598,7 +401,9 @@ fi
 ```
 
 ### create
+>
 > Interactively create required Docker secrets
+
 ```bash
 set -euo pipefail
 
@@ -647,23 +452,29 @@ echo "Secret creation completed"
 ```
 
 ## development
-> Python development tools and code quality checks
+>
+> Development tools and code quality checks for Python and Rust
 
 ### rust
+>
 > Rust development workflow commands
-
+>
 #### check
+>
 > Check Rust compilation
+
 ```bash
 set -euo pipefail
 
-echo "Check Rust compilation"
-cargo check 
+echo "Checking Rust compilation"
+cargo check
 echo "Rust compiled successfully"
 ```
 
 #### format
-> Format Rust code
+>
+> Format Rust code using cargo fmt
+
 ```bash
 set -euo pipefail
 
@@ -673,7 +484,9 @@ echo "Rust code formatted successfully"
 ```
 
 #### lint
-> Run Rust code quality checks
+>
+> Run Rust code quality checks with clippy
+
 ```bash
 set -euo pipefail
 
@@ -683,7 +496,9 @@ echo "Rust linting completed successfully"
 ```
 
 #### test
+>
 > Run Rust tests
+
 ```bash
 set -euo pipefail
 
@@ -693,27 +508,42 @@ echo "Rust tests completed successfully"
 ```
 
 #### all
-> Full Rust development checks
+>
+> Full Rust development checks (check, format, lint, test)
+
 ```bash
 set -euo pipefail
 
-echo "Running Rust development checks"
+echo "Running full Rust development workflow"
+echo "======================================"
 
+echo "Checking compilation..."
 mask development rust check
 
+echo ""
+echo "Formatting code..."
 mask development rust format
 
+echo ""
+echo "Running linter..."
 mask development rust lint
 
+echo ""
+echo "Running tests..."
 mask development rust test
 
-echo "Rust development workflow completed successfully"
+echo ""
+echo "Rust development workflow completed successfully!"
 ```
 
 ### python
+>
 > Python development workflow commands
+>
 #### install
+>
 > Install Python dependencies
+
 ```bash
 set -euo pipefail
 
@@ -725,7 +555,9 @@ echo "Python dependencies installed successfully"
 ```
 
 #### format
+>
 > Format Python code
+
 ```bash
 set -euo pipefail
 
@@ -736,7 +568,9 @@ echo "Python code formatted successfully"
 ```
 
 #### dead-code
-> Check for dead Python code
+>
+> Check for dead Python code using vulture (runs after formatting)
+
 ```bash
 set -euo pipefail
 
@@ -750,7 +584,9 @@ echo "Dead code check completed"
 ```
 
 #### lint
-> Run comprehensive Python code quality checks
+>
+> Run comprehensive Python code quality checks (includes formatting and dead code check)
+
 ```bash
 set -euo pipefail
 
@@ -765,7 +601,9 @@ echo "Python linting completed successfully"
 ```
 
 #### test
+>
 > Run Python tests using Docker Compose with coverage reporting
+
 ```bash
 set -euo pipefail
 
@@ -789,30 +627,74 @@ echo "Python tests completed successfully"
 ```
 
 #### all
-> Full Python development checks
+>
+> Full Python development checks (install, format, lint, dead-code, test)
+
 ```bash
 set -euo pipefail
 
-echo "Running Python development checks"
+echo "Running full Python development workflow"
+echo "========================================"
 
+echo "Installing dependencies..."
 mask development python install
 
+echo ""
+echo "Formatting code..."
 mask development python format
 
+echo ""
+echo "Running linter..."
 mask development python lint
 
+echo ""
+echo "Checking for dead code..."
 mask development python dead-code
 
+echo ""
+echo "Running tests..."
 mask development python test
 
-echo "Development workflow completed successfully"
+echo ""
+echo "Python development workflow completed successfully!"
+```
+
+### quality
+>
+> Run all code quality checks across the entire project (Python and Rust)
+
+```bash
+set -euo pipefail
+
+echo "Running full project quality checks"
+echo "==================================="
+
+echo ""
+echo "Python quality checks:"
+echo "----------------------"
+mask development python all
+
+echo ""
+echo "Rust quality checks:"
+echo "--------------------"
+if [[ -f "Cargo.toml" ]]; then
+    mask development rust all
+else
+    echo "No Rust project found (Cargo.toml missing)"
+fi
+
+echo ""
+echo "All quality checks completed successfully!"
 ```
 
 ## logs
+>
 > Quick access to service logs across environments
 
 ### infrastructure
+>
 > View logs for infrastructure services (Grafana, Prometheus, Traefik)
+
 ```bash
 echo "Infrastructure service logs"
 echo "Select environment:"
@@ -846,7 +728,9 @@ docker context use default >/dev/null >&1 || true
 ```
 
 ### applications
+>
 > View logs for application services (DataManager, PortfolioManager)
+
 ```bash
 echo "Application service logs"
 echo "Select environment:"

@@ -2,11 +2,13 @@
 name = "infrastructure"
 version = "0.1.0"
 description = "Infrastructure management with Pulumi"
-readme = "README.md"
 requires-python = "==3.12.10"
 dependencies = [
-    "pulumi>=3.189.0",
-    "pulumi-aws>=7.4.0",
-    "pulumi-command>=1.1.0",
-    "pulumi-tls>=5.2.1",
+    "boto3>=1.40.31",
+    "fabric>=3.2.2",
+    "httpx>=0.28.1",
+    "pydantic>=2.11.9",
+    "structlog>=25.4.0",
+    "tailscale>=0.6.2",
+    "typer>=0.18.0",
 ]
