@@ -3,17 +3,16 @@ use aws_credential_types::provider::error::CredentialsError;
 use aws_credential_types::provider::ProvideCredentials;
 use aws_sdk_s3::primitives::ByteStream;
 use axum::{
-    body::Body,
     extract::{Json, State},
-    http::{header, StatusCode},
-    response::{IntoResponse, Response},
+    http::StatusCode,
+    response::IntoResponse,
     routing::{get, post},
     Router,
 };
 use chrono::{DateTime, Utc};
 use duckdb::{Connection, Error as DuckError};
 use polars::prelude::*;
-use serde::Serialize;
+use serde::Deserialize;
 use std::io::Cursor;
 use thiserror::Error as ThisError;
 use tracing::{debug, info};
@@ -28,48 +27,34 @@ enum Error {
     Other(String),
 }
 
-#[derive(serde::Deserialize)]
-struct SavePredictionsPayload {
+#[derive(Deserialize)]
+struct SavePortfolioPayload {
     data: DataFrame,
     timestamp: DateTime<Utc>,
 }
 
-#[derive(serde::Deserialize)]
-struct QueryPredictionsPayload {
-    positions: Vec<QueryPredictionsPositionPayload>,
-    #[allow(dead_code)]
-    timestamp: DateTime<Utc>,
-}
-
-#[derive(serde::Deserialize)]
-struct QueryPredictionsPositionPayload {
-    ticker: String,
-    timestamp: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize)]
-struct Prediction {
+#[derive(Deserialize)]
+struct Portfolio {
     ticker: String,
     timestamp: i64,
-    quantile_10: f64,
-    quantile_50: f64,
-    quantile_90: f64,
+    side: String,
+    dollar_amount: f64,
 }
 
-async fn save_predictions(
+async fn save_portfolio(
     State(state): State<AppState>,
-    Json(payload): Json<SavePredictionsPayload>,
+    Json(payload): Json<SavePortfolioPayload>,
 ) -> impl IntoResponse {
-    let predictions = payload.data;
+    let portfolio = payload.data;
 
     let timestamp = payload.timestamp;
 
-    match upload_dataframe_to_s3(&state, &predictions, &timestamp).await {
+    match upload_dataframe_to_s3(&state, &portfolio, &timestamp).await {
         Ok(s3_key) => {
             info!("Successfully uploaded DataFrame to S3 at key: {}", s3_key);
             let response_message = format!(
                 "DataFrame created with {} rows and uploaded to S3: {}",
-                predictions.height(),
+                portfolio.height(),
                 s3_key
             );
 
@@ -77,10 +62,10 @@ async fn save_predictions(
         }
         Err(err) => {
             info!("Failed to upload to S3: {}", err);
-            let json_output = predictions.to_string();
+            let json_output = portfolio.to_string();
 
             (
-                StatusCode::OK,
+                StatusCode::INTERNAL_SERVER_ERROR,
                 format!("S3 upload failed: {}\n\n{}", err, json_output),
             )
         }
@@ -92,14 +77,14 @@ async fn upload_dataframe_to_s3(
     dataframe: &DataFrame,
     date: &DateTime<Utc>,
 ) -> Result<String, Error> {
-    info!("Uploading predictions DataFrame to S3 as parquet");
+    info!("Uploading portfolio DataFrame to S3 as parquet");
 
     let year = date.format("%Y");
     let month = date.format("%m");
     let day = date.format("%d");
 
     let key = format!(
-        "equity/predictions/daily/year={}/month={}/day={}/data.parquet",
+        "equity/portfolios/daily/year={}/month={}/day={}/data.parquet",
         year, month, day,
     );
 
@@ -143,36 +128,27 @@ async fn upload_dataframe_to_s3(
     }
 }
 
-async fn query_predictions(
-    State(state): State<AppState>,
-    Json(payload): Json<QueryPredictionsPayload>,
-) -> impl IntoResponse {
-    info!("Fetching predictions from S3");
+async fn get_portfolio(State(state): State<AppState>) -> impl IntoResponse {
+    info!("Fetching portfolio from S3");
 
-    match query_s3_parquet_data(&state, payload.positions).await {
-        Ok(dataframe) => {
-            let json_string = dataframe.to_string();
-            let mut response = Response::new(Body::from(json_string));
-            response
-                .headers_mut()
-                .insert(header::CONTENT_TYPE, "application/json".parse().unwrap());
-            *response.status_mut() = StatusCode::OK;
-            response
+    match query_s3_parquet_data(&state, &Utc::now()).await {
+        Ok(df) => {
+            let json_output = df.to_string();
+            (StatusCode::OK, json_output)
         }
         Err(err) => {
-            info!("Failed to query S3 data: {}", err);
+            info!("Failed to query S3 parquet data: {}", err);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Query failed: {}", err),
+                format!("Failed to fetch portfolio: {}", err),
             )
-                .into_response()
         }
     }
 }
 
 async fn query_s3_parquet_data(
     state: &AppState,
-    positions: Vec<QueryPredictionsPositionPayload>,
+    timestamp: &DateTime<Utc>,
 ) -> Result<DataFrame, Error> {
     let connection = Connection::open_in_memory()?;
 
@@ -204,83 +180,58 @@ async fn query_s3_parquet_data(
 
     connection.execute_batch(&s3_config)?;
 
-    let mut s3_paths = Vec::new();
-    let mut tickers = Vec::new();
+    let year = timestamp.format("%Y");
+    let month = timestamp.format("%m");
+    let day = timestamp.format("%d");
 
-    for position in positions {
-        let year = position.timestamp.format("%Y");
-        let month = position.timestamp.format("%m");
-        let day = position.timestamp.format("%d");
+    let s3_path = format!(
+        "s3://{}/equity/portfolios/daily/year={}/month={}/day={}/data.parquet",
+        state.bucket_name, year, month, day
+    );
 
-        let s3_path = format!(
-            "s3://{}/equity/predictions/daily/year={}/month={}/day={}/data.parquet",
-            state.bucket_name, year, month, day
-        );
+    info!("Querying 1 S3 file");
 
-        s3_paths.push(s3_path);
-
-        tickers.push(position.ticker);
-    }
-
-    info!("Querying {} S3 files", s3_paths.len());
-
-    let s3_paths_query = s3_paths
-        .iter()
-        .map(|path| format!("SELECT * FROM '{}'", path))
-        .collect::<Vec<_>>()
-        .join(" UNION ALL ");
-
-    let tickers_query = tickers
-        .iter()
-        .map(|ticker| format!("'{}'", ticker))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let s3_paths_query = format!("SELECT * FROM '{}'", s3_path);
 
     let query = format!(
         "
         SELECT
             ticker,
             timestamp,
-            quantile_10,
-            quantile_50,
-            quantile_90
+            side,
+            dollar_amount
         FROM ({})
-        WHERE ticker IN ({})
         ORDER BY timestamp, ticker
         ",
-        s3_paths_query, tickers_query,
+        s3_paths_query,
     );
 
     debug!("Executing export SQL: {}", query);
 
     let mut statement = connection.prepare(&query)?;
 
-    let predictions_iterator = statement.query_map([], |row| {
-        Ok(Prediction {
+    let portfolios_iterator = statement.query_map([], |row| {
+        Ok(Portfolio {
             ticker: row.get(0)?,
             timestamp: row.get(1)?,
-            quantile_10: row.get(2)?,
-            quantile_50: row.get(3)?,
-            quantile_90: row.get(4)?,
+            side: row.get(2)?,
+            dollar_amount: row.get(3)?,
         })
     })?;
 
-    let predictions: Vec<Prediction> = predictions_iterator
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| Error::Other(format!("Failed to collect predictions: {}", e)))?;
+    let portfolios: Vec<Portfolio> = portfolios_iterator.filter_map(Result::ok).collect();
 
     df!(
-        "ticker" => predictions.iter().map(|p| p.ticker.as_str()).collect::<Vec<_>>(),
-        "timestamp" => predictions.iter().map(|p| p.timestamp).collect::<Vec<_>>(),
-        "quantile_10" => predictions.iter().map(|p| p.quantile_10).collect::<Vec<_>>(),
-        "quantile_50" => predictions.iter().map(|p| p.quantile_50).collect::<Vec<_>>(),
-        "quantile_90" => predictions.iter().map(|p| p.quantile_90).collect::<Vec<_>>(),
+        "ticker" => portfolios.iter().map(|p| p.ticker.clone()).collect::<Vec<_>>(),
+        "timestamp" => portfolios.iter().map(|p| p.timestamp).collect::<Vec<_>>(),
+        "side" => portfolios.iter().map(|p| p.side.clone()).collect::<Vec<_>>(),
+        "dollar_amount" => portfolios.iter().map(|p| p.dollar_amount).collect::<Vec<_>>(),
     )
     .map_err(|e| Error::Other(format!("Failed to create DataFrame: {}", e)))
 }
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/predictions", post(save_predictions))
-        .route("/predictions", get(query_predictions))
+        .route("/portfolio", post(save_portfolio))
+        .route("/portfolio", get(get_portfolio))
 }

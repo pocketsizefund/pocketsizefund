@@ -6,6 +6,7 @@ use tower_http::trace::TraceLayer;
 pub mod routes;
 use routes::equity;
 use routes::health;
+use routes::portfolio;
 use routes::prediction;
 
 #[derive(Clone)]
@@ -70,6 +71,7 @@ pub async fn create_app() -> Router {
     Router::<AppState>::new()
         .route("/health", get(health::check))
         .merge(prediction::router())
+        .merge(portfolio::router())
         .merge(equity::router())
         .with_state(state)
         .layer(TraceLayer::new_for_http())
