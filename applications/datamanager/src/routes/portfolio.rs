@@ -202,7 +202,6 @@ async fn query_s3_parquet_data(
             dollar_amount
         FROM ({})
         ORDER BY timestamp, ticker
-        LIMIT 1
         ",
         s3_paths_query,
     );
