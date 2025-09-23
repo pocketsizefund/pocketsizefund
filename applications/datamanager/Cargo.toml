@@ -3,28 +3,27 @@ name = "datamanager"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-name = "datamanager"
-path = "src/lib.rs"
-
 [[bin]]
 name = "datamanager"
 path = "src/main.rs"
 
 [dependencies]
+# axum = { version = "0.8.4", features = ["query"] }
 axum = "0.8.4"
 chrono = { version = "0.4.41", features = ["serde"] }
-polars = { version = "0.50.0", features = [
-    "json",
-    "lazy",
-    "parquet",
-    "temporal",
-    "serde",
-    "polars-io",
+polars = { version = "0.51.0", features = [
+  "json",
+  "lazy",
+  "parquet",
+  "temporal",
+  "serde",
+  "polars-io",
+  "strings",
 ] }
 reqwest = "0.12.23"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
+urlencoding = "2.1.3"
 tokio = { version = "1.47.1", features = ["full"] }
 tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["trace"] }
