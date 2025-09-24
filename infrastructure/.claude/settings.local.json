@@ -5,10 +5,11 @@
       "WebSearch",
       "Bash(python:*)",
       "Bash(uv run:*)",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Read(//Users/chrisaddy/projects/pocketsizefund/**)",
+      "Bash(cargo:*)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": []
   }
 }
-

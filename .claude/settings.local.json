@@ -20,7 +20,9 @@
       "Bash(timeout 5 curl -I http://localhost:*)",
       "Bash(uv:*)",
       "WebFetch(domain:docs.github.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(cargo doc:*)",
+      "Bash(cargo tree:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

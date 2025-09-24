@@ -1,0 +1,36 @@
+[package]
+name = "accountreporter"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "accountreporter"
+path = "src/lib.rs"
+
+[[bin]]
+name = "accountreporter"
+path = "src/main.rs"
+
+[dependencies]
+chrono = { version = "0.4.41", features = ["serde"] }
+reqwest = { version = "0.12.23", features = ["json"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+tokio = { version = "1.47.1", features = ["full"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "json"] }
+tracing-opentelemetry = "0.26.0"
+opentelemetry = "0.26.0"
+thiserror = "2.0.3"
+uuid = { version = "1.10", features = ["v4"] }
+rdkafka = { version = "0.37", features = ["cmake-build", "ssl-vendored"] }
+anyhow = "1.0.100"
+futures = "0.3.31"
+
+[dev-dependencies]
+tokio-test = "0.4"
+serde_json = "1.0"
+tower = { version = "0.5", features = ["util"] }
+hyper = { version = "1.0", features = ["full"] }
+http-body-util = "0.1"
+testcontainers-modules = { version = "0.13.0", features = ["kafka"] }

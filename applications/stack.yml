@@ -1,6 +1,40 @@
 version: '3.8'
 
 services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    networks:
+      - app-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - kafka_data:/var/lib/kafka/data
   datamanager:
     image: pocketsizefund/datamanager:latest
     ports:
@@ -66,7 +100,50 @@ services:
       - PYTHONPATH=/app/src
       - DATAMANAGER_URL=http://datamanager:8080
 
+  accountreporter:
+    image: pocketsizefund/accountreporter:latest
+    networks:
+      - app-network
+    depends_on:
+      - kafka
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      placement:
+        constraints: []
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - KAFKA_TOPIC=account-events
+      - POLL_INTERVAL_SECONDS=1
+      - RUST_LOG=accountreporter=info,rdkafka=warn
+    secrets:
+      - ALPACA_API_KEY
+      - ALPACA_API_SECRET
+      - ALPACA_BASE_URL
+
 networks:
   app-network:
     driver: overlay
     attachable: true
+
+volumes:
+  kafka_data:
+
+secrets:
+  ALPACA_API_KEY:
+    external: true
+  ALPACA_API_SECRET:
+    external: true
+  ALPACA_BASE_URL:
+    external: true
