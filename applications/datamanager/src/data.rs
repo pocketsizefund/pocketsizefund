@@ -5,14 +5,14 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct EquityBar {
     pub ticker: String,
-    pub timestamp: u64,
-    pub open_price: u64,
-    pub high_price: u64,
-    pub low_price: u64,
-    pub close_price: u64,
-    pub volume: u64,
-    pub volume_weighted_average_price: u64,
-    pub transactions: u64,
+    pub timestamp: i64,
+    pub open_price: Option<u64>,
+    pub high_price: Option<u64>,
+    pub low_price: Option<u64>,
+    pub close_price: Option<u64>,
+    pub volume: Option<u64>,
+    pub volume_weighted_average_price: Option<u64>,
+    pub transactions: Option<u64>,
 }
 
 pub fn create_equity_bar_dataframe(equity_bars_rows: Vec<EquityBar>) -> Result<DataFrame, Error> {

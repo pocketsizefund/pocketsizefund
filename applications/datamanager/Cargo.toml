@@ -8,7 +8,6 @@ name = "datamanager"
 path = "src/main.rs"
 
 [dependencies]
-# axum = { version = "0.8.4", features = ["query"] }
 axum = "0.8.4"
 chrono = { version = "0.4.41", features = ["serde"] }
 polars = { version = "0.51.0", features = [
@@ -17,7 +16,6 @@ polars = { version = "0.51.0", features = [
   "parquet",
   "temporal",
   "serde",
-  "polars-io",
   "strings",
 ] }
 reqwest = "0.12.23"

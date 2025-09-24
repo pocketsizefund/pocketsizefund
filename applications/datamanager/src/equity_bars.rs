@@ -88,7 +88,7 @@ pub async fn sync(
     AxumState(state): AxumState<State>,
     Json(payload): Json<DailySync>,
 ) -> impl IntoResponse {
-    info!("name: {}", payload.date);
+    info!("Sync date: {}", payload.date);
     let url = format!(
         "{}/v2/aggs/grouped/locale/us/market/stocks/{}",
         state.polygon.base, payload.date

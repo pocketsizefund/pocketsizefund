@@ -46,11 +46,9 @@ pub async fn save(
         }
         Err(err) => {
             info!("Failed to upload to S3: {}", err);
-            let json_output = predictions.to_string();
-
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("S3 upload failed: {}\n\n{}", err, json_output),
+                format!("S3 upload failed: {}", err),
             )
                 .into_response()
         }

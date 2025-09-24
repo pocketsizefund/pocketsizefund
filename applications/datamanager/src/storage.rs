@@ -60,7 +60,7 @@ async fn write_dataframe_to_s3(
         let writer = ParquetWriter::new(cursor);
         match writer.finish(&mut dataframe.clone()) {
             Ok(_) => {
-                println!(
+                info!(
                     "DataFrame successfully converted to parquet, size: {} bytes",
                     buffer.len()
                 );
@@ -212,8 +212,8 @@ pub async fn query_equity_bars_parquet_from_s3(
                 transactions: row.get(8)?,
             })
         })?
-        .filter_map(Result::ok)
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| Error::Other(format!("Failed to map query results: {}", e)))?;
 
     let equity_bars_dataframe = create_equity_bar_dataframe(equity_bars);
 
@@ -261,6 +261,10 @@ pub async fn query_predictions_dataframe_from_s3(
         tickers.push(prediction_query.ticker.clone());
     }
 
+    if s3_paths.is_empty() {
+        return Err(Error::Other("No positions provided".into()));
+    }
+
     info!("Querying {} S3 files", s3_paths.len());
 
     let s3_paths_query = s3_paths
@@ -304,8 +308,8 @@ pub async fn query_predictions_dataframe_from_s3(
                 quantile_90: row.get(4)?,
             })
         })?
-        .filter_map(Result::ok)
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| Error::Other(format!("Failed to map query results: {}", e)))?;
 
     let predictions_dataframe = create_predictions_dataframe(predictions)?;
 
@@ -353,8 +357,8 @@ pub async fn query_portfolio_dataframe_from_s3(
                 dollar_amount: row.get::<_, f64>(3)?,
             })
         })?
-        .filter_map(Result::ok)
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| Error::Other(format!("Failed to map query results: {}", e)))?;
 
     let portfolio_dataframe = create_portfolio_dataframe(portfolios)?;
 
