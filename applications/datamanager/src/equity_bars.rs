@@ -89,9 +89,10 @@ pub async fn sync(
     Json(payload): Json<DailySync>,
 ) -> impl IntoResponse {
     info!("Sync date: {}", payload.date);
+    let date = payload.date.format("%Y-%m-%d").to_string();
     let url = format!(
         "{}/v2/aggs/grouped/locale/us/market/stocks/{}",
-        state.polygon.base, payload.date
+        state.polygon.base, date
     );
 
     info!("url: {}", url);
