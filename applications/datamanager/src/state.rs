@@ -1,13 +1,5 @@
 use aws_sdk_s3::Client as S3Client;
-use axum::{routing::get, Router};
-use reqwest::Client;
-use tower_http::trace::TraceLayer;
-
-pub mod routes;
-use routes::equity;
-use routes::health;
-use routes::portfolio;
-use routes::prediction;
+use reqwest::Client as HTTPClient;
 
 #[derive(Clone)]
 pub struct AlpacaSecrets {
@@ -23,17 +15,17 @@ pub struct PolygonSecrets {
 }
 
 #[derive(Clone)]
-pub struct AppState {
-    pub client: Client,
+pub struct State {
+    pub http_client: HTTPClient,
     pub polygon: PolygonSecrets,
     pub alpaca: AlpacaSecrets,
     pub s3_client: S3Client,
     pub bucket_name: String,
 }
 
-impl AppState {
+impl State {
     pub async fn from_env() -> Self {
-        let client = Client::builder()
+        let http_client = HTTPClient::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .unwrap();
@@ -44,7 +36,7 @@ impl AppState {
             std::env::var("S3_BUCKET_NAME").unwrap_or("pocketsizefund-ml-data".to_string());
 
         Self {
-            client,
+            http_client,
             polygon: PolygonSecrets {
                 base: std::env::var("POLYGON_BASE_URL")
                     .unwrap_or("https://api.polygon.io".to_string()),
@@ -63,16 +55,4 @@ impl AppState {
             bucket_name,
         }
     }
-}
-
-pub async fn create_app() -> Router {
-    let state = AppState::from_env().await;
-
-    Router::<AppState>::new()
-        .route("/health", get(health::check))
-        .merge(prediction::router())
-        .merge(portfolio::router())
-        .merge(equity::router())
-        .with_state(state)
-        .layer(TraceLayer::new_for_http())
 }

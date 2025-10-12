@@ -1,4 +1,14 @@
-use datamanager::create_app;
+mod data;
+mod equity_bars;
+mod errors;
+mod health;
+mod portfolios;
+mod predictions;
+mod router;
+mod state;
+mod storage;
+
+use router::create_app;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -14,5 +24,8 @@ async fn main() {
     let app = create_app().await;
     let listener = tokio::net::TcpListener::bind("0.0.0.0:9000").await.unwrap();
 
-    axum::serve(listener, app).await.unwrap();
+    if let Err(e) = axum::serve(listener, app).await {
+        tracing::error!("Server error: {}", e);
+        std::process::exit(1);
+    }
 }
