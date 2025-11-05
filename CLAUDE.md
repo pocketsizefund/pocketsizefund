@@ -45,8 +45,8 @@ This is a **UV workspace** with multiple applications and shared libraries:
 ### Shared Internal Library (`libraries/python/src/internal/`)
 Core components used across applications:
 - **ML Components**: TFT models, LSTM/MHSA networks, loss functions
-- **Data Types**: Equity bars, datasets, cloud events, money types
-- **Utilities**: Date handling, data summaries
+- **Data Types**: Equity bars, data class, types
+- **Utilities**: Date handling
 
 ### Deployment Architecture
 - **Local Development**: Docker Swarm on localhost

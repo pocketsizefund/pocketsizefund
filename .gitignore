@@ -13,12 +13,11 @@ infrastructure/Pulumi.infrastructure.yaml
 infrastructure/Pulumi.production.yaml
 .envrc
 .coverage*
-.coverage/
-coverage.xml
 infrastructure/swarm.pem
 *.csv
 *.egg-info/
 wandb/
 /target/
 **/target/
+data/
 

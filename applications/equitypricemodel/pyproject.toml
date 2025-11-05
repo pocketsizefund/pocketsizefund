@@ -1,0 +1,21 @@
+[project]
+name = "equitypricemodel"
+version = "0.1.0"
+description = "Equity price time-series dense encoder model architecture"
+requires-python = "==3.12.10"
+dependencies = [
+  "loguru>=0.7.3",
+  "sagemaker>=2.252.0",
+  "numpy==1.26.4",
+  "python-dotenv>=1.2.1",
+  "polars>=1.29.0",
+  "pandera[polars]>=0.26.0",
+  "fastapi>=0.121.0",
+]
+
+[tool.uv.sources]
+internal = { workspace = true }
+
+[tool.uv]
+package = true
+src = ["src"]

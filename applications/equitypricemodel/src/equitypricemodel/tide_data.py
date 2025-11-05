@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 
+import numpy as np
 import pandera.polars as pa
 import polars as pl
 from tinygrad.tensor import Tensor
@@ -23,8 +24,8 @@ class Scaler:
         return data * self.standard_deviations + self.means
 
 
-class TFTDataset:
-    """Temporal fusion transformer dataset preprocessing and postprocessing."""
+class Data:
+    """Temporal fusion transformer data preprocessing and postprocessing."""
 
     def __init__(self) -> None:
         pass
@@ -124,8 +125,6 @@ class TFTDataset:
             .drop("temporary_weekday")
         )
 
-        data = data.unique(subset=["ticker", "timestamp"])
-
         # ensure all rows have values instead of nulls
         data = data.with_columns(
             [
@@ -135,8 +134,8 @@ class TFTDataset:
                 pl.col("close_price").fill_null(0.0),
                 pl.col("volume").fill_null(0.0),
                 pl.col("volume_weighted_average_price").fill_null(0.0),
-                pl.col("sector").fill_null("Not Available"),
-                pl.col("industry").fill_null("Not Available"),
+                pl.col("sector").fill_null("NOT AVAILABLE"),
+                pl.col("industry").fill_null("NOT AVAILABLE"),
                 pl.col("ticker").fill_null("UNKNOWN"),
                 pl.col("timestamp").fill_null(
                     pl.col("date")
@@ -170,9 +169,23 @@ class TFTDataset:
             pl.col("close_price").pct_change().over("ticker").alias("daily_return")
         )
 
-        data = data.filter(pl.col("daily_return").is_not_null())
+        data = data.with_columns(
+            [
+                pl.col("ticker").str.to_uppercase(),
+                pl.col("sector").str.to_uppercase(),
+                pl.col("industry").str.to_uppercase(),
+            ]
+        )
 
-        data = dataset_schema.validate(data)
+        data = data.filter(pl.col("ticker") != "UNKNOWN")
+
+        data = data.filter(
+            pl.col("daily_return").is_not_null() & pl.col("daily_return").is_not_nan()
+        )
+
+        data = data.unique(subset=["ticker", "timestamp"])
+
+        data = data_schema.validate(data)
 
         self.scaler = Scaler()
 
@@ -258,15 +271,14 @@ class TFTDataset:
             "static_continuous_features": 0,  # not using static_continuous_features for now # noqa: E501
         }
 
-    def get_batches(
+    def get_batches(  # noqa: C901
         self,
         data_type: str = "train",  # "train", "validate", or "predict"
         validation_split: float = 0.8,
         input_length: int = 35,
         output_length: int = 7,
+        batch_size: int = 32,
     ) -> list[dict[str, Tensor]]:
-        batches = []
-
         if data_type not in {"train", "validate", "predict"}:
             message = f"Invalid data type: {data_type}. Must be 'train', 'validate', or 'predict'."  # noqa: E501
             raise ValueError(message)
@@ -300,6 +312,8 @@ class TFTDataset:
             )
             raise ValueError(message)
 
+        # collect all samples first
+        samples = []
         for ticker in self.batch_data["ticker"].unique():
             ticker_data = self.batch_data.filter(pl.col("ticker") == ticker).sort(
                 "time_idx"
@@ -311,30 +325,54 @@ class TFTDataset:
                     i + input_length : i + input_length + output_length
                 ]
 
-                # not using decoder_continuous_features (future-known numerical data
-                # e.g. economic indicators, if available) or static_continuous_features
-                # (constant numerical data per stock e.g. market cap, P/E ratio) for now
-                batch = {
-                    "encoder_categorical_features": Tensor(
-                        encoder_slice[self.categorical_columns].to_numpy()
-                    ),  # historical categorical data varying over time e.g. day of week, holiday status  # noqa: E501
-                    "encoder_continuous_features": Tensor(
-                        encoder_slice[self.continuous_columns].to_numpy()
-                    ),  # historical numerical data varying over time e.g. price, volume
-                    "decoder_categorical_features": Tensor(
-                        decoder_slice[self.categorical_columns].to_numpy()
-                    ),  # future-known categorical data e.g. future day of week, scheduled events  # noqa: E501
-                    "static_categorical_features": Tensor(
-                        ticker_data[self.static_categorical_columns].head(1).to_numpy()
-                    ),  # constant categorical data per stock e.g. ticker, sector
+                static_data_df = ticker_data[self.static_categorical_columns].head(1)
+
+                sample = {
+                    "encoder_categorical": encoder_slice[
+                        self.categorical_columns
+                    ].to_numpy(writable=True),
+                    "encoder_continuous": encoder_slice[
+                        self.continuous_columns
+                    ].to_numpy(writable=True),
+                    "decoder_categorical": decoder_slice[
+                        self.categorical_columns
+                    ].to_numpy(writable=True),
+                    "static_categorical": static_data_df.to_numpy(writable=True),
                 }
 
                 if data_type in {"train", "validate"}:
-                    batch["targets"] = Tensor(
-                        decoder_slice[["daily_return"]].to_numpy()
+                    sample["targets"] = decoder_slice[["daily_return"]].to_numpy(
+                        writable=True
                     )
 
-                batches.append(batch)
+                samples.append(sample)
+
+        # now batch the samples
+        batches = []
+        for i in range(0, len(samples), batch_size):
+            batch_samples = samples[i : i + batch_size]
+
+            batch = {
+                "encoder_categorical_features": Tensor(
+                    np.stack([s["encoder_categorical"] for s in batch_samples])
+                ),
+                "encoder_continuous_features": Tensor(
+                    np.stack([s["encoder_continuous"] for s in batch_samples])
+                ),
+                "decoder_categorical_features": Tensor(
+                    np.stack([s["decoder_categorical"] for s in batch_samples])
+                ),
+                "static_categorical_features": Tensor(
+                    np.stack([s["static_categorical"] for s in batch_samples])
+                ),
+            }
+
+            if data_type in {"train", "validate"}:
+                batch["targets"] = Tensor(
+                    np.stack([s["targets"] for s in batch_samples])
+                )
+
+            batches.append(batch)
 
         return batches
 
@@ -353,7 +391,7 @@ class TFTDataset:
         rows = []
         for batch_idx in range(batch_size):
             ticker_encoded = int(
-                input_batch["static_categorical_features"][batch_idx, 0, 0].item()
+                input_batch["static_categorical_features"][batch_idx, 0, 0, 0].item()
             )
             ticker_str = ticker_reverse_mapping[ticker_encoded]
 
@@ -392,7 +430,7 @@ class TFTDataset:
         return pl.DataFrame(rows)
 
 
-dataset_schema = pa.DataFrameSchema(
+data_schema = pa.DataFrameSchema(
     {
         "ticker": pa.Column(
             dtype=str,
@@ -404,19 +442,19 @@ dataset_schema = pa.DataFrameSchema(
         ),
         "open_price": pa.Column(
             dtype=float,
-            checks=pa.Check.greater_than(0),
+            checks=pa.Check.greater_than_or_equal_to(0),
         ),
         "high_price": pa.Column(
             dtype=float,
-            checks=pa.Check.greater_than(0),
+            checks=pa.Check.greater_than_or_equal_to(0),
         ),
         "low_price": pa.Column(
             dtype=float,
-            checks=pa.Check.greater_than(0),
+            checks=pa.Check.greater_than_or_equal_to(0),
         ),
         "close_price": pa.Column(
             dtype=float,
-            checks=pa.Check.greater_than(0),
+            checks=pa.Check.greater_than_or_equal_to(0),
         ),
         "volume": pa.Column(
             dtype=int,

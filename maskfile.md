@@ -423,6 +423,47 @@ echo "Complete test suite finished"
 ## docker
 > Docker context and service management commands
 
+### images
+> Manage Docker images for applications
+
+#### build [application_name]
+> Build application Docker images locally
+```bash
+set -euo pipefail
+
+echo "Building application image locally"
+
+set -a
+
+source "$MASKFILE_DIR/.env"
+
+set +a
+
+docker build --platform linux/amd64 --target runner -f applications/$application_name/Dockerfile -t pocketsizefund/$application_name:latest -t $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/$application_name:latest .
+
+echo "Application image built: $application_name"
+```
+
+#### push [application_name]
+> Push application Docker image to ECR
+```bash
+set -euo pipefail
+
+echo "Pushing application image to ECR"
+
+set -a
+
+source "$MASKFILE_DIR/.env"
+
+set +a
+
+aws ecr get-login-password --region us-east-1 --profile $AWS_PROFILE | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
+
+docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/equitypricemodel:latest
+
+echo "Application image pushed: $application_name"
+```
+
 ### context
 > Switch Docker context between local and production environments
 #### local
@@ -771,19 +812,7 @@ set -euo pipefail
 
 echo "Running Python tests"
 
-mkdir -p coverage_output
-
-echo "Cleaning up previous test runs"
-docker compose --file tests.yaml down --volumes --remove-orphans
-
-echo "️Building test containers"
-docker compose --file tests.yaml build tests
-
-echo "Running tests with coverage"
-docker compose --file tests.yaml run --rm --no-TTY tests
-
-echo "Cleaning up test containers"
-docker compose --file tests.yaml down --volumes --remove-orphans
+uv run coverage run --parallel-mode -m pytest && uv run coverage combine && uv run coverage report && uv run coverage xml -o coverage_output/.python_coverage.xml
 
 echo "Python tests completed successfully"
 ```

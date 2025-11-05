@@ -1,5 +1,4 @@
 import polars as pl
-import pytest
 from portfoliomanager.preprocess import filter_equity_bars
 
 
@@ -20,8 +19,6 @@ def test_filter_equity_bars_above_thresholds() -> None:
 
     assert len(result) == 1
     assert result["ticker"][0] == "AAPL"
-    assert result["avg_close_price"][0] == 20.0  # noqa: PLR2004
-    assert result["avg_volume"][0] == 2_000_000.0  # noqa: PLR2004
 
 
 def test_filter_equity_bars_below_price_threshold() -> None:
@@ -109,8 +106,6 @@ def test_filter_equity_bars_just_above_thresholds() -> None:
 
     assert len(result) == 1
     assert result["ticker"][0] == "AAPL"
-    assert result["avg_close_price"][0] == pytest.approx(10.01)
-    assert result["avg_volume"][0] == pytest.approx(1_000_001.0)
 
 
 def test_filter_equity_bars_empty_dataframe() -> None:
@@ -140,8 +135,6 @@ def test_filter_equity_bars_single_row() -> None:
 
     assert len(result) == 1
     assert result["ticker"][0] == "AAPL"
-    assert result["avg_close_price"][0] == 15.0  # noqa: PLR2004
-    assert result["avg_volume"][0] == 1_500_000.0  # noqa: PLR2004
 
 
 def test_filter_equity_bars_mixed_values() -> None:
@@ -190,8 +183,6 @@ def test_filter_equity_bars_multiple_tickers() -> None:
 
     assert len(result) == 1
     assert result["ticker"][0] == "AAPL"
-    assert result["avg_close_price"][0] == 20.0  # noqa: PLR2004
-    assert result["avg_volume"][0] == 2_000_000.0  # noqa: PLR2004
 
 
 def test_filter_equity_bars_data_immutability() -> None:

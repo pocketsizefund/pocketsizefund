@@ -11,11 +11,12 @@ def filter_equity_bars(
     return (
         data.group_by("ticker")
         .agg(
-            avg_close_price=pl.col("close_price").mean(),
-            avg_volume=pl.col("volume").mean(),
+            average_close_price=pl.col("close_price").mean(),
+            average_volume=pl.col("volume").mean(),
         )
         .filter(
-            (pl.col("avg_close_price") > minimum_average_close_price)
-            & (pl.col("avg_volume") > minimum_average_volume)
+            (pl.col("average_close_price") > minimum_average_close_price)
+            & (pl.col("average_volume") > minimum_average_volume)
         )
+        .drop(["average_close_price", "average_volume"])
     )
