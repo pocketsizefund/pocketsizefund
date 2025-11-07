@@ -1,12 +1,40 @@
+import os
+
+import polars as pl
+import requests
 from fastapi import FastAPI
+from pydantic import BaseModel
+
+from .tide_data import Data
+from .tide_model import Model
+
+
+class PredictionRequest(BaseModel):
+    pass
+
+
+class PredictionResponse(BaseModel):
+    data: dict
+
 
 application = FastAPI()
 
 
 @application.post("/predictions")
-async def create_predictions(data: dict) -> dict:
-    _ = data
-    # Dummy implementation for prediction
-    return {"predictions": [0.1, 0.9]}
+def create_predictions() -> PredictionResponse:  # TEMP
+    tide_model = Model.load()
 
-    # NOTE: this will use the sagemaker sdk predictor class to call the endpoint
+    datamanager_response = requests.get(
+        url=os.getenv("PSF_DATAMANAGER_URL", ""),
+        timeout=60,
+    )
+
+    tide_data = Data()
+
+    tide_data.preprocess_and_set_data(data=pl.read_json(datamanager_response.json()))
+
+    batches = tide_data.get_batches(data_type="predict")
+
+    predictions = tide_model.predict(inputs=batches[0])
+
+    return PredictionResponse(data={"predictions": predictions.numpy()})

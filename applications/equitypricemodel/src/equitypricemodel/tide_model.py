@@ -1,3 +1,4 @@
+import json
 import os
 from typing import cast
 
@@ -109,40 +110,40 @@ class Model:
         self.quantiles = quantiles or [0.1, 0.5, 0.9]
 
         self.feature_projection = Linear(
-            in_features=input_size,
-            out_features=hidden_size,
+            in_features=self.input_size,
+            out_features=self.hidden_size,
         )
 
         self.encoder_blocks: list[_ResidualBlock] = []
-        for _ in range(num_encoder_layers):
-            block_input_size = hidden_size
+        for _ in range(self.num_encoder_layers):
+            block_input_size = self.hidden_size
             self.encoder_blocks.append(
                 _ResidualBlock(
                     input_size=block_input_size,
-                    hidden_size=hidden_size,
-                    dropout_rate=dropout_rate,
+                    hidden_size=self.hidden_size,
+                    dropout_rate=self.dropout_rate,
                 )
             )
 
         self.decoder_blocks: list[_ResidualBlock] = []
-        for _ in range(num_decoder_layers):
-            block_input_size = hidden_size
+        for _ in range(self.num_decoder_layers):
+            block_input_size = self.hidden_size
             self.decoder_blocks.append(
                 _ResidualBlock(
                     input_size=block_input_size,
-                    hidden_size=hidden_size,
-                    dropout_rate=dropout_rate,
+                    hidden_size=self.hidden_size,
+                    dropout_rate=self.dropout_rate,
                 )
             )
 
         self.temporal_projection = Linear(  # projects to output sequence length
-            in_features=hidden_size,
-            out_features=hidden_size * output_length,
+            in_features=self.hidden_size,
+            out_features=self.hidden_size * self.output_length,
         )
 
         # final output layer for quantiles
         self.output_layer = Linear(
-            in_features=hidden_size,
+            in_features=self.hidden_size,
             out_features=len(self.quantiles),
         )
 
@@ -205,37 +206,12 @@ class Model:
             epoch_losses = []
 
             for batch in train_batches:
-                # Combine all input features
-                encoder_continuous = batch["encoder_continuous_features"]
-                encoder_categorical = batch["encoder_categorical_features"]
-                decoder_categorical = batch["decoder_categorical_features"]
-                static_categorical = batch["static_categorical_features"]
-                targets = batch["targets"]
-
-                batch_size = encoder_continuous.shape[0]
-
-                # flatten and concatenate all features
-                encoder_cont_flat = encoder_continuous.reshape(batch_size, -1)
-                encoder_cat_flat = encoder_categorical.reshape(batch_size, -1).cast(
-                    "float32"
-                )
-                decoder_cat_flat = decoder_categorical.reshape(batch_size, -1).cast(
-                    "float32"
-                )
-                static_cat_flat = static_categorical.reshape(batch_size, -1).cast(
-                    "float32"
-                )
-
-                combined_input = Tensor.cat(
-                    encoder_cont_flat,
-                    encoder_cat_flat,
-                    decoder_cat_flat,
-                    static_cat_flat,
-                    dim=1,
+                combined_input_features, targets, batch_size = (
+                    self._combine_input_features(batch)
                 )
 
                 # predictions shape: (batch_size, output_length, num_quantiles)
-                predictions = self.forward(combined_input)
+                predictions = self.forward(combined_input_features)
 
                 # reshape targets to (batch_size, output_length)
                 targets_reshaped = targets.reshape(batch_size, self.output_length)
@@ -259,30 +235,7 @@ class Model:
         validation_losses = []
 
         for batch in validation_batches:
-            encoder_continuous = batch["encoder_continuous_features"]
-            encoder_categorical = batch["encoder_categorical_features"]
-            decoder_categorical = batch["decoder_categorical_features"]
-            static_categorical = batch["static_categorical_features"]
-            targets = batch["targets"]
-
-            batch_size = encoder_continuous.shape[0]
-
-            encoder_cont_flat = encoder_continuous.reshape(batch_size, -1)
-            encoder_cat_flat = encoder_categorical.reshape(batch_size, -1).cast(
-                "float32"
-            )
-            decoder_cat_flat = decoder_categorical.reshape(batch_size, -1).cast(
-                "float32"
-            )
-            static_cat_flat = static_categorical.reshape(batch_size, -1).cast("float32")
-
-            combined_input = Tensor.cat(
-                encoder_cont_flat,
-                encoder_cat_flat,
-                decoder_cat_flat,
-                static_cat_flat,
-                dim=1,
-            )
+            combined_input, targets, batch_size = self._combine_input_features(batch)
 
             predictions = self.forward(combined_input)
 
@@ -295,19 +248,84 @@ class Model:
 
     def save(
         self,
-        path_and_file: str = "tft_model.safetensor",
+        directory_name: str = "",
+        parameters_file_name: str = "tide_parameters.json",
+        states_file_name: str = "tide_states.safetensor",
     ) -> None:
-        directory = os.path.dirname(path_and_file)  # noqa: PTH120
-
-        os.makedirs(os.path.dirname(directory), exist_ok=True)  # noqa: PTH120, PTH103
+        os.makedirs(os.path.dirname(directory_name), exist_ok=True)  # noqa: PTH120, PTH103
 
         states = get_state_dict(self)
 
-        safe_save(states, path_and_file)
+        safe_save(states, os.path.join(directory_name, states_file_name))  # noqa: PTH118
 
+        parameters = {
+            "input_size": self.input_size,
+            "hidden_size": self.hidden_size,
+            "num_encoder_layers": self.num_encoder_layers,
+            "num_decoder_layers": self.num_decoder_layers,
+            "output_length": self.output_length,
+            "dropout_rate": self.dropout_rate,
+            "quantiles": self.quantiles,
+        }
+
+        with open(  # noqa: PTH123
+            os.path.join(directory_name, parameters_file_name),  # noqa: PTH118
+            "w",
+        ) as parameters_file:
+            json.dump(parameters, parameters_file)
+
+    @classmethod
     def load(
+        cls,
+        directory_name: str = "",
+        parameters_file_name: str = "tide_parameters.json",
+        states_file_name: str = "tide_states.safetensor",
+    ) -> "Model":
+        states = safe_load(os.path.join(directory_name, states_file_name))  # noqa: PTH118
+        with open(  # noqa: PTH123
+            os.path.join(directory_name, parameters_file_name)  # noqa: PTH118
+        ) as parameters_file:
+            parameters = json.load(parameters_file)
+
+        model = cls(**parameters)
+
+        load_state_dict(model, states)
+
+        return model
+
+    def predict(
         self,
-        path_and_file: str = "tft_model.safetensor",
-    ) -> None:
-        states = safe_load(path_and_file)
-        load_state_dict(self, states)
+        inputs: dict[str, Tensor],
+    ) -> Tensor:
+        combined_input_features, _, _ = self._combine_input_features(inputs)
+
+        # outputs shape: (batch_size, output_length, num_quantiles)
+        return self.forward(combined_input_features)
+
+    def _combine_input_features(
+        self, x: dict[str, Tensor]
+    ) -> tuple[Tensor, Tensor, int]:
+        batch_size = x["encoder_continuous_features"].shape[0]
+
+        encoder_cont_flat = x["encoder_continuous_features"].reshape(batch_size, -1)
+        encoder_cat_flat = (
+            x["encoder_categorical_features"].reshape(batch_size, -1).cast("float32")
+        )
+        decoder_cat_flat = (
+            x["decoder_categorical_features"].reshape(batch_size, -1).cast("float32")
+        )
+        static_cat_flat = (
+            x["static_categorical_features"].reshape(batch_size, -1).cast("float32")
+        )
+
+        return (
+            Tensor.cat(
+                encoder_cont_flat,
+                encoder_cat_flat,
+                decoder_cat_flat,
+                static_cat_flat,
+                dim=1,
+            ),
+            x["targets"],
+            int(batch_size),
+        )

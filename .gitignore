@@ -20,4 +20,5 @@ wandb/
 /target/
 **/target/
 data/
-
+**/model.tar.gz
+**/*.safetensor

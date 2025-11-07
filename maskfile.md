@@ -1,7 +1,9 @@
 # Pocket Size Fund Task Manager
 
 ## setup
+
 > Initial system setup and prerequisite configuration
+
 ```bash
 set -euo pipefail
 
@@ -49,7 +51,9 @@ echo "Prerequisites check completed"
 ```
 
 ## continuous_integration
+
 > Continuous integration workflow
+
 ```bash
 set -euo pipefail
 
@@ -65,11 +69,17 @@ echo "Continuous integration workflow completed successfully"
 ```
 
 ## infrastructure
+
 > Manage infrastructure deployments
+
 ### base
+
 > Base infrastructure deployment
+
 #### up
+
 > Deploy complete infrastructure stack (Pulumi + Docker) to local and production environments.
+
 ```bash
 set -euo pipefail
 
@@ -262,9 +272,13 @@ echo "Infrastructure taken down successfully"
 ```
 
 ### applications
+
 > Build and deploy application containers
+
 #### build
+
 > Build and push application Docker images to DockerHub
+
 ```bash
 set -euo pipefail
 
@@ -294,7 +308,9 @@ echo "All application images built and pushed successfully"
 ```
 
 #### deploy
+
 > Deploy applications to both local and production Docker swarm
+
 ```bash
 set -euo pipefail
 
@@ -322,10 +338,13 @@ echo "Application deployment completed"
 ```
 
 ## test
+
 > Test application endpoints and service health across environments
 
 ### endpoints
+
 > Test HTTP endpoints for DataManager and PortfolioManager services
+
 ```bash
 set -euo pipefail
 
@@ -379,7 +398,9 @@ echo " Endpoint testing completed"
 ```
 
 ### health
+
 > Check Docker service health across all contexts
+
 ```bash
 set -euo pipefail
 
@@ -408,7 +429,9 @@ docker context use default >/dev/null >&1 || true
 ```
 
 ### all
+
 > Run complete test suite (endpoints + health checks)
+
 ```bash
 set -euo pipefail
 
@@ -421,13 +444,17 @@ echo "Complete test suite finished"
 ```
 
 ## docker
+
 > Docker context and service management commands
 
 ### images
+
 > Manage Docker images for applications
 
-#### build [application_name]
+#### build (application_name) (stage_name)
+
 > Build application Docker images locally
+
 ```bash
 set -euo pipefail
 
@@ -439,13 +466,15 @@ source "$MASKFILE_DIR/.env"
 
 set +a
 
-docker build --platform linux/amd64 --target runner -f applications/$application_name/Dockerfile -t pocketsizefund/$application_name:latest -t $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/$application_name:latest .
+docker build --platform linux/amd64 --target runner -f applications/$application_name/Dockerfile -t pocketsizefund/$application_name_$stage_name:latest -t $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/$application_name_$stage_name:latest .
 
 echo "Application image built: $application_name"
 ```
 
-#### push [application_name]
+#### push (application_name) (stage_name)
+
 > Push application Docker image to ECR
+
 ```bash
 set -euo pipefail
 
@@ -459,15 +488,19 @@ set +a
 
 aws ecr get-login-password --region us-east-1 --profile $AWS_PROFILE | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
 
-docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/equitypricemodel:latest
+docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/$application_name_$stage_name:latest
 
 echo "Application image pushed: $application_name"
 ```
 
 ### context
+
 > Switch Docker context between local and production environments
+
 #### local
+
 > Switch to local Docker swarm context
+
 ```bash
 docker context use pocketsizefund-local
 echo "Switched to local context"
@@ -475,7 +508,9 @@ docker context ls | grep "\*"
 ```
 
 #### production
+
 > Switch to production Docker swarm context
+
 ```bash
 docker context use pocketsizefund-production
 echo "Switched to production context"
@@ -483,15 +518,20 @@ docker context ls | grep "\*"
 ```
 
 #### default
+
 > Switch back to default Docker context
+
 ```bash
 docker context use default
 echo "Switched to default context"
 ```
 
 ### services
+
 > Docker swarm service management
+
 #### ls
+
 > List all Docker services with health status
 ```bash
 echo "Docker services status:"
@@ -506,7 +546,9 @@ docker service ls --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}\t{{.Ports
 ```
 
 #### logs
+
 > View logs for a specific service (interactive selection)
+
 ```bash
 echo "Available services:"
 services=($(docker service ls --format '{{.Name}}'))
@@ -529,7 +571,9 @@ done
 ```
 
 #### inspect
+
 > Inspect service configuration and status
+
 ```bash
 echo "Available services:"
 services=($(docker service ls --format '{{.Name}}'))
@@ -555,16 +599,22 @@ done
 ```
 
 ### stack
+
 > Docker stack operations for infrastructure and applications
+
 #### ls
+
 > List all deployed stacks
+
 ```bash
 echo "Deployed Docker stacks:"
 docker stack ls
 ```
 
 #### ps
+
 > Show tasks for infrastructure and application stacks
+
 ```bash
 echo "️Infrastructure stack:"
 docker stack ps infrastructure >/dev/null || echo "Infrastructure stack not deployed"
@@ -573,7 +623,9 @@ docker stack ps applications >/dev/null || echo "Applications stack not deployed
 ```
 
 #### rm
+
 > Remove infrastructure and application stacks
+
 ```bash
 echo "Removing Docker stacks"
 docker stack rm applications >/dev/null && echo "Applications stack removed" || echo "Applications stack not found"
@@ -584,7 +636,9 @@ echo "Stack removal completed"
 ```
 
 ## status
+
 > Show comprehensive system status across all environments
+
 ```bash
 set -euo pipefail
 
@@ -623,10 +677,13 @@ echo "Status check completed"
 ```
 
 ## secrets
+
 > Manage Docker Swarm secrets for application configuration
 
 ### list
+
 > List all Docker secrets (requires active swarm context)
+
 ```bash
 echo "Docker secrets:"
 if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q active; then
@@ -639,7 +696,9 @@ fi
 ```
 
 ### create
+
 > Interactively create required Docker secrets
+
 ```bash
 set -euo pipefail
 
@@ -688,13 +747,17 @@ echo "Secret creation completed"
 ```
 
 ## development
+
 > Python development tools and code quality checks
 
 ### rust
+
 > Rust development workflow commands
 
 #### check
+
 > Check Rust compilation
+
 ```bash
 set -euo pipefail
 
@@ -704,7 +767,9 @@ echo "Rust compiled successfully"
 ```
 
 #### format
+
 > Format Rust code
+
 ```bash
 set -euo pipefail
 
@@ -714,7 +779,9 @@ echo "Rust code formatted successfully"
 ```
 
 #### lint
+
 > Run Rust code quality checks
+
 ```bash
 set -euo pipefail
 
@@ -724,7 +791,9 @@ echo "Rust linting completed successfully"
 ```
 
 #### test
+
 > Run Rust tests
+
 ```bash
 set -euo pipefail
 
@@ -734,7 +803,9 @@ echo "Rust tests completed successfully"
 ```
 
 #### all
+
 > Full Rust development checks
+
 ```bash
 set -euo pipefail
 
@@ -752,9 +823,13 @@ echo "Rust development workflow completed successfully"
 ```
 
 ### python
+
 > Python development workflow commands
+
 #### install
+
 > Install Python dependencies
+
 ```bash
 set -euo pipefail
 
@@ -766,7 +841,9 @@ echo "Python dependencies installed successfully"
 ```
 
 #### format
+
 > Format Python code
+
 ```bash
 set -euo pipefail
 
@@ -777,7 +854,9 @@ echo "Python code formatted successfully"
 ```
 
 #### dead-code
+
 > Check for dead Python code
+
 ```bash
 set -euo pipefail
 
@@ -791,7 +870,9 @@ echo "Dead code check completed"
 ```
 
 #### lint
+
 > Run comprehensive Python code quality checks
+
 ```bash
 set -euo pipefail
 
@@ -806,7 +887,9 @@ echo "Python linting completed successfully"
 ```
 
 #### test
+
 > Run Python tests using Docker Compose with coverage reporting
+
 ```bash
 set -euo pipefail
 
@@ -818,7 +901,9 @@ echo "Python tests completed successfully"
 ```
 
 #### all
+
 > Full Python development checks
+
 ```bash
 set -euo pipefail
 
@@ -838,10 +923,13 @@ echo "Development workflow completed successfully"
 ```
 
 ## logs
+
 > Quick access to service logs across environments
 
 ### infrastructure
+
 > View logs for infrastructure services (Grafana, Prometheus, Traefik)
+
 ```bash
 echo "Infrastructure service logs"
 echo "Select environment:"
@@ -875,7 +963,9 @@ docker context use default >/dev/null >&1 || true
 ```
 
 ### applications
+
 > View logs for application services (DataManager, PortfolioManager)
+
 ```bash
 echo "Application service logs"
 echo "Select environment:"
@@ -906,4 +996,92 @@ select env in "local" "production"; do
     esac
 done
 docker context use default >/dev/null >&1 || true
+```
+
+## model
+
+> Model management commands
+
+### train [application_name]
+
+> Train machine learning model
+
+```bash
+set -euo pipefail
+
+set -a
+
+source "$MASKFILE_DIR/.env"
+
+set +a
+
+aws ecr get-login-password --region us-east-1 --profile $AWS_PROFILE | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
+
+echo "Training model: $application_name"
+
+uv run python applications/$application_name/src/$application_name/run_training_job.py
+```
+
+### artifact
+
+#### download [application_name]
+
+> Manage model artifacts
+
+```python
+import os
+import dotenv
+import boto3
+import tarfile
+
+print("Downloading model artifact")
+
+dotenv.load_dotenv(os.getenv("MASKFILE_DIR") + '/.env')
+
+session = boto3.Session(profile_name=os.getenv("AWS_PROFILE"))
+
+s3_client = session.client('s3')
+
+application_name = os.getenv("application_name")
+
+print("Application name:", application_name)
+
+artifacts_bucket = os.getenv("AWS_S3_ARTIFACTS_BUCKET_NAME")
+
+file_objects = s3_client.list_objects_v2(
+    Bucket=artifacts_bucket,
+    Prefix=f"artifacts/{application_name}",
+)
+
+options = set()
+
+for file_object in file_objects.get('Contents', []):
+    file_object_name = file_object['Key']
+
+    file_object_name_parts = file_object_name.split('/')
+
+    options.add(file_object_name_parts[1])
+
+print("Available artifacts:")
+for option in options:
+    print(f"{option}")
+
+selected_option = input("Select an artifact to download: ")
+
+print("Selected artifact:", selected_option)
+
+target_path = f"artifacts/{selected_option}/output/model.tar.gz"
+destination_directory = f"applications/{application_name}/src/{application_name}/"
+destination_path = os.path.join(destination_directory, "model.tar.gz")
+
+s3_client.download_file(
+    Bucket=artifacts_bucket,
+    Key=target_path,
+    Filename=destination_path,
+)
+
+with tarfile.open(destination_path, 'r:gz') as tar:
+    tar.extractall(path=destination_directory, filter="data")
+
+print("Artifact downloaded and extracted successfully")
 ```

@@ -86,5 +86,4 @@ losses = model.train(
     learning_rate=configuration["learning_rate"],
 )
 
-
-model.save(path_and_file=os.path.join(model_output_path, "tft_model.safetensor"))  # noqa: PTH118
+model.save(directory_name=model_output_path)
