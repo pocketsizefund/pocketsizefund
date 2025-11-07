@@ -1,3 +1,5 @@
+import json
+import os
 from datetime import date, datetime, timedelta
 
 import numpy as np
@@ -325,7 +327,7 @@ class Data:
                     i + input_length : i + input_length + output_length
                 ]
 
-                static_data_df = ticker_data[self.static_categorical_columns].head(1)
+                static_data = ticker_data[self.static_categorical_columns].head(1)
 
                 sample = {
                     "encoder_categorical": encoder_slice[
@@ -337,7 +339,7 @@ class Data:
                     "decoder_categorical": decoder_slice[
                         self.categorical_columns
                     ].to_numpy(writable=True),
-                    "static_categorical": static_data_df.to_numpy(writable=True),
+                    "static_categorical": static_data.to_numpy(writable=True),
                 }
 
                 if data_type in {"train", "validate"}:
@@ -375,6 +377,38 @@ class Data:
             batches.append(batch)
 
         return batches
+
+    def save(self, directory_path: str) -> None:
+        os.makedirs(os.path.dirname(directory_path), exist_ok=True)  # noqa: PTH120, PTH103
+
+        with open(os.path.join(directory_path, "tide_data_mappings.json"), "w") as f:  # noqa: PTH123, PTH118
+            json.dump(self.mappings, f)
+
+        with open(os.path.join(directory_path, "tide_data_scaler.json"), "w") as f:  # noqa: PTH123, PTH118
+            json.dump(
+                {
+                    "means": self.scaler.means.to_dict(),
+                    "standard_deviations": self.scaler.standard_deviations.to_dict(),
+                },
+                f,
+            )
+
+    @classmethod
+    def load(cls, directory_path: str) -> "Data":
+        data = cls()
+        with open(os.path.join(directory_path, "tide_data_mappings.json")) as f:  # noqa: PTH123, PTH118
+            data.mappings = json.load(f)
+
+        with open(os.path.join(directory_path, "tide_data_scaler.json")) as f:  # noqa: PTH123, PTH118
+            scaler_data = json.load(f)
+
+        data.scaler = Scaler()
+        data.scaler.means = pl.DataFrame(scaler_data["means"])
+        data.scaler.standard_deviations = pl.DataFrame(
+            scaler_data["standard_deviations"]
+        )
+
+        return data
 
     def postprocess_predictions(
         self,

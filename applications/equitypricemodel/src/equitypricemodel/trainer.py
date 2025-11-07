@@ -29,14 +29,14 @@ configuration = {
 training_data = pl.read_parquet(training_data_input_path)
 
 
-data = Data()
+tide_data = Data()
 
-data.preprocess_and_set_data(data=training_data)
+tide_data.preprocess_and_set_data(data=training_data)
 
 
-dimensions = data.get_dimensions()
+dimensions = tide_data.get_dimensions()
 
-train_batches = data.get_batches(
+train_batches = tide_data.get_batches(
     data_type="train",
     validation_split=configuration["validation_split"],
     input_length=configuration["input_length"],
@@ -69,7 +69,7 @@ input_size = cast(
     + static_categorical_size,
 )
 
-model = Model(
+tide_model = Model(
     input_size=input_size,
     hidden_size=configuration["hidden_size"],
     num_encoder_layers=configuration["num_encoder_layers"],
@@ -80,10 +80,12 @@ model = Model(
 )
 
 
-losses = model.train(
+losses = tide_model.train(
     train_batches=train_batches,
     epochs=configuration["epoch_count"],
     learning_rate=configuration["learning_rate"],
 )
 
-model.save(directory_name=model_output_path)
+tide_model.save(directory_path=model_output_path)
+
+tide_data.save(directory_path=model_output_path)

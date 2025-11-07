@@ -46,5 +46,9 @@ COPY applications/equitypricemodel/src/equitypricemodel/tide_states.safetensor a
 
 COPY applications/equitypricemodel/src/equitypricemodel/tide_parameters.json app/tide_parameters.json
 
+COPY applications/equitypricemodel/src/equitypricemodel/tide_data_mappings.json app/tide_data_mappings.json
+
+COPY applications/equitypricemodel/src/equitypricemodel/tide_data_scaler.json app/tide_data_scaler.json
+
 ENTRYPOINT ["uv", "run", "python", "applications/equitypricemodel/src/equitypricemodel/server.py"]
 

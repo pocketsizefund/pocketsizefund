@@ -78,10 +78,10 @@ class _ResidualBlock:
         out = cast("Tensor", out.add(skip))  # add residual connection
 
         mean = out.mean(axis=-1, keepdim=True)
-        var = ((out.sub(mean)) ** 2).mean(axis=-1, keepdim=True)
+        variance = ((out.sub(mean)) ** 2).mean(axis=-1, keepdim=True)
         return cast(
             "Tensor",
-            (out - mean) / (var + Tensor(1e-5).cast("float32")).sqrt(),
+            (out - mean) / (variance + Tensor(1e-5).cast("float32")).sqrt(),
         )
 
 
@@ -180,8 +180,10 @@ class Model:
         # apply output layer across the sequence dimension
         predictions: list[Tensor] = []
         for t in range(self.output_length):
-            pred_t = self.output_layer(x[:, t, :])  # (batch_size, num_quantiles)
-            predictions.append(pred_t)
+            prediction_batch = self.output_layer(
+                x[:, t, :]
+            )  # (batch_size, num_quantiles)
+            predictions.append(prediction_batch)
 
         predictions_first = predictions[0]
         predictions_rest = predictions[1:]
@@ -224,8 +226,8 @@ class Model:
 
                 epoch_losses.append(loss.numpy().item())
 
-            avg_loss = sum(epoch_losses) / len(epoch_losses)
-            losses.append(avg_loss)
+            epoch_loss = sum(epoch_losses) / len(epoch_losses)
+            losses.append(epoch_loss)
 
         return losses
 
@@ -248,15 +250,13 @@ class Model:
 
     def save(
         self,
-        directory_name: str = "",
-        parameters_file_name: str = "tide_parameters.json",
-        states_file_name: str = "tide_states.safetensor",
+        directory_path: str,
     ) -> None:
-        os.makedirs(os.path.dirname(directory_name), exist_ok=True)  # noqa: PTH120, PTH103
+        os.makedirs(os.path.dirname(directory_path), exist_ok=True)  # noqa: PTH120, PTH103
 
         states = get_state_dict(self)
 
-        safe_save(states, os.path.join(directory_name, states_file_name))  # noqa: PTH118
+        safe_save(states, os.path.join(directory_path, "tide_states.safetensor"))  # noqa: PTH118
 
         parameters = {
             "input_size": self.input_size,
@@ -269,7 +269,7 @@ class Model:
         }
 
         with open(  # noqa: PTH123
-            os.path.join(directory_name, parameters_file_name),  # noqa: PTH118
+            os.path.join(directory_path, "tide_parameters.json"),  # noqa: PTH118
             "w",
         ) as parameters_file:
             json.dump(parameters, parameters_file)
@@ -277,13 +277,11 @@ class Model:
     @classmethod
     def load(
         cls,
-        directory_name: str = "",
-        parameters_file_name: str = "tide_parameters.json",
-        states_file_name: str = "tide_states.safetensor",
+        directory_path: str,
     ) -> "Model":
-        states = safe_load(os.path.join(directory_name, states_file_name))  # noqa: PTH118
+        states = safe_load(os.path.join(directory_path, "tide_states.safetensor"))  # noqa: PTH118
         with open(  # noqa: PTH123
-            os.path.join(directory_name, parameters_file_name)  # noqa: PTH118
+            os.path.join(directory_path, "tide_parameters.json")  # noqa: PTH118
         ) as parameters_file:
             parameters = json.load(parameters_file)
 
@@ -303,19 +301,28 @@ class Model:
         return self.forward(combined_input_features)
 
     def _combine_input_features(
-        self, x: dict[str, Tensor]
+        self,
+        inputs: dict[str, Tensor],
     ) -> tuple[Tensor, Tensor, int]:
-        batch_size = x["encoder_continuous_features"].shape[0]
+        batch_size = inputs["encoder_continuous_features"].shape[0]
 
-        encoder_cont_flat = x["encoder_continuous_features"].reshape(batch_size, -1)
+        encoder_cont_flat = inputs["encoder_continuous_features"].reshape(
+            batch_size, -1
+        )
         encoder_cat_flat = (
-            x["encoder_categorical_features"].reshape(batch_size, -1).cast("float32")
+            inputs["encoder_categorical_features"]
+            .reshape(batch_size, -1)
+            .cast("float32")
         )
         decoder_cat_flat = (
-            x["decoder_categorical_features"].reshape(batch_size, -1).cast("float32")
+            inputs["decoder_categorical_features"]
+            .reshape(batch_size, -1)
+            .cast("float32")
         )
         static_cat_flat = (
-            x["static_categorical_features"].reshape(batch_size, -1).cast("float32")
+            inputs["static_categorical_features"]
+            .reshape(batch_size, -1)
+            .cast("float32")
         )
 
         return (
@@ -326,6 +333,6 @@ class Model:
                 static_cat_flat,
                 dim=1,
             ),
-            x["targets"],
+            inputs["targets"],
             int(batch_size),
         )
