@@ -49,11 +49,11 @@ struct PolygonResponse {
     results: Option<Vec<BarResult>>,
 }
 
-pub async fn fetch(
+pub async fn query(
     AxumState(state): AxumState<State>,
     Query(parameters): Query<DateRangeParameters>,
 ) -> impl IntoResponse {
-    info!("Fetching equity data from S3 partitioned files");
+    info!("Querying equity data from S3 partitioned files");
 
     match query_equity_bars_parquet_from_s3(&state, parameters.start_date, parameters.end_date)
         .await
