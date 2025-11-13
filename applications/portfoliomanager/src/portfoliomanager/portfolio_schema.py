@@ -2,6 +2,8 @@ import pandera.polars as pa
 import polars as pl
 from pandera.polars import PolarsData
 
+from .enums import PositionAction, PositionSide
+
 
 def is_uppercase(data: PolarsData) -> pl.LazyFrame:
     return data.lazyframe.select(
@@ -15,8 +17,8 @@ def check_position_side_counts(
 ) -> bool:
     counts = data.lazyframe.select(
         pl.len().alias("total_count"),
-        (pl.col("side") == "LONG").sum().alias("long_count"),
-        (pl.col("side") == "SHORT").sum().alias("short_count"),
+        (pl.col("side") == PositionSide.LONG.value).sum().alias("long_count"),
+        (pl.col("side") == PositionSide.SHORT.value).sum().alias("short_count"),
     ).collect()
     total_count = counts.get_column("total_count").item()
     long_count = counts.get_column("long_count").item()
@@ -44,12 +46,12 @@ def check_position_side_sums(
     maximum_imbalance_percentage: float = 0.05,  # 5%
 ) -> bool:
     sums = data.lazyframe.select(
-        pl.when(pl.col("side") == "LONG")
+        pl.when(pl.col("side") == PositionSide.LONG.value)
         .then(pl.col("dollar_amount"))
         .otherwise(0.0)
         .sum()
         .alias("long_sum"),
-        pl.when(pl.col("side") == "SHORT")
+        pl.when(pl.col("side") == PositionSide.SHORT.value)
         .then(pl.col("dollar_amount"))
         .otherwise(0.0)
         .sum()
@@ -88,13 +90,33 @@ portfolio_schema = pa.DataFrameSchema(
         "side": pa.Column(
             dtype=str,
             checks=[
-                pa.Check.isin(["LONG", "SHORT"]),
+                pa.Check.isin(
+                    [
+                        PositionSide.LONG.value.upper(),
+                        PositionSide.SHORT.value.upper(),
+                    ]
+                ),
                 pa.Check(is_uppercase),
             ],
         ),
         "dollar_amount": pa.Column(
             dtype=float,
             checks=[pa.Check.greater_than(0)],
+        ),
+        "action": pa.Column(
+            dtype=str,
+            checks=[
+                pa.Check.isin(
+                    [
+                        PositionAction.PDT_LOCKED.value,
+                        PositionAction.CLOSE_POSITION.value,
+                        PositionAction.MAINTAIN_POSITION.value,
+                        PositionAction.UNSPECIFIED.value,
+                    ]
+                ),
+                pa.Check(is_uppercase),
+            ],
+            required=False,
         ),
     },
     unique=["ticker"],

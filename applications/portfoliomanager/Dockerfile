@@ -14,5 +14,5 @@ COPY ./src ./src
 
 EXPOSE 8081
 
-ENTRYPOINT ["uv", "run", "uvicorn", "portfoliomanager.main:application", "--host", "0.0.0.0", "--port", "8081", "--app-dir", "src"]
+ENTRYPOINT ["uv", "run", "uvicorn", "portfoliomanager.server:application", "--host", "0.0.0.0", "--port", "8081", "--app-dir", "src"]
 

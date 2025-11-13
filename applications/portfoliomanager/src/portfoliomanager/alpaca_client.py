@@ -1,22 +1,23 @@
 import time
 from typing import cast
 
-import pandera.polars as pa
-import polars as pl
-from alpaca.trading import Position, TradeAccount, TradingClient
+from alpaca.trading import (
+    ClosePositionRequest,
+    OrderRequest,
+    TradeAccount,
+    TradingClient,
+)
+from alpaca.trading.enums import OrderSide, OrderType, TimeInForce
+
+from .enums import TradeSide
 
 
 class AlpacaAccount:
     def __init__(
         self,
         cash_amount: float,
-        positions: pl.DataFrame,
     ) -> None:
         self.cash_amount = cash_amount
-
-        position_schema.validate(positions)
-
-        self.positions = positions
 
 
 class AlpacaClient:
@@ -39,73 +40,37 @@ class AlpacaClient:
 
         time.sleep(self.rate_limit_sleep)
 
-        account_positions: list[Position] = cast(
-            "list[Position]", self.trading_client.get_all_positions()
+        return AlpacaAccount(
+            cash_amount=float(cast("str", account.cash)),
         )
-        if not account_positions:
-            time.sleep(self.rate_limit_sleep)
-            empty_positions = pl.DataFrame(
-                {
-                    "ticker": pl.Series([], dtype=pl.String),
-                    "side": pl.Series([], dtype=pl.String),
-                    "dollar_amount": pl.Series([], dtype=pl.Float64),
-                    "share_amount": pl.Series([], dtype=pl.Float64),
-                }
-            )
 
-            return AlpacaAccount(
-                cash_amount=float(cast("str", account.cash)),
-                positions=empty_positions,
-            )
-
-        position_data = [
-            {
-                "ticker": account_position.symbol,
-                "side": str(account_position.side).replace("PositionSide.", "").upper(),
-                "dollar_amount": float(cast("str", account_position.market_value)),
-                "share_amount": float(cast("str", account_position.qty)),
-            }
-            for account_position in account_positions
-        ]
+    def open_position(
+        self,
+        ticker: str,
+        side: TradeSide,
+        dollar_amount: float,
+    ) -> None:
+        self.trading_client.submit_order(
+            order_data=OrderRequest(
+                symbol=ticker.upper(),
+                notional=dollar_amount,
+                side=OrderSide(side.value.lower()),
+                type=OrderType.MARKET,
+                time_in_force=TimeInForce.FOK,
+            ),
+        )
 
         time.sleep(self.rate_limit_sleep)
 
-        positions = pl.DataFrame(position_data)
-
-        position_schema.validate(positions)
-
-        return AlpacaAccount(
-            cash_amount=float(cast("str", account.cash)),
-            positions=positions,
+    def close_position(
+        self,
+        ticker: str,
+    ) -> None:
+        self.trading_client.close_position(
+            symbol_or_asset_id=ticker.upper(),
+            close_options=ClosePositionRequest(
+                percentage="100",
+            ),
         )
 
-
-def is_uppercase(data: pa.PolarsData) -> pl.LazyFrame:
-    return data.lazyframe.select(
-        pl.col(data.key).str.to_uppercase() == pl.col(data.key)
-    )
-
-
-position_schema = pa.DataFrameSchema(
-    {
-        "ticker": pa.Column(
-            dtype=str,
-            checks=[pa.Check(is_uppercase)],
-        ),
-        "side": pa.Column(
-            dtype=str,
-            checks=[
-                pa.Check.isin(["LONG", "SHORT"]),
-                pa.Check(is_uppercase),
-            ],
-        ),
-        "dollar_amount": pa.Column(
-            dtype=float,
-            checks=[pa.Check.greater_than(0)],
-        ),
-        "share_amount": pa.Column(
-            dtype=float,
-            checks=[pa.Check.greater_than(0)],
-        ),
-    },
-)
+        time.sleep(self.rate_limit_sleep)

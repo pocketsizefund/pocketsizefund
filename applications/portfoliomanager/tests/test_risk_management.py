@@ -4,14 +4,14 @@ import polars as pl
 import pytest
 from portfoliomanager.risk_management import (
     add_equity_bars_returns_and_realized_volatility_columns,
-    add_positions_action_column,
-    add_positions_performance_columns,
+    add_portfolio_action_column,
+    add_portfolio_performance_columns,
     add_predictions_zscore_ranked_columns,
     create_optimal_portfolio,
 )
 
 
-def test_add_positions_action_column_same_day_positions_locked() -> None:
+def test_add_portfolio_action_column_same_day_positions_locked() -> None:
     current_datetime = datetime(2024, 1, 15, 0, 0, 0, 0, tzinfo=UTC)
     positions = pl.DataFrame(
         {
@@ -25,13 +25,13 @@ def test_add_positions_action_column_same_day_positions_locked() -> None:
         }
     )
 
-    result = add_positions_action_column(positions, current_datetime)
+    result = add_portfolio_action_column(positions, current_datetime)
 
     assert all(action == "PDT_LOCKED" for action in result["action"].to_list())
     assert len(result) == 2  # noqa: PLR2004
 
 
-def test_add_positions_action_column_previous_day_positions_unlocked() -> None:
+def test_add_portfolio_action_column_previous_day_positions_unlocked() -> None:
     current_datetime = datetime(2024, 1, 15, 0, 0, 0, 0, tzinfo=UTC)
     positions = pl.DataFrame(
         {
@@ -45,13 +45,13 @@ def test_add_positions_action_column_previous_day_positions_unlocked() -> None:
         }
     )
 
-    result = add_positions_action_column(positions, current_datetime)
+    result = add_portfolio_action_column(positions, current_datetime)
 
     assert all(action == "UNSPECIFIED" for action in result["action"].to_list())
     assert len(result) == 2  # noqa: PLR2004
 
 
-def test_add_positions_action_column_mixed_dates() -> None:
+def test_add_portfolio_action_column_mixed_dates() -> None:
     current_datetime = datetime(2024, 1, 15, 0, 0, 0, 0, tzinfo=UTC)
     positions = pl.DataFrame(
         {
@@ -66,19 +66,19 @@ def test_add_positions_action_column_mixed_dates() -> None:
         }
     )
 
-    result = add_positions_action_column(positions, current_datetime)
+    result = add_portfolio_action_column(positions, current_datetime)
 
     expected_actions = ["PDT_LOCKED", "UNSPECIFIED", "PDT_LOCKED"]
     assert result["action"].to_list() == expected_actions
 
 
-def test_add_positions_action_column_empty_dataframe() -> None:
+def test_add_portfolio_action_column_empty_dataframe() -> None:
     current_datetime = datetime(2024, 1, 15, 0, 0, 0, 0, tzinfo=UTC)
     positions = pl.DataFrame(
         {"ticker": [], "timestamp": [], "side": [], "dollar_amount": []}
     )
 
-    result = add_positions_action_column(positions, current_datetime)
+    result = add_portfolio_action_column(positions, current_datetime)
 
     assert len(result) == 0
     assert "action" in result.columns
@@ -213,7 +213,7 @@ def test_add_equity_bars_returns_and_realized_volatility_columns_null_prices_han
     assert daily_returns[1] is None  # second row should be null
 
 
-def test_add_positions_performance_columns_long_position_outperforming() -> None:
+def test_add_portfolio_performance_columns_long_position_outperforming() -> None:
     base_timestamp = datetime(2024, 1, 10, tzinfo=UTC).timestamp()
 
     positions = pl.DataFrame(
@@ -248,14 +248,14 @@ def test_add_positions_performance_columns_long_position_outperforming() -> None
     )
     current_timestamp = datetime.fromtimestamp(base_timestamp + (29 * 86400), tz=UTC)
 
-    result = add_positions_performance_columns(
+    result = add_portfolio_performance_columns(
         positions, original_predictions, original_equity_bars, current_timestamp
     )
 
     assert result["action"][0] == "MAINTAIN_POSITION"  # 20% > 15% threshold
 
 
-def test_add_positions_performance_columns_long_position_underperforming() -> None:
+def test_add_portfolio_performance_columns_long_position_underperforming() -> None:
     base_timestamp = datetime(2024, 1, 10, tzinfo=UTC).timestamp()
 
     positions = pl.DataFrame(
@@ -290,14 +290,14 @@ def test_add_positions_performance_columns_long_position_underperforming() -> No
     )
     current_timestamp = datetime.fromtimestamp(base_timestamp + (29 * 86400), tz=UTC)
 
-    result = add_positions_performance_columns(
+    result = add_portfolio_performance_columns(
         positions, original_predictions, original_equity_bars, current_timestamp
     )
 
     assert result["action"][0] == "CLOSE_POSITION"  # -10% < -5% threshold
 
 
-def test_add_positions_performance_columns_short_position_outperforming() -> None:
+def test_add_portfolio_performance_columns_short_position_outperforming() -> None:
     base_timestamp = datetime(2024, 1, 10, tzinfo=UTC).timestamp()
 
     positions = pl.DataFrame(
@@ -332,7 +332,7 @@ def test_add_positions_performance_columns_short_position_outperforming() -> Non
     )
     current_timestamp = datetime.fromtimestamp(base_timestamp + (29 * 86400), tz=UTC)
 
-    result = add_positions_performance_columns(
+    result = add_portfolio_performance_columns(
         positions, original_predictions, original_equity_bars, current_timestamp
     )
 
@@ -341,7 +341,7 @@ def test_add_positions_performance_columns_short_position_outperforming() -> Non
     )  # -10% <= -5% threshold (good for short)
 
 
-def test_add_positions_performance_columns_pdt_locked_position_maintained() -> None:
+def test_add_portfolio_performance_columns_pdt_locked_position_maintained() -> None:
     base_timestamp = datetime(2024, 1, 10, tzinfo=UTC).timestamp()
 
     positions = pl.DataFrame(
@@ -376,14 +376,14 @@ def test_add_positions_performance_columns_pdt_locked_position_maintained() -> N
     )
     current_timestamp = datetime.fromtimestamp(base_timestamp + (29 * 86400), tz=UTC)
 
-    result = add_positions_performance_columns(
+    result = add_portfolio_performance_columns(
         positions, original_predictions, original_equity_bars, current_timestamp
     )
 
     assert result["action"][0] == "PDT_LOCKED"  # pdt locked overrides performance
 
 
-def test_add_positions_performance_columns_multiple_tickers_independent() -> None:
+def test_add_portfolio_performance_columns_multiple_tickers_independent() -> None:
     current_timestamp = datetime(2024, 1, 10, tzinfo=UTC).timestamp()
 
     positions = pl.DataFrame(
@@ -431,7 +431,7 @@ def test_add_positions_performance_columns_multiple_tickers_independent() -> Non
         raw_equity_bars
     )
 
-    out = add_positions_performance_columns(
+    out = add_portfolio_performance_columns(
         positions,
         predictions,
         equity_bars,
