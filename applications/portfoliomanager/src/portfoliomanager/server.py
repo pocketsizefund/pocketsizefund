@@ -43,11 +43,11 @@ def create_portfolio() -> Response:
 
     account = alpaca_client.get_account()
 
-    current_predictions = get_current_predictions()
+    current_predictions = get_current_predictions(current_timestamp=current_timestamp)
 
     prior_portfolio = get_prior_portfolio(current_timestamp=current_timestamp)
 
-    optimal_portfolio = create_optimal_portfolio(
+    optimal_portfolio = get_optimal_portfolio(
         current_predictions=current_predictions,
         prior_portfolio=prior_portfolio,
         maximum_capital=float(account.cash_amount),
@@ -76,7 +76,7 @@ def create_portfolio() -> Response:
     return Response(status_code=status.HTTP_200_OK)
 
 
-def get_current_predictions() -> pl.DataFrame:
+def get_current_predictions(current_timestamp: datetime) -> pl.DataFrame:
     current_predictions_response = requests.get(
         url=f"{EQUITYPRICEMODEL_BASE_URL}/predictions",
         timeout=60,
@@ -85,6 +85,17 @@ def get_current_predictions() -> pl.DataFrame:
     current_predictions_response.raise_for_status()
 
     current_predictions = pl.DataFrame(current_predictions_response.json())
+
+    save_predictions_response = requests.post(
+        url=f"{DATAMANAGER_BASE_URL}/predictions",
+        json={
+            "timestamp": current_timestamp.isoformat(),
+            "data": current_predictions.to_dicts(),
+        },
+        timeout=60,
+    )
+
+    save_predictions_response.raise_for_status()
 
     return add_predictions_zscore_ranked_columns(
         current_predictions=current_predictions
@@ -161,6 +172,33 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
         prior_predictions=prior_predictions,
         current_timestamp=current_timestamp,
     )
+
+
+def get_optimal_portfolio(
+    current_predictions: pl.DataFrame,
+    prior_portfolio: pl.DataFrame,
+    maximum_capital: float,
+    current_timestamp: datetime,
+) -> pl.DataFrame:
+    optimal_portfolio = create_optimal_portfolio(
+        current_predictions=current_predictions,
+        prior_portfolio=prior_portfolio,
+        maximum_capital=maximum_capital,
+        current_timestamp=current_timestamp,
+    )
+
+    save_portfolio_response = requests.post(
+        url=f"{DATAMANAGER_BASE_URL}/portfolios",
+        json={
+            "timestamp": current_timestamp.isoformat(),
+            "data": optimal_portfolio.to_dicts(),
+        },
+        timeout=60,
+    )
+
+    save_portfolio_response.raise_for_status()
+
+    return optimal_portfolio
 
 
 def get_positions(
