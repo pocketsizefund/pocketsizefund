@@ -1,7 +1,7 @@
 use crate::state::State;
 use crate::storage::{query_portfolio_dataframe_from_s3, write_portfolio_dataframe_to_s3};
 use axum::{
-    extract::{Json, State as AxumState},
+    extract::{Json, Query, State as AxumState},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -46,10 +46,20 @@ pub async fn save(
     }
 }
 
-pub async fn get(AxumState(state): AxumState<State>) -> impl IntoResponse {
-    info!("Fetching portfolio from S3");
+#[derive(Deserialize)]
+pub struct QueryParameters {
+    timestamp: Option<DateTime<Utc>>,
+}
 
-    match query_portfolio_dataframe_from_s3(&state, &Utc::now()).await {
+pub async fn get(
+    AxumState(state): AxumState<State>,
+    Query(parameters): Query<QueryParameters>,
+) -> impl IntoResponse {
+    info!("Fetching most recent portfolio from S3");
+
+    let timestamp: Option<DateTime<Utc>> = parameters.timestamp;
+
+    match query_portfolio_dataframe_from_s3(&state, timestamp).await {
         Ok(dataframe) => (StatusCode::OK, dataframe.to_string()).into_response(),
         Err(err) => {
             info!("Failed to fetch portfolio from S3: {}", err);

@@ -70,16 +70,18 @@ def create_portfolio() -> Response:
 
 
 def get_current_predictions() -> pl.DataFrame:
-    response = requests.get(
+    current_predictions_response = requests.get(
         url=f"{EQUITYPRICEMODEL_BASE_URL}/predictions",
         timeout=60,
     )
 
-    response.raise_for_status()
+    current_predictions_response.raise_for_status()
 
-    predictions = pl.DataFrame(response.json())
+    current_predictions = pl.DataFrame(current_predictions_response.json())
 
-    return add_predictions_zscore_ranked_columns(current_predictions=predictions)
+    return add_predictions_zscore_ranked_columns(
+        current_predictions=current_predictions
+    )
 
 
 def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
@@ -120,8 +122,14 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
 
     prior_equity_bars_response.raise_for_status()
 
+    tickers_and_timestamps = [
+        {"ticker": row[0], "timestamp": row[1]}
+        for row in prior_portfolio[["ticker", "timestamp"]].rows()
+    ]
+
     prior_predictions_response = requests.get(
         url=f"{DATAMANAGER_BASE_URL}/predictions",
+        params={"tickers_and_timestamps": str(tickers_and_timestamps)},
         timeout=60,
     )
 

@@ -332,33 +332,76 @@ pub async fn query_predictions_dataframe_from_s3(
 
 pub async fn query_portfolio_dataframe_from_s3(
     state: &State,
-    timestamp: &DateTime<Utc>,
+    timestamp: Option<DateTime<Utc>>,
 ) -> Result<DataFrame, Error> {
     let connection = create_duckdb_connection().await?;
 
-    let year = timestamp.format("%Y");
-    let month = timestamp.format("%m");
-    let day = timestamp.format("%d");
-    let s3_path = format!(
-        "s3://{}/equity/portfolios/daily/year={}/month={}/day={}/data.parquet",
-        state.bucket_name, year, month, day
-    );
-    info!("Querying 1 S3 file");
-    let s3_paths_query = format!("SELECT * FROM '{}'", s3_path);
+    let query = match timestamp {
+        Some(ts) => {
+            let year = ts.format("%Y");
+            let month = ts.format("%m");
+            let day = ts.format("%d");
+            let s3_path = format!(
+                "s3://{}/equity/portfolios/daily/year={}/month={}/day={}/data.parquet",
+                state.bucket_name, year, month, day
+            );
+            info!(
+                "Querying specific date portfolio: {}/{}/{}",
+                year, month, day
+            );
 
-    let query = format!(
-        "
-        SELECT
-            ticker,
-            timestamp,
-            side,
-            dollar_amount
-        FROM ({})
-        ORDER BY timestamp, ticker
-        ",
-        s3_paths_query,
-    );
-    debug!("Executing export SQL: {}", query);
+            format!(
+                "
+                SELECT
+                    ticker,
+                    timestamp,
+                    side,
+                    dollar_amount
+                FROM '{}'
+                ORDER BY timestamp, ticker
+                ",
+                s3_path
+            )
+        }
+        None => {
+            let s3_wildcard = format!(
+                "s3://{}/equity/portfolios/daily/**/*.parquet",
+                state.bucket_name
+            );
+            info!("Querying most recent portfolio from all files");
+
+            format!(
+                "
+                WITH partitioned_data AS (
+                    SELECT
+                        ticker,
+                        timestamp,
+                        side,
+                        dollar_amount,
+                        year,
+                        month,
+                        day
+                    FROM read_parquet('{}', hive_partitioning=1)
+                ),
+                max_date AS (
+                    SELECT MAX(year::int * 10000 + month::int * 100 + day::int) as date_int
+                    FROM partitioned_data
+                )
+                SELECT
+                    ticker,
+                    timestamp,
+                    side,
+                    dollar_amount
+                FROM partitioned_data
+                WHERE (year::int * 10000 + month::int * 100 + day::int) = (SELECT date_int FROM max_date)
+                ORDER BY timestamp, ticker
+                ",
+                s3_wildcard
+            )
+        }
+    };
+
+    debug!("Executing portfolio query SQL: {}", query);
 
     let mut statement = connection.prepare(&query)?;
 
