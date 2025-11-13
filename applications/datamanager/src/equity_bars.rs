@@ -17,7 +17,8 @@ pub struct DailySync {
 }
 
 #[derive(Deserialize)]
-pub struct DateRangeParameters {
+pub struct QueryParameters {
+    tickers: Option<Vec<String>>,
     start_date: Option<DateTime<Utc>>,
     end_date: Option<DateTime<Utc>>,
 }
@@ -51,12 +52,17 @@ struct PolygonResponse {
 
 pub async fn query(
     AxumState(state): AxumState<State>,
-    Query(parameters): Query<DateRangeParameters>,
+    Query(parameters): Query<QueryParameters>,
 ) -> impl IntoResponse {
     info!("Querying equity data from S3 partitioned files");
 
-    match query_equity_bars_parquet_from_s3(&state, parameters.start_date, parameters.end_date)
-        .await
+    match query_equity_bars_parquet_from_s3(
+        &state,
+        parameters.tickers,
+        parameters.start_date,
+        parameters.end_date,
+    )
+    .await
     {
         Ok(parquet_data) => {
             let mut response = Response::new(Body::from(parquet_data));

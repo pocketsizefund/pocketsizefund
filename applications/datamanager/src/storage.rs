@@ -130,6 +130,7 @@ async fn create_duckdb_connection() -> Result<Connection, Error> {
 
 pub async fn query_equity_bars_parquet_from_s3(
     state: &State,
+    tickers: Option<Vec<String>>,
     start_date: Option<DateTime<Utc>>,
     end_date: Option<DateTime<Utc>>,
 ) -> Result<Vec<u8>, Error> {
@@ -177,6 +178,18 @@ pub async fn query_equity_bars_parquet_from_s3(
         .collect::<Vec<_>>()
         .join(" UNION ALL ");
 
+    let ticker_filter = match &tickers {
+        Some(ticker_list) if !ticker_list.is_empty() => {
+            let ticker_values = ticker_list
+                .iter()
+                .map(|t| format!("'{}'", t.replace('\'', "''")))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("WHERE ticker IN ({})", ticker_values)
+        }
+        _ => String::new(),
+    };
+
     let query_sql = format!(
         "
         SELECT
@@ -190,9 +203,10 @@ pub async fn query_equity_bars_parquet_from_s3(
             volume_weighted_average_price,
             transactions
         FROM ({})
+        {}
         ORDER BY timestamp, ticker
         ",
-        s3_paths_str
+        s3_paths_str, ticker_filter
     );
 
     debug!("Executing query SQL: {}", query_sql);
