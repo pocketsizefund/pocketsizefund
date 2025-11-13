@@ -412,7 +412,9 @@ class Data:
 
     def postprocess_predictions(
         self,
-        input_batch: Tensor,  # static_categorical_features
+        input_batch: dict[
+            str, Tensor
+        ],  # batch dictionary with static_categorical_features
         predictions: Tensor,  # quantiles
         current_datetime: datetime,
     ) -> pl.DataFrame:

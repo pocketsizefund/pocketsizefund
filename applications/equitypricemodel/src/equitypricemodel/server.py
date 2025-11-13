@@ -69,6 +69,8 @@ def create_predictions() -> PredictionResponse:  # TEMP
 
     data = consolidated_data.select(retained_columns)
 
+    current_datetime = datetime.now(tz=UTC)
+
     tide_data = Data()
 
     tide_data.load(directory_path=".")
@@ -77,8 +79,25 @@ def create_predictions() -> PredictionResponse:  # TEMP
 
     batches = tide_data.get_batches(data_type="predict")
 
-    predictions = tide_model.predict(
+    raw_predictions = tide_model.predict(
         inputs=batches[-1]
     )  # preprocessing generates more than 35 days
 
-    return PredictionResponse(data={"predictions": predictions.numpy()})
+    predictions = tide_data.postprocess_predictions(
+        input_batch=batches[-1],
+        predictions=raw_predictions,
+        current_datetime=current_datetime,
+    )
+
+    # filter to only the 7th timestep
+    processed_prediction_datetime = current_datetime + timedelta(days=6)
+    processed_predictions = predictions.filter(
+        pl.col("timestamp")
+        == int(
+            processed_prediction_datetime.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ).timestamp()
+        )
+    )
+
+    return PredictionResponse(data=processed_predictions.to_dict())
