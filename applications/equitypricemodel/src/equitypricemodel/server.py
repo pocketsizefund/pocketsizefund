@@ -1,3 +1,4 @@
+import io
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -46,7 +47,7 @@ def create_predictions() -> PredictionResponse:  # TEMP
         timeout=60,
     )
 
-    equity_bars_data = pl.read_json(equity_bars_response.json())
+    equity_bars_data = pl.read_parquet(io.BytesIO(equity_bars_response.content))
     equity_categories_data = pl.read_json(equity_details_response.json())
 
     consolidated_data = equity_categories_data.join(

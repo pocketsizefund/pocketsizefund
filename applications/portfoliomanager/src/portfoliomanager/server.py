@@ -1,3 +1,4 @@
+import io
 import os
 from datetime import UTC, datetime
 from typing import cast
@@ -158,7 +159,7 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
         current_timestamp=current_timestamp,
     )
 
-    prior_equity_bars = pl.DataFrame(prior_equity_bars_response.json())
+    prior_equity_bars = pl.read_parquet(io.BytesIO(prior_equity_bars_response.content))
 
     prior_equity_bars = add_equity_bars_returns_and_realized_volatility_columns(
         prior_equity_bars=prior_equity_bars
