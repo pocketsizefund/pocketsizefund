@@ -199,7 +199,7 @@ def add_predictions_zscore_ranked_columns(
         z_score_return.alias("z_score_return"),
         inter_quartile_range.alias("inter_quartile_range"),
         composite_score.alias("composite_score"),
-        pl.lit("UNSPECIFIED").alias("action"),
+        pl.lit(PositionAction.UNSPECIFIED.value).alias("action"),
     ).sort(["composite_score", "inter_quartile_range"], descending=[True, False])
 
 
