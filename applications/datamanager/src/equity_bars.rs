@@ -19,8 +19,8 @@ pub struct DailySync {
 #[derive(Deserialize)]
 pub struct QueryParameters {
     tickers: Option<String>,
-    start_date: Option<DateTime<Utc>>,
-    end_date: Option<DateTime<Utc>>,
+    start_timestamp: Option<DateTime<Utc>>,
+    end_timestamp: Option<DateTime<Utc>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -74,8 +74,8 @@ pub async fn query(
     match query_equity_bars_parquet_from_s3(
         &state,
         tickers,
-        parameters.start_date,
-        parameters.end_date,
+        parameters.start_timestamp,
+        parameters.end_timestamp,
     )
     .await
     {

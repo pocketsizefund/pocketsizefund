@@ -16,38 +16,38 @@ use tracing::{debug, info};
 pub async fn write_equity_bars_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
-    date: &DateTime<Utc>,
+    timestamp: &DateTime<Utc>,
 ) -> Result<String, Error> {
-    write_dataframe_to_s3(state, dataframe, date, "bars".to_string()).await
+    write_dataframe_to_s3(state, dataframe, timestamp, "bars".to_string()).await
 }
 
 pub async fn write_portfolio_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
-    date: &DateTime<Utc>,
+    timestamp: &DateTime<Utc>,
 ) -> Result<String, Error> {
-    write_dataframe_to_s3(state, dataframe, date, "portfolios".to_string()).await
+    write_dataframe_to_s3(state, dataframe, timestamp, "portfolios".to_string()).await
 }
 
 pub async fn write_predictions_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
-    date: &DateTime<Utc>,
+    timestamp: &DateTime<Utc>,
 ) -> Result<String, Error> {
-    write_dataframe_to_s3(state, dataframe, date, "predictions".to_string()).await
+    write_dataframe_to_s3(state, dataframe, timestamp, "predictions".to_string()).await
 }
 
 async fn write_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
-    date: &DateTime<Utc>,
+    timestamp: &DateTime<Utc>,
     dataframe_type: String,
 ) -> Result<String, Error> {
     info!("Uploading DataFrame to S3 as parquet");
 
-    let year = date.format("%Y");
-    let month = date.format("%m");
-    let day = date.format("%d");
+    let year = timestamp.format("%Y");
+    let month = timestamp.format("%m");
+    let day = timestamp.format("%d");
 
     let key = format!(
         "equity/{}/daily/year={}/month={}/day={}/data.parquet",
@@ -131,12 +131,12 @@ async fn create_duckdb_connection() -> Result<Connection, Error> {
 pub async fn query_equity_bars_parquet_from_s3(
     state: &State,
     tickers: Option<Vec<String>>,
-    start_date: Option<DateTime<Utc>>,
-    end_date: Option<DateTime<Utc>>,
+    start_timestamp: Option<DateTime<Utc>>,
+    end_timestamp: Option<DateTime<Utc>>,
 ) -> Result<Vec<u8>, Error> {
     let connection = create_duckdb_connection().await?;
 
-    let (start_date, end_date) = match (start_date, end_date) {
+    let (start_timestamp, end_timestamp) = match (start_timestamp, end_timestamp) {
         (Some(start), Some(end)) => (start, end),
         _ => {
             let end_date = chrono::Utc::now();
@@ -145,15 +145,18 @@ pub async fn query_equity_bars_parquet_from_s3(
         }
     };
 
-    info!("Querying data from {} to {}", start_date, end_date);
+    info!(
+        "Querying data from {} to {}",
+        start_timestamp, end_timestamp
+    );
 
     let mut s3_paths = Vec::new();
-    let mut current_date = start_date;
+    let mut current_timestamp = start_timestamp;
 
-    while current_date <= end_date {
-        let year = current_date.format("%Y");
-        let month = current_date.format("%m");
-        let day = current_date.format("%d");
+    while current_timestamp <= end_timestamp {
+        let year = current_timestamp.format("%Y");
+        let month = current_timestamp.format("%m");
+        let day = current_timestamp.format("%d");
 
         let s3_path = format!(
             "s3://{}/equity/bars/daily/year={}/month={}/day={}/data.parquet",
@@ -161,7 +164,7 @@ pub async fn query_equity_bars_parquet_from_s3(
         );
         s3_paths.push(s3_path);
 
-        current_date += chrono::Duration::days(1);
+        current_timestamp += chrono::Duration::days(1);
     }
 
     if s3_paths.is_empty() {

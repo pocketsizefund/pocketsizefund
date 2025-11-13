@@ -114,15 +114,15 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
 
     tickers = prior_portfolio["ticker"].unique().to_list()
     timestamps = prior_portfolio["timestamp"].cast(pl.Float64)
-    start_date = datetime.fromtimestamp(cast("float", timestamps.min()), tz=UTC)
+    start_timestamp = datetime.fromtimestamp(cast("float", timestamps.min()), tz=UTC)
     current_timestamp = datetime.now(tz=UTC)
 
     prior_equity_bars_response = requests.get(
         url=f"{DATAMANAGER_BASE_URL}/equity-bars",
         params={
             "tickers": ",".join(tickers),
-            "start_date": start_date.isoformat(),
-            "end_date": current_timestamp.isoformat(),
+            "start_timestamp": start_timestamp.isoformat(),
+            "end_timestamp": current_timestamp.isoformat(),
         },
         timeout=60,
     )
