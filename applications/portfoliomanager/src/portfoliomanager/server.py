@@ -6,6 +6,7 @@ from typing import cast
 import polars as pl
 import requests
 from fastapi import FastAPI, Response, status
+from internal.equity_bars_schema import equity_bars_schema
 
 from .alpaca_client import AlpacaClient
 from .enums import PositionAction, PositionSide, TradeSide
@@ -44,7 +45,7 @@ def create_portfolio() -> Response:
 
     account = alpaca_client.get_account()
 
-    current_predictions = get_current_predictions(current_timestamp=current_timestamp)
+    current_predictions = get_current_predictions()
 
     prior_portfolio = get_prior_portfolio(current_timestamp=current_timestamp)
 
@@ -54,8 +55,6 @@ def create_portfolio() -> Response:
         maximum_capital=float(account.cash_amount),
         current_timestamp=current_timestamp,
     )
-
-    optimal_portfolio = portfolio_schema.validate(optimal_portfolio)
 
     open_positions, close_positions = get_positions(
         prior_portfolio=prior_portfolio,
@@ -77,7 +76,7 @@ def create_portfolio() -> Response:
     return Response(status_code=status.HTTP_200_OK)
 
 
-def get_current_predictions(current_timestamp: datetime) -> pl.DataFrame:
+def get_current_predictions() -> pl.DataFrame:
     current_predictions_response = requests.get(
         url=f"{EQUITYPRICEMODEL_BASE_URL}/predictions",
         timeout=60,
@@ -86,17 +85,6 @@ def get_current_predictions(current_timestamp: datetime) -> pl.DataFrame:
     current_predictions_response.raise_for_status()
 
     current_predictions = pl.DataFrame(current_predictions_response.json())
-
-    save_predictions_response = requests.post(
-        url=f"{DATAMANAGER_BASE_URL}/predictions",
-        json={
-            "timestamp": current_timestamp.isoformat(),
-            "data": current_predictions.to_dicts(),
-        },
-        timeout=60,
-    )
-
-    save_predictions_response.raise_for_status()
 
     return add_predictions_zscore_ranked_columns(
         current_predictions=current_predictions
@@ -161,6 +149,8 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
 
     prior_equity_bars = pl.read_parquet(io.BytesIO(prior_equity_bars_response.content))
 
+    prior_equity_bars = equity_bars_schema.validate(prior_equity_bars)
+
     prior_equity_bars = add_equity_bars_returns_and_realized_volatility_columns(
         prior_equity_bars=prior_equity_bars
     )
@@ -187,6 +177,8 @@ def get_optimal_portfolio(
         maximum_capital=maximum_capital,
         current_timestamp=current_timestamp,
     )
+
+    optimal_portfolio = portfolio_schema.validate(optimal_portfolio)
 
     save_portfolio_response = requests.post(
         url=f"{DATAMANAGER_BASE_URL}/portfolios",

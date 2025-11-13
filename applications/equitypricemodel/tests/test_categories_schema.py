@@ -1,10 +1,10 @@
 import polars as pl
 import pytest
-from internal.company_information import company_information_schema
+from equitypricemodel.categories_schema import categories_schema
 from pandera.errors import SchemaError
 
 
-def test_company_information_schema_valid_data() -> None:
+def test_categories_schema_valid_data() -> None:
     valid_data = pl.DataFrame(
         {
             "sector": ["TECHNOLOGY"],
@@ -12,11 +12,11 @@ def test_company_information_schema_valid_data() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(valid_data)
+    validated_df = categories_schema.validate(valid_data)
     assert validated_df.shape == (1, 2)
 
 
-def test_company_information_schema_sector_lowercase_fails() -> None:
+def test_categories_schema_sector_lowercase_fails() -> None:
     data = pl.DataFrame(
         {
             "sector": ["technology"],
@@ -25,10 +25,10 @@ def test_company_information_schema_sector_lowercase_fails() -> None:
     )
 
     with pytest.raises(SchemaError):
-        company_information_schema.validate(data)
+        categories_schema.validate(data)
 
 
-def test_company_information_schema_industry_lowercase_fails() -> None:
+def test_catgories_schema_industry_lowercase_fails() -> None:
     data = pl.DataFrame(
         {
             "sector": ["TECHNOLOGY"],
@@ -37,10 +37,10 @@ def test_company_information_schema_industry_lowercase_fails() -> None:
     )
 
     with pytest.raises(SchemaError):
-        company_information_schema.validate(data)
+        categories_schema.validate(data)
 
 
-def test_company_information_schema_both_fields_uppercase_passes() -> None:
+def test_categories_schema_both_fields_uppercase_passes() -> None:
     data = pl.DataFrame(
         {
             "sector": ["HEALTHCARE"],
@@ -48,12 +48,12 @@ def test_company_information_schema_both_fields_uppercase_passes() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(data)
+    validated_df = categories_schema.validate(data)
     assert validated_df["sector"][0] == "HEALTHCARE"
     assert validated_df["industry"][0] == "PHARMACEUTICALS"
 
 
-def test_company_information_schema_whitespace_fails() -> None:
+def test_categories_schema_whitespace_fails() -> None:
     data = pl.DataFrame(
         {
             "sector": ["  TECHNOLOGY  "],
@@ -62,10 +62,10 @@ def test_company_information_schema_whitespace_fails() -> None:
     )
 
     with pytest.raises(SchemaError):
-        company_information_schema.validate(data)
+        categories_schema.validate(data)
 
 
-def test_company_information_schema_industry_whitespace_fails() -> None:
+def test_categories_schema_industry_whitespace_fails() -> None:
     data = pl.DataFrame(
         {
             "sector": ["TECHNOLOGY"],
@@ -74,10 +74,10 @@ def test_company_information_schema_industry_whitespace_fails() -> None:
     )
 
     with pytest.raises(SchemaError):
-        company_information_schema.validate(data)
+        categories_schema.validate(data)
 
 
-def test_company_information_schema_no_whitespace_passes() -> None:
+def test_categories_schema_no_whitespace_passes() -> None:
     data = pl.DataFrame(
         {
             "sector": ["HEALTHCARE"],
@@ -85,12 +85,12 @@ def test_company_information_schema_no_whitespace_passes() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(data)
+    validated_df = categories_schema.validate(data)
     assert validated_df["sector"][0] == "HEALTHCARE"
     assert validated_df["industry"][0] == "PHARMACEUTICALS"
 
 
-def test_company_information_schema_null_sector() -> None:
+def test_categories_schema_null_sector() -> None:
     data = pl.DataFrame(
         {
             "sector": [None],
@@ -98,12 +98,12 @@ def test_company_information_schema_null_sector() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(data)
+    validated_df = categories_schema.validate(data)
     assert validated_df["sector"][0] == "NOT AVAILABLE"
     assert validated_df["industry"][0] == "SOFTWARE"
 
 
-def test_company_information_schema_null_industry() -> None:
+def test_categories_schema_null_industry() -> None:
     data = pl.DataFrame(
         {
             "sector": ["TECHNOLOGY"],
@@ -111,12 +111,12 @@ def test_company_information_schema_null_industry() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(data)
+    validated_df = categories_schema.validate(data)
     assert validated_df["industry"][0] == "NOT AVAILABLE"
     assert validated_df["sector"][0] == "TECHNOLOGY"
 
 
-def test_company_information_schema_missing_sector_column() -> None:
+def test_categories_schema_missing_sector_column() -> None:
     data = pl.DataFrame(
         {
             "industry": ["SOFTWARE"],
@@ -124,10 +124,10 @@ def test_company_information_schema_missing_sector_column() -> None:
     )
 
     with pytest.raises((SchemaError, pl.exceptions.ColumnNotFoundError)):
-        company_information_schema.validate(data)
+        categories_schema.validate(data)
 
 
-def test_company_information_schema_missing_industry_column() -> None:
+def test_categories_schema_missing_industry_column() -> None:
     data = pl.DataFrame(
         {
             "sector": ["TECHNOLOGY"],
@@ -135,10 +135,10 @@ def test_company_information_schema_missing_industry_column() -> None:
     )
 
     with pytest.raises((SchemaError, pl.exceptions.ColumnNotFoundError)):
-        company_information_schema.validate(data)
+        categories_schema.validate(data)
 
 
-def test_company_information_schema_type_coercion() -> None:
+def test_categories_schema_type_coercion() -> None:
     data = pl.DataFrame(
         {
             "sector": [123],  # coerced to string
@@ -146,14 +146,14 @@ def test_company_information_schema_type_coercion() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(data)
+    validated_df = categories_schema.validate(data)
     assert validated_df["sector"].dtype == pl.String
     assert validated_df["industry"].dtype == pl.String
     assert validated_df["sector"][0] == "123"
     assert validated_df["industry"][0] == "456"
 
 
-def test_company_information_schema_multiple_rows() -> None:
+def test_categories_schema_multiple_rows() -> None:
     data = pl.DataFrame(
         {
             "sector": ["TECHNOLOGY", "HEALTHCARE", "FINANCE"],
@@ -161,7 +161,7 @@ def test_company_information_schema_multiple_rows() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(data)
+    validated_df = categories_schema.validate(data)
     assert validated_df.shape == (3, 2)
     assert validated_df["sector"].to_list() == ["TECHNOLOGY", "HEALTHCARE", "FINANCE"]
     assert validated_df["industry"].to_list() == [
@@ -171,7 +171,7 @@ def test_company_information_schema_multiple_rows() -> None:
     ]
 
 
-def test_company_information_schema_mixed_case_fails() -> None:
+def test_categories_schema_mixed_case_fails() -> None:
     data = pl.DataFrame(
         {
             "sector": ["TeChnOlOgY"],
@@ -180,10 +180,10 @@ def test_company_information_schema_mixed_case_fails() -> None:
     )
 
     with pytest.raises(SchemaError):
-        company_information_schema.validate(data)
+        categories_schema.validate(data)
 
 
-def test_company_information_schema_empty_string() -> None:
+def test_categories_schema_empty_string() -> None:
     data = pl.DataFrame(
         {
             "sector": [""],
@@ -191,11 +191,11 @@ def test_company_information_schema_empty_string() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(data)
+    validated_df = categories_schema.validate(data)
     assert validated_df["sector"][0] == ""
 
 
-def test_company_information_schema_whitespace_only_fails() -> None:
+def test_categories_schema_whitespace_only_fails() -> None:
     data = pl.DataFrame(
         {
             "sector": ["   "],
@@ -205,10 +205,10 @@ def test_company_information_schema_whitespace_only_fails() -> None:
 
     # whitespace-only strings should fail validation
     with pytest.raises(SchemaError):
-        company_information_schema.validate(data)
+        categories_schema.validate(data)
 
 
-def test_company_information_schema_special_characters() -> None:
+def test_categories_schema_special_characters() -> None:
     data = pl.DataFrame(
         {
             "sector": ["REAL-ESTATE"],
@@ -216,6 +216,6 @@ def test_company_information_schema_special_characters() -> None:
         }
     )
 
-    validated_df = company_information_schema.validate(data)
+    validated_df = categories_schema.validate(data)
     assert validated_df["sector"][0] == "REAL-ESTATE"
     assert validated_df["industry"][0] == "RETAIL & WHOLESALE"

@@ -2,11 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 import polars as pl
 import pytest
-from internal.prediction import prediction_schema
+from equitypricemodel.predictions_schema import predictions_schema
 from pandera.errors import SchemaError
 
 
-def test_prediction_schema_valid_data() -> None:
+def test_predictions_schema_valid_data() -> None:
     base_date = datetime(2024, 1, 1, tzinfo=UTC)
 
     valid_data = pl.DataFrame(
@@ -21,11 +21,11 @@ def test_prediction_schema_valid_data() -> None:
         }
     )
 
-    validated_df = prediction_schema.validate(valid_data)
+    validated_df = predictions_schema.validate(valid_data)
     assert validated_df.shape == (7, 5)
 
 
-def test_prediction_schema_ticker_lowercase_fails() -> None:
+def test_predictions_schema_ticker_lowercase_fails() -> None:
     base_date = datetime(2024, 1, 1, tzinfo=UTC)
 
     data = pl.DataFrame(
@@ -41,10 +41,10 @@ def test_prediction_schema_ticker_lowercase_fails() -> None:
     )
 
     with pytest.raises(SchemaError):
-        prediction_schema.validate(data)
+        predictions_schema.validate(data)
 
 
-def test_prediction_schema_negative_timestamp_fails() -> None:
+def test_predictions_schema_negative_timestamp_fails() -> None:
     base_date = datetime(2024, 1, 1, tzinfo=UTC)
 
     data = pl.DataFrame(
@@ -62,10 +62,10 @@ def test_prediction_schema_negative_timestamp_fails() -> None:
     data[1, "timestamp"] = -1.0  # introduce a negative timestamp
 
     with pytest.raises(SchemaError):
-        prediction_schema.validate(data)
+        predictions_schema.validate(data)
 
 
-def test_prediction_schema_duplicate_ticker_timestamp_fails() -> None:
+def test_predictions_schema_duplicate_ticker_timestamp_fails() -> None:
     base_date = datetime(2024, 1, 1, tzinfo=UTC)
 
     data = pl.DataFrame(
@@ -80,10 +80,10 @@ def test_prediction_schema_duplicate_ticker_timestamp_fails() -> None:
     )
 
     with pytest.raises(SchemaError):
-        prediction_schema.validate(data)
+        predictions_schema.validate(data)
 
 
-def test_prediction_schema_multiple_tickers_same_dates() -> None:
+def test_predictions_schema_multiple_tickers_same_dates() -> None:
     base_date = datetime(2024, 1, 1, tzinfo=UTC)
 
     valid_data = pl.DataFrame(
@@ -97,11 +97,11 @@ def test_prediction_schema_multiple_tickers_same_dates() -> None:
         }
     )
 
-    validated_df = prediction_schema.validate(valid_data)
+    validated_df = predictions_schema.validate(valid_data)
     assert validated_df.shape == (14, 5)
 
 
-def test_prediction_schema_multiple_tickers_different_dates_fails() -> None:
+def test_predictions_schema_multiple_tickers_different_dates_fails() -> None:
     base_date = datetime(2024, 1, 1, tzinfo=UTC)
 
     data = pl.DataFrame(
@@ -119,10 +119,10 @@ def test_prediction_schema_multiple_tickers_different_dates_fails() -> None:
     with pytest.raises(
         SchemaError, match="Expected all tickers to have the same dates"
     ):
-        prediction_schema.validate(data)
+        predictions_schema.validate(data)
 
 
-def test_prediction_schema_wrong_date_count_per_ticker_fails() -> None:
+def test_predictions_schema_wrong_date_count_per_ticker_fails() -> None:
     base_date = datetime(2024, 1, 1, tzinfo=UTC)
 
     data = pl.DataFrame(
@@ -140,10 +140,10 @@ def test_prediction_schema_wrong_date_count_per_ticker_fails() -> None:
     with pytest.raises(
         SchemaError, match="Each ticker must have exactly 7 unique dates"
     ):
-        prediction_schema.validate(data)
+        predictions_schema.validate(data)
 
 
-def test_prediction_schema_float_quantile_values() -> None:
+def test_predictions_schema_float_quantile_values() -> None:
     base_date = datetime(2024, 1, 1, tzinfo=UTC)
 
     valid_data = pl.DataFrame(
@@ -158,5 +158,5 @@ def test_prediction_schema_float_quantile_values() -> None:
         }
     )
 
-    validated_df = prediction_schema.validate(valid_data)
+    validated_df = predictions_schema.validate(valid_data)
     assert validated_df.shape == (7, 5)

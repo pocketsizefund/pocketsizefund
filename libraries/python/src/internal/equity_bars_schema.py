@@ -1,7 +1,7 @@
 import pandera.polars as pa
 import polars as pl
 
-equity_bar_schema = pa.DataFrameSchema(
+equity_bars_schema = pa.DataFrameSchema(
     {
         "ticker": pa.Column(
             dtype=str,

@@ -5,10 +5,15 @@ from datetime import UTC, datetime, timedelta
 import polars as pl
 import requests
 from fastapi import FastAPI
+from internal.equity_bars_schema import equity_bars_schema
 from pydantic import BaseModel
 
+from .categories_schema import categories_schema
+from .predictions_schema import predictions_schema
 from .tide_data import Data
 from .tide_model import Model
+
+DATAMANAGER_BASE_URL = os.getenv("PSF_DATAMANAGER_BASE_URL", "http://datamanager:8080")
 
 
 class PredictionRequest(BaseModel):
@@ -48,7 +53,12 @@ def create_predictions() -> PredictionResponse:  # TEMP
     )
 
     equity_bars_data = pl.read_parquet(io.BytesIO(equity_bars_response.content))
+
+    equity_bars_data = equity_bars_schema.validate(equity_bars_data)
+
     equity_categories_data = pl.read_json(equity_details_response.json())
+
+    equity_categories_data = categories_schema.validate(equity_categories_data)
 
     consolidated_data = equity_categories_data.join(
         equity_bars_data, on="ticker", how="inner"
@@ -69,7 +79,7 @@ def create_predictions() -> PredictionResponse:  # TEMP
 
     data = consolidated_data.select(retained_columns)
 
-    current_datetime = datetime.now(tz=UTC)
+    current_timestamp = datetime.now(tz=UTC)
 
     tide_data = Data()
 
@@ -86,18 +96,31 @@ def create_predictions() -> PredictionResponse:  # TEMP
     predictions = tide_data.postprocess_predictions(
         input_batch=batches[-1],
         predictions=raw_predictions,
-        current_datetime=current_datetime,
+        current_datetime=current_timestamp,
     )
 
     # filter to only the 7th timestep
-    processed_prediction_datetime = current_datetime + timedelta(days=6)
+    processed_prediction_timestamp = current_timestamp + timedelta(days=6)
     processed_predictions = predictions.filter(
         pl.col("timestamp")
         == int(
-            processed_prediction_datetime.replace(
+            processed_prediction_timestamp.replace(
                 hour=0, minute=0, second=0, microsecond=0
             ).timestamp()
         )
     )
+
+    processed_predictions = predictions_schema.validate(processed_predictions)
+
+    save_predictions_response = requests.post(
+        url=f"{DATAMANAGER_BASE_URL}/predictions",
+        json={
+            "timestamp": current_timestamp.isoformat(),
+            "data": processed_predictions.to_dicts(),
+        },
+        timeout=60,
+    )
+
+    save_predictions_response.raise_for_status()
 
     return PredictionResponse(data=processed_predictions.to_dict())

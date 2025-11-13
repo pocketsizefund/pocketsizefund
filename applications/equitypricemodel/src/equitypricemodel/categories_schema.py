@@ -1,6 +1,6 @@
 import pandera.polars as pa
 
-company_information_schema = pa.DataFrameSchema(
+categories_schema = pa.DataFrameSchema(
     {
         "sector": pa.Column(
             dtype=str,

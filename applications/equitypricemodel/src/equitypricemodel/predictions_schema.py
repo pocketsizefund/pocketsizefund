@@ -50,7 +50,7 @@ def check_monotonic_quantiles(data: PolarsData) -> bool:
     return True
 
 
-prediction_schema = pa.DataFrameSchema(
+predictions_schema = pa.DataFrameSchema(
     columns={
         "ticker": pa.Column(
             dtype=str,
@@ -73,7 +73,9 @@ prediction_schema = pa.DataFrameSchema(
     coerce=True,
     checks=[
         pa.Check(
-            check_fn=lambda df: check_dates_count_per_ticker(df),
+            check_fn=lambda df: check_dates_count_per_ticker(
+                data=df, dates_count=1
+            ),  # overriding to 1 for current risk management implementation
             name="check_dates_count_per_ticker",
             error="Each ticker must have expected date count",
         ),

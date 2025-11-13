@@ -1,10 +1,10 @@
 import polars as pl
 import pytest
-from internal.equity_bar import equity_bar_schema
+from internal.equity_bars_schema import equity_bars_schema
 from pandera.errors import SchemaError
 
 
-def test_equity_bar_schema_valid_data() -> None:
+def test_equity_bars_schema_valid_data() -> None:
     valid_data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
@@ -18,11 +18,11 @@ def test_equity_bar_schema_valid_data() -> None:
         }
     )
 
-    validated_df = equity_bar_schema.validate(valid_data)
+    validated_df = equity_bars_schema.validate(valid_data)
     assert validated_df.shape == (1, 8)
 
 
-def test_equity_bar_schema_ticker_lowercase_fails() -> None:
+def test_equity_bars_schema_ticker_lowercase_fails() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["aapl"],
@@ -37,10 +37,10 @@ def test_equity_bar_schema_ticker_lowercase_fails() -> None:
     )
 
     with pytest.raises(SchemaError):
-        equity_bar_schema.validate(data)
+        equity_bars_schema.validate(data)
 
 
-def test_equity_bar_schema_ticker_uppercase_passes() -> None:
+def test_equity_bars_schema_ticker_uppercase_passes() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
@@ -54,11 +54,11 @@ def test_equity_bar_schema_ticker_uppercase_passes() -> None:
         }
     )
 
-    validated_df = equity_bar_schema.validate(data)
+    validated_df = equity_bars_schema.validate(data)
     assert validated_df["ticker"][0] == "AAPL"
 
 
-def test_equity_bar_schema_negative_timestamp() -> None:
+def test_equity_bars_schema_negative_timestamp() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
@@ -73,10 +73,10 @@ def test_equity_bar_schema_negative_timestamp() -> None:
     )
 
     with pytest.raises(SchemaError):
-        equity_bar_schema.validate(data)
+        equity_bars_schema.validate(data)
 
 
-def test_equity_bar_schema_zero_timestamp() -> None:
+def test_equity_bars_schema_zero_timestamp() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
@@ -91,10 +91,10 @@ def test_equity_bar_schema_zero_timestamp() -> None:
     )
 
     with pytest.raises(SchemaError):
-        equity_bar_schema.validate(data)
+        equity_bars_schema.validate(data)
 
 
-def test_equity_bar_schema_negative_prices() -> None:
+def test_equity_bars_schema_negative_prices() -> None:
     price_fields = [
         "open_price",
         "high_price",
@@ -120,10 +120,10 @@ def test_equity_bar_schema_negative_prices() -> None:
         data = data.with_columns(pl.lit(-1.0).alias(field))
 
         with pytest.raises(SchemaError):
-            equity_bar_schema.validate(data)
+            equity_bars_schema.validate(data)
 
 
-def test_equity_bar_schema_zero_prices_not_allowed() -> None:
+def test_equity_bars_schema_zero_prices_not_allowed() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
@@ -138,10 +138,10 @@ def test_equity_bar_schema_zero_prices_not_allowed() -> None:
     )
 
     with pytest.raises(SchemaError):
-        equity_bar_schema.validate(data)
+        equity_bars_schema.validate(data)
 
 
-def test_equity_bar_schema_negative_volume() -> None:
+def test_equity_bars_schema_negative_volume() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
@@ -156,10 +156,10 @@ def test_equity_bar_schema_negative_volume() -> None:
     )
 
     with pytest.raises(SchemaError):
-        equity_bar_schema.validate(data)
+        equity_bars_schema.validate(data)
 
 
-def test_equity_bar_schema_type_coercion() -> None:
+def test_equity_bars_schema_type_coercion() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
@@ -173,14 +173,14 @@ def test_equity_bar_schema_type_coercion() -> None:
         }
     )
 
-    validated_df = equity_bar_schema.validate(data)
+    validated_df = equity_bars_schema.validate(data)
     assert validated_df["timestamp"].dtype == pl.Float64
     assert validated_df["open_price"].dtype == pl.Float64
     assert validated_df["high_price"].dtype == pl.Float64
     assert validated_df["volume"].dtype == pl.Int64
 
 
-def test_equity_bar_schema_missing_required_column() -> None:
+def test_equity_bars_schema_missing_required_column() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL"],
@@ -195,10 +195,10 @@ def test_equity_bar_schema_missing_required_column() -> None:
     )
 
     with pytest.raises((SchemaError, pl.exceptions.ColumnNotFoundError)):
-        equity_bar_schema.validate(data)
+        equity_bars_schema.validate(data)
 
 
-def test_equity_bar_schema_null_values() -> None:
+def test_equity_bars_schema_null_values() -> None:
     data = pl.DataFrame(
         {
             "ticker": [None],
@@ -213,10 +213,10 @@ def test_equity_bar_schema_null_values() -> None:
     )
 
     with pytest.raises(SchemaError):
-        equity_bar_schema.validate(data)
+        equity_bars_schema.validate(data)
 
 
-def test_equity_bar_schema_multiple_rows() -> None:
+def test_equity_bars_schema_multiple_rows() -> None:
     data = pl.DataFrame(
         {
             "ticker": ["AAPL", "GOOGL", "NVDA"],
@@ -230,6 +230,6 @@ def test_equity_bar_schema_multiple_rows() -> None:
         }
     )
 
-    validated_df = equity_bar_schema.validate(data)
+    validated_df = equity_bars_schema.validate(data)
     assert validated_df.shape == (3, 8)
     assert validated_df["ticker"].to_list() == ["AAPL", "GOOGL", "NVDA"]

@@ -8,6 +8,8 @@ COPY pyproject.toml uv.lock ./
 
 COPY applications/equitypricemodel/ applications/equitypricemodel/
 
+COPY libraries/python/ libraries/python/
+
 RUN uv sync --no-dev --no-cache 
 
 FROM python:3.12.10-slim AS trainer
@@ -41,6 +43,8 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 COPY --from=builder /app /app
+
+# pre-downloaded model artifacts to local for image building
 
 COPY applications/equitypricemodel/src/equitypricemodel/tide_states.safetensor app/tide_states.safetensor
 
