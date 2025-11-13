@@ -18,7 +18,7 @@ pub struct DailySync {
 
 #[derive(Deserialize)]
 pub struct QueryParameters {
-    tickers: Option<Vec<String>>,
+    tickers: Option<String>,
     start_date: Option<DateTime<Utc>>,
     end_date: Option<DateTime<Utc>>,
 }
@@ -56,9 +56,24 @@ pub async fn query(
 ) -> impl IntoResponse {
     info!("Querying equity data from S3 partitioned files");
 
+    let tickers: Option<Vec<String>> = match &parameters.tickers {
+        Some(tickers_str) if !tickers_str.is_empty() => {
+            let vec: Vec<String> = tickers_str
+                .split(',')
+                .map(|s| s.trim().to_uppercase())
+                .collect();
+            if vec.is_empty() {
+                None
+            } else {
+                Some(vec)
+            }
+        }
+        _ => None,
+    };
+
     match query_equity_bars_parquet_from_s3(
         &state,
-        parameters.tickers,
+        tickers,
         parameters.start_date,
         parameters.end_date,
     )

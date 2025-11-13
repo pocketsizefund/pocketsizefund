@@ -1,5 +1,6 @@
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
+from typing import cast
 
 import polars as pl
 import requests
@@ -37,28 +38,31 @@ def health_check() -> Response:
 
 @application.get("/portfolio")
 def create_portfolio() -> Response:
-    end_date = datetime.now(tz=UTC)
-    start_date = end_date - timedelta(
-        days=30
-    )  # required minimum lookback period for risk management calculations
-
-    prior_equity_bars_response = requests.get(
-        url=f"{DATAMANAGER_BASE_URL}/equity-bars",
-        params={
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
-        },
-        timeout=60,
-    )
-
-    prior_equity_bars_response.raise_for_status()
-
     prior_portfolio_response = requests.get(
         url=f"{DATAMANAGER_BASE_URL}/portfolio",
         timeout=60,
     )
 
     prior_portfolio_response.raise_for_status()
+
+    prior_portfolio = pl.DataFrame(prior_portfolio_response.json())
+
+    tickers = prior_portfolio["ticker"].unique().to_list()
+    timestamps = prior_portfolio["timestamp"].cast(pl.Float64)
+    start_date = datetime.fromtimestamp(cast("float", timestamps.min()), tz=UTC)
+    current_timestamp = datetime.now(tz=UTC)
+
+    prior_equity_bars_response = requests.get(
+        url=f"{DATAMANAGER_BASE_URL}/equity-bars",
+        params={
+            "tickers": ",".join(tickers),
+            "start_date": start_date.isoformat(),
+            "end_date": current_timestamp.isoformat(),
+        },
+        timeout=60,
+    )
+
+    prior_equity_bars_response.raise_for_status()
 
     prior_predictions_response = requests.get(
         url=f"{DATAMANAGER_BASE_URL}/predictions",
@@ -76,11 +80,9 @@ def create_portfolio() -> Response:
 
     current_predictions_response.raise_for_status()
 
-    prior_portfolio = pl.DataFrame(prior_portfolio_response.json())
-
     prior_portfolio = add_portfolio_action_column(
         prior_portfolio=prior_portfolio,
-        current_timestamp=end_date,
+        current_timestamp=current_timestamp,
     )
 
     prior_equity_bars = pl.DataFrame(prior_equity_bars_response.json())
@@ -95,7 +97,7 @@ def create_portfolio() -> Response:
         prior_portfolio=prior_portfolio,
         prior_equity_bars=prior_equity_bars,
         prior_predictions=prior_predictions,
-        current_timestamp=end_date,
+        current_timestamp=current_timestamp,
     )
 
     current_predictions = pl.DataFrame(current_predictions_response.json())
@@ -108,7 +110,7 @@ def create_portfolio() -> Response:
         current_predictions=current_predictions,
         prior_portfolio=prior_portfolio,
         maximum_capital=float(account.cash_amount),
-        current_timestamp=end_date,
+        current_timestamp=current_timestamp,
     )
 
     optimal_portfolio = portfolio_schema.validate(optimal_portfolio)
