@@ -295,7 +295,7 @@ def create_optimal_portfolio(
         pl.lit(current_timestamp.timestamp()).cast(pl.Float64).alias("timestamp"),
         pl.lit(PositionSide.LONG.value).alias("side"),
         pl.lit(dollar_amount_per_long).alias("dollar_amount"),
-        pl.lit(PositionAction.UNSPECIFIED.value).alias("action"),
+        pl.lit(PositionAction.OPEN_POSITION.value).alias("action"),
     )
 
     short_positions = short_candidates.select(
@@ -303,7 +303,7 @@ def create_optimal_portfolio(
         pl.lit(current_timestamp.timestamp()).cast(pl.Float64).alias("timestamp"),
         pl.lit(PositionSide.SHORT.value).alias("side"),
         pl.lit(dollar_amount_per_short).alias("dollar_amount"),
-        pl.lit(PositionAction.UNSPECIFIED.value).alias("action"),
+        pl.lit(PositionAction.OPEN_POSITION.value).alias("action"),
     )
 
     return _collect_portfolio_positions(
@@ -395,4 +395,5 @@ def _collect_portfolio_positions(
         pl.col("timestamp").cast(pl.Float64),
         "side",
         "dollar_amount",
+        "action",
     ).sort(["ticker", "side"])

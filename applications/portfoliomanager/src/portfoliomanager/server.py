@@ -7,6 +7,7 @@ import requests
 from fastapi import FastAPI, Response, status
 
 from .alpaca_client import AlpacaClient
+from .enums import PositionAction, PositionSide, TradeSide
 from .portfolio_schema import portfolio_schema
 from .risk_management import (
     add_equity_bars_returns_and_realized_volatility_columns,
@@ -55,18 +56,24 @@ def create_portfolio() -> Response:
 
     optimal_portfolio = portfolio_schema.validate(optimal_portfolio)
 
-    # outline:
-    # [x] get equity price model url
-    # [x] get data manager url
-    # [x] import risk management functions
-    # [x] import alpaca client
-    # [x] call data manager to get risk management data
-    # [x] call equity price model to get predictions
-    # [x] call per-ticker prediction extraction logic
-    # [x] call risk management functions to create portfolio
-    # [ ] call alpaca client to create portfolio
+    open_positions, close_positions = get_positions(
+        prior_portfolio=prior_portfolio,
+        optimal_portfolio=optimal_portfolio,
+    )
 
-    return Response(status_code=status.HTTP_200_OK)  # TEMP
+    for close_position in close_positions:
+        alpaca_client.close_position(
+            ticker=close_position["ticker"],
+        )
+
+    for open_position in open_positions:
+        alpaca_client.open_position(
+            ticker=open_position["ticker"],
+            side=open_position["side"],
+            dollar_amount=open_position["dollar_amount"],
+        )
+
+    return Response(status_code=status.HTTP_200_OK)
 
 
 def get_current_predictions() -> pl.DataFrame:
@@ -154,3 +161,50 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
         prior_predictions=prior_predictions,
         current_timestamp=current_timestamp,
     )
+
+
+def get_positions(
+    prior_portfolio: pl.DataFrame,
+    optimal_portfolio: pl.DataFrame,
+) -> tuple[list[dict], list[dict]]:
+    prior_portfolio = prior_portfolio.clone()
+    optimal_portfolio = optimal_portfolio.clone()
+
+    close_positions = []
+    if not prior_portfolio.is_empty():
+        prior_tickers = set(prior_portfolio["ticker"].to_list())
+        optimal_tickers = set(optimal_portfolio["ticker"].to_list())
+        closing_tickers = prior_tickers - optimal_tickers
+
+        if closing_tickers:
+            close_positions = [
+                {
+                    "ticker": row["ticker"],
+                    "side": (
+                        TradeSide.BUY.value
+                        if row["side"] == PositionSide.LONG.value
+                        else TradeSide.SELL.value
+                    ),
+                    "dollar_amount": row["dollar_amount"],
+                }
+                for row in prior_portfolio.filter(
+                    pl.col("ticker").is_in(list(closing_tickers))
+                ).iter_rows(named=True)
+            ]
+
+    open_positions = [
+        {
+            "ticker": row["ticker"],
+            "side": (
+                TradeSide.BUY.value
+                if row["side"] == PositionSide.LONG.value
+                else TradeSide.SELL.value
+            ),
+            "dollar_amount": row["dollar_amount"],
+        }
+        for row in optimal_portfolio.filter(
+            pl.col("action") == PositionAction.OPEN_POSITION.value
+        ).iter_rows(named=True)
+    ]
+
+    return open_positions, close_positions
