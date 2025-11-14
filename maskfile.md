@@ -50,24 +50,6 @@ fi
 echo "Prerequisites check completed"
 ```
 
-## continuous_integration
-
-> Continuous integration workflow
-
-```bash
-set -euo pipefail
-
-echo "Running continuous integration workflow"
-
-echo "Testing"
-mask development python test
-
-echo "Building applications"
-mask infrastructure applications build
-
-echo "Continuous integration workflow completed successfully"
-```
-
 ## infrastructure
 
 > Manage infrastructure deployments
@@ -274,38 +256,6 @@ echo "Infrastructure taken down successfully"
 ### applications
 
 > Build and deploy application containers
-
-#### build
-
-> Build and push application Docker images to DockerHub
-
-```bash
-set -euo pipefail
-
-echo "️Building and pushing application images"
-
-for app_dir in applications/*/; do
-    app_name=$(basename "$app_dir")
-    if [[ -f "$app_dir/Dockerfile" ]]; then
-        echo "Building $app_name..."
-        cd "$app_dir"
-
-        version=$(uv version --short 2>/dev/null || echo "latest")
-
-        docker build -t "pocketsizefund/$app_name:latest" -t "pocketsizefund/$app_name:$version" .
-
-        docker push "pocketsizefund/$app_name:latest"
-        docker push "pocketsizefund/$app_name:$version"
-
-        cd ..
-        echo "$app_name built and pushed"
-    else
-        echo "️Skipping $app_name (no Dockerfile found)"
-    fi
-done
-
-echo "All application images built and pushed successfully"
-```
 
 #### deploy
 
