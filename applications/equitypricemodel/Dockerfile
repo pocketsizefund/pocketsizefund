@@ -54,5 +54,7 @@ COPY applications/equitypricemodel/src/equitypricemodel/tide_data_mappings.json 
 
 COPY applications/equitypricemodel/src/equitypricemodel/tide_data_scaler.json app/tide_data_scaler.json
 
-ENTRYPOINT ["uv", "run", "python", "applications/equitypricemodel/src/equitypricemodel/server.py"]
+EXPOSE 8082
+
+ENTRYPOINT ["uv", "run", "uvicorn", "equitypricemodel.server:application", "--host", "0.0.0.0", "--port", "8082", "--app-dir", "src"]
 

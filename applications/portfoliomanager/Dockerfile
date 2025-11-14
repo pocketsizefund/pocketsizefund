@@ -1,16 +1,30 @@
-FROM python:3.12.10
+FROM python:3.12.10 AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-ENV PYTHONPATH=/app/src
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+
+COPY applications/portfoliomanager/ applications/portfoliomanager/
+
+COPY libraries/python/ libraries/python/
+
+RUN uv sync --no-dev --no-cache 
+
+FROM python:3.12.10-slim AS server
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential clang && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONPATH=/app/applications/portfoliomanager/src
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-RUN uv sync --no-dev
-
-COPY ./src ./src
+COPY --from=builder /app /app
 
 EXPOSE 8081
 

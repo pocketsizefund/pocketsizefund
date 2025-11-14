@@ -462,11 +462,11 @@ echo "Building application image locally"
 
 set -a
 
-source "$MASKFILE_DIR/.env"
+source "${MASKFILE_DIR}/.env"
 
 set +a
 
-docker build --platform linux/amd64 --target runner -f applications/$application_name/Dockerfile -t pocketsizefund/$application_name_$stage_name:latest -t $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/$application_name_$stage_name:latest .
+docker build --platform linux/amd64 --target ${stage_name} -f applications/${application_name}/Dockerfile -t pocketsizefund/${application_name}_${stage_name}:latest -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}_${stage_name}:latest .
 
 echo "Application image built: $application_name"
 ```
@@ -482,13 +482,13 @@ echo "Pushing application image to ECR"
 
 set -a
 
-source "$MASKFILE_DIR/.env"
+source "${MASKFILE_DIR}/.env"
 
 set +a
 
-aws ecr get-login-password --region us-east-1 --profile $AWS_PROFILE | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
+aws ecr get-login-password --region us-east-1 --profile ${AWS_PROFILE} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
 
-docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/$application_name_$stage_name:latest
+docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}_${stage_name}:latest
 
 echo "Application image pushed: $application_name"
 ```
