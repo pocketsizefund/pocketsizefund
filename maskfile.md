@@ -466,7 +466,7 @@ source "${MASKFILE_DIR}/.env"
 
 set +a
 
-docker build --platform linux/amd64 --target ${stage_name} -f applications/${application_name}/Dockerfile -t pocketsizefund/${application_name}_${stage_name}:latest -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}_${stage_name}:latest .
+docker build --platform linux/amd64 --target ${stage_name} -f applications/${application_name}/Dockerfile -t pocketsizefund/${application_name}-${stage_name}:latest -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest .
 
 echo "Application image built: $application_name"
 ```
@@ -488,7 +488,7 @@ set +a
 
 aws ecr get-login-password --region us-east-1 --profile ${AWS_PROFILE} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
 
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}_${stage_name}:latest
+docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest
 
 echo "Application image pushed: $application_name"
 ```
@@ -1002,29 +1002,51 @@ docker context use default >/dev/null >&1 || true
 
 > Model management commands
 
-### train [application_name]
+### train (application_name)
 
 > Train machine learning model
 
-```bash
-set -euo pipefail
+```python
+import os
+import dotenv
+import boto3
+from sagemaker.estimator import Estimator
+from sagemaker.inputs import TrainingInput
+from sagemaker.session import Session
 
-set -a
+dotenv.load_dotenv(os.getenv("MASKFILE_DIR") + '/.env')
 
-source "$MASKFILE_DIR/.env"
+application_name = os.getenv("application_name")
 
-set +a
+print(f"Starting training job for {application_name} model")
 
-aws ecr get-login-password --region us-east-1 --profile $AWS_PROFILE | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
+session = boto3.Session(profile_name=os.getenv("AWS_PROFILE"))
 
-echo "Training model: $application_name"
+sagemaker_session = Session(boto_session=session)
 
-uv run python applications/$application_name/src/$application_name/run_training_job.py
+estimator = Estimator(
+    image_uri=os.getenv("AWS_ECR_EQUITY_PRICE_MODEL_TRAINING_IMAGE_ARN", ""),
+    role=os.getenv("AWS_SAGEMAKER_ROLE_ARN", ""),
+    instance_count=1,
+    instance_type="ml.t3.xlarge",
+    sagemaker_session=sagemaker_session,
+    output_path=os.getenv("AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH", ""),
+)
+
+training_data_input = TrainingInput(
+    s3_data=os.getenv("AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH", ""),
+    content_type="application/x-parquet",
+    input_mode="File",
+)
+
+estimator.fit({"train": training_data_input})
+
+print("Training job completed")
 ```
 
 ### artifact
 
-#### download [application_name]
+#### download (application_name)
 
 > Manage model artifacts
 
@@ -1034,17 +1056,15 @@ import dotenv
 import boto3
 import tarfile
 
-print("Downloading model artifact")
+application_name = os.getenv("application_name")
+
+print(f"Downloading {application_name} model artifact")
 
 dotenv.load_dotenv(os.getenv("MASKFILE_DIR") + '/.env')
 
 session = boto3.Session(profile_name=os.getenv("AWS_PROFILE"))
 
 s3_client = session.client('s3')
-
-application_name = os.getenv("application_name")
-
-print("Application name:", application_name)
 
 artifacts_bucket = os.getenv("AWS_S3_ARTIFACTS_BUCKET_NAME")
 
