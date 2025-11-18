@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Equity price time-series dense encoder model architecture"
 requires-python = "==3.12.10"
 dependencies = [
+  "internal>=0.1.0",
   "loguru>=0.7.3",
   "sagemaker>=2.252.0",
   "numpy==1.26.4",

@@ -26,7 +26,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 COPY --from=builder /app /app
 
-EXPOSE 8081
+EXPOSE 8080
 
-ENTRYPOINT ["uv", "run", "uvicorn", "portfoliomanager.server:application", "--host", "0.0.0.0", "--port", "8081", "--app-dir", "src"]
+ENTRYPOINT ["uv", "run", "uvicorn", "portfoliomanager.server:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]
 

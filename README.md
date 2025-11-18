@@ -21,6 +21,7 @@ Run the commands below the repository root directory.
 ```sh
 brew install flox # https://flox.dev/ for more information
 flox activate
+source .venv/bin/activate
 mask --help # see all available Mask tasks
 mask development python install
 ```

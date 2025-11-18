@@ -9,7 +9,7 @@ dependencies = ["internal"]
 internal = { workspace = true }
 
 [tool.uv.workspace]
-members = ["applications/*", "libraries/python"]
+members = ["applications/*", "libraries/python", "infrastructure", "tools"]
 
 [dependency-groups]
 dev = ["coverage>=7.8.0", "pytest>=8.3.5", "behave>=1.2.6"]

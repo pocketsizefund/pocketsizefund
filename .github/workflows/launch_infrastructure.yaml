@@ -2,7 +2,7 @@
 name: Launch infrastructure
 on:
   schedule:
-    - cron: '0 13 * * 1,2,3,4,5'  # launch at 8:00 AM EST
+    - cron: 0 13 * * 1,2,3,4,5 # launch at 8:00 AM EST
 jobs:
   launch_infrastructure:
     name: Launch infrastructure on weekday schedule
@@ -18,4 +18,11 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         with:
-          command: mise tasks run infrastructure:up
+          command: |
+            mask infrastructure images build datamanager server
+            mask infrastructure images push datamanager server
+            mask infrastructure images build portfoliomanager server
+            mask infrastructure images push portfoliomanager server
+            mask infrastructure images build equitypricemodel server
+            mask infrastructure images push equitypricemodel server
+            mask infrastructure stack up

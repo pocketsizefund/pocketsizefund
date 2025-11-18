@@ -36,366 +36,12 @@ if [[ ${#missing_deps[@]} -gt 0 ]]; then
     exit 1
 fi
 
-echo "Checking DockerHub authentication"
-if ! docker info >/dev/null >&1; then
-    echo "Docker daemon not running"
-    exit 1
-fi
-
-if ! docker system info --format '{{.Username}}' 2>/dev/null | grep -q .; then
-    echo "️Not logged into DockerHub. Run 'docker login' first"
-    exit 1
-fi
-
 echo "Prerequisites check completed"
 ```
 
 ## infrastructure
 
-> Manage infrastructure deployments
-
-### base
-
-> Base infrastructure deployment
-
-#### up
-
-> Deploy complete infrastructure stack (Pulumi + Docker) to local and production environments.
-
-```bash
-set -euo pipefail
-
-echo "Starting infrastructure deployment"
-
-cd infrastructure
-
-echo "Deploying infrastructure with Pulumi"
-if ! pulumi up --yes; then
-    echo "Pulumi deployment failed"
-    exit 1
-fi
-
-echo "Getting infrastructure outputs"
-MANAGER_IP=$(pulumi stack output managerIp | tr -d '\r\n')
-if [[ -z "$MANAGER_IP" ]]; then
-    echo "Failed to get manager IP from Pulumi"
-    exit 1
-fi
-
-echo "Setting up SSH configuration"
-pulumi stack output --show-secrets sshPrivateKeyPem | tr -d '\r' > swarm.pem
-chmod 600 swarm.pem
-trap 'rm -f "$PWD/swarm.pem"' EXIT
-
-if ! ssh-keygen -l -f swarm.pem >/dev/null >&1; then
-    echo "Invalid SSH key format"
-    exit 1
-fi
-
-SSH_CONFIG="$HOME/.ssh/config"
-mkdir -p "$(dirname "$SSH_CONFIG")"
-
-if [[ -f "$SSH_CONFIG" ]]; then
-    sed -i.bak '/^Host pocketsizefund-production$/,/^Host /{ /^Host pocketsizefund-production$/d; /^Host /!d; }' "$SSH_CONFIG" || true
-    sed -i.bak '${ /^Host /!d; }' "$SSH_CONFIG" || true
-fi
-
-cat >> "$SSH_CONFIG" << EOF
-
-Host pocketsizefund-production
-  HostName $MANAGER_IP
-  User ubuntu
-  IdentityFile $PWD/swarm.pem
-  IdentitiesOnly yes
-  StrictHostKeyChecking accept-new
-  ServerAliveInterval 60
-  ServerAliveCountMax 3
-EOF
-
-echo "Updating SSH known hosts"
-ssh-keygen -R "$MANAGER_IP" >/dev/null >&1 || true
-ssh-keyscan -H "$MANAGER_IP" 2>/dev/null >> "$HOME/.ssh/known_hosts"
-
-echo "Testing SSH connection"
-MAX_RETRIES=5
-RETRY_COUNT=0
-
-while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
-    if ssh -o ConnectTimeout=10 pocketsizefund-production 'docker info -f "{{.ServerVersion}} {{.Swarm.LocalNodeState}}"' 2>/dev/null; then
-        echo "SSH connection successful"
-        break
-    else
-        ((RETRY_COUNT++))
-        echo "SSH connection attempt $RETRY_COUNT/$MAX_RETRIES failed, retrying in 5 seconds"
-        sleep 5
-    fi
-done
-
-if [[ $RETRY_COUNT -eq $MAX_RETRIES ]]; then
-    echo "Failed to establish SSH connection after $MAX_RETRIES attempts"
-    exit 1
-fi
-
-echo "Setting up Docker contexts"
-
-for context in pocketsizefund-production pocketsizefund-local; do
-    if docker context ls --format '{{.Name}}' | grep -q "^${context}$"; then
-        docker context use default >/dev/null >&1 || true
-        docker context rm -f "$context" >/dev/null >&1 || true
-    fi
-done
-
-if ! docker context create pocketsizefund-production --docker "host=ssh://pocketsizefund-production"; then
-    echo "Failed to create production Docker context"
-    exit 1
-fi
-
-if ! docker context create pocketsizefund-local --docker "host=unix:///var/run/docker.sock"; then
-    echo "Failed to create local Docker context"
-    exit 1
-fi
-
-echo "Ensuring local Docker swarm is initialized"
-docker context use pocketsizefund-local
-if ! docker info --format '{{.Swarm.LocalNodeState}}' | grep -q active; then
-    docker swarm init --advertise-addr 127.0.0.1 >/dev/null 2>&1 || true
-fi
-
-echo "Deploying infrastructure stack to production"
-docker context use pocketsizefund-production
-if ! docker stack deploy -c stack.yml infrastructure --with-registry-auth; then
-    echo "Failed to deploy infrastructure stack to production"
-    exit 1
-fi
-
-echo "Deploying infrastructure stack to local"
-docker context use pocketsizefund-local
-if ! docker stack deploy -c stack.yml infrastructure --with-registry-auth; then
-    echo "Failed to deploy infrastructure stack to local"
-    exit 1
-fi
-
-echo "Deploying application services"
-cd ../applications
-echo "Deploying applications to production"
-docker context use pocketsizefund-production
-if ! docker stack deploy -c stack.yml applications --with-registry-auth; then
-    echo "Failed to deploy applications to production"
-    exit 1
-fi
-
-echo "Deploying applications to local"
-docker context use pocketsizefund-local
-if ! docker stack deploy -c stack.yml applications --with-registry-auth; then
-    echo "Failed to deploy applications to local"
-    exit 1
-fi
-
-echo "Cluster status:"
-docker context use pocketsizefund-production
-echo "Production cluster:"
-docker node ls >/dev/null || echo " Unable to list production nodes"
-
-docker context use pocketsizefund-local
-echo "Local cluster:"
-docker node ls >/dev/null || echo " Unable to list local nodes"
-
-echo "Infrastructure deployment completed successfully"
-```
-
-#### down
-
-> Completely tear down infrastructure and services.
-
-```bash
-set -euo pipefail
-
-echo "Taking down infrastructure"
-
-cd infrastructure
-
-echo "Removing application stacks"
-for context in pocketsizefund-production pocketsizefund-local; do
-    echo "Removing from $context"
-    if docker context ls --format '{{.Name}}' | grep -q "^${context}$"; then
-        docker context use "$context"
-        docker stack rm applications >/dev/null || echo " applications not found in $context"
-        docker stack rm infrastructure >/dev/null || echo " infrastructure stack not found in $context"
-    else
-        echo "Context $context not found"
-    fi
-done
-
-echo "Waiting for services to stop"
-sleep 10
-
-echo "️Destroying cloud infrastructure"
-if ! pulumi destroy --yes; then
-    echo "Pulumi destroy failed"
-    exit 1
-fi
-
-echo "Cleaning up SSH configuration"
-SSH_CONFIG="$HOME/.ssh/config"
-if [[ -f "$SSH_CONFIG" ]]; then
-    sed -i.bak '/^Host pocketsizefund-production$/,/^Host /{ /^Host pocketsizefund-production$/d; /^Host /!d; }' "$SSH_CONFIG" || true
-    sed -i.bak '${ /^Host /!d; }' "$SSH_CONFIG" || true
-fi
-
-rm -f swarm.pem
-
-echo "Removing Docker contexts"
-docker context use default >/dev/null >&1 || true
-for context in pocketsizefund-production pocketsizefund-local; do
-    docker context rm -f "$context" >/dev/null >&1 || true
-done
-
-echo "Infrastructure taken down successfully"
-```
-
-### applications
-
-> Build and deploy application containers
-
-#### deploy
-
-> Deploy applications to both local and production Docker swarm
-
-```bash
-set -euo pipefail
-
-echo "Deploying applications"
-
-if docker context ls --format '{{.Name}}' | grep -q "^pocketsizefund-production$"; then
-    echo "Deploying to production"
-    docker context use pocketsizefund-production
-    docker stack deploy -c applications/stack.yml applications --with-registry-auth
-else
-    echo "️Production context not found, skipping production deployment"
-fi
-
-if docker context ls --format '{{.Name}}' | grep -q "^pocketsizefund-local$"; then
-    echo "Deploying to local"
-    docker context use pocketsizefund-local
-    docker stack deploy -c applications/stack.yml applications --with-registry-auth
-else
-    echo "️Local context not found, skipping local deployment"
-fi
-
-docker context use default >/dev/null >&1 || true
-
-echo "Application deployment completed"
-```
-
-## test
-
-> Test application endpoints and service health across environments
-
-### endpoints
-
-> Test HTTP endpoints for DataManager and PortfolioManager services
-
-```bash
-set -euo pipefail
-
-echo "Testing application endpoints"
-
-test_endpoint() {
-    local name="1$"
-    local url="2$"
-    local context="3$"
-
-    printf "%-25s %-15s " "$name" "[$context]"
-
-    if timeout 10 curl -sf "$url" >/dev/null 2>&1; then
-        echo " OK"
-        return 0
-    elif timeout 10 curl -s "$url" >/dev/null 2>&1; then
-        echo " RESPONDING (non-200)"
-        return 1
-    else
-        echo " FAILED"
-        return 1
-    fi
-}
-
-cd infrastructure
-MANAGER_IP=""
-if pulumi stack --show-name >/dev/null 2>&1; then
-    MANAGER_IP=$(pulumi stack output managerIp 2>/dev/null || echo "")
-fi
-cd ..
-
-echo "Local endpoints:"
-test_endpoint "DataManager" "http://localhost:8080/health" "local"
-test_endpoint "DataManager (root)" "http://localhost:8080/" "local"
-test_endpoint "PortfolioManager" "http://localhost:8081/health" "local"
-test_endpoint "PortfolioManager (root)" "http://localhost:8081/" "local"
-
-if [[ -n "$MANAGER_IP" ]]; then
-    echo ""
-    echo "Production endpoints (IP: $MANAGER_IP):"
-    test_endpoint "DataManager" "http://$MANAGER_IP:8080/health" "production"
-    test_endpoint "DataManager (root)" "http://$MANAGER_IP:8080/" "production"
-    test_endpoint "PortfolioManager" "http://$MANAGER_IP:8081/health" "production"
-    test_endpoint "PortfolioManager (root)" "http://$MANAGER_IP:8081/" "production"
-else
-    echo "️Production manager IP not available - skipping production tests"
-fi
-
-docker context use default >/dev/null >&1 || true
-echo " Endpoint testing completed"
-```
-
-### health
-
-> Check Docker service health across all contexts
-
-```bash
-set -euo pipefail
-
-test_service_health() {
-    local context="$1"
-    echo "Docker Services in $context:"
-
-    if docker context ls --format '{{.Name}}' | grep -q "^${context}$"; then
-        docker context use "$context" >/dev/null >&1
-
-        if docker service ls --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}" >/dev/null; then
-            echo "Services listed successfully"
-        else
-            echo "No services found or connection error"
-        fi
-    else
-        echo "Context $context not available"
-    fi
-}
-
-echo "Service health check"
-test_service_health "pocketsizefund-local"
-test_service_health "pocketsizefund-production"
-
-docker context use default >/dev/null >&1 || true
-```
-
-### all
-
-> Run complete test suite (endpoints + health checks)
-
-```bash
-set -euo pipefail
-
-echo "Running complete test suite"
-
-mask test endpoints
-mask test health
-
-echo "Complete test suite finished"
-```
-
-## docker
-
-> Docker context and service management commands
+> Manage infrastructure resources 
 
 ### images
 
@@ -443,257 +89,122 @@ docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${a
 echo "Application image pushed: $application_name"
 ```
 
-### context
+### stack
 
-> Switch Docker context between local and production environments
+> Manage infrastructure stack
 
-#### local
+#### up
 
-> Switch to local Docker swarm context
+> Launch or update infrastructure stack
 
 ```bash
-docker context use pocketsizefund-local
-echo "Switched to local context"
-docker context ls | grep "\*"
+set -euo pipefail
+
+cd infrastructure/
+
+echo "Launching infrastructure"
+
+pulumi up --diff --yes --stack production
+
+echo "Forcing ECS service deployments to pull latest images"
+
+CLUSTER=$(pulumi stack output cluster_name --stack production 2>/dev/null || echo "")
+
+if [ -z "$CLUSTER" ]; then
+    echo "Cluster not found - skipping service deployments (initial setup)"
+else
+    for SERVICE in pocketsizefund-datamanager pocketsizefund-portfoliomanager pocketsizefund-equitypricemodel; do
+        echo "Deploying $SERVICE"
+        aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --force-new-deployment \
+            --no-cli-pager \
+            --output text > /dev/null 2>&1 && echo "Deployment initiated" || echo "Service not found (may not be created yet)"
+    done
+
+    echo "Stack update complete - ECS is performing rolling deployments"
+    echo "Monitor progress: aws ecs describe-services --cluster $CLUSTER --services pocketsizefund-portfoliomanager"
+fi
+
+echo "Infrastructure launched successfully"
 ```
 
-#### production
+#### down
 
-> Switch to production Docker swarm context
-
-```bash
-docker context use pocketsizefund-production
-echo "Switched to production context"
-docker context ls | grep "\*"
-```
-
-#### default
-
-> Switch back to default Docker context
+> Teardown infrastructure stack
 
 ```bash
-docker context use default
-echo "Switched to default context"
+set -euo pipefail
+
+echo "Tearing down infrastructure"
+
+cd infrastructure/
+
+pulumi down --yes --stack production
+
+echo "Infrastructure torn down successfully"
 ```
 
 ### services
 
-> Docker swarm service management
+> Manage infrastructure services
 
-#### ls
+#### invoke (application_name)
 
-> List all Docker services with health status
-```bash
-echo "Docker services status:"
-docker service ls
-echo "Service health details:"
-docker service ls --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}\t{{.Ports}}" | \
-  while IFS=$'\t' read -r name replicas image ports; do
-    if [[ "$name" != "NAME" ]]; then
-      printf "%-30s %s\n" "$name" "$replicas"
-    fi
-  done
-```
-
-#### logs
-
-> View logs for a specific service (interactive selection)
-
-```bash
-echo "Available services:"
-services=($(docker service ls --format '{{.Name}}'))
-
-if [[ ${#services[@]} -eq 0 ]]; then
-  echo "No services found"
-  exit 1
-fi
-
-echo "Select a service:"
-select service in "${services[@]}"; do
-  if [[ -n "$service" ]]; then
-    echo "Showing logs for $service (press Ctrl+C to exit):"
-    docker service logs -f "$service"
-    break
-  else
-    echo "Invalid selection. Please try again."
-  fi
-done
-```
-
-#### inspect
-
-> Inspect service configuration and status
-
-```bash
-echo "Available services:"
-services=($(docker service ls --format '{{.Name}}'))
-
-if [[ ${#services[@]} -eq 0 ]]; then
-  echo "No services found"
-  exit 1
-fi
-
-echo "Select a service to inspect:"
-select service in "${services[@]}"; do
-  if [[ -n "$service" ]]; then
-    echo "Inspecting $service:"
-    echo "Service tasks"
-    docker service ps "$service"
-    echo "Service details"
-    docker service inspect "$service" --pretty
-    break
-  else
-    echo "Invalid selection. Please try again."
-  fi
-done
-```
-
-### stack
-
-> Docker stack operations for infrastructure and applications
-
-#### ls
-
-> List all deployed stacks
-
-```bash
-echo "Deployed Docker stacks:"
-docker stack ls
-```
-
-#### ps
-
-> Show tasks for infrastructure and application stacks
-
-```bash
-echo "️Infrastructure stack:"
-docker stack ps infrastructure >/dev/null || echo "Infrastructure stack not deployed"
-echo "Applications stack:"
-docker stack ps applications >/dev/null || echo "Applications stack not deployed"
-```
-
-#### rm
-
-> Remove infrastructure and application stacks
-
-```bash
-echo "Removing Docker stacks"
-docker stack rm applications >/dev/null && echo "Applications stack removed" || echo "Applications stack not found"
-docker stack rm infrastructure >/dev/null && echo "Infrastructure stack removed" || echo "Infrastructure stack not found"
-echo "Waiting for cleanup"
-sleep 5
-echo "Stack removal completed"
-```
-
-## status
-
-> Show comprehensive system status across all environments
+> Invoke service REST endpoint
 
 ```bash
 set -euo pipefail
 
-echo "System status"
+echo "Invoking $application_name service"
 
-echo "Docker contexts:"
-docker context ls
+cd infrastructure/
 
-echo "️Infrastructure status:"
-cd infrastructure
-if pulumi stack --show-name >/dev/null; then
-    echo "Current stack: $(pulumi stack --show-name)"
-    if MANAGER_IP=$(pulumi stack output managerIp 2>/dev/null); then
-        echo "Manager IP: $MANAGER_IP"
-    else
-        echo "Manager IP: Not available (stack may be down)"
-    fi
-else
-    echo "No active Pulumi stack found"
-fi
-cd ..
+ALB_DNS=$(pulumi stack output alb_dns_name --stack production 2>/dev/null || echo "")
 
-echo "Docker stacks:"
-if docker context use pocketsizefund-local >/dev/null >&1; then
-    echo "Local stacks:"
-    docker stack ls >/dev/null || echo "  No stacks deployed locally"
-fi
-echo ""
-if docker context use pocketsizefund-production >/dev/null >&1; then
-    echo "Production stacks:"
-    docker stack ls >/dev/null || echo "  No stacks deployed in production"
-fi
-
-docker context use default >/dev/null >&1 || true
-echo "Status check completed"
-```
-
-## secrets
-
-> Manage Docker Swarm secrets for application configuration
-
-### list
-
-> List all Docker secrets (requires active swarm context)
-
-```bash
-echo "Docker secrets:"
-if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q active; then
-    docker secret ls
-else
-    echo "Not connected to Docker swarm - switch context first:"
-    echo "mask docker context local"
-    echo "mask docker context production"
-fi
-```
-
-### create
-
-> Interactively create required Docker secrets
-
-```bash
-set -euo pipefail
-
-if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q active; then
-    echo "Not connected to Docker swarm - switch context first:"
-    echo "mask docker context local"
-    echo "mask docker context production"
+if [ -z "$ALB_DNS" ]; then
+    echo "Error: ALB DNS not found. Has infrastructure been deployed?"
     exit 1
 fi
 
-echo "Creating Docker secrets"
-echo "Leave blank to skip a secret"
+PROTOCOL="http"
+if pulumi stack output alb_url --stack production 2>/dev/null | grep -q "https://"; then
+    PROTOCOL="https"
+fi
 
-secrets=(
-    "GRAFANA_ADMIN_PASSWORD:Grafana admin password"
-    "ALPACA_API_KEY:Alpaca API key"
-    "ALPACA_API_SECRET:Alpaca API secret"
-    "ALPACA_BASE_URL:Alpaca base URL"
-    "EDGAR_USER_AGENT:EDGAR user agent string"
-    "DATA_BUCKET:Data storage bucket name"
-    "POLYGON_API_KEY:Polygon API key"
-    "DUCKDB_ACCESS_KEY:DuckDB access key"
-    "DUCKDB_SECRET:DuckDB secret"
-    "WEIGHTS_AND_BIASES_API_KEY:Weights & Biases API key"
-)
+case "$application_name" in
+    portfoliomanager)
+        FULL_URL="${PROTOCOL}://${ALB_DNS}/portfolio"
+        echo "Creating portfolio: $FULL_URL"
+        echo ""
 
-for secret_info in "${secrets[@]}"; do
-    secret_name="${secret_info%%:*}"
-    secret_desc="${secret_info#*:}"
+        curl -X GET "$FULL_URL" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP Status: %{http_code}\n" \
+            -s
+        ;;
 
-    echo -n "Enter $secret_desc ($secret_name): "
-    read -r secret_value
+    datamanager)
+        CURRENT_DATE=$(date -u +"%Y-%m-%dT00:00:00Z")
+        FULL_URL="${PROTOCOL}://${ALB_DNS}/equity-bars"
+        echo "Syncing equity bars for date: $CURRENT_DATE"
+        echo "Endpoint: $FULL_URL"
+        echo ""
 
-    if [[ -n "$secret_value" ]]; then
-        if echo "$secret_value" | docker secret create "$secret_name" - >/dev/null; then
-            echo "Created $secret_name"
-        else
-            echo "️  $secret_name already exists or creation failed"
-        fi
-    else
-        echo "️Skipped $secret_name"
-    fi
-done
+        curl -X POST "$FULL_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"date\": \"$CURRENT_DATE\"}" \
+            -w "\nHTTP Status: %{http_code}\n" \
+            -s
+        ;;
 
-echo "Secret creation completed"
+    *)
+        echo "Unknown application name: $application_name"
+        echo "Valid options: portfoliomanager, datamanager"
+        exit 1
+        ;;
+esac
 ```
 
 ## development
@@ -798,6 +309,7 @@ echo "Python dependencies installed successfully"
 set -euo pipefail
 
 echo "Formatting Python code"
+
 ruff format
 
 echo "Python code formatted successfully"
@@ -811,6 +323,7 @@ echo "Python code formatted successfully"
 set -euo pipefail
 
 echo "Running vulture dead code analysis"
+
 uvx vulture \
     --min-confidence 80 \
     --exclude '.flox,.venv,target' \
@@ -872,83 +385,7 @@ mask development python test
 echo "Development workflow completed successfully"
 ```
 
-## logs
-
-> Quick access to service logs across environments
-
-### infrastructure
-
-> View logs for infrastructure services (Grafana, Prometheus, Traefik)
-
-```bash
-echo "Infrastructure service logs"
-echo "Select environment:"
-select env in "local" "production"; do
-    case $env in
-        local|production)
-            context="pocketsizefund-$env"
-            docker context use "$context"
-            echo "Infrastructure services in $env:"
-            services=($(docker service ls --filter "name=infrastructure_" --format '{{.Name}}'))
-            if [[ ${#services[@]} -eq 0 ]]; then
-                echo "No infrastructure services found"
-                exit 1
-            fi
-            echo "Select service:"
-            select service in "${services[@]}"; do
-                if [[ -n "$service" ]]; then
-                    echo "Logs for $service (press Ctrl+C to exit):"
-                    docker service logs -f "$service"
-                    break
-                fi
-            done
-            break
-            ;;
-        *)
-            echo "Invalid selection"
-            ;;
-    esac
-done
-docker context use default >/dev/null >&1 || true
-```
-
-### applications
-
-> View logs for application services (DataManager, PortfolioManager)
-
-```bash
-echo "Application service logs"
-echo "Select environment:"
-select env in "local" "production"; do
-    case $env in
-        local|production)
-            context="pocketsizefund-$env"
-            docker context use "$context"
-            echo "Application services in $env:"
-            services=($(docker service ls --filter "name=applications_" --format '{{.Name}}'))
-            if [[ ${#services[@]} -eq 0 ]]; then
-                echo "No application services found"
-                exit 1
-            fi
-            echo "Select service:"
-            select service in "${services[@]}"; do
-                if [[ -n "$service" ]]; then
-                    echo " Logs for $service (press Ctrl+C to exit):"
-                    docker service logs -f "$service"
-                    break
-                fi
-            done
-            break
-            ;;
-        *)
-            echo "Invalid selection"
-            ;;
-    esac
-done
-docker context use default >/dev/null >&1 || true
-```
-
-## model
+## models
 
 > Model management commands
 
@@ -956,102 +393,38 @@ docker context use default >/dev/null >&1 || true
 
 > Train machine learning model
 
-```python
-import os
-import dotenv
-import boto3
-from sagemaker.estimator import Estimator
-from sagemaker.inputs import TrainingInput
-from sagemaker.session import Session
+```bash
+set -euo pipefail
 
-dotenv.load_dotenv(os.getenv("MASKFILE_DIR") + '/.env')
+set -a
 
-application_name = os.getenv("application_name")
+source "${MASKFILE_DIR}/.env"
 
-print(f"Starting training job for {application_name} model")
+set +a
 
-session = boto3.Session(profile_name=os.getenv("AWS_PROFILE"))
+export APPLICATION_NAME="${application_name}"
 
-sagemaker_session = Session(boto_session=session)
-
-estimator = Estimator(
-    image_uri=os.getenv("AWS_ECR_EQUITY_PRICE_MODEL_TRAINING_IMAGE_ARN", ""),
-    role=os.getenv("AWS_SAGEMAKER_ROLE_ARN", ""),
-    instance_count=1,
-    instance_type="ml.t3.xlarge",
-    sagemaker_session=sagemaker_session,
-    output_path=os.getenv("AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH", ""),
-)
-
-training_data_input = TrainingInput(
-    s3_data=os.getenv("AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH", ""),
-    content_type="application/x-parquet",
-    input_mode="File",
-)
-
-estimator.fit({"train": training_data_input})
-
-print("Training job completed")
+uv run python tools/run_training_job.py
 ```
 
-### artifact
+### artifacts
 
 #### download (application_name)
 
 > Manage model artifacts
 
-```python
-import os
-import dotenv
-import boto3
-import tarfile
+```bash
+set -euo pipefail
 
-application_name = os.getenv("application_name")
+set -a
 
-print(f"Downloading {application_name} model artifact")
+source "${MASKFILE_DIR}/.env"
 
-dotenv.load_dotenv(os.getenv("MASKFILE_DIR") + '/.env')
+set +a
 
-session = boto3.Session(profile_name=os.getenv("AWS_PROFILE"))
+export APPLICATION_NAME="${application_name}"
 
-s3_client = session.client('s3')
-
-artifacts_bucket = os.getenv("AWS_S3_ARTIFACTS_BUCKET_NAME")
-
-file_objects = s3_client.list_objects_v2(
-    Bucket=artifacts_bucket,
-    Prefix=f"artifacts/{application_name}",
-)
-
-options = set()
-
-for file_object in file_objects.get('Contents', []):
-    file_object_name = file_object['Key']
-
-    file_object_name_parts = file_object_name.split('/')
-
-    options.add(file_object_name_parts[1])
-
-print("Available artifacts:")
-for option in options:
-    print(f"{option}")
-
-selected_option = input("Select an artifact to download: ")
-
-print("Selected artifact:", selected_option)
-
-target_path = f"artifacts/{selected_option}/output/model.tar.gz"
-destination_directory = f"applications/{application_name}/src/{application_name}/"
-destination_path = os.path.join(destination_directory, "model.tar.gz")
-
-s3_client.download_file(
-    Bucket=artifacts_bucket,
-    Key=target_path,
-    Filename=destination_path,
-)
-
-with tarfile.open(destination_path, 'r:gz') as tar:
-    tar.extractall(path=destination_directory, filter="data")
-
-print("Artifact downloaded and extracted successfully")
+uv run python tools/download_model_artifacts.py
 ```
+
+
