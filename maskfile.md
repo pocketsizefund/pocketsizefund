@@ -108,7 +108,7 @@ pulumi up --diff --yes --stack production
 
 echo "Forcing ECS service deployments to pull latest images"
 
-CLUSTER=$(pulumi stack output cluster_name --stack production 2>/dev/null || echo "")
+CLUSTER=$(pulumi stack output aws_ecs_cluster_name --stack production 2>/dev/null || echo "")
 
 if [ -z "$CLUSTER" ]; then
     echo "Cluster not found - skipping service deployments (initial setup)"
@@ -161,7 +161,7 @@ echo "Invoking $application_name service"
 
 cd infrastructure/
 
-ALB_DNS=$(pulumi stack output alb_dns_name --stack production 2>/dev/null || echo "")
+ALB_DNS=$(pulumi stack output aws_alb_dns_name --stack production 2>/dev/null || echo "")
 
 if [ -z "$ALB_DNS" ]; then
     echo "Error: ALB DNS not found. Has infrastructure been deployed?"
@@ -169,7 +169,7 @@ if [ -z "$ALB_DNS" ]; then
 fi
 
 PROTOCOL="http"
-if pulumi stack output alb_url --stack production 2>/dev/null | grep -q "https://"; then
+if pulumi stack output aws_alb_url --stack production 2>/dev/null | grep -q "https://"; then
     PROTOCOL="https"
 fi
 

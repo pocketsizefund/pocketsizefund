@@ -6,11 +6,11 @@ from equitypricemodel.tide_data import Data
 from equitypricemodel.tide_model import Model
 
 training_data_input_path = os.path.join(  # noqa: PTH118
-    os.getenv("SM_CHANNEL_TRAIN", "/opt/ml/input/data/train"),
+    "/opt/ml/input/data/train",
     "filtered_tft_training_data.parquet",
 )
 
-model_output_path = os.getenv("SM_MODEL_DIR", "/opt/ml/model")
+model_output_path = "/opt/ml/model"
 
 
 configuration = {

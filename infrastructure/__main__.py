@@ -5,25 +5,36 @@ import pulumi_aws as aws
 
 config = pulumi.Config()
 
-aws_region = config.require("region")
+current_identity = aws.get_caller_identity()
+aws_account_id = current_identity.account_id
+
+aws_region = config.require("AWS_REGION")
 
 aws_availability_zone_a = f"{aws_region}a"
 aws_availability_zone_b = f"{aws_region}b"
 
-aws_ecr_data_manager_server_image_arn = config.require_secret(
-    "AWS_ECR_DATA_MANAGER_SERVER_IMAGE_ARN"
+ecr_base = pulumi.Output.concat(
+    aws_account_id, ".dkr.ecr.", aws_region, ".amazonaws.com/pocketsizefund"
 )
 
-aws_ecr_portfolio_manager_server_image_arn = config.require_secret(
-    "AWS_ECR_PORTFOLIO_MANAGER_SERVER_IMAGE_ARN"
+datamanager_image = pulumi.Output.concat(ecr_base, "/datamanager-server:latest")
+portfoliomanager_image = pulumi.Output.concat(
+    ecr_base, "/portfoliomanager-server:latest"
+)
+equitypricemodel_image = pulumi.Output.concat(
+    ecr_base, "/equitypricemodel-server:latest"
 )
 
-aws_ecr_equity_price_model_server_image_arn = config.require_secret(
-    "AWS_ECR_EQUITY_PRICE_MODEL_SERVER_IMAGE_ARN"
-)
+polygon_api_key = config.require_secret("POLYGON_API_KEY")
+alpaca_api_key = config.require_secret("ALPACA_API_KEY_ID")
+alpaca_api_secret = config.require_secret("ALPACA_API_SECRET")
+alpaca_is_paper = (
+    config.get("ALPACA_IS_PAPER") or "true"
+)  # NOTE: potentially default to "false" for cloud resources
 
-# Optionally provide ACM certificate ARN for HTTPS support
-acm_certificate_arn = config.get_secret("ACM_CERTIFICATE_ARN")
+s3_bucket_name = config.require_secret("AWS_S3_DATA_BUCKET_NAME")
+
+acm_certificate_arn = config.get_secret("AWS_ACM_CERTIFICATE_ARN")
 
 tags = {
     "project": "pocketsizefund",
@@ -495,23 +506,35 @@ datamanager_task_definition = aws.ecs.TaskDefinition(
     requires_compatibilities=["FARGATE"],
     execution_role_arn=execution_role.arn,
     task_role_arn=task_role.arn,
-    container_definitions=pulumi.Output.json_dumps(
-        [
-            {
-                "name": "datamanager",
-                "image": aws_ecr_data_manager_server_image_arn,
-                "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
-                "logConfiguration": {
-                    "logDriver": "awslogs",
-                    "options": {
-                        "awslogs-group": datamanager_log_group.name,
-                        "awslogs-region": aws_region,
-                        "awslogs-stream-prefix": "datamanager",
+    container_definitions=pulumi.Output.all(
+        datamanager_log_group.name,
+        datamanager_image,
+        polygon_api_key,
+        s3_bucket_name,
+    ).apply(
+        lambda args: json.dumps(
+            [
+                {
+                    "name": "datamanager",
+                    "image": args[1],
+                    "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
+                    "environment": [
+                        {"name": "AWS_S3_DATA_BUCKET_NAME", "value": args[3]},
+                        {"name": "POLYGON_API_KEY", "value": args[2]},
+                        {"name": "AWS_REGION", "value": aws_region},
+                    ],
+                    "logConfiguration": {
+                        "logDriver": "awslogs",
+                        "options": {
+                            "awslogs-group": args[0],
+                            "awslogs-region": aws_region,
+                            "awslogs-stream-prefix": "datamanager",
+                        },
                     },
-                },
-                "essential": True,
-            }
-        ]
+                    "essential": True,
+                }
+            ]
+        )
     ),
     tags=tags,
 )
@@ -528,22 +551,29 @@ portfoliomanager_task_definition = aws.ecs.TaskDefinition(
     container_definitions=pulumi.Output.all(
         portfoliomanager_log_group.name,
         service_discovery_namespace.name,
+        portfoliomanager_image,
+        alpaca_api_key,
+        alpaca_api_secret,
+        alpaca_is_paper,
     ).apply(
         lambda args: json.dumps(
             [
                 {
                     "name": "portfoliomanager",
-                    "image": aws_ecr_portfolio_manager_server_image_arn,
+                    "image": args[2],
                     "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                     "environment": [
                         {
-                            "name": "DATAMANAGER_BASE_URL",
+                            "name": "PSF_DATAMANAGER_BASE_URL",
                             "value": f"http://datamanager.{args[1]}:8080",
                         },
                         {
-                            "name": "EQUITYPRICEMODEL_BASE_URL",
+                            "name": "PSF_EQUITYPRICEMODEL_BASE_URL",
                             "value": f"http://equitypricemodel.{args[1]}:8080",
                         },
+                        {"name": "ALPACA_API_KEY_ID", "value": args[3]},
+                        {"name": "ALPACA_API_SECRET", "value": args[4]},
+                        {"name": "ALPACA_IS_PAPER", "value": args[5]},
                     ],
                     "logConfiguration": {
                         "logDriver": "awslogs",
@@ -573,16 +603,17 @@ equitypricemodel_task_definition = aws.ecs.TaskDefinition(
     container_definitions=pulumi.Output.all(
         equitypricemodel_log_group.name,
         service_discovery_namespace.name,
+        equitypricemodel_image,
     ).apply(
         lambda args: json.dumps(
             [
                 {
                     "name": "equitypricemodel",
-                    "image": aws_ecr_equity_price_model_server_image_arn,
+                    "image": args[2],
                     "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
                     "environment": [
                         {
-                            "name": "DATAMANAGER_BASE_URL",
+                            "name": "PSF_DATAMANAGER_BASE_URL",
                             "value": f"http://datamanager.{args[1]}:8080",
                         }
                     ],
@@ -720,8 +751,20 @@ equitypricemodel_service = aws.ecs.Service(
 
 protocol = "https://" if acm_certificate_arn else "http://"
 
-pulumi.export("vpc_id", vpc.id)
-pulumi.export("cluster_name", cluster.name)
-pulumi.export("alb_dns_name", alb.dns_name)
-pulumi.export("alb_url", pulumi.Output.concat(protocol, alb.dns_name))
-pulumi.export("service_discovery_namespace", service_discovery_namespace.name)
+# Exports
+pulumi.export("aws_account_id", aws_account_id)
+pulumi.export("aws_vpc_id", vpc.id)
+pulumi.export("aws_ecs_cluster_name", cluster.name)
+pulumi.export("aws_alb_dns_name", alb.dns_name)
+pulumi.export("aws_alb_url", pulumi.Output.concat(protocol, alb.dns_name))
+pulumi.export(
+    "psf_portfoliomanager_url",
+    pulumi.Output.concat(protocol, alb.dns_name, "/portfolio"),
+)
+pulumi.export(
+    "psf_datamanager_url", pulumi.Output.concat(protocol, alb.dns_name, "/equity-bars")
+)
+pulumi.export("aws_service_discovery_namespace", service_discovery_namespace.name)
+pulumi.export("aws_ecr_datamanager_image", datamanager_image)
+pulumi.export("aws_ecr_portfoliomanager_image", portfoliomanager_image)
+pulumi.export("aws_ecr_equitypricemodel_image", equitypricemodel_image)

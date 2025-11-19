@@ -14,8 +14,15 @@ session = boto3.Session(profile_name=os.getenv("AWS_PROFILE", ""))
 
 sagemaker_session = Session(boto_session=session)
 
+image_uri = ""
+s3_data_path = ""
+if application_name == "equitypricemodel":
+    image_uri = os.getenv("AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN", "")
+    s3_data_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH", "")
+
+
 estimator = Estimator(
-    image_uri=os.getenv("AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN", ""),
+    image_uri=image_uri,
     role=os.getenv("AWS_SAGEMAKER_ROLE_ARN", ""),
     instance_count=1,
     instance_type="ml.t3.xlarge",
@@ -24,7 +31,7 @@ estimator = Estimator(
 )
 
 training_data_input = TrainingInput(
-    s3_data=os.getenv("AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH", ""),
+    s3_data=s3_data_path,
     content_type="application/x-parquet",
     input_mode="File",
 )

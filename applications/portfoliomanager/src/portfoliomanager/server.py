@@ -28,7 +28,7 @@ EQUITYPRICEMODEL_BASE_URL = os.getenv(
 )
 
 alpaca_client = AlpacaClient(
-    api_key=os.getenv("ALPACA_API_KEY", ""),
+    api_key=os.getenv("ALPACA_API_KEY_ID", ""),
     api_secret=os.getenv("ALPACA_API_SECRET", ""),
     is_paper=os.getenv("ALPACA_IS_PAPER", "true").lower() == "true",
 )

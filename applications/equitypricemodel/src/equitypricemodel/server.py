@@ -31,15 +31,13 @@ application = FastAPI()
 def create_predictions() -> PredictionResponse:  # TEMP
     tide_model = Model.load(directory_path=".")
 
-    datamanager_base_url = os.getenv("PSF_DATAMANAGER_BASE_URL", "")
-
     end_date = datetime.now(tz=UTC)
     start_date = end_date - timedelta(
         days=35
     )  # data preprocessing fills in more than 35 days
 
     equity_bars_response = requests.get(
-        url=f"{datamanager_base_url}/equity-bars",
+        url=f"{DATAMANAGER_BASE_URL}/equity-bars",
         params={
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
@@ -48,7 +46,7 @@ def create_predictions() -> PredictionResponse:  # TEMP
     )
 
     equity_details_response = requests.get(
-        url=f"{datamanager_base_url}/equity-details",
+        url=f"{DATAMANAGER_BASE_URL}/equity-details",
         timeout=60,
     )
 
