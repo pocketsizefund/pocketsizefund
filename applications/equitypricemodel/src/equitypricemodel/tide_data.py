@@ -385,10 +385,22 @@ class Data:
             json.dump(self.mappings, f)
 
         with open(os.path.join(directory_path, "tide_data_scaler.json"), "w") as f:  # noqa: PTH123, PTH118
+            # convert DataFrames to dictionary of scalars (first row)
+            means_dict = {
+                col: self.scaler.means[col].item() for col in self.scaler.means.columns
+            }
+            stdevs_dict = {
+                col: self.scaler.standard_deviations[col].item()
+                for col in self.scaler.standard_deviations.columns
+            }
+
             json.dump(
                 {
-                    "means": self.scaler.means.to_dict(),
-                    "standard_deviations": self.scaler.standard_deviations.to_dict(),
+                    "means": means_dict,
+                    "standard_deviations": stdevs_dict,
+                    "continuous_columns": self.continuous_columns,
+                    "categorical_columns": self.categorical_columns,
+                    "static_categorical_columns": self.static_categorical_columns,
                 },
                 f,
             )
@@ -407,6 +419,10 @@ class Data:
         data.scaler.standard_deviations = pl.DataFrame(
             scaler_data["standard_deviations"]
         )
+
+        data.continuous_columns = scaler_data["continuous_columns"]
+        data.categorical_columns = scaler_data["categorical_columns"]
+        data.static_categorical_columns = scaler_data["static_categorical_columns"]
 
         return data
 

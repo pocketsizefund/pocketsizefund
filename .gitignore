@@ -22,3 +22,5 @@ wandb/
 data/
 **/model.tar.gz
 **/*.safetensor
+**/*.json
+

@@ -391,6 +391,9 @@ aws.lb.ListenerRule(
     conditions=[
         aws.lb.ListenerRuleConditionArgs(
             path_pattern=aws.lb.ListenerRuleConditionPathPatternArgs(
+                # these are all of the endpoints available within the
+                # application regardless of the service and will collide
+                # if duplicatee values are exposed by different services
                 values=[
                     "/predictions*",
                     "/portfolios*",
@@ -478,7 +481,7 @@ aws.iam.RolePolicyAttachment(
 
 datamanager_log_group = aws.cloudwatch.LogGroup(
     "datamanager_logs",
-    name="/ecs/pocetsizefund/datamanager",
+    name="/ecs/pocketsizefund/datamanager",
     retention_in_days=7,
     tags=tags,
 )
@@ -642,9 +645,6 @@ datamanager_sd_service = aws.servicediscovery.Service(
             aws.servicediscovery.ServiceDnsConfigDnsRecordArgs(ttl=10, type="A")
         ],
     ),
-    health_check_custom_config=aws.servicediscovery.ServiceHealthCheckCustomConfigArgs(
-        failure_threshold=1
-    ),
     tags=tags,
 )
 
@@ -657,9 +657,6 @@ portfoliomanager_sd_service = aws.servicediscovery.Service(
             aws.servicediscovery.ServiceDnsConfigDnsRecordArgs(ttl=10, type="A")
         ],
     ),
-    health_check_custom_config=aws.servicediscovery.ServiceHealthCheckCustomConfigArgs(
-        failure_threshold=1
-    ),
     tags=tags,
 )
 
@@ -671,9 +668,6 @@ equitypricemodel_sd_service = aws.servicediscovery.Service(
         dns_records=[
             aws.servicediscovery.ServiceDnsConfigDnsRecordArgs(ttl=10, type="A")
         ],
-    ),
-    health_check_custom_config=aws.servicediscovery.ServiceHealthCheckCustomConfigArgs(
-        failure_threshold=1
     ),
     tags=tags,
 )
@@ -693,7 +687,7 @@ datamanager_service = aws.ecs.Service(
     load_balancers=[
         aws.ecs.ServiceLoadBalancerArgs(
             target_group_arn=datamanager_tg.arn,
-            container_name="pocketsizefund-datamanager",
+            container_name="datamanager",
             container_port=8080,
         )
     ],
@@ -719,7 +713,7 @@ portfoliomanager_service = aws.ecs.Service(
     load_balancers=[
         aws.ecs.ServiceLoadBalancerArgs(
             target_group_arn=portfoliomanager_tg.arn,
-            container_name="pocketsizefund-portfoliomanager",
+            container_name="portfoliomanager",
             container_port=8080,
         )
     ],
@@ -757,14 +751,8 @@ pulumi.export("aws_vpc_id", vpc.id)
 pulumi.export("aws_ecs_cluster_name", cluster.name)
 pulumi.export("aws_alb_dns_name", alb.dns_name)
 pulumi.export("aws_alb_url", pulumi.Output.concat(protocol, alb.dns_name))
-pulumi.export(
-    "psf_portfoliomanager_url",
-    pulumi.Output.concat(protocol, alb.dns_name, "/portfolio"),
-)
-pulumi.export(
-    "psf_datamanager_url", pulumi.Output.concat(protocol, alb.dns_name, "/equity-bars")
-)
 pulumi.export("aws_service_discovery_namespace", service_discovery_namespace.name)
 pulumi.export("aws_ecr_datamanager_image", datamanager_image)
 pulumi.export("aws_ecr_portfoliomanager_image", portfoliomanager_image)
 pulumi.export("aws_ecr_equitypricemodel_image", equitypricemodel_image)
+pulumi.export("psf_base_url", pulumi.Output.concat(protocol, alb.dns_name))

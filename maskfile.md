@@ -56,15 +56,16 @@ set -euo pipefail
 
 echo "Building application image locally"
 
-set -a
+# Load environment variables in isolated subshell
+(
+    set -a
+    source "${MASKFILE_DIR}/.env"
+    set +a
 
-source "${MASKFILE_DIR}/.env"
+    docker build --platform linux/amd64 --target ${stage_name} -f applications/${application_name}/Dockerfile -t pocketsizefund/${application_name}-${stage_name}:latest -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest .
+)
 
-set +a
-
-docker build --platform linux/amd64 --target ${stage_name} -f applications/${application_name}/Dockerfile -t pocketsizefund/${application_name}-${stage_name}:latest -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest .
-
-echo "Application image built: $application_name"
+echo "Application image built: ${application_name} ${stage_name}"
 ```
 
 #### push (application_name) (stage_name)
@@ -76,17 +77,18 @@ set -euo pipefail
 
 echo "Pushing application image to ECR"
 
-set -a
+# Load environment variables in isolated subshell
+(
+    set -a
+    source "${MASKFILE_DIR}/.env"
+    set +a
 
-source "${MASKFILE_DIR}/.env"
+    aws ecr get-login-password --region us-east-1 --profile ${AWS_PROFILE} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
 
-set +a
+    docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest
+)
 
-aws ecr get-login-password --region us-east-1 --profile ${AWS_PROFILE} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
-
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest
-
-echo "Application image pushed: $application_name"
+echo "Application image pushed: ${application_name} ${stage_name}"
 ```
 
 ### stack
@@ -114,13 +116,44 @@ if [ -z "$CLUSTER" ]; then
     echo "Cluster not found - skipping service deployments (initial setup)"
 else
     for SERVICE in pocketsizefund-datamanager pocketsizefund-portfoliomanager pocketsizefund-equitypricemodel; do
-        echo "Deploying $SERVICE"
-        aws ecs update-service \
-            --cluster "$CLUSTER" \
-            --service "$SERVICE" \
-            --force-new-deployment \
-            --no-cli-pager \
-            --output text > /dev/null 2>&1 && echo "Deployment initiated" || echo "Service not found (may not be created yet)"
+        echo "Checking if $SERVICE exists and is ready"
+
+        # Wait up to 60 seconds for service to be active
+        RETRY_COUNT=0
+        MAX_RETRIES=12
+        SERVICE_READY=false
+
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            SERVICE_STATUS=$(aws ecs describe-services \
+                --cluster "$CLUSTER" \
+                --services "$SERVICE" \
+                --query 'services[0].status' \
+                --output text 2>/dev/null || echo "NONE")
+
+            if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
+                SERVICE_READY=true
+                break
+            elif [ "$SERVICE_STATUS" = "NONE" ]; then
+                echo "Service not found, waiting ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
+            else
+                echo "Service status: $SERVICE_STATUS, waiting ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
+            fi
+
+            sleep 5
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+        done
+
+        if [ "$SERVICE_READY" = true ]; then
+            echo "Forcing new deployment for $SERVICE"
+            aws ecs update-service \
+                --cluster "$CLUSTER" \
+                --service "$SERVICE" \
+                --force-new-deployment \
+                --no-cli-pager \
+                --output text > /dev/null 2>&1 && echo "Deployment initiated" || echo "Failed to force deployment"
+        else
+            echo "Skipping $SERVICE (not ready after 60s - may be initial deployment)"
+        fi
     done
 
     echo "Stack update complete - ECS is performing rolling deployments"
@@ -157,14 +190,14 @@ echo "Infrastructure torn down successfully"
 ```bash
 set -euo pipefail
 
-echo "Invoking $application_name service"
+echo "Invoking ${application_name} service"
 
 cd infrastructure/
 
 ALB_DNS=$(pulumi stack output aws_alb_dns_name --stack production 2>/dev/null || echo "")
 
 if [ -z "$ALB_DNS" ]; then
-    echo "Error: ALB DNS not found. Has infrastructure been deployed?"
+    echo " ALB DNS not found - infrastructure might not be deployed"
     exit 1
 fi
 
@@ -177,7 +210,6 @@ case "$application_name" in
     portfoliomanager)
         FULL_URL="${PROTOCOL}://${ALB_DNS}/portfolio"
         echo "Creating portfolio: $FULL_URL"
-        echo ""
 
         curl -X GET "$FULL_URL" \
             -H "Content-Type: application/json" \
@@ -188,9 +220,7 @@ case "$application_name" in
     datamanager)
         CURRENT_DATE=$(date -u +"%Y-%m-%dT00:00:00Z")
         FULL_URL="${PROTOCOL}://${ALB_DNS}/equity-bars"
-        echo "Syncing equity bars for date: $CURRENT_DATE"
-        echo "Endpoint: $FULL_URL"
-        echo ""
+        echo "Syncing equity bars: $FULL_URL"
 
         curl -X POST "$FULL_URL" \
             -H "Content-Type: application/json" \
@@ -200,7 +230,7 @@ case "$application_name" in
         ;;
 
     *)
-        echo "Unknown application name: $application_name"
+        echo "Unknown application name: ${application_name}"
         echo "Valid options: portfoliomanager, datamanager"
         exit 1
         ;;
@@ -223,7 +253,9 @@ esac
 set -euo pipefail
 
 echo "Check Rust compilation"
+
 cargo check 
+
 echo "Rust compiled successfully"
 ```
 
@@ -235,7 +267,9 @@ echo "Rust compiled successfully"
 set -euo pipefail
 
 echo "Formatting Rust code"
+
 cargo fmt --all
+
 echo "Rust code formatted successfully"
 ```
 
@@ -247,10 +281,11 @@ echo "Rust code formatted successfully"
 set -euo pipefail
 
 echo "Running Rust lint checks"
+
 cargo clippy
+
 echo "Rust linting completed successfully"
 ```
-
 #### test
 
 > Run Rust tests
@@ -259,7 +294,9 @@ echo "Rust linting completed successfully"
 set -euo pipefail
 
 echo "Running Rust tests"
+
 cargo test --workspace --verbose
+
 echo "Rust tests completed successfully"
 ```
 
@@ -280,7 +317,7 @@ mask development rust lint
 
 mask development rust test
 
-echo "Rust development workflow completed successfully"
+echo "Rust development checks completed successfully"
 ```
 
 ### python
@@ -295,7 +332,9 @@ echo "Rust development workflow completed successfully"
 set -euo pipefail
 
 echo "Installing Python dependencies"
+
 export COMPOSE_BAKE=true
+
 uv sync --all-packages --all-groups
 
 echo "Python dependencies installed successfully"
@@ -322,7 +361,7 @@ echo "Python code formatted successfully"
 ```bash
 set -euo pipefail
 
-echo "Running vulture dead code analysis"
+echo "Running dead code analysis"
 
 uvx vulture \
     --min-confidence 80 \
@@ -341,7 +380,6 @@ set -euo pipefail
 
 echo "Running Python lint checks"
 
-echo "Running ruff linting"
 ruff check \
     --output-format=github \
     .
@@ -382,7 +420,7 @@ mask development python dead-code
 
 mask development python test
 
-echo "Development workflow completed successfully"
+echo "Python development checks completed successfully"
 ```
 
 ## models
@@ -396,15 +434,16 @@ echo "Development workflow completed successfully"
 ```bash
 set -euo pipefail
 
-set -a
+# Load environment variables in isolated subshell
+(
+    set -a
+    source "${MASKFILE_DIR}/.env"
+    set +a
 
-source "${MASKFILE_DIR}/.env"
+    export APPLICATION_NAME="${application_name}"
 
-set +a
-
-export APPLICATION_NAME="${application_name}"
-
-uv run python tools/run_training_job.py
+    uv run python tools/run_training_job.py
+)
 ```
 
 ### artifacts
@@ -416,15 +455,16 @@ uv run python tools/run_training_job.py
 ```bash
 set -euo pipefail
 
-set -a
+# Load environment variables in isolated subshell
+(
+    set -a
+    source "${MASKFILE_DIR}/.env"
+    set +a
 
-source "${MASKFILE_DIR}/.env"
+    export APPLICATION_NAME="${application_name}"
 
-set +a
-
-export APPLICATION_NAME="${application_name}"
-
-uv run python tools/download_model_artifacts.py
+    uv run python tools/download_model_artifacts.py
+)
 ```
 
 

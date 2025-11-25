@@ -2,6 +2,7 @@ import json
 import os
 from typing import cast
 
+from loguru import logger
 from tinygrad.nn import Linear
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import (
@@ -204,7 +205,8 @@ class Model:
         optimizer = Adam(params=parameters, lr=learning_rate)
         losses = []
 
-        for _ in range(epochs):
+        for epoch in range(epochs):
+            logger.info(f"Starting epoch {epoch + 1}/{epochs}")
             epoch_losses = []
 
             for batch in train_batches:
@@ -227,6 +229,9 @@ class Model:
                 epoch_losses.append(loss.numpy().item())
 
             epoch_loss = sum(epoch_losses) / len(epoch_losses)
+
+            logger.info(f"Epoch {epoch + 1} loss: {epoch_loss:.4f}")
+
             losses.append(epoch_loss)
 
         return losses
