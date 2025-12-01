@@ -16,10 +16,6 @@ if ! command -v docker >/dev/null >&1; then
     missing_deps+=("Docker")
 fi
 
-if ! command -v pulumi >/dev/null >&1; then
-    missing_deps+=("Pulumi CLI")
-fi
-
 if [[ ${#missing_deps[@]} -gt 0 ]]; then
     echo "Missing prerequisites: ${missing_deps[*]}"
     echo "Please install the following:"
@@ -27,9 +23,6 @@ if [[ ${#missing_deps[@]} -gt 0 ]]; then
         case $dep in
             "Docker")
                 echo "  - Docker: https://docs.docker.com/get-docker/"
-                ;;
-            "Pulumi CLI")
-                echo "  - Pulumi CLI: https://www.pulumi.com/docs/get-started/install/"
                 ;;
         esac
     done
