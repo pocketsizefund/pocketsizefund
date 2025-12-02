@@ -3,13 +3,27 @@ name = "pocketsizefund"
 version = "20250602.4"
 description = "Open source quantitative hedge fund 🍊"
 requires-python = "==3.12.10"
-dependencies = ["internal"]
+dependencies = [
+  "internal",
+  "fastapi>=0.121.0",
+  "uvicorn>=0.35.0",
+  "loguru>=0.7.3",
+  "sagemaker>=2.252.0",
+  "numpy>=1.26.4",
+  "tinygrad>=0.10.3",
+]
 
 [tool.uv.sources]
 internal = { workspace = true }
 
 [tool.uv.workspace]
-members = ["applications/*", "libraries/python", "infrastructure", "tools"]
+members = [
+  "applications/portfoliomanager",
+  "applications/equitypricemodel",
+  "libraries/python",
+  "infrastructure",
+  "tools",
+]
 
 [dependency-groups]
 dev = ["coverage>=7.8.0", "pytest>=8.3.5", "behave>=1.2.6"]
