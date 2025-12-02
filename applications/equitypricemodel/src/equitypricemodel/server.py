@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from .categories_schema import categories_schema
 from .predictions_schema import predictions_schema
+from .preprocess import filter_equity_bars
 from .tide_data import Data
 from .tide_model import Model
 
@@ -53,6 +54,8 @@ def create_predictions() -> PredictionResponse:  # TEMP
     equity_bars_data = pl.read_parquet(io.BytesIO(equity_bars_response.content))
 
     equity_bars_data = equity_bars_schema.validate(equity_bars_data)
+
+    equity_bars_data = filter_equity_bars(equity_bars_data)
 
     equity_categories_data = pl.read_json(equity_details_response.json())
 
