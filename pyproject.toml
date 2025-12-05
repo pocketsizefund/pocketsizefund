@@ -11,6 +11,7 @@ dependencies = [
   "sagemaker>=2.252.0",
   "numpy>=1.26.4",
   "tinygrad>=0.10.3",
+  "requests>=2.32.5",
 ]
 
 [tool.uv.sources]

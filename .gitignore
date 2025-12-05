@@ -9,11 +9,9 @@
 .python_coverage.*
 coverage_output/
 __pycache__/
-infrastructure/Pulumi.infrastructure.yaml
 infrastructure/Pulumi.production.yaml
 .envrc
 .coverage*
-infrastructure/swarm.pem
 *.csv
 *.egg-info/
 wandb/
@@ -23,4 +21,4 @@ data/
 **/model.tar.gz
 **/*.safetensor
 **/*.json
-
+notes.md

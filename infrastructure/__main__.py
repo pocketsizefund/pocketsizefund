@@ -745,7 +745,18 @@ equitypricemodel_service = aws.ecs.Service(
 
 protocol = "https://" if acm_certificate_arn else "http://"
 
-# Exports
+psf_base_url = pulumi.Output.concat(protocol, alb.dns_name)
+
+readme_content = """
+# infrastructure
+
+> Application infrastructure resources
+
+## Outputs
+
+- base URL: {0}
+"""
+
 pulumi.export("aws_account_id", aws_account_id)
 pulumi.export("aws_vpc_id", vpc.id)
 pulumi.export("aws_ecs_cluster_name", cluster.name)
@@ -755,4 +766,5 @@ pulumi.export("aws_service_discovery_namespace", service_discovery_namespace.nam
 pulumi.export("aws_ecr_datamanager_image", datamanager_image)
 pulumi.export("aws_ecr_portfoliomanager_image", portfoliomanager_image)
 pulumi.export("aws_ecr_equitypricemodel_image", equitypricemodel_image)
-pulumi.export("psf_base_url", pulumi.Output.concat(protocol, alb.dns_name))
+pulumi.export("psf_base_url", psf_base_url)
+pulumi.export("readme", pulumi.Output.format(readme_content, psf_base_url))

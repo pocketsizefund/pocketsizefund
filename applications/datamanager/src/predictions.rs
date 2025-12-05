@@ -10,7 +10,6 @@ use axum::{
 use chrono::{DateTime, Utc};
 use polars::prelude::*;
 use serde::Deserialize;
-use serde_json;
 use tracing::info;
 use urlencoding::decode;
 

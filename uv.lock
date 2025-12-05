@@ -274,14 +274,12 @@ source = { editable = "applications/equitypricemodel" }
 dependencies = [
     { name = "internal" },
     { name = "python-dotenv" },
-    { name = "requests" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "internal", editable = "libraries/python" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
-    { name = "requests", specifier = ">=2.32.5" },
 ]
 
 [[package]]
@@ -533,6 +531,20 @@ wheels = [
 ]
 
 [[package]]
+name = "massive"
+version = "2.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "urllib3" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/89/60/5a387e96e834b662b4dde53c061e15cf060a6c3a32553fda679e435bfcbc/massive-2.0.2.tar.gz", hash = "sha256:1d64b7fcf20678cc231cfd2cd5365e4e9f16cc3ee617fa056344987e5adcc1e4", size = 44798, upload-time = "2025-11-19T15:36:30.799Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/42/21/7f50902ef5e19e22628d225428599fdb7819756bf8720f94d39327f760cd/massive-2.0.2-py3-none-any.whl", hash = "sha256:6c6dd3d628dd68f036f49640426976aa6495904c68ee0fa01b4024ff9d900ddd", size = 62611, upload-time = "2025-11-19T15:36:29.689Z" },
+]
+
+[[package]]
 name = "mdurl"
 version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -763,6 +775,7 @@ dependencies = [
     { name = "internal" },
     { name = "loguru" },
     { name = "numpy" },
+    { name = "requests" },
     { name = "sagemaker" },
     { name = "tinygrad" },
     { name = "uvicorn" },
@@ -781,6 +794,7 @@ requires-dist = [
     { name = "internal", editable = "libraries/python" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "numpy", specifier = ">=1.26.4" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "sagemaker", specifier = ">=2.252.0" },
     { name = "tinygrad", specifier = ">=0.10.3" },
     { name = "uvicorn", specifier = ">=0.35.0" },
@@ -1297,10 +1311,14 @@ version = "0.1.0"
 source = { virtual = "tools" }
 dependencies = [
     { name = "boto3" },
+    { name = "massive" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "boto3", specifier = ">=1.40.74" }]
+requires-dist = [
+    { name = "boto3", specifier = ">=1.40.74" },
+    { name = "massive", specifier = ">=2.0.2" },
+]
 
 [[package]]
 name = "tqdm"

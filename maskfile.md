@@ -176,7 +176,7 @@ echo "Infrastructure torn down successfully"
 
 > Manage infrastructure services
 
-#### invoke (application_name)
+#### invoke (application_name) [date_range]
 
 > Invoke service REST endpoint
 
@@ -187,21 +187,16 @@ echo "Invoking ${application_name} service"
 
 cd infrastructure/
 
-ALB_DNS=$(pulumi stack output aws_alb_dns_name --stack production 2>/dev/null || echo "")
+BASE_URL=$(pulumi stack output psf_base_url --stack production 2>/dev/null || echo "")
 
-if [ -z "$ALB_DNS" ]; then
-    echo " ALB DNS not found - infrastructure might not be deployed"
+if [ -z "$BASE_URL" ]; then
+    echo "Error: psf_base_url not found - infrastructure might not be deployed"
     exit 1
-fi
-
-PROTOCOL="http"
-if pulumi stack output aws_alb_url --stack production 2>/dev/null | grep -q "https://"; then
-    PROTOCOL="https"
 fi
 
 case "$application_name" in
     portfoliomanager)
-        FULL_URL="${PROTOCOL}://${ALB_DNS}/portfolio"
+        FULL_URL="${BASE_URL}/portfolio"
         echo "Creating portfolio: $FULL_URL"
 
         curl -X GET "$FULL_URL" \
@@ -211,15 +206,20 @@ case "$application_name" in
         ;;
 
     datamanager)
-        CURRENT_DATE=$(date -u +"%Y-%m-%dT00:00:00Z")
-        FULL_URL="${PROTOCOL}://${ALB_DNS}/equity-bars"
-        echo "Syncing equity bars: $FULL_URL"
+        if [ -n "${date_range:-}" ]; then
+            cd "${MASKFILE_DIR}"
+            uv run python tools/sync_equity_bars_data.py "$BASE_URL" "$date_range"
+        else
+            CURRENT_DATE=$(date -u +"%Y-%m-%dT00:00:00Z")
+            FULL_URL="${BASE_URL}/equity-bars"
+            echo "Syncing equity bars: $FULL_URL"
 
-        curl -X POST "$FULL_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"date\": \"$CURRENT_DATE\"}" \
-            -w "\nHTTP Status: %{http_code}\n" \
-            -s
+            curl -X POST "$FULL_URL" \
+                -H "Content-Type: application/json" \
+                -d "{\"date\": \"$CURRENT_DATE\"}" \
+                -w "\nHTTP Status: %{http_code}\n" \
+                -s
+        fi
         ;;
 
     *)
@@ -237,6 +237,20 @@ esac
 ### rust
 
 > Rust development workflow commands
+
+#### update
+
+> Update Rust dependencies
+
+```bash
+set -euo pipefail
+
+echo "Updating Rust dependencies"
+
+cargo update
+
+echo "Rust dependencies updated successfully"
+```
 
 #### check
 
@@ -301,6 +315,8 @@ echo "Rust tests completed successfully"
 set -euo pipefail
 
 echo "Running Rust development checks"
+
+mask development rust update
 
 mask development rust check
 
