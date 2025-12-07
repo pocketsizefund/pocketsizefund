@@ -1,11 +1,11 @@
 ---
-name: Fetch data
+name: Sync data
 on:
   schedule:
     - cron: 0 10 * * 1,2,3,4,5 # launch at 5:00 AM EST
 jobs:
   fetch_data:
-    name: Fetch data on weekday schedule
+    name: Sync data on weekday schedule
     runs-on: ubuntu-latest
     environment: pulumi
     steps:
