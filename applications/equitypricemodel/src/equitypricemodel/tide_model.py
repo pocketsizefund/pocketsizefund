@@ -98,7 +98,7 @@ class Model:
         hidden_size: int = 128,
         num_encoder_layers: int = 2,
         num_decoder_layers: int = 2,
-        output_length: int = 7,
+        output_length: int = 7,  # number of days to forecast
         dropout_rate: float = 0.1,
         quantiles: list[float] | None = None,
     ) -> None:
@@ -302,7 +302,6 @@ class Model:
     ) -> Tensor:
         combined_input_features, _, _ = self._combine_input_features(inputs)
 
-        # outputs shape: (batch_size, output_length, num_quantiles)
         return self.forward(combined_input_features)
 
     def _combine_input_features(

@@ -725,7 +725,8 @@ def test_create_optimal_portfolio_mixed_closed_and_maintained_positions() -> Non
     assert "timestamp" in result.columns
     assert "side" in result.columns
     assert "dollar_amount" in result.columns
-    assert len(result.columns) == 4  # only these 4 columns  # noqa: PLR2004
+    assert "action" in result.columns
+    assert len(result.columns) == 5  # noqa: PLR2004
 
     sorted_result = result.sort(["ticker", "side"])
     assert sorted_result.equals(result)

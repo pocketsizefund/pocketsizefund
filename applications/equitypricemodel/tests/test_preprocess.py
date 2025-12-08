@@ -1,5 +1,5 @@
 import polars as pl
-from portfoliomanager.preprocess import filter_equity_bars
+from equitypricemodel.preprocess import filter_equity_bars
 
 
 def test_filter_equity_bars_above_thresholds() -> None:

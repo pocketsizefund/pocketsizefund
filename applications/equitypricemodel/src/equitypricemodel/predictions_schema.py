@@ -73,9 +73,7 @@ predictions_schema = pa.DataFrameSchema(
     coerce=True,
     checks=[
         pa.Check(
-            check_fn=lambda df: check_dates_count_per_ticker(
-                data=df, dates_count=1
-            ),  # overriding to 1 for current risk management implementation
+            check_fn=lambda df: check_dates_count_per_ticker(data=df, dates_count=7),
             name="check_dates_count_per_ticker",
             error="Each ticker must have expected date count",
         ),
