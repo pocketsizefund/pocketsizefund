@@ -15,6 +15,4 @@ jobs:
       - name: Run Rust code checks
         uses: flox/activate-action@v1
         with:
-          command: |
-            set -e
-            mask development rust all
+          command: mask development rust all
