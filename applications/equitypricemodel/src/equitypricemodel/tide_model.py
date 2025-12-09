@@ -228,11 +228,17 @@ class Model:
 
                 epoch_losses.append(loss.numpy().item())
 
+            if not epoch_losses:
+                logger.warning("No training batches processed in epoch %s", epoch + 1)
+                continue
+
             epoch_loss = sum(epoch_losses) / len(epoch_losses)
 
             logger.info(f"Epoch {epoch + 1} loss: {epoch_loss:.4f}")
 
             losses.append(epoch_loss)
+
+        Tensor.training = False
 
         return losses
 
@@ -251,13 +257,17 @@ class Model:
             loss = quantile_loss(predictions, targets_reshaped, self.quantiles)
             validation_losses.append(loss.numpy().item())
 
+        if not validation_losses:
+            logger.warning("No validation batches provided; returning NaN loss")
+            return float("nan")
+
         return sum(validation_losses) / len(validation_losses)
 
     def save(
         self,
         directory_path: str,
     ) -> None:
-        os.makedirs(os.path.dirname(directory_path), exist_ok=True)  # noqa: PTH120, PTH103
+        os.makedirs(directory_path, exist_ok=True)  # noqa: PTH103
 
         states = get_state_dict(self)
 

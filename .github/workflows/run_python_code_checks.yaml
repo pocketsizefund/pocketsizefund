@@ -15,7 +15,9 @@ jobs:
       - name: Run Python code checks
         uses: flox/activate-action@v1
         with:
-          command: mask development python all
+          command: |
+            set -e
+            mask development python all
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:

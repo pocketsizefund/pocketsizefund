@@ -443,7 +443,7 @@ class Data:
         rows = []
         for batch_idx in range(batch_size):
             ticker_encoded = int(
-                input_batch["static_categorical_features"][batch_idx, 0, 0, 0].item()
+                input_batch["static_categorical_features"][batch_idx, 0, 0].item()
             )
             ticker_str = ticker_reverse_mapping[ticker_encoded]
 

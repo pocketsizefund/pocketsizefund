@@ -110,6 +110,7 @@ portfolio_schema = pa.DataFrameSchema(
                     [
                         PositionAction.PDT_LOCKED.value,
                         PositionAction.CLOSE_POSITION.value,
+                        PositionAction.OPEN_POSITION.value,
                         PositionAction.MAINTAIN_POSITION.value,
                         PositionAction.UNSPECIFIED.value,
                     ]

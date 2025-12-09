@@ -6,9 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN rustup toolchain install nightly
+RUN rustup toolchain install stable 
 
-RUN rustup default nightly
+RUN rustup default stable
 
 WORKDIR /app
 

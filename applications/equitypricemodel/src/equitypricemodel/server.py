@@ -57,7 +57,7 @@ def create_predictions() -> PredictionResponse:  # TEMP
 
     equity_bars_data = filter_equity_bars(equity_bars_data)
 
-    equity_categories_data = pl.read_json(equity_details_response.json())
+    equity_categories_data = pl.DataFrame(equity_details_response.json())
 
     equity_categories_data = categories_schema.validate(equity_categories_data)
 
@@ -82,9 +82,7 @@ def create_predictions() -> PredictionResponse:  # TEMP
 
     current_timestamp = datetime.now(tz=UTC)
 
-    tide_data = Data()
-
-    tide_data.load(directory_path=".")
+    tide_data = Data.load(directory_path=".")
 
     tide_data.preprocess_and_set_data(data=data)
 

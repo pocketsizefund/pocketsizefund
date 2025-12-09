@@ -183,6 +183,15 @@ pub async fn query_equity_bars_parquet_from_s3(
 
     let ticker_filter = match &tickers {
         Some(ticker_list) if !ticker_list.is_empty() => {
+            // Validate ticker format to prevent SQL injection
+            for ticker in ticker_list {
+                if !ticker
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+                {
+                    return Err(Error::Other(format!("Invalid ticker format: {}", ticker)));
+                }
+            }
             let ticker_values = ticker_list
                 .iter()
                 .map(|t| format!("'{}'", t.replace('\'', "''")))
@@ -404,7 +413,7 @@ pub async fn query_portfolio_dataframe_from_s3(
         }
     };
 
-    debug!("Executing portfolio query SQL: {}", query);
+    debug!("Executing query SQL: {}", query);
 
     let mut statement = connection.prepare(&query)?;
 

@@ -19,6 +19,7 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         with:
           command: |
+            set -e
             mask infrastructure images build datamanager server
             mask infrastructure images push datamanager server
             mask infrastructure images build portfoliomanager server

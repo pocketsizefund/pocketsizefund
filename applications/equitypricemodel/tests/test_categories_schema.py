@@ -28,7 +28,7 @@ def test_categories_schema_sector_lowercase_fails() -> None:
         categories_schema.validate(data)
 
 
-def test_catgories_schema_industry_lowercase_fails() -> None:
+def test_categories_schema_industry_lowercase_fails() -> None:
     data = pl.DataFrame(
         {
             "sector": ["TECHNOLOGY"],

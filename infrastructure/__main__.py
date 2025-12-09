@@ -479,6 +479,12 @@ aws.iam.RolePolicyAttachment(
     policy_arn="arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
 )
 
+aws.iam.RolePolicyAttachment(
+    "task_role_s3_policy",
+    role=task_role.name,
+    policy_arn="arn:aws:iam::aws:policy/AmazonS3FullAccess",
+)
+
 datamanager_log_group = aws.cloudwatch.LogGroup(
     "datamanager_logs",
     name="/ecs/pocketsizefund/datamanager",
@@ -638,7 +644,7 @@ equitypricemodel_task_definition = aws.ecs.TaskDefinition(
 
 datamanager_sd_service = aws.servicediscovery.Service(
     "datamanager_sd",
-    name="pocketsizefund-datamanager",
+    name="datamanager",
     dns_config=aws.servicediscovery.ServiceDnsConfigArgs(
         namespace_id=service_discovery_namespace.id,
         dns_records=[
@@ -650,7 +656,7 @@ datamanager_sd_service = aws.servicediscovery.Service(
 
 portfoliomanager_sd_service = aws.servicediscovery.Service(
     "portfoliomanager_sd",
-    name="pocketsizefund-portfoliomanager",
+    name="portfoliomanager",
     dns_config=aws.servicediscovery.ServiceDnsConfigArgs(
         namespace_id=service_discovery_namespace.id,
         dns_records=[
@@ -662,7 +668,7 @@ portfoliomanager_sd_service = aws.servicediscovery.Service(
 
 equitypricemodel_sd_service = aws.servicediscovery.Service(
     "equitypricemodel_sd",
-    name="pocketsizefund-equitypricemodel",
+    name="equitypricemodel",
     dns_config=aws.servicediscovery.ServiceDnsConfigArgs(
         namespace_id=service_discovery_namespace.id,
         dns_records=[

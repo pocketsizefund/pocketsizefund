@@ -46,13 +46,13 @@ COPY --from=builder /app /app
 
 # pre-downloaded model artifacts to local for image building
 
-COPY applications/equitypricemodel/src/equitypricemodel/tide_states.safetensor app/tide_states.safetensor
+COPY applications/equitypricemodel/src/equitypricemodel/tide_states.safetensor /app/tide_states.safetensor
 
-COPY applications/equitypricemodel/src/equitypricemodel/tide_parameters.json app/tide_parameters.json
+COPY applications/equitypricemodel/src/equitypricemodel/tide_parameters.json /app/tide_parameters.json
 
-COPY applications/equitypricemodel/src/equitypricemodel/tide_data_mappings.json app/tide_data_mappings.json
+COPY applications/equitypricemodel/src/equitypricemodel/tide_data_mappings.json /app/tide_data_mappings.json
 
-COPY applications/equitypricemodel/src/equitypricemodel/tide_data_scaler.json app/tide_data_scaler.json
+COPY applications/equitypricemodel/src/equitypricemodel/tide_data_scaler.json /app/tide_data_scaler.json
 
 EXPOSE 8080
 

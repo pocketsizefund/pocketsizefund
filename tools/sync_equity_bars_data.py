@@ -36,7 +36,7 @@ def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
 
     minimum_allowed_date = current_date - timedelta(days=maximum_days)
 
-    start_date = min(start_date, minimum_allowed_date)
+    start_date = max(start_date, minimum_allowed_date)
     end_date = min(end_date, current_date)
 
     return start_date, end_date

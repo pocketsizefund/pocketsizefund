@@ -56,7 +56,7 @@ class AlpacaClient:
                 notional=dollar_amount,
                 side=OrderSide(side.value.lower()),
                 type=OrderType.MARKET,
-                time_in_force=TimeInForce.FOK,
+                time_in_force=TimeInForce.DAY,  # required for notional trades
             ),
         )
 
