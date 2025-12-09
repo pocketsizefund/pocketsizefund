@@ -39,7 +39,7 @@ acm_certificate_arn = config.get_secret("AWS_ACM_CERTIFICATE_ARN")
 tags = {
     "project": "pocketsizefund",
     "stack": pulumi.get_stack(),
-    "manager:": "pulumi",
+    "manager": "pulumi",
 }
 
 vpc = aws.ec2.Vpc(

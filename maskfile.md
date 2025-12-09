@@ -199,7 +199,7 @@ case "$application_name" in
         FULL_URL="${BASE_URL}/portfolio"
         echo "Creating portfolio: $FULL_URL"
 
-        curl -X GET "$FULL_URL" \
+        curl -X POST "$FULL_URL" \
             -H "Content-Type: application/json" \
             -w "\nHTTP Status: %{http_code}\n" \
             -s

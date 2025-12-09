@@ -7,7 +7,7 @@ dependencies = [
   "internal",
   "fastapi>=0.121.0",
   "uvicorn>=0.35.0",
-  "loguru>=0.7.3",
+  "structlog>=25.5.0",
   "sagemaker>=2.252.0",
   "numpy>=1.26.4",
   "tinygrad>=0.10.3",

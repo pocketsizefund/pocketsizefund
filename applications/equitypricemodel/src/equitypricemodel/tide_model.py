@@ -2,7 +2,7 @@ import json
 import os
 from typing import cast
 
-from loguru import logger
+import structlog
 from tinygrad.nn import Linear
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import (
@@ -148,6 +148,8 @@ class Model:
             out_features=len(self.quantiles),
         )
 
+        self.logger = structlog.get_logger()
+
     def forward(self, x: Tensor) -> Tensor:
         """
         Forward pass through TiDE model
@@ -206,7 +208,7 @@ class Model:
         losses = []
 
         for epoch in range(epochs):
-            logger.info(f"Starting epoch {epoch + 1}/{epochs}")
+            self.logger.info("Starting training epoch", epoch=epoch + 1)
             epoch_losses = []
 
             for batch in train_batches:
@@ -229,12 +231,16 @@ class Model:
                 epoch_losses.append(loss.numpy().item())
 
             if not epoch_losses:
-                logger.warning("No training batches processed in epoch %s", epoch + 1)
+                self.logger.warning("No training batches processed", epoch=epoch + 1)
                 continue
 
             epoch_loss = sum(epoch_losses) / len(epoch_losses)
 
-            logger.info(f"Epoch {epoch + 1} loss: {epoch_loss:.4f}")
+            self.logger.info(
+                "Completed training epoch",
+                epoch=epoch + 1,
+                loss=f"{epoch_loss:.4f}",
+            )
 
             losses.append(epoch_loss)
 
@@ -258,7 +264,7 @@ class Model:
             validation_losses.append(loss.numpy().item())
 
         if not validation_losses:
-            logger.warning("No validation batches provided; returning NaN loss")
+            self.logger.warning("No validation batches provided; returning NaN loss")
             return float("nan")
 
         return sum(validation_losses) / len(validation_losses)

@@ -2,11 +2,14 @@ import os
 import tarfile
 
 import boto3
-from loguru import logger
+import structlog
+
+logger = structlog.get_logger()
 
 application_name = os.getenv("APPLICATION_NAME")
 
-logger.info(f"Downloading {application_name} model artifact")
+
+logger.info("Downloading model artifact", application_name=application_name)
 
 session = boto3.Session(profile_name=os.getenv("AWS_PROFILE", ""))
 
@@ -28,13 +31,11 @@ for file_object in file_objects.get("Contents", []):
 
     options.add(file_object_name_parts[1])
 
-logger.info("Available artifacts:")
-for option in options:
-    logger.info(f"{option}")
+logger.info("Available artifacts", options=options)
 
 selected_option = input("Select an artifact to download: ")
 
-logger.info("Selected artifact:", selected_option)
+logger.info("Selected artifact", selected_option=selected_option)
 
 target_path = f"artifacts/{selected_option}/output/model.tar.gz"
 destination_directory = f"applications/{application_name}/src/{application_name}/"

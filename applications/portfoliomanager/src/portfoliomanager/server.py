@@ -1,4 +1,5 @@
 import io
+import json
 import os
 from datetime import UTC, datetime
 from typing import cast
@@ -39,7 +40,7 @@ def health_check() -> Response:
     return Response(status_code=status.HTTP_200_OK)
 
 
-@application.get("/portfolio")
+@application.post("/portfolio")
 def create_portfolio() -> Response:
     current_timestamp = datetime.now(tz=UTC)
 
@@ -135,7 +136,7 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
 
     prior_predictions_response = requests.get(
         url=f"{DATAMANAGER_BASE_URL}/predictions",
-        params={"tickers_and_timestamps": str(tickers_and_timestamps)},
+        params={"tickers_and_timestamps": json.dumps(tickers_and_timestamps)},
         timeout=60,
     )
 
@@ -211,9 +212,9 @@ def get_positions(
                 {
                     "ticker": row["ticker"],
                     "side": (
-                        TradeSide.BUY.value
+                        TradeSide.BUY
                         if row["side"] == PositionSide.LONG.value
-                        else TradeSide.SELL.value
+                        else TradeSide.SELL
                     ),
                     "dollar_amount": row["dollar_amount"],
                 }
@@ -226,9 +227,9 @@ def get_positions(
         {
             "ticker": row["ticker"],
             "side": (
-                TradeSide.BUY.value
+                TradeSide.BUY
                 if row["side"] == PositionSide.LONG.value
-                else TradeSide.SELL.value
+                else TradeSide.SELL
             ),
             "dollar_amount": row["dollar_amount"],
         }

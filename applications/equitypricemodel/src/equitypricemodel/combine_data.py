@@ -1,7 +1,7 @@
 import sys
 
 import polars as pl
-from loguru import logger
+import structlog
 
 from .categories_schema import categories_schema
 
@@ -38,9 +38,11 @@ def combine_data(
 
 
 if __name__ == "__main__":
+    logger = structlog.get_logger()
+
     if len(sys.argv) != 4:  # noqa: PLR2004
         logger.error(
-            "Usage: python -m equitypricemodel.combine_data <categories_csv> <equity_bars_csv> <output_csv>"  # noqa: E501
+            "Requires categories CSV, equity bars CSV, and output CSV paths as arguments",  # noqa: E501
         )
         sys.exit(1)
 

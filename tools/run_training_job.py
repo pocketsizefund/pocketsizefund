@@ -1,23 +1,16 @@
 import os
 
 import boto3
-from loguru import logger
+import structlog
 from sagemaker.estimator import Estimator
 from sagemaker.inputs import TrainingInput
 from sagemaker.session import Session
 
-application_name = os.getenv("APPLICATION_NAME", "")
 
-logger.info(f"Starting training job for application: {application_name}")
-
-
-def run_training_job() -> None:
-    application_name = os.getenv("APPLICATION_NAME")
+def run_training_job(application_name: str) -> None:
     if not application_name:
         message = "APPLICATION_NAME environment variable is required"
         raise ValueError(message)
-
-    logger.info("starting_training_job", application_name=application_name)
 
     aws_profile = os.getenv("AWS_PROFILE")
     if not aws_profile:
@@ -61,4 +54,10 @@ def run_training_job() -> None:
 
 
 if __name__ == "__main__":
-    run_training_job()
+    logger = structlog.get_logger()
+
+    application_name = os.getenv("APPLICATION_NAME", "")
+
+    logger.info("Starting training job", application_name=application_name)
+
+    run_training_job(application_name=application_name)

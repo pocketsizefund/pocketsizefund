@@ -4,18 +4,18 @@ import time
 from datetime import UTC, datetime, timedelta
 
 import requests
-from loguru import logger
+import structlog
 
 
 def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
     try:
         date_range = json.loads(date_range_json)
     except json.JSONDecodeError as e:
-        message = f"invalid JSON format: {e.msg}"
+        message = f"Invalid JSON format: {e.msg}"
         raise ValueError(message) from e
 
     if "start_date" not in date_range or "end_date" not in date_range:
-        message = "missing required field(s): start_date and/or end_date"
+        message = "Missing required field(s): start_date and/or end_date"
         raise ValueError(message)
 
     try:
@@ -26,7 +26,7 @@ def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
             tzinfo=UTC
         )
     except ValueError as e:
-        message = "invalid date format. Use YYYY-MM-DD"
+        message = "Invalid date format - use YYYY-MM-DD"
         raise ValueError(message) from e
 
     current_date = datetime.now(tz=UTC).replace(
@@ -38,6 +38,13 @@ def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
 
     start_date = max(start_date, minimum_allowed_date)
     end_date = min(end_date, current_date)
+
+    if start_date > end_date:
+        message = (
+            "Invalid date range after clamping - start date must be on or before "
+            "end date and overlap the last two years"
+        )
+        raise ValueError(message)
 
     return start_date, end_date
 
@@ -58,27 +65,31 @@ def sync_equity_bars_for_date(base_url: str, date: datetime) -> int:
 
 def main() -> None:
     """Sync equity bars data"""
+    logger = structlog.get_logger()
+
     if len(sys.argv) != 3:  # noqa: PLR2004
-        logger.error("expected two arguments (base_url, date_range_json)")
+        logger.error("Expected base URL and date range JSON as arguments")
         sys.exit(1)
 
     base_url = sys.argv[1]
     date_range_json = sys.argv[2]
 
     if not base_url:
-        logger.error("base_url cannot be empty")
+        logger.error("Base URL cannot be empty")
         sys.exit(1)
 
     try:
         start_date, end_date = validate_and_parse_dates(date_range_json)
     except ValueError as e:
-        logger.error(f"{e}")
+        logger.exception("Error validating dates", error=str(e))
         sys.exit(1)
 
     logger.info(
-        f"backfilling equity bars from {start_date.date()} to {end_date.date()}"
+        "Backfilling equity bars",
+        start_date=start_date.strftime("%Y-%m-%d"),
+        end_date=end_date.strftime("%Y-%m-%d"),
     )
-    logger.info(f"URL: {base_url}/equity-bars")
+    logger.info("Data manager URL", base_url=f"{base_url}/equity-bars")
 
     current_date = start_date
     request_count = 0
@@ -87,25 +98,27 @@ def main() -> None:
         request_count += 1
 
         logger.info(
-            f"[{request_count}] syncing date: {current_date.strftime('%Y-%m-%d')}"
+            "Syncing data started",
+            request_count=request_count,
+            date=current_date.strftime("%Y-%m-%d"),
         )
 
         try:
             status_code = sync_equity_bars_for_date(base_url, current_date)
-            logger.info(f"status code: {status_code}")
+            logger.info("Syncing data completed", status_code=status_code)
 
             if status_code >= 400:  # noqa: PLR2004
-                logger.error(f"request failed with status {status_code}")
+                logger.error("Syncing data failed", status_code=status_code)
         except requests.RequestException as e:
-            logger.error(f"{e}")
+            logger.exception("HTTP request failed", error=str(e))
 
         current_date += timedelta(days=1)
 
         if current_date <= end_date:
-            logger.info("waiting 15 seconds before next request")
+            logger.info("Waiting 15 seconds before next request")
             time.sleep(15)  # Polygon rate limit
 
-    logger.info(f"backfill complete: {request_count} requests processed")
+    logger.info("All dates processed", total_requests=request_count)
 
 
 if __name__ == "__main__":
