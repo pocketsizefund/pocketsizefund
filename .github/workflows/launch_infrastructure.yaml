@@ -6,6 +6,9 @@ on:
   push:
     branches:
       - master
+concurrency:
+  group: infrastructure-deployment
+  cancel-in-progress: false
 jobs:
   launch_infrastructure:
     name: Launch infrastructure on weekday schedule

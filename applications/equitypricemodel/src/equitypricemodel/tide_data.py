@@ -27,7 +27,7 @@ class Scaler:
 
 
 class Data:
-    """Temporal fusion transformer data preprocessing and postprocessing."""
+    """Time-series dense encoder data preprocessing and postprocessing."""
 
     def __init__(self) -> None:
         pass
@@ -379,7 +379,7 @@ class Data:
         return batches
 
     def save(self, directory_path: str) -> None:
-        os.makedirs(os.path.dirname(directory_path), exist_ok=True)  # noqa: PTH103, PTH120
+        os.makedirs(directory_path, exist_ok=True)  # noqa: PTH103
 
         with open(os.path.join(directory_path, "tide_data_mappings.json"), "w") as f:  # noqa: PTH118, PTH123
             json.dump(self.mappings, f)

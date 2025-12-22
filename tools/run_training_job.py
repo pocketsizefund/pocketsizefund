@@ -91,8 +91,8 @@ if __name__ == "__main__":
             sagemaker_role=sagemaker_role,
             output_path=output_path,
         )
-    except Exception as e:  # noqa: BLE001
-        logger.exeption(
+    except Exception as e:
+        logger.exception(
             "Training job failed",
             error=f"{e}",
             application_name=application_name,

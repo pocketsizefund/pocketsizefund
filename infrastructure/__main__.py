@@ -467,12 +467,17 @@ task_role = aws.iam.Role(
     tags=tags,
 )
 
+secret_version = aws.secretsmanager.get_secret_version(secret_id=secret.id)
+data_bucket_name = pulumi.Output.secret(secret_version.secret_string).apply(
+    lambda s: json.loads(s)["AWS_S3_DATA_BUCKET_NAME"]
+)
+
 aws.iam.RolePolicy(
     "task_role_s3_policy",
     name="pocketsizefund-ecs-task-role-s3-policy",
     role=task_role.id,
-    policy=pulumi.Output.all(f"{secret.arn}:AWS_S3_DATA_BUCKET_NAME::").apply(
-        lambda args: json.dumps(
+    policy=data_bucket_name.apply(
+        lambda name: json.dumps(
             {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -480,8 +485,8 @@ aws.iam.RolePolicy(
                         "Effect": "Allow",
                         "Action": ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
                         "Resource": [
-                            f"arn:aws:s3:::{args[0]}",
-                            f"arn:aws:s3:::{args[0]}/*",
+                            f"arn:aws:s3:::{name}",
+                            f"arn:aws:s3:::{name}/*",
                         ],
                     }
                 ],
@@ -513,7 +518,7 @@ equitypricemodel_log_group = aws.cloudwatch.LogGroup(
 
 datamanager_task_definition = aws.ecs.TaskDefinition(
     "datamanager_task",
-    family="datamnager",
+    family="datamanager",
     cpu="256",
     memory="512",
     network_mode="awsvpc",

@@ -81,9 +81,9 @@ echo "Pushing application image to ECR"
 
 aws_account_id=$(aws sts get-caller-identity --query Account --output text)
 
-aws ecr get-login-password 
-    --region us-east-1 | docker login 
-    --username AWS 
+aws ecr get-login-password \
+    --region us-east-1 | docker login \
+    --username AWS \
     --password-stdin ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com
 
 docker push ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest
@@ -121,6 +121,7 @@ else
         # Wait up to 60 seconds for service to be active
         RETRY_COUNT=0
         MAX_RETRIES=12
+        RETRY_WAIT_SECONDS=5
         SERVICE_READY=false
 
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
@@ -132,6 +133,7 @@ else
 
             if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
                 SERVICE_READY=true
+                echo "Service $SERVICE is ACTIVE"
                 break
             elif [ "$SERVICE_STATUS" = "NONE" ]; then
                 echo "Service not found, waiting ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
@@ -139,7 +141,7 @@ else
                 echo "Service status: $SERVICE_STATUS, waiting ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
             fi
 
-            sleep 5
+            sleep $RETRY_WAIT_SECONDS
             RETRY_COUNT=$((RETRY_COUNT + 1))
         done
 
@@ -410,7 +412,7 @@ set -euo pipefail
 
 echo "Running Python tests"
 
-uv run coverage run --parallel-mode -m pytest && uv run coverage combine && uv run coverage report && uv run coverage xml -o coverage_output/.python_coverage.xml
+uv run coverage run --parallel-mode -m pytest && uv run coverage combine && uv run coverage report && uv run coverage xml -o coverage/.python.xml
 
 echo "Python tests completed successfully"
 ```
