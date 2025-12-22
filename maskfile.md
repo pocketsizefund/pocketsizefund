@@ -30,6 +30,14 @@ if [[ ${#missing_deps[@]} -gt 0 ]]; then
 fi
 
 echo "Prerequisites check completed"
+
+echo "Configuring GitHub CLI"
+
+gh auth status >/dev/null 2>&1 || gh auth login
+
+echo "GitHub CLI configuration completed"
+
+echo "Development environment setup completed successfully"
 ```
 
 ## infrastructure
@@ -42,21 +50,22 @@ echo "Prerequisites check completed"
 
 #### build (application_name) (stage_name)
 
-> Build application Docker images locally
+> Build application Docker images
 
 ```bash
 set -euo pipefail
 
 echo "Building application image locally"
 
-# Load environment variables in isolated subshell
-(
-    set -a
-    source "${MASKFILE_DIR}/.env"
-    set +a
+aws_account_id=$(aws sts get-caller-identity --query Account --output text)
 
-    docker build --platform linux/amd64 --target ${stage_name} -f applications/${application_name}/Dockerfile -t pocketsizefund/${application_name}-${stage_name}:latest -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest .
-)
+docker build \
+    --platform linux/amd64 \
+    --target ${stage_name} \
+    --file applications/${application_name}/Dockerfile \
+    --tag pocketsizefund/${application_name}-${stage_name}:latest \
+    --tag ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest \
+    .
 
 echo "Application image built: ${application_name} ${stage_name}"
 ```
@@ -70,16 +79,14 @@ set -euo pipefail
 
 echo "Pushing application image to ECR"
 
-# Load environment variables in isolated subshell
-(
-    set -a
-    source "${MASKFILE_DIR}/.env"
-    set +a
+aws_account_id=$(aws sts get-caller-identity --query Account --output text)
 
-    aws ecr get-login-password --region us-east-1 --profile ${AWS_PROFILE} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
+aws ecr get-login-password 
+    --region us-east-1 | docker login 
+    --username AWS 
+    --password-stdin ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com
 
-    docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest
-)
+docker push ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest
 
 echo "Application image pushed: ${application_name} ${stage_name}"
 ```
@@ -341,8 +348,6 @@ echo "Rust development checks completed successfully"
 set -euo pipefail
 
 echo "Installing Python dependencies"
-
-export COMPOSE_BAKE=true
 
 uv sync --all-packages --all-groups
 

@@ -6,17 +6,19 @@ from datetime import UTC, datetime, timedelta
 import requests
 import structlog
 
+logger = structlog.get_logger()
+
 
 def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
     try:
         date_range = json.loads(date_range_json)
     except json.JSONDecodeError as e:
-        message = f"Invalid JSON format: {e.msg}"
-        raise ValueError(message) from e
+        logger.exception("JSON decoding error", error=f"{e}")
+        raise RuntimeError from e
 
     if "start_date" not in date_range or "end_date" not in date_range:
-        message = "Missing required field(s): start_date and/or end_date"
-        raise ValueError(message)
+        logger.error("Missing required date fields", date_range=date_range)
+        raise RuntimeError
 
     try:
         start_date = datetime.strptime(date_range["start_date"], "%Y-%m-%d").replace(
@@ -26,8 +28,12 @@ def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
             tzinfo=UTC
         )
     except ValueError as e:
-        message = "Invalid date format - use YYYY-MM-DD"
-        raise ValueError(message) from e
+        logger.exception(
+            "Date parsing error",
+            error=f"{e}",
+            required_format="YYYY-MM-DD",
+        )
+        raise RuntimeError from e
 
     current_date = datetime.now(tz=UTC).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -40,11 +46,12 @@ def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
     end_date = min(end_date, current_date)
 
     if start_date > end_date:
-        message = (
-            "Invalid date range after clamping - start date must be on or before "
-            "end date and overlap the last two years"
+        logger.error(
+            "Invalid date range after clamping",
+            start_date=start_date.strftime("%Y-%m-%d"),
+            end_date=end_date.strftime("%Y-%m-%d"),
         )
-        raise ValueError(message)
+        raise RuntimeError
 
     return start_date, end_date
 
@@ -63,26 +70,11 @@ def sync_equity_bars_for_date(base_url: str, date: datetime) -> int:
     return response.status_code
 
 
-def main() -> None:
-    """Sync equity bars data"""
-    logger = structlog.get_logger()
-
-    if len(sys.argv) != 3:  # noqa: PLR2004
-        logger.error("Expected base URL and date range JSON as arguments")
-        sys.exit(1)
-
-    base_url = sys.argv[1]
-    date_range_json = sys.argv[2]
-
-    if not base_url:
-        logger.error("Base URL cannot be empty")
-        sys.exit(1)
-
-    try:
-        start_date, end_date = validate_and_parse_dates(date_range_json)
-    except ValueError as e:
-        logger.exception("Error validating dates", error=str(e))
-        sys.exit(1)
+def sync_equity_bars_data(
+    base_url: str,
+    date_range: tuple[datetime, datetime],
+) -> None:
+    start_date, end_date = date_range
 
     logger.info(
         "Backfilling equity bars",
@@ -110,7 +102,7 @@ def main() -> None:
             if status_code >= 400:  # noqa: PLR2004
                 logger.error("Syncing data failed", status_code=status_code)
         except requests.RequestException as e:
-            logger.exception("HTTP request failed", error=str(e))
+            logger.exception("HTTP request failed", error=f"{e}")
 
         current_date += timedelta(days=1)
 
@@ -122,4 +114,33 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    base_url = sys.argv[1]
+    raw_date_range = sys.argv[2]
+
+    arguments = {
+        "base_url": base_url,
+        "raw_date_range": raw_date_range,
+    }
+
+    for argument in [base_url, raw_date_range]:
+        if not argument:
+            logger.error(
+                "Missing required positional argument(s)",
+                **arguments,
+            )
+            sys.exit(1)
+
+    try:
+        date_range = validate_and_parse_dates(raw_date_range)
+    except Exception as e:
+        logger.exception("Failed to parse date range", error=f"{e}")
+        sys.exit(1)
+
+    try:
+        sync_equity_bars_data(
+            base_url=base_url,
+            date_range=date_range,
+        )
+    except Exception as e:
+        logger.exception("Failed to sync equity bars data", error=f"{e}")
+        sys.exit(1)

@@ -3,6 +3,9 @@ name: Launch infrastructure
 on:
   schedule:
     - cron: 0 13 * * 1,2,3,4,5 # launch at 8:00 AM EST
+  push:
+    branches:
+      - master
 jobs:
   launch_infrastructure:
     name: Launch infrastructure on weekday schedule
@@ -11,19 +14,40 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
       - name: Install Flox
         uses: flox/install-flox-action@v2
+      - name: Build data manager image
+        uses: flox/activate-action@v1
+        with:
+          command: mask infrastructure images build datamanager server
+      - name: Push data manager image
+        uses: flox/activate-action@v1
+        with:
+          command: mask infrastructure images push datamanager server
+      - name: Build portfolio manager image
+        uses: flox/activate-action@v1
+        with:
+          command: mask infrastructure images build portfoliomanager server
+      - name: Push portfolio manager image
+        uses: flox/activate-action@v1
+        with:
+          command: mask infrastructure images push portfoliomanager server
+      - name: Build equity price model image
+        uses: flox/activate-action@v1
+        with:
+          command: mask infrastructure images build equitypricemodel server
+      - name: Push equity price model image
+        uses: flox/activate-action@v1
+        with:
+          command: mask infrastructure images push equitypricemodel server
       - name: Deploy with Pulumi
         uses: flox/activate-action@v1
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         with:
-          command: |
-            set -e
-            mask infrastructure images build datamanager server
-            mask infrastructure images push datamanager server
-            mask infrastructure images build portfoliomanager server
-            mask infrastructure images push portfoliomanager server
-            mask infrastructure images build equitypricemodel server
-            mask infrastructure images push equitypricemodel server
-            mask infrastructure stack up
+          command: mask infrastructure stack up

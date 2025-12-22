@@ -35,6 +35,8 @@ class AlpacaClient:
             paper=is_paper,
         )
 
+        self.is_paper = is_paper
+
     def get_account(self) -> AlpacaAccount:
         account: TradeAccount = cast("TradeAccount", self.trading_client.get_account())
 

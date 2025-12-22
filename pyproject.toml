@@ -91,6 +91,7 @@ select = [
   "PERF",  # performance
   "PIE",   # misc lints
   "PL",    # pylint
+  "PLR",   # pylint refactor
   "PT",    # pytest style
   "PTH",   # use pathlib
   "PYI",   # type hints

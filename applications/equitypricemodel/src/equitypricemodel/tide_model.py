@@ -201,50 +201,54 @@ class Model:
         learning_rate: float = 0.001,
     ) -> list:
         """Train the TiDE model using quantile loss"""
+        prev_training = Tensor.training
         Tensor.training = True
 
         parameters = get_parameters(self)
         optimizer = Adam(params=parameters, lr=learning_rate)
         losses = []
 
-        for epoch in range(epochs):
-            self.logger.info("Starting training epoch", epoch=epoch + 1)
-            epoch_losses = []
+        try:
+            for epoch in range(epochs):
+                self.logger.info("Starting training epoch", epoch=epoch + 1)
+                epoch_losses = []
 
-            for batch in train_batches:
-                combined_input_features, targets, batch_size = (
-                    self._combine_input_features(batch)
+                for batch in train_batches:
+                    combined_input_features, targets, batch_size = (
+                        self._combine_input_features(batch)
+                    )
+
+                    # predictions shape: (batch_size, output_length, num_quantiles)
+                    predictions = self.forward(combined_input_features)
+
+                    # reshape targets to (batch_size, output_length)
+                    targets_reshaped = targets.reshape(batch_size, self.output_length)
+
+                    loss = quantile_loss(predictions, targets_reshaped, self.quantiles)
+
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+
+                    epoch_losses.append(loss.numpy().item())
+
+                if not epoch_losses:
+                    self.logger.warning(
+                        "No training batches processed", epoch=epoch + 1
+                    )
+                    continue
+
+                epoch_loss = sum(epoch_losses) / len(epoch_losses)
+
+                self.logger.info(
+                    "Completed training epoch",
+                    epoch=epoch + 1,
+                    loss=f"{epoch_loss:.4f}",
                 )
 
-                # predictions shape: (batch_size, output_length, num_quantiles)
-                predictions = self.forward(combined_input_features)
-
-                # reshape targets to (batch_size, output_length)
-                targets_reshaped = targets.reshape(batch_size, self.output_length)
-
-                loss = quantile_loss(predictions, targets_reshaped, self.quantiles)
-
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                epoch_losses.append(loss.numpy().item())
-
-            if not epoch_losses:
-                self.logger.warning("No training batches processed", epoch=epoch + 1)
-                continue
-
-            epoch_loss = sum(epoch_losses) / len(epoch_losses)
-
-            self.logger.info(
-                "Completed training epoch",
-                epoch=epoch + 1,
-                loss=f"{epoch_loss:.4f}",
-            )
-
-            losses.append(epoch_loss)
-
-        Tensor.training = False
+                losses.append(epoch_loss)
+        finally:
+            Tensor.training = prev_training
 
         return losses
 
@@ -289,10 +293,8 @@ class Model:
             "quantiles": self.quantiles,
         }
 
-        with open(  # noqa: PTH123
-            os.path.join(directory_path, "tide_parameters.json"),  # noqa: PTH118
-            "w",
-        ) as parameters_file:
+        parameters_file_path = os.path.join(directory_path, "tide_parameters.json")  # noqa: PTH118
+        with open(parameters_file_path, "w") as parameters_file:  # noqa: PTH123
             json.dump(parameters, parameters_file)
 
     @classmethod
@@ -300,7 +302,8 @@ class Model:
         cls,
         directory_path: str,
     ) -> "Model":
-        states = safe_load(os.path.join(directory_path, "tide_states.safetensor"))  # noqa: PTH118
+        sates_file_path = os.path.join(directory_path, "tide_states.safetensor")  # noqa: PTH118
+        states = safe_load(sates_file_path)
         with open(  # noqa: PTH123
             os.path.join(directory_path, "tide_parameters.json")  # noqa: PTH118
         ) as parameters_file:

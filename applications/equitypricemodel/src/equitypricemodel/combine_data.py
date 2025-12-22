@@ -11,11 +11,29 @@ def combine_data(
     equity_bars_csv_path: str,
     output_csv_path: str,
 ) -> None:
-    categories_data = pl.read_csv(categories_csv_path)
+    logger = structlog.get_logger()
 
-    categories_data = categories_schema.validate(categories_data)
+    try:
+        categories_data = pl.read_csv(categories_csv_path)
+    except Exception as e:
+        logger.exception(
+            "Failed to read categories CSV", path=categories_csv_path, error=str(e)
+        )
+        raise
 
-    equity_bars_data = pl.read_csv(equity_bars_csv_path)
+    try:
+        categories_data = categories_schema.validate(categories_data)
+    except Exception as e:
+        logger.exception("Categories data validation failed", error=str(e))
+        raise
+
+    try:
+        equity_bars_data = pl.read_csv(equity_bars_csv_path)
+    except Exception as e:
+        logger.exception(
+            "Failed to read equity bars CSV", path=equity_bars_csv_path, error=str(e)
+        )
+        raise
 
     consolidated_data = categories_data.join(equity_bars_data, on="ticker", how="inner")
 
@@ -32,9 +50,28 @@ def combine_data(
         "industry",
     )
 
+    missing_columns = [
+        col for col in retained_columns if col not in consolidated_data.columns
+    ]
+    if missing_columns:
+        logger.error(
+            "Missing required columns in consolidated data",
+            missing_columns=missing_columns,
+        )
+        message = f"Missing required columns: {', '.join(missing_columns)}"
+        raise ValueError(message)
+
     filtered_data = consolidated_data.select(retained_columns)
 
-    filtered_data.write_csv(output_csv_path)
+    try:
+        filtered_data.write_csv(output_csv_path)
+    except Exception as e:
+        logger.exception(
+            "Failed to write output CSV",
+            output_csv_path=output_csv_path,
+            error=str(e),
+        )
+        raise
 
 
 if __name__ == "__main__":

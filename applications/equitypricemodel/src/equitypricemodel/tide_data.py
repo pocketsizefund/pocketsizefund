@@ -268,9 +268,9 @@ class Data:
             "encoder_categorical_features": len(self.categorical_columns),
             "encoder_continuous_features": len(self.continuous_columns),
             "decoder_categorical_features": len(self.categorical_columns),
-            "decoder_continuous_features": 0,  # not using decoder_continuous_features for now # noqa: E501
+            "decoder_continuous_features": 0,  # not using decoder_continuous_features for now  # noqa: E501
             "static_categorical_features": len(self.static_categorical_columns),
-            "static_continuous_features": 0,  # not using static_continuous_features for now # noqa: E501
+            "static_continuous_features": 0,  # not using static_continuous_features for now  # noqa: E501
         }
 
     def get_batches(  # noqa: C901
@@ -379,12 +379,12 @@ class Data:
         return batches
 
     def save(self, directory_path: str) -> None:
-        os.makedirs(os.path.dirname(directory_path), exist_ok=True)  # noqa: PTH120, PTH103
+        os.makedirs(os.path.dirname(directory_path), exist_ok=True)  # noqa: PTH103, PTH120
 
-        with open(os.path.join(directory_path, "tide_data_mappings.json"), "w") as f:  # noqa: PTH123, PTH118
+        with open(os.path.join(directory_path, "tide_data_mappings.json"), "w") as f:  # noqa: PTH118, PTH123
             json.dump(self.mappings, f)
 
-        with open(os.path.join(directory_path, "tide_data_scaler.json"), "w") as f:  # noqa: PTH123, PTH118
+        with open(os.path.join(directory_path, "tide_data_scaler.json"), "w") as f:  # noqa: PTH118, PTH123
             # convert DataFrames to dictionary of scalars (first row)
             means_dict = {
                 col: self.scaler.means[col].item() for col in self.scaler.means.columns
@@ -408,10 +408,10 @@ class Data:
     @classmethod
     def load(cls, directory_path: str) -> "Data":
         data = cls()
-        with open(os.path.join(directory_path, "tide_data_mappings.json")) as f:  # noqa: PTH123, PTH118
+        with open(os.path.join(directory_path, "tide_data_mappings.json")) as f:  # noqa: PTH118, PTH123
             data.mappings = json.load(f)
 
-        with open(os.path.join(directory_path, "tide_data_scaler.json")) as f:  # noqa: PTH123, PTH118
+        with open(os.path.join(directory_path, "tide_data_scaler.json")) as f:  # noqa: PTH118, PTH123
             scaler_data = json.load(f)
 
         data.scaler = Scaler()

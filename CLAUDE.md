@@ -1,6 +1,6 @@
-# bots 
+# claude 
 
-> Agentic collaborator context 
+> Agentic tooling context
 
 ## Notes
 
@@ -24,6 +24,8 @@
 - Rust servers primarily use [Axum](https://docs.rs/axum/latest/axum/)
 - Use Polars for [Python](https://docs.pola.rs/api/python/stable/reference/index.html) and [Rust](https://docs.rs/polars/latest/polars/) dataframes
 - Use `typing` module `cast` function for `tinygrad` method outputs when necessary with union types
+- When adding `ValueError` exceptions, create a separate variable called `message` to hold the error string before raising
+- When logging after an exception, use `logger.exception()` to capture stack trace with the `structlog` package
 - `tools/` folder contains development utilities and scripts
 - `applications/` folder contains deployable services and training workflows
 - `libraries/` folder contains shared code resources

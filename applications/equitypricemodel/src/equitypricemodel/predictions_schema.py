@@ -73,17 +73,19 @@ predictions_schema = pa.DataFrameSchema(
     coerce=True,
     checks=[
         pa.Check(
-            check_fn=lambda df: check_dates_count_per_ticker(data=df, dates_count=7),
+            check_fn=lambda data: check_dates_count_per_ticker(
+                data=data, dates_count=7
+            ),
             name="check_dates_count_per_ticker",
             error="Each ticker must have expected date count",
         ),
         pa.Check(
-            check_fn=lambda df: check_same_dates_per_ticker(df),
+            check_fn=lambda data: check_same_dates_per_ticker(data=data),
             name="check_same_dates_per_ticker",
             error="All tickers must have same date values",
         ),
         pa.Check(
-            check_fn=lambda df: check_monotonic_quantiles(df),
+            check_fn=lambda data: check_monotonic_quantiles(data=data),
             name="quantile_monotonic",
             error="Quantiles must be monotonic: q10 ≤ q50 ≤ q90",
         ),

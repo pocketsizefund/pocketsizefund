@@ -6,6 +6,7 @@ from typing import cast
 
 import polars as pl
 import requests
+import structlog
 from fastapi import FastAPI, Response, status
 from internal.equity_bars_schema import equity_bars_schema
 
@@ -20,6 +21,8 @@ from .risk_management import (
     create_optimal_portfolio,
 )
 
+logger = structlog.get_logger()
+
 application: FastAPI = FastAPI()
 
 DATAMANAGER_BASE_URL = os.getenv("PSF_DATAMANAGER_BASE_URL", "http://datamanager:8080")
@@ -28,11 +31,27 @@ EQUITYPRICEMODEL_BASE_URL = os.getenv(
     "http://equitypricemodel:8080",
 )
 
+ALPACA_API_KEY_ID = os.getenv("ALPACA_API_KEY_ID", "")
+ALPACA_API_SECRET = os.getenv("ALPACA_API_SECRET", "")
+
+if not ALPACA_API_KEY_ID or not ALPACA_API_SECRET:
+    logger.error(
+        "Missing Alpaca credentials",
+        api_key_id_set=bool(ALPACA_API_KEY_ID),
+        api_secret_set=bool(ALPACA_API_SECRET),
+    )
+    message = (
+        "ALPACA_API_KEY_ID and ALPACA_API_SECRET environment variables are required"
+    )
+    raise ValueError(message)
+
 alpaca_client = AlpacaClient(
-    api_key=os.getenv("ALPACA_API_KEY_ID", ""),
-    api_secret=os.getenv("ALPACA_API_SECRET", ""),
+    api_key=ALPACA_API_KEY_ID,
+    api_secret=ALPACA_API_SECRET,
     is_paper=os.getenv("ALPACA_IS_PAPER", "true").lower() == "true",
 )
+
+logger.info("Portfolio manager initialized", is_paper=alpaca_client.is_paper)
 
 
 @application.get("/health")
@@ -43,36 +62,126 @@ def health_check() -> Response:
 @application.post("/portfolio")
 def create_portfolio() -> Response:
     current_timestamp = datetime.now(tz=UTC)
+    logger.info("Starting portfolio rebalance", timestamp=current_timestamp.isoformat())
 
-    account = alpaca_client.get_account()
+    try:
+        account = alpaca_client.get_account()
+        logger.info("Retrieved account", cash_amount=account.cash_amount)
+    except Exception as e:
+        logger.exception("Failed to retrieve account", error=str(e))
+        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    current_predictions = get_current_predictions()
+    try:
+        current_predictions = get_current_predictions()
+        logger.info("Retrieved predictions", count=len(current_predictions))
+    except Exception as e:
+        logger.exception("Failed to retrieve predictions", error=str(e))
+        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    prior_portfolio = get_prior_portfolio(current_timestamp=current_timestamp)
+    try:
+        prior_portfolio = get_prior_portfolio(current_timestamp=current_timestamp)
+        logger.info("Retrieved prior portfolio", count=len(prior_portfolio))
+    except Exception as e:
+        logger.exception("Failed to retrieve prior portfolio", error=str(e))
+        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    optimal_portfolio = get_optimal_portfolio(
-        current_predictions=current_predictions,
-        prior_portfolio=prior_portfolio,
-        maximum_capital=float(account.cash_amount),
-        current_timestamp=current_timestamp,
-    )
+    try:
+        optimal_portfolio = get_optimal_portfolio(
+            current_predictions=current_predictions,
+            prior_portfolio=prior_portfolio,
+            maximum_capital=float(account.cash_amount),
+            current_timestamp=current_timestamp,
+        )
+        logger.info("Created optimal portfolio", count=len(optimal_portfolio))
+    except Exception as e:
+        logger.exception("Failed to create optimal portfolio", error=str(e))
+        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     open_positions, close_positions = get_positions(
         prior_portfolio=prior_portfolio,
         optimal_portfolio=optimal_portfolio,
     )
 
+    close_results = []
     for close_position in close_positions:
-        alpaca_client.close_position(
-            ticker=close_position["ticker"],
-        )
+        try:
+            alpaca_client.close_position(
+                ticker=close_position["ticker"],
+            )
+            logger.info("Closed position", ticker=close_position["ticker"])
+            close_results.append(
+                {
+                    "ticker": close_position["ticker"],
+                    "action": "close",
+                    "status": "success",
+                }
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to close position",
+                ticker=close_position["ticker"],
+                error=str(e),
+            )
+            close_results.append(
+                {
+                    "ticker": close_position["ticker"],
+                    "action": "close",
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
 
+    open_results = []
     for open_position in open_positions:
-        alpaca_client.open_position(
-            ticker=open_position["ticker"],
-            side=open_position["side"],
-            dollar_amount=open_position["dollar_amount"],
-        )
+        try:
+            alpaca_client.open_position(
+                ticker=open_position["ticker"],
+                side=open_position["side"],
+                dollar_amount=open_position["dollar_amount"],
+            )
+            logger.info(
+                "Opened position",
+                ticker=open_position["ticker"],
+                side=open_position["side"],
+                dollar_amount=open_position["dollar_amount"],
+            )
+            open_results.append(
+                {
+                    "ticker": open_position["ticker"],
+                    "action": "open",
+                    "side": open_position["side"],
+                    "dollar_amount": open_position["dollar_amount"],
+                    "status": "success",
+                }
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to open position",
+                ticker=open_position["ticker"],
+                error=str(e),
+            )
+            open_results.append(
+                {
+                    "ticker": open_position["ticker"],
+                    "action": "open",
+                    "side": open_position["side"],
+                    "dollar_amount": open_position["dollar_amount"],
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
+
+    all_results = close_results + open_results
+    failed_trades = [r for r in all_results if r["status"] == "failed"]
+
+    logger.info(
+        "Portfolio rebalance completed",
+        total_trades=len(all_results),
+        failed_trades=len(failed_trades),
+    )
+
+    if failed_trades:
+        return Response(status_code=status.HTTP_207_MULTI_STATUS)
 
     return Response(status_code=status.HTTP_200_OK)
 
@@ -212,9 +321,9 @@ def get_positions(
                 {
                     "ticker": row["ticker"],
                     "side": (
-                        TradeSide.BUY
+                        TradeSide.SELL
                         if row["side"] == PositionSide.LONG.value
-                        else TradeSide.SELL
+                        else TradeSide.BUY
                     ),
                     "dollar_amount": row["dollar_amount"],
                 }
