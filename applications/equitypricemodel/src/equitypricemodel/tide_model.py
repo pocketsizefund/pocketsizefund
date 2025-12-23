@@ -302,8 +302,8 @@ class Model:
         cls,
         directory_path: str,
     ) -> "Model":
-        sates_file_path = os.path.join(directory_path, "tide_states.safetensor")  # noqa: PTH118
-        states = safe_load(sates_file_path)
+        states_file_path = os.path.join(directory_path, "tide_states.safetensor")  # noqa: PTH118
+        states = safe_load(states_file_path)
         with open(  # noqa: PTH123
             os.path.join(directory_path, "tide_parameters.json")  # noqa: PTH118
         ) as parameters_file:

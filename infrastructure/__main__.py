@@ -425,28 +425,27 @@ aws.iam.RolePolicyAttachment(
     policy_arn="arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
 )
 
+# Allow ECS tasks to read secrets from Secrets Manager
 aws.iam.RolePolicy(
-    "execution_role_ecr_policy",
-    name="pocketsizefund-ecs-execution-role-ecr-policy",
+    "execution_role_secrets_policy",
+    name="pocketsizefund-ecs-execution-role-secrets-policy",
     role=execution_role.id,
-    policy=json.dumps(
-        {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "ecr:GetAuthorizationToken",
-                        "ecr:BatchCheckLayerAvailability",
-                        "ecr:GetDownloadUrlForLayer",
-                        "ecr:BatchGetImage",
-                    ],
-                    "Resource": "*",
-                }
-            ],
-        }
+    policy=pulumi.Output.all(secret.arn).apply(
+        lambda args: json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": ["secretsmanager:GetSecretValue"],
+                        "Resource": args[0],
+                    }
+                ],
+            }
+        )
     ),
 )
+
 
 # IAM Role for ECS tasks to access AWS resources
 task_role = aws.iam.Role(
@@ -536,12 +535,6 @@ datamanager_task_definition = aws.ecs.TaskDefinition(
                     "name": "datamanager",
                     "image": args[1],
                     "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
-                    "environment": [
-                        {
-                            "name": "AWS_REGION",
-                            "value": region,
-                        },  # NOTE: probably remove and derive from caller
-                    ],
                     "secrets": [
                         {
                             "name": "AWS_S3_DATA_BUCKET_NAME",

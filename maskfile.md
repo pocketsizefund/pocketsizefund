@@ -33,7 +33,11 @@ echo "Prerequisites check completed"
 
 echo "Configuring GitHub CLI"
 
-gh auth status >/dev/null 2>&1 || gh auth login
+if ! gh auth status >/dev/null 2>&1; then
+    echo "GitHub CLI not authenticated"
+    echo "Run 'gh auth login' before setup"
+    exit 1
+fi
 
 echo "GitHub CLI configuration completed"
 

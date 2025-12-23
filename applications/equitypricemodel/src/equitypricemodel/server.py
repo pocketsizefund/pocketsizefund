@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from internal.equity_bars_schema import equity_bars_schema
 from pydantic import BaseModel
 
-from .categories_schema import categories_schema
+from .equity_details_schema import equity_details_schema
 from .predictions_schema import predictions_schema
 from .preprocess import filter_equity_bars
 from .tide_data import Data
@@ -57,11 +57,11 @@ def create_predictions() -> PredictionResponse:  # TEMP
 
     equity_bars_data = filter_equity_bars(equity_bars_data)
 
-    equity_categories_data = pl.DataFrame(equity_details_response.json())
+    equity_details_data = pl.DataFrame(equity_details_response.json())
 
-    equity_categories_data = categories_schema.validate(equity_categories_data)
+    equity_details_data = equity_details_schema.validate(equity_details_data)
 
-    consolidated_data = equity_categories_data.join(
+    consolidated_data = equity_details_data.join(
         equity_bars_data, on="ticker", how="inner"
     )
 

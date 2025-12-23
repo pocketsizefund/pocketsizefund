@@ -494,7 +494,9 @@ data_schema = pa.DataFrameSchema(
         ),
         "open_price": pa.Column(
             dtype=float,
-            checks=pa.Check.greater_than_or_equal_to(0),
+            checks=pa.Check.greater_than_or_equal_to(
+                0
+            ),  # zeros are allowed for missing days
         ),
         "high_price": pa.Column(
             dtype=float,

@@ -38,9 +38,9 @@ def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
     current_date = datetime.now(tz=UTC).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
-    maximum_days = 365 * 2  # two year limit
+    maximum_lookback_days = 365 * 2  # two year limit
 
-    minimum_allowed_date = current_date - timedelta(days=maximum_days)
+    minimum_allowed_date = current_date - timedelta(days=maximum_lookback_days)
 
     start_date = max(start_date, minimum_allowed_date)
     end_date = min(end_date, current_date)

@@ -1,6 +1,6 @@
 use crate::data::{
-    create_equity_bar_dataframe, create_portfolio_dataframe, create_predictions_dataframe,
-    EquityBar, Portfolio, Prediction,
+    create_equity_bar_dataframe, create_equity_details_dataframe, create_portfolio_dataframe,
+    create_predictions_dataframe, EquityBar, Portfolio, Prediction,
 };
 use crate::errors::Error;
 use crate::state::State;
@@ -424,6 +424,7 @@ pub async fn query_portfolio_dataframe_from_s3(
                 timestamp: row.get::<_, i64>(1)?,
                 side: row.get::<_, String>(2)?,
                 dollar_amount: row.get::<_, f64>(3)?,
+                action: row.get::<_, String>(4)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()
@@ -434,7 +435,7 @@ pub async fn query_portfolio_dataframe_from_s3(
     Ok(portfolio_dataframe)
 }
 
-pub async fn read_equity_details_csv_from_s3(state: &State) -> Result<String, Error> {
+pub async fn read_equity_details_dataframe_from_s3(state: &State) -> Result<DataFrame, Error> {
     info!("Reading equity details CSV from S3");
 
     let key = "equity/details/categories.csv";
@@ -463,5 +464,12 @@ pub async fn read_equity_details_csv_from_s3(state: &State) -> Result<String, Er
         csv_content.len()
     );
 
-    Ok(csv_content)
+    let dataframe = create_equity_details_dataframe(csv_content)?;
+
+    info!(
+        "Successfully processed DataFrame with {} rows",
+        dataframe.height()
+    );
+
+    Ok(dataframe)
 }

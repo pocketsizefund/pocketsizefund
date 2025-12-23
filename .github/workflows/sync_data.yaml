@@ -2,7 +2,7 @@
 name: Sync data
 on:
   schedule:
-    - cron: 0 10 * * 1,2,3,4,5 # launch at 5:00 AM EST
+    - cron: 0 10 * * 1-5 # launch at 10:00 UTC (5:00 AM EST / 6:00 AM EDT)
 jobs:
   fetch_data:
     name: Sync data on weekday schedule

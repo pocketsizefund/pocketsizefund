@@ -6,8 +6,7 @@
 .ruff_cache/
 .pytest_cache/
 .venv/
-.python_coverage.*
-coverage_output/
+coverage/
 __pycache__/
 infrastructure/Pulumi.production.yaml
 .envrc

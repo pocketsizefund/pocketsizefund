@@ -60,7 +60,7 @@ def health_check() -> Response:
 
 
 @application.post("/portfolio")
-def create_portfolio() -> Response:
+def create_portfolio() -> Response:  # noqa: PLR0911, C901
     current_timestamp = datetime.now(tz=UTC)
     logger.info("Starting portfolio rebalance", timestamp=current_timestamp.isoformat())
 
@@ -97,10 +97,22 @@ def create_portfolio() -> Response:
         logger.exception("Failed to create optimal portfolio", error=str(e))
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    open_positions, close_positions = get_positions(
-        prior_portfolio=prior_portfolio,
-        optimal_portfolio=optimal_portfolio,
-    )
+    try:
+        open_positions, close_positions = get_positions(
+            prior_portfolio=prior_portfolio,
+            optimal_portfolio=optimal_portfolio,
+        )
+        logger.info(
+            "Determined positions to open and close",
+            open_count=len(open_positions),
+            close_count=len(close_positions),
+        )
+    except Exception as e:
+        logger.exception(
+            "Failed to determine positions to open and close",
+            error=str(e),
+        )
+        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     close_results = []
     for close_position in close_positions:

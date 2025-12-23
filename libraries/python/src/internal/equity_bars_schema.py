@@ -19,7 +19,9 @@ equity_bars_schema = pa.DataFrameSchema(
         ),
         "open_price": pa.Column(
             dtype=float,
-            checks=[pa.Check.greater_than(0)],
+            checks=[
+                pa.Check.greater_than(0)
+            ],  # raw data will not have missing days and therefore no zero values
         ),
         "high_price": pa.Column(
             dtype=float,
@@ -39,6 +41,11 @@ equity_bars_schema = pa.DataFrameSchema(
         ),
         "volume_weighted_average_price": pa.Column(
             dtype=float,
+            nullable=True,
+            checks=[pa.Check.greater_than_or_equal_to(0)],
+        ),
+        "transactions": pa.Column(
+            dtype=int,
             nullable=True,
             checks=[pa.Check.greater_than_or_equal_to(0)],
         ),

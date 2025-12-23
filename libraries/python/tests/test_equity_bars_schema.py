@@ -15,11 +15,12 @@ def test_equity_bars_schema_valid_data() -> None:
             "close_price": [153.0],
             "volume": [1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
     validated_df = equity_bars_schema.validate(valid_data)
-    assert validated_df.shape == (1, 8)
+    assert validated_df.shape == (1, 9)
 
 
 def test_equity_bars_schema_ticker_lowercase_fails() -> None:
@@ -33,6 +34,7 @@ def test_equity_bars_schema_ticker_lowercase_fails() -> None:
             "close_price": [153.0],
             "volume": [1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -51,6 +53,7 @@ def test_equity_bars_schema_ticker_uppercase_passes() -> None:
             "close_price": [153.0],
             "volume": [1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -69,6 +72,7 @@ def test_equity_bars_schema_negative_timestamp() -> None:
             "close_price": [153.0],
             "volume": [1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -87,6 +91,7 @@ def test_equity_bars_schema_zero_timestamp() -> None:
             "close_price": [153.0],
             "volume": [1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -114,6 +119,7 @@ def test_equity_bars_schema_negative_prices() -> None:
                 "close_price": [153.0],
                 "volume": [1000000],
                 "volume_weighted_average_price": [152.5],
+                "transactions": [100],
             }
         )
 
@@ -134,6 +140,7 @@ def test_equity_bars_schema_zero_prices_not_allowed() -> None:
             "close_price": [153.0],
             "volume": [1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -152,6 +159,7 @@ def test_equity_bars_schema_negative_volume() -> None:
             "close_price": [153.0],
             "volume": [-1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -170,6 +178,7 @@ def test_equity_bars_schema_type_coercion() -> None:
             "close_price": [153.0],
             "volume": ["1000000"],  # string that can be coerced to int
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -191,6 +200,7 @@ def test_equity_bars_schema_missing_required_column() -> None:
             "close_price": [153.0],
             "volume": [1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -209,6 +219,7 @@ def test_equity_bars_schema_null_values() -> None:
             "close_price": [153.0],
             "volume": [1000000],
             "volume_weighted_average_price": [152.5],
+            "transactions": [100],
         }
     )
 
@@ -227,9 +238,10 @@ def test_equity_bars_schema_multiple_rows() -> None:
             "close_price": [153.0, 103.0, 303.0],
             "volume": [1000000, 500000, 750000],
             "volume_weighted_average_price": [152.5, 102.0, 302.0],
+            "transactions": [100, 50, 75],
         }
     )
 
     validated_df = equity_bars_schema.validate(data)
-    assert validated_df.shape == (3, 8)
+    assert validated_df.shape == (3, 9)
     assert validated_df["ticker"].to_list() == ["AAPL", "GOOGL", "NVDA"]

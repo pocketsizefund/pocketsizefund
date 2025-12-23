@@ -55,7 +55,7 @@ pub async fn get(
     AxumState(state): AxumState<State>,
     Query(parameters): Query<QueryParameters>,
 ) -> impl IntoResponse {
-    info!("Fetching most recent portfolio from S3");
+    info!("Fetching portfolio from S3");
 
     let timestamp: Option<DateTime<Utc>> = parameters.timestamp;
 

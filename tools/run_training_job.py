@@ -74,13 +74,16 @@ if __name__ == "__main__":
         "AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH": output_path,
     }
 
-    for value in environment_variables.values():
-        if not value:
-            logger.error(
-                "Missing required environment variable(s)",
-                **environment_variables,
-            )
-            sys.exit(1)
+    missing_environment_variables = [
+        key for key, value in environment_variables.items() if not value
+    ]
+    if missing_environment_variables:
+        logger.error(
+            "Missing required environment variables",
+            missing_environment_variables=missing_environment_variables,
+            **environment_variables,
+        )
+        sys.exit(1)
 
     try:
         run_training_job(
