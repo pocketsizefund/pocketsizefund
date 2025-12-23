@@ -114,6 +114,13 @@ def sync_equity_bars_data(
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 3:  # noqa: PLR2004
+        logger.error(
+            "Usage: python sync_equity_bars_data.py <base_url> <date_range_json>",
+            args_received=len(sys.argv) - 1,
+        )
+        sys.exit(1)
+
     base_url = sys.argv[1]
     raw_date_range = sys.argv[2]
 

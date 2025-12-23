@@ -368,7 +368,8 @@ pub async fn query_portfolio_dataframe_from_s3(
                     ticker,
                     timestamp,
                     side,
-                    dollar_amount
+                    dollar_amount,
+                    action
                 FROM '{}'
                 ORDER BY timestamp, ticker
                 ",
@@ -403,7 +404,8 @@ pub async fn query_portfolio_dataframe_from_s3(
                     ticker,
                     timestamp,
                     side,
-                    dollar_amount
+                    dollar_amount,
+                    action
                 FROM partitioned_data
                 WHERE (year::int * 10000 + month::int * 100 + day::int) = (SELECT date_int FROM max_date)
                 ORDER BY timestamp, ticker

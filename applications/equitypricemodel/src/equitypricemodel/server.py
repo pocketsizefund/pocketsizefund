@@ -29,7 +29,7 @@ application = FastAPI()
 
 
 @application.post("/predictions")
-def create_predictions() -> PredictionResponse:  # TEMP
+def create_predictions() -> PredictionResponse:
     tide_model = Model.load(directory_path=".")
 
     end_date = datetime.now(tz=UTC)
@@ -46,10 +46,14 @@ def create_predictions() -> PredictionResponse:  # TEMP
         timeout=60,
     )
 
+    equity_bars_response.raise_for_status()
+
     equity_details_response = requests.get(
         url=f"{DATAMANAGER_BASE_URL}/equity-details",
         timeout=60,
     )
+
+    equity_details_response.raise_for_status()
 
     equity_bars_data = pl.read_parquet(io.BytesIO(equity_bars_response.content))
 
