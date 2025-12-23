@@ -1,4 +1,5 @@
 import io
+import json
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -142,7 +143,7 @@ def create_predictions() -> Response:
     logger.info("Successfully generated and saved predictions")
 
     return Response(
-        content={"data": processed_predictions.to_dict()},
+        content=json.dumps({"data": processed_predictions.to_dict()}).encode("utf-8"),
         status_code=status.HTTP_200_OK,
     )
 
