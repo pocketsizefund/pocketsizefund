@@ -400,7 +400,7 @@ aws.lb.ListenerRule(
     tags=tags,
 )
 
-# IAM ROle for ECS to perform infrastructure tasks
+# IAM Role for ECS to perform infrastructure tasks
 execution_role = aws.iam.Role(
     "execution_role",
     name="pocketsizefund-ecs-execution-role",
