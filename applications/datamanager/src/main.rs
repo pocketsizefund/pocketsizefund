@@ -1,5 +1,6 @@
 mod data;
 mod equity_bars;
+mod equity_details;
 mod errors;
 mod health;
 mod portfolios;

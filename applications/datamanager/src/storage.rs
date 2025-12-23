@@ -1,6 +1,6 @@
 use crate::data::{
-    create_equity_bar_dataframe, create_portfolio_dataframe, create_predictions_dataframe,
-    EquityBar, Portfolio, Prediction,
+    create_equity_bar_dataframe, create_equity_details_dataframe, create_portfolio_dataframe,
+    create_predictions_dataframe, EquityBar, Portfolio, Prediction,
 };
 use crate::errors::Error;
 use crate::state::State;
@@ -16,38 +16,38 @@ use tracing::{debug, info};
 pub async fn write_equity_bars_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
-    date: &DateTime<Utc>,
+    timestamp: &DateTime<Utc>,
 ) -> Result<String, Error> {
-    write_dataframe_to_s3(state, dataframe, date, "bars".to_string()).await
+    write_dataframe_to_s3(state, dataframe, timestamp, "bars".to_string()).await
 }
 
 pub async fn write_portfolio_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
-    date: &DateTime<Utc>,
+    timestamp: &DateTime<Utc>,
 ) -> Result<String, Error> {
-    write_dataframe_to_s3(state, dataframe, date, "portfolios".to_string()).await
+    write_dataframe_to_s3(state, dataframe, timestamp, "portfolios".to_string()).await
 }
 
 pub async fn write_predictions_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
-    date: &DateTime<Utc>,
+    timestamp: &DateTime<Utc>,
 ) -> Result<String, Error> {
-    write_dataframe_to_s3(state, dataframe, date, "predictions".to_string()).await
+    write_dataframe_to_s3(state, dataframe, timestamp, "predictions".to_string()).await
 }
 
 async fn write_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
-    date: &DateTime<Utc>,
+    timestamp: &DateTime<Utc>,
     dataframe_type: String,
 ) -> Result<String, Error> {
     info!("Uploading DataFrame to S3 as parquet");
 
-    let year = date.format("%Y");
-    let month = date.format("%m");
-    let day = date.format("%d");
+    let year = timestamp.format("%Y");
+    let month = timestamp.format("%m");
+    let day = timestamp.format("%d");
 
     let key = format!(
         "equity/{}/daily/year={}/month={}/day={}/data.parquet",
@@ -130,12 +130,13 @@ async fn create_duckdb_connection() -> Result<Connection, Error> {
 
 pub async fn query_equity_bars_parquet_from_s3(
     state: &State,
-    start_date: Option<DateTime<Utc>>,
-    end_date: Option<DateTime<Utc>>,
+    tickers: Option<Vec<String>>,
+    start_timestamp: Option<DateTime<Utc>>,
+    end_timestamp: Option<DateTime<Utc>>,
 ) -> Result<Vec<u8>, Error> {
     let connection = create_duckdb_connection().await?;
 
-    let (start_date, end_date) = match (start_date, end_date) {
+    let (start_timestamp, end_timestamp) = match (start_timestamp, end_timestamp) {
         (Some(start), Some(end)) => (start, end),
         _ => {
             let end_date = chrono::Utc::now();
@@ -144,15 +145,18 @@ pub async fn query_equity_bars_parquet_from_s3(
         }
     };
 
-    info!("Querying data from {} to {}", start_date, end_date);
+    info!(
+        "Querying data from {} to {}",
+        start_timestamp, end_timestamp
+    );
 
     let mut s3_paths = Vec::new();
-    let mut current_date = start_date;
+    let mut current_timestamp = start_timestamp;
 
-    while current_date <= end_date {
-        let year = current_date.format("%Y");
-        let month = current_date.format("%m");
-        let day = current_date.format("%d");
+    while current_timestamp <= end_timestamp {
+        let year = current_timestamp.format("%Y");
+        let month = current_timestamp.format("%m");
+        let day = current_timestamp.format("%d");
 
         let s3_path = format!(
             "s3://{}/equity/bars/daily/year={}/month={}/day={}/data.parquet",
@@ -160,7 +164,7 @@ pub async fn query_equity_bars_parquet_from_s3(
         );
         s3_paths.push(s3_path);
 
-        current_date += chrono::Duration::days(1);
+        current_timestamp += chrono::Duration::days(1);
     }
 
     if s3_paths.is_empty() {
@@ -177,6 +181,27 @@ pub async fn query_equity_bars_parquet_from_s3(
         .collect::<Vec<_>>()
         .join(" UNION ALL ");
 
+    let ticker_filter = match &tickers {
+        Some(ticker_list) if !ticker_list.is_empty() => {
+            // Validate ticker format to prevent SQL injection
+            for ticker in ticker_list {
+                if !ticker
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+                {
+                    return Err(Error::Other(format!("Invalid ticker format: {}", ticker)));
+                }
+            }
+            let ticker_values = ticker_list
+                .iter()
+                .map(|t| format!("'{}'", t.replace('\'', "''")))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("WHERE ticker IN ({})", ticker_values)
+        }
+        _ => String::new(),
+    };
+
     let query_sql = format!(
         "
         SELECT
@@ -190,9 +215,10 @@ pub async fn query_equity_bars_parquet_from_s3(
             volume_weighted_average_price,
             transactions
         FROM ({})
+        {}
         ORDER BY timestamp, ticker
         ",
-        s3_paths_str
+        s3_paths_str, ticker_filter
     );
 
     debug!("Executing query SQL: {}", query_sql);
@@ -318,33 +344,78 @@ pub async fn query_predictions_dataframe_from_s3(
 
 pub async fn query_portfolio_dataframe_from_s3(
     state: &State,
-    timestamp: &DateTime<Utc>,
+    timestamp: Option<DateTime<Utc>>,
 ) -> Result<DataFrame, Error> {
     let connection = create_duckdb_connection().await?;
 
-    let year = timestamp.format("%Y");
-    let month = timestamp.format("%m");
-    let day = timestamp.format("%d");
-    let s3_path = format!(
-        "s3://{}/equity/portfolios/daily/year={}/month={}/day={}/data.parquet",
-        state.bucket_name, year, month, day
-    );
-    info!("Querying 1 S3 file");
-    let s3_paths_query = format!("SELECT * FROM '{}'", s3_path);
+    let query = match timestamp {
+        Some(ts) => {
+            let year = ts.format("%Y");
+            let month = ts.format("%m");
+            let day = ts.format("%d");
+            let s3_path = format!(
+                "s3://{}/equity/portfolios/daily/year={}/month={}/day={}/data.parquet",
+                state.bucket_name, year, month, day
+            );
+            info!(
+                "Querying specific date portfolio: {}/{}/{}",
+                year, month, day
+            );
 
-    let query = format!(
-        "
-        SELECT
-            ticker,
-            timestamp,
-            side,
-            dollar_amount
-        FROM ({})
-        ORDER BY timestamp, ticker
-        ",
-        s3_paths_query,
-    );
-    debug!("Executing export SQL: {}", query);
+            format!(
+                "
+                SELECT
+                    ticker,
+                    timestamp,
+                    side,
+                    dollar_amount,
+                    action
+                FROM '{}'
+                ORDER BY timestamp, ticker
+                ",
+                s3_path
+            )
+        }
+        None => {
+            let s3_wildcard = format!(
+                "s3://{}/equity/portfolios/daily/**/*.parquet",
+                state.bucket_name
+            );
+            info!("Querying most recent portfolio from all files");
+
+            format!(
+                "
+                WITH partitioned_data AS (
+                    SELECT
+                        ticker,
+                        timestamp,
+                        side,
+                        dollar_amount,
+                        year,
+                        month,
+                        day
+                    FROM read_parquet('{}', hive_partitioning=1)
+                ),
+                max_date AS (
+                    SELECT MAX(year::int * 10000 + month::int * 100 + day::int) as date_int
+                    FROM partitioned_data
+                )
+                SELECT
+                    ticker,
+                    timestamp,
+                    side,
+                    dollar_amount,
+                    action
+                FROM partitioned_data
+                WHERE (year::int * 10000 + month::int * 100 + day::int) = (SELECT date_int FROM max_date)
+                ORDER BY timestamp, ticker
+                ",
+                s3_wildcard
+            )
+        }
+    };
+
+    debug!("Executing query SQL: {}", query);
 
     let mut statement = connection.prepare(&query)?;
 
@@ -355,6 +426,7 @@ pub async fn query_portfolio_dataframe_from_s3(
                 timestamp: row.get::<_, i64>(1)?,
                 side: row.get::<_, String>(2)?,
                 dollar_amount: row.get::<_, f64>(3)?,
+                action: row.get::<_, String>(4)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()
@@ -363,4 +435,43 @@ pub async fn query_portfolio_dataframe_from_s3(
     let portfolio_dataframe = create_portfolio_dataframe(portfolios)?;
 
     Ok(portfolio_dataframe)
+}
+
+pub async fn read_equity_details_dataframe_from_s3(state: &State) -> Result<DataFrame, Error> {
+    info!("Reading equity details CSV from S3");
+
+    let key = "equity/details/categories.csv";
+
+    let response = state
+        .s3_client
+        .get_object()
+        .bucket(&state.bucket_name)
+        .key(key)
+        .send()
+        .await
+        .map_err(|e| Error::Other(format!("Failed to get object from S3: {}", e)))?;
+
+    let bytes = response
+        .body
+        .collect()
+        .await
+        .map_err(|e| Error::Other(format!("Failed to read response body: {}", e)))?
+        .into_bytes();
+
+    let csv_content = String::from_utf8(bytes.to_vec())
+        .map_err(|e| Error::Other(format!("Failed to convert bytes to UTF-8: {}", e)))?;
+
+    info!(
+        "Successfully read CSV from S3, size: {} bytes",
+        csv_content.len()
+    );
+
+    let dataframe = create_equity_details_dataframe(csv_content)?;
+
+    info!(
+        "Successfully processed DataFrame with {} rows",
+        dataframe.height()
+    );
+
+    Ok(dataframe)
 }

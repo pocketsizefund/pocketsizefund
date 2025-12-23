@@ -10,24 +10,23 @@ use axum::{
 use chrono::{DateTime, Utc};
 use polars::prelude::*;
 use serde::Deserialize;
-use serde_json;
 use tracing::info;
 use urlencoding::decode;
 
 #[derive(Deserialize)]
-pub struct SavePredictionsPayload {
+pub struct SavePayload {
     pub data: DataFrame,
     pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Deserialize)]
-pub struct QueryPredictionsParameters {
-    pub data: String, // URL-encoded JSON string
+pub struct QueryParameters {
+    pub tickers_and_timestamps: String, // URL-encoded JSON string
 }
 
 pub async fn save(
     AxumState(state): AxumState<State>,
-    Json(payload): Json<SavePredictionsPayload>,
+    Json(payload): Json<SavePayload>,
 ) -> impl IntoResponse {
     let predictions = payload.data;
 
@@ -57,11 +56,11 @@ pub async fn save(
 
 pub async fn query(
     AxumState(state): AxumState<State>,
-    Query(parameters): Query<QueryPredictionsParameters>,
+    Query(parameters): Query<QueryParameters>,
 ) -> impl IntoResponse {
     info!("Fetching predictions from S3");
 
-    let decoded = match decode(&parameters.data) {
+    let decoded = match decode(&parameters.tickers_and_timestamps) {
         Ok(decoded) => decoded.into_owned(),
         Err(e) => {
             return (

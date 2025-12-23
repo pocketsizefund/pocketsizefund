@@ -1,0 +1,13 @@
+[project]
+name = "equitypricemodel"
+version = "0.1.0"
+description = "Equity price time-series dense encoder model architecture"
+requires-python = "==3.12.10"
+dependencies = ["internal>=0.1.0", "python-dotenv>=1.2.1"]
+
+[tool.uv.sources]
+internal = { workspace = true }
+
+[tool.uv]
+package = true
+src = ["src"]

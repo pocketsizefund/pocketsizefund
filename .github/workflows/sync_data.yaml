@@ -1,0 +1,21 @@
+---
+name: Sync data
+on:
+  schedule:
+    - cron: 0 10 * * 1-5 # launch at 10:00 UTC (5:00 AM EST / 6:00 AM EDT)
+jobs:
+  fetch_data:
+    name: Sync data on weekday schedule
+    runs-on: ubuntu-latest
+    environment: pulumi
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Fetch with Pulumi
+        uses: flox/activate-action@v1
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        with:
+          command: mask infrastructure services invoke datamanager

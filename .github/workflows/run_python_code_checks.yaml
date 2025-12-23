@@ -1,7 +1,6 @@
 ---
 name: Python code checks
 on:
-  push:
   pull_request:
 jobs:
   run_python_code_checks:
@@ -20,4 +19,4 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: coverage_output/.python_coverage.xml
+          file: coverage/.python.xml

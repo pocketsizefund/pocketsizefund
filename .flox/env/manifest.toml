@@ -1,6 +1,7 @@
 version = 1
 
 [install]
+gh.pkg-path = "gh"
 pulumi.pkg-path = "pulumi"
 pulumi-python.pkg-path = "pulumiPackages.pulumi-python"
 ruff.pkg-path = "ruff"

@@ -2,7 +2,7 @@
 name: Teardown infrastructure
 on:
   schedule:
-    - cron: '0 23 * * 1,2,3,4,5' # teardown at 6:00 PM EST
+    - cron: 0 23 * * 1,2,3,4,5 # teardown at 6:00 PM EST
 jobs:
   teardown_infrastructure:
     name: Teardown infrastructure on weekday schedule
@@ -18,4 +18,4 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         with:
-          command: mise tasks run infrastructure:down
+          command: mask infrastructure stack down

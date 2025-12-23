@@ -2,13 +2,6 @@ use aws_sdk_s3::Client as S3Client;
 use reqwest::Client as HTTPClient;
 
 #[derive(Clone)]
-pub struct AlpacaSecrets {
-    pub base: String,
-    pub key: String,
-    pub secret: String,
-}
-
-#[derive(Clone)]
 pub struct PolygonSecrets {
     pub base: String,
     pub key: String,
@@ -18,7 +11,6 @@ pub struct PolygonSecrets {
 pub struct State {
     pub http_client: HTTPClient,
     pub polygon: PolygonSecrets,
-    pub alpaca: AlpacaSecrets,
     pub s3_client: S3Client,
     pub bucket_name: String,
 }
@@ -33,7 +25,7 @@ impl State {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let s3_client = S3Client::new(&config);
         let bucket_name =
-            std::env::var("S3_BUCKET_NAME").unwrap_or("pocketsizefund-ml-data".to_string());
+            std::env::var("AWS_S3_DATA_BUCKET_NAME").unwrap_or("pocketsizefund-data".to_string());
 
         Self {
             http_client,
@@ -42,14 +34,6 @@ impl State {
                     .unwrap_or("https://api.polygon.io".to_string()),
                 key: std::env::var("POLYGON_API_KEY")
                     .expect("POLYGON_API_KEY must be set in environment"),
-            },
-            alpaca: AlpacaSecrets {
-                base: std::env::var("ALPACA_BASE_URL")
-                    .unwrap_or("https://data.alpaca.markets".to_string()),
-                key: std::env::var("ALPACA_API_KEY")
-                    .expect("ALPACA_API_KEY must be set in environment"),
-                secret: std::env::var("ALPACA_API_SECRET")
-                    .expect("ALPACA_API_SECRET must be set in environment"),
             },
             s3_client,
             bucket_name,

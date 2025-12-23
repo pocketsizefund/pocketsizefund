@@ -1,7 +1,6 @@
 ---
 name: Rust code checks
 on:
-  push:
   pull_request:
 jobs:
   run_rust_code_checks:

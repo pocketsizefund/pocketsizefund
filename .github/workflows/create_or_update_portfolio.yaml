@@ -1,0 +1,21 @@
+---
+name: Create or update portfolio
+on:
+  schedule:
+    - cron: 0 15 * * 1-5 # launch at 15:00 UTC (10:00 AM EST / 11:00 AM EDT) on weekdays
+jobs:
+  create_or_update_portfolio:
+    name: Create or update portfolio on weekday schedule
+    runs-on: ubuntu-latest
+    environment: pulumi
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Flox
+        uses: flox/install-flox-action@v2
+      - name: Create or update with Pulumi
+        uses: flox/activate-action@v1
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        with:
+          command: mask infrastructure services invoke portfoliomanager

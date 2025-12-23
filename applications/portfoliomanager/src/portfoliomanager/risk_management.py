@@ -3,14 +3,16 @@ from datetime import UTC, datetime
 
 import polars as pl
 
+from .enums import PositionAction, PositionSide
 
-def add_positions_action_column(
-    positions: pl.DataFrame,
-    current_datetime: datetime,
+
+def add_portfolio_action_column(
+    prior_portfolio: pl.DataFrame,
+    current_timestamp: datetime,
 ) -> pl.DataFrame:
-    positions = positions.clone()
+    prior_portfolio = prior_portfolio.clone()
 
-    return positions.with_columns(
+    return prior_portfolio.with_columns(
         pl.when(
             pl.col("timestamp")
             .cast(pl.Float64)
@@ -18,22 +20,22 @@ def add_positions_action_column(
                 lambda ts: datetime.fromtimestamp(ts, tz=UTC).date(),
                 return_dtype=pl.Date,
             )
-            == current_datetime.date()
+            == current_timestamp.date()
         )
-        .then(pl.lit("PDT_LOCKED"))
-        .otherwise(pl.lit("UNSPECIFIED"))
+        .then(pl.lit(PositionAction.PDT_LOCKED.value))
+        .otherwise(pl.lit(PositionAction.UNSPECIFIED.value))
         .alias("action")
     )
 
 
 def add_equity_bars_returns_and_realized_volatility_columns(
-    equity_bars: pl.DataFrame,
+    prior_equity_bars: pl.DataFrame,
 ) -> pl.DataFrame:
-    equity_bars = equity_bars.clone()
+    prior_equity_bars = prior_equity_bars.clone()
 
     minimum_bars_per_ticker_required = 30
 
-    ticker_counts = equity_bars.group_by("ticker").agg(pl.len().alias("count"))
+    ticker_counts = prior_equity_bars.group_by("ticker").agg(pl.len().alias("count"))
     insufficient_tickers = ticker_counts.filter(
         pl.col("count") < minimum_bars_per_ticker_required
     )
@@ -43,9 +45,9 @@ def add_equity_bars_returns_and_realized_volatility_columns(
         message = f"Tickers with insufficient data (< {minimum_bars_per_ticker_required} rows): {insufficient_list}"  # noqa: E501
         raise ValueError(message)
 
-    equity_bars = equity_bars.sort(["ticker", "timestamp"])
+    prior_equity_bars = prior_equity_bars.sort(["ticker", "timestamp"])
     daily_returns = pl.col("close_price").pct_change().over("ticker")
-    return equity_bars.with_columns(
+    return prior_equity_bars.with_columns(
         pl.when(pl.col("close_price").is_not_null())
         .then(daily_returns)
         .otherwise(None)
@@ -64,18 +66,18 @@ def add_equity_bars_returns_and_realized_volatility_columns(
     )
 
 
-def add_positions_performance_columns(
-    positions: pl.DataFrame,
-    original_predictions: pl.DataFrame,  # per original position ticker and timestamp
-    original_equity_bars: pl.DataFrame,  # per original position ticker and timestamp
+def add_portfolio_performance_columns(
+    prior_portfolio: pl.DataFrame,
+    prior_predictions: pl.DataFrame,  # per original ticker and timestamp
+    prior_equity_bars: pl.DataFrame,  # per original ticker and timestamp
     current_timestamp: datetime,
 ) -> pl.DataFrame:
-    positions = positions.clone()
-    original_predictions = original_predictions.clone()
-    original_equity_bars = original_equity_bars.clone()
+    prior_portfolio = prior_portfolio.clone()
+    prior_predictions = prior_predictions.clone()
+    prior_equity_bars = prior_equity_bars.clone()
 
-    position_predictions = positions.join(
-        other=original_predictions,
+    prior_portfolio_predictions = prior_portfolio.join(
+        other=prior_predictions,
         on=["ticker", "timestamp"],
         how="left",
     ).select(
@@ -88,17 +90,15 @@ def add_positions_performance_columns(
         pl.col("quantile_90").alias("original_upper_threshold"),
     )
 
-    original_equity_bars_with_returns = original_equity_bars.sort(
-        ["ticker", "timestamp"]
-    )
+    prior_equity_bars_with_returns = prior_equity_bars.sort(["ticker", "timestamp"])
 
     position_returns = []
 
-    for row in position_predictions.iter_rows(named=True):
+    for row in prior_portfolio_predictions.iter_rows(named=True):
         ticker = row["ticker"]
         position_timestamp = row["timestamp"]
 
-        ticker_bars = original_equity_bars_with_returns.filter(
+        ticker_bars = prior_equity_bars_with_returns.filter(
             (pl.col("ticker") == ticker)
             & (pl.col("timestamp") >= position_timestamp)
             & (pl.col("timestamp") <= current_timestamp.timestamp())
@@ -120,27 +120,27 @@ def add_positions_performance_columns(
 
     returns = pl.DataFrame(position_returns)
 
-    positions_with_data = position_predictions.join(
+    prior_portfolio_with_data = prior_portfolio_predictions.join(
         other=returns,
         on=["ticker", "timestamp"],
         how="left",
     )
 
-    return positions_with_data.with_columns(
-        pl.when(pl.col("action") == "PDT_LOCKED")
-        .then(pl.lit("PDT_LOCKED"))
+    return prior_portfolio_with_data.with_columns(
+        pl.when(pl.col("action") == PositionAction.PDT_LOCKED.value)
+        .then(pl.lit(PositionAction.PDT_LOCKED.value))
         .when(
-            (pl.col("action") != "PDT_LOCKED")
+            (pl.col("action") != PositionAction.PDT_LOCKED.value)
             & (
                 (
-                    (pl.col("side") == "LONG")
+                    (pl.col("side") == PositionSide.LONG.value)
                     & (
                         pl.col("cumulative_simple_return")
                         <= pl.col("original_lower_threshold")
                     )
                 )
                 | (
-                    (pl.col("side") == "SHORT")
+                    (pl.col("side") == PositionSide.SHORT.value)
                     & (
                         pl.col("cumulative_simple_return")
                         >= pl.col("original_upper_threshold")
@@ -148,25 +148,25 @@ def add_positions_performance_columns(
                 )
             )
         )
-        .then(pl.lit("CLOSE_POSITION"))
+        .then(pl.lit(PositionAction.CLOSE_POSITION.value))
         .when(
             (
-                (pl.col("side") == "LONG")
+                (pl.col("side") == PositionSide.LONG.value)
                 & (
                     pl.col("cumulative_simple_return")
                     >= pl.col("original_upper_threshold")
                 )
             )
             | (
-                (pl.col("side") == "SHORT")
+                (pl.col("side") == PositionSide.SHORT.value)
                 & (
                     pl.col("cumulative_simple_return")
                     <= pl.col("original_lower_threshold")
                 )
             )
         )
-        .then(pl.lit("MAINTAIN_POSITION"))
-        .otherwise(pl.lit("UNSPECIFIED"))
+        .then(pl.lit(PositionAction.MAINTAIN_POSITION.value))
+        .otherwise(pl.lit(PositionAction.UNSPECIFIED.value))
         .alias("action")
     ).drop(
         [
@@ -177,12 +177,14 @@ def add_positions_performance_columns(
     )
 
 
-def add_predictions_zscore_ranked_columns(predictions: pl.DataFrame) -> pl.DataFrame:
-    predictions = predictions.clone()
+def add_predictions_zscore_ranked_columns(
+    current_predictions: pl.DataFrame,
+) -> pl.DataFrame:
+    current_predictions = current_predictions.clone()
 
-    quantile_50_mean = predictions.select(pl.col("quantile_50").mean()).item()
+    quantile_50_mean = current_predictions.select(pl.col("quantile_50").mean()).item()
     quantile_50_standard_deviation = (
-        predictions.select(pl.col("quantile_50").std()).item() or 1e-8
+        current_predictions.select(pl.col("quantile_50").std()).item() or 1e-8
     )
 
     z_score_return = (
@@ -193,26 +195,26 @@ def add_predictions_zscore_ranked_columns(predictions: pl.DataFrame) -> pl.DataF
 
     composite_score = z_score_return / (1 + inter_quartile_range)
 
-    return predictions.with_columns(
+    return current_predictions.with_columns(
         z_score_return.alias("z_score_return"),
         inter_quartile_range.alias("inter_quartile_range"),
         composite_score.alias("composite_score"),
-        pl.lit("UNSPECIFIED").alias("action"),
+        pl.lit(PositionAction.UNSPECIFIED.value).alias("action"),
     ).sort(["composite_score", "inter_quartile_range"], descending=[True, False])
 
 
 def create_optimal_portfolio(
-    predictions: pl.DataFrame,
-    positions: pl.DataFrame,
+    current_predictions: pl.DataFrame,
+    prior_portfolio: pl.DataFrame,
     maximum_capital: float,
     current_timestamp: datetime,
 ) -> pl.DataFrame:
-    predictions = predictions.clone()
-    positions = positions.clone()
+    current_predictions = current_predictions.clone()
+    prior_portfolio = prior_portfolio.clone()
 
     minimum_inter_quartile_range = 0.75
     high_uncertainty_tickers = (
-        predictions.filter(
+        current_predictions.filter(
             pl.col("inter_quartile_range") > minimum_inter_quartile_range
         )
         .select("ticker")
@@ -220,7 +222,7 @@ def create_optimal_portfolio(
         .to_list()
     )
 
-    closed_positions, maintained_positions = _filter_positions(positions)
+    closed_positions, maintained_positions = _filter_positions(prior_portfolio)
 
     closed_position_tickers = closed_positions.select("ticker").to_series().to_list()
     maintained_position_tickers = (
@@ -231,16 +233,22 @@ def create_optimal_portfolio(
         high_uncertainty_tickers + closed_position_tickers + maintained_position_tickers
     )
 
-    available_predictions = predictions.filter(
+    available_predictions = current_predictions.filter(
         ~pl.col("ticker").is_in(excluded_tickers)
     )
 
-    maintained_long_capital = _filter_side_capital_amount(maintained_positions, "LONG")
-    maintained_short_capital = _filter_side_capital_amount(
-        maintained_positions, "SHORT"
+    maintained_long_capital = _filter_side_capital_amount(
+        maintained_positions, PositionSide.LONG.value
     )
-    closed_long_capital = _filter_side_capital_amount(closed_positions, "LONG")
-    closed_short_capital = _filter_side_capital_amount(closed_positions, "SHORT")
+    maintained_short_capital = _filter_side_capital_amount(
+        maintained_positions, PositionSide.SHORT.value
+    )
+    closed_long_capital = _filter_side_capital_amount(
+        closed_positions, PositionSide.LONG.value
+    )
+    closed_short_capital = _filter_side_capital_amount(
+        closed_positions, PositionSide.SHORT.value
+    )
 
     target_side_capital = maximum_capital / 2
     available_long_capital = max(
@@ -252,9 +260,11 @@ def create_optimal_portfolio(
         target_side_capital - maintained_short_capital + closed_short_capital,
     )
 
-    maintained_long_count = maintained_positions.filter(pl.col("side") == "LONG").height
+    maintained_long_count = maintained_positions.filter(
+        pl.col("side") == PositionSide.LONG.value
+    ).height
     maintained_short_count = maintained_positions.filter(
-        pl.col("side") == "SHORT"
+        pl.col("side") == PositionSide.SHORT.value
     ).height
 
     new_long_positions_needed = max(0, 10 - maintained_long_count)
@@ -283,17 +293,17 @@ def create_optimal_portfolio(
     long_positions = long_candidates.select(
         pl.col("ticker"),
         pl.lit(current_timestamp.timestamp()).cast(pl.Float64).alias("timestamp"),
-        pl.lit("LONG").alias("side"),
+        pl.lit(PositionSide.LONG.value).alias("side"),
         pl.lit(dollar_amount_per_long).alias("dollar_amount"),
-        pl.lit("UNSPECIFIED").alias("action"),
+        pl.lit(PositionAction.OPEN_POSITION.value).alias("action"),
     )
 
     short_positions = short_candidates.select(
         pl.col("ticker"),
         pl.lit(current_timestamp.timestamp()).cast(pl.Float64).alias("timestamp"),
-        pl.lit("SHORT").alias("side"),
+        pl.lit(PositionSide.SHORT.value).alias("side"),
         pl.lit(dollar_amount_per_short).alias("dollar_amount"),
-        pl.lit("UNSPECIFIED").alias("action"),
+        pl.lit(PositionAction.OPEN_POSITION.value).alias("action"),
     )
 
     return _collect_portfolio_positions(
@@ -328,8 +338,12 @@ def _filter_positions(positions: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFra
             ),
         )
 
-    closed_positions = positions.filter(pl.col("action") == "CLOSE_POSITION")
-    maintained_positions = positions.filter(pl.col("action") == "MAINTAIN_POSITION")
+    closed_positions = positions.filter(
+        pl.col("action") == PositionAction.CLOSE_POSITION.value
+    )
+    maintained_positions = positions.filter(
+        pl.col("action") == PositionAction.MAINTAIN_POSITION.value
+    )
 
     return closed_positions, maintained_positions
 
@@ -381,4 +395,5 @@ def _collect_portfolio_positions(
         pl.col("timestamp").cast(pl.Float64),
         "side",
         "dollar_amount",
+        "action",
     ).sort(["ticker", "side"])

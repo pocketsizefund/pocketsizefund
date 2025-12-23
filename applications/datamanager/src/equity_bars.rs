@@ -17,9 +17,10 @@ pub struct DailySync {
 }
 
 #[derive(Deserialize)]
-pub struct DateRangeParameters {
-    start_date: Option<DateTime<Utc>>,
-    end_date: Option<DateTime<Utc>>,
+pub struct QueryParameters {
+    tickers: Option<String>,
+    start_timestamp: Option<DateTime<Utc>>,
+    end_timestamp: Option<DateTime<Utc>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -49,14 +50,34 @@ struct PolygonResponse {
     results: Option<Vec<BarResult>>,
 }
 
-pub async fn fetch(
+pub async fn query(
     AxumState(state): AxumState<State>,
-    Query(parameters): Query<DateRangeParameters>,
+    Query(parameters): Query<QueryParameters>,
 ) -> impl IntoResponse {
-    info!("Fetching equity data from S3 partitioned files");
+    info!("Querying equity data from S3 partitioned files");
 
-    match query_equity_bars_parquet_from_s3(&state, parameters.start_date, parameters.end_date)
-        .await
+    let tickers: Option<Vec<String>> = match &parameters.tickers {
+        Some(tickers_str) if !tickers_str.is_empty() => {
+            let vec: Vec<String> = tickers_str
+                .split(',')
+                .map(|s| s.trim().to_uppercase())
+                .collect();
+            if vec.is_empty() {
+                None
+            } else {
+                Some(vec)
+            }
+        }
+        _ => None,
+    };
+
+    match query_equity_bars_parquet_from_s3(
+        &state,
+        tickers,
+        parameters.start_timestamp,
+        parameters.end_timestamp,
+    )
+    .await
     {
         Ok(parquet_data) => {
             let mut response = Response::new(Body::from(parquet_data));
@@ -115,7 +136,7 @@ pub async fn sync(
         }
     };
 
-    let raw_text = match response.error_for_status() {
+    let text_content = match response.error_for_status() {
         Ok(response) => match response.text().await {
             Ok(text) => text,
             Err(err) => {
@@ -133,7 +154,7 @@ pub async fn sync(
         }
     };
 
-    let json_value: serde_json::Value = match serde_json::from_str(&raw_text) {
+    let json_content: serde_json::Value = match serde_json::from_str(&text_content) {
         Ok(value) => value,
         Err(err) => {
             info!("Failed to parse JSON response: {}", err);
@@ -145,7 +166,7 @@ pub async fn sync(
         }
     };
 
-    let results_array = match json_value.get("results") {
+    let results = match json_content.get("results") {
         Some(results) => results,
         None => {
             info!("No results field found in response");
@@ -157,25 +178,26 @@ pub async fn sync(
         }
     };
 
-    let bars: Vec<BarResult> = match serde_json::from_value(results_array.clone()) {
+    let bars: Vec<BarResult> = match serde_json::from_value(results.clone()) {
         Ok(bars) => bars,
         Err(err) => {
             info!("Failed to parse results into BarResult structs: {}", err);
-            return (StatusCode::BAD_GATEWAY, raw_text).into_response();
+            return (StatusCode::BAD_GATEWAY, text_content).into_response();
         }
     };
 
     let tickers: Vec<String> = bars.iter().map(|b| b.ticker.clone()).collect();
     let volumes: Vec<Option<u64>> = bars.iter().map(|b| b.v).collect();
-    let vw_prices: Vec<Option<f64>> = bars.iter().map(|b| b.vw.map(|vw| vw as f64)).collect();
+    let volume_weighted_average_prices: Vec<Option<f64>> =
+        bars.iter().map(|b| b.vw.map(|vw| vw as f64)).collect();
     let open_prices: Vec<Option<f64>> = bars.iter().map(|b| b.o.map(|o| o as f64)).collect();
     let close_prices: Vec<Option<f64>> = bars.iter().map(|b| b.c.map(|c| c as f64)).collect();
     let high_prices: Vec<Option<f64>> = bars.iter().map(|b| b.h.map(|h| h as f64)).collect();
     let low_prices: Vec<Option<f64>> = bars.iter().map(|b| b.l.map(|l| l as f64)).collect();
     let timestamps: Vec<i64> = bars.iter().map(|b| b.t as i64).collect();
-    let num_transactions: Vec<Option<u64>> = bars.iter().map(|b| b.n).collect();
+    let transactions: Vec<Option<u64>> = bars.iter().map(|b| b.n).collect();
 
-    let df_result = df! {
+    let bars_data = df! {
         "ticker" => tickers,
         "timestamp" => timestamps,
         "open_price" => open_prices,
@@ -183,32 +205,32 @@ pub async fn sync(
         "low_price" => low_prices,
         "close_price" => close_prices,
         "volume" => volumes,
-        "volume_weighted_average_price" => vw_prices,
-        "transactions" => num_transactions,
+        "volume_weighted_average_price" => volume_weighted_average_prices,
+        "transactions" => transactions,
     };
 
-    match df_result {
-        Ok(df) => {
+    match bars_data {
+        Ok(data) => {
             info!(
                 "Created DataFrame with {} rows and {} columns",
-                df.height(),
-                df.width()
+                data.height(),
+                data.width()
             );
-            debug!("DataFrame schema: {:?}", df.schema());
+            debug!("DataFrame schema: {:?}", data.schema());
 
-            match write_equity_bars_dataframe_to_s3(&state, &df, &payload.date).await {
+            match write_equity_bars_dataframe_to_s3(&state, &data, &payload.date).await {
                 Ok(s3_key) => {
                     info!("Successfully uploaded DataFrame to S3 at key: {}", s3_key);
-                    let response_msg = format!(
+                    let response_message = format!(
                         "DataFrame created with {} rows and uploaded to S3: {}",
-                        df.height(),
+                        data.height(),
                         s3_key
                     );
-                    (StatusCode::OK, response_msg).into_response()
+                    (StatusCode::OK, response_message).into_response()
                 }
                 Err(err) => {
                     info!("Failed to upload to S3: {}", err);
-                    let json_output = df.to_string();
+                    let json_output = data.to_string();
                     (
                         StatusCode::BAD_GATEWAY,
                         format!(
@@ -222,7 +244,7 @@ pub async fn sync(
         }
         Err(err) => {
             info!("Failed to create DataFrame: {}", err);
-            (StatusCode::INTERNAL_SERVER_ERROR, raw_text).into_response()
+            (StatusCode::INTERNAL_SERVER_ERROR, text_content).into_response()
         }
     }
 }

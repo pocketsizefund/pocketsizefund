@@ -1,6 +1,7 @@
 use crate::errors::Error;
 use polars::prelude::*;
 use serde::Deserialize;
+use std::io::Cursor;
 
 #[derive(Debug, Deserialize)]
 pub struct EquityBar {
@@ -87,6 +88,7 @@ pub struct Portfolio {
     pub timestamp: i64,
     pub side: String,
     pub dollar_amount: f64,
+    pub action: String,
 }
 
 pub fn create_portfolio_dataframe(portfolio_rows: Vec<Portfolio>) -> Result<DataFrame, Error> {
@@ -95,13 +97,57 @@ pub fn create_portfolio_dataframe(portfolio_rows: Vec<Portfolio>) -> Result<Data
         "timestamp" => portfolio_rows.iter().map(|p| p.timestamp).collect::<Vec<i64>>(),
         "side" => portfolio_rows.iter().map(|p| p.side.as_str()).collect::<Vec<&str>>(),
         "dollar_amount" => portfolio_rows.iter().map(|p| p.dollar_amount).collect::<Vec<f64>>(),
+        "action" => portfolio_rows.iter().map(|p| p.action.as_str()).collect::<Vec<&str>>(),
     )
     .map_err(|e| Error::Other(format!("Failed to create DataFrame: {}", e)))?;
 
     let portfolio_dataframe = portfolio_dataframe
         .lazy()
         .with_columns([col("ticker").str().to_uppercase().alias("ticker")])
+        .with_columns([col("side").str().to_uppercase().alias("side")])
+        .with_columns([col("action").str().to_uppercase().alias("action")])
         .collect()?;
 
     Ok(portfolio_dataframe)
+}
+
+pub fn create_equity_details_dataframe(csv_content: String) -> Result<DataFrame, Error> {
+    let cursor = Cursor::new(csv_content.as_bytes());
+    let mut dataframe = CsvReadOptions::default()
+        .with_has_header(true)
+        .into_reader_with_file_handle(cursor)
+        .finish()
+        .map_err(|e| Error::Other(format!("Failed to parse CSV: {}", e)))?;
+
+    let required_columns = vec!["sector", "industry"];
+    let column_names = dataframe.get_column_names();
+    for column in &required_columns {
+        if !column_names.iter().any(|c| c.as_str() == *column) {
+            let message = format!("CSV missing required column: {}", column);
+            return Err(Error::Other(message));
+        }
+    }
+
+    dataframe = dataframe
+        .select(required_columns)
+        .map_err(|e| Error::Other(format!("Failed to select columns: {}", e)))?;
+
+    let equity_details_dataframe = dataframe
+        .lazy()
+        .with_columns([
+            col("sector")
+                .str()
+                .to_uppercase()
+                .fill_null(lit("NOT AVAILABLE"))
+                .alias("sector"),
+            col("industry")
+                .str()
+                .to_uppercase()
+                .fill_null(lit("NOT AVAILABLE"))
+                .alias("industry"),
+        ])
+        .collect()
+        .map_err(|e| Error::Other(format!("Failed to transform columns: {}", e)))?;
+
+    Ok(equity_details_dataframe)
 }
