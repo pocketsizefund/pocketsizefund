@@ -78,7 +78,8 @@
         "pkg-path": "pulumiPackages.pulumi-python"
       },
       "ruff": {
-        "pkg-path": "ruff"
+        "pkg-path": "ruff",
+        "version": "0.14.7"
       },
       "rust-analyzer": {
         "pkg-path": "rust-analyzer",
@@ -931,6 +932,7 @@
       "unfree": false,
       "version": "2.31.39",
       "outputs_to_install": [
+        "out",
         "out"
       ],
       "outputs": {
@@ -1724,6 +1726,7 @@
       "version": "14.3.0",
       "outputs_to_install": [
         "man",
+        "out",
         "out"
       ],
       "outputs": {
@@ -1756,6 +1759,7 @@
       "version": "14.3.0",
       "outputs_to_install": [
         "man",
+        "out",
         "out"
       ],
       "outputs": {
@@ -2346,6 +2350,7 @@
       "version": "3.6.0",
       "outputs_to_install": [
         "bin",
+        "bin",
         "man"
       ],
       "outputs": {
@@ -2414,6 +2419,8 @@
       "unfree": false,
       "version": "3.6.0",
       "outputs_to_install": [
+        "bin",
+        "bin",
         "bin",
         "man"
       ],
