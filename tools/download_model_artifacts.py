@@ -10,13 +10,31 @@ logger = structlog.get_logger()
 
 def download_model_artifacts(
     application_name: str,
-    aws_profile: str,
     artifacts_bucket: str,
+    iam_development_role_arn: str,
 ) -> None:
     logger.info("Downloading model artifact", application_name=application_name)
 
-    session = boto3.Session(profile_name=aws_profile)
-    s3_client = session.client("s3")
+    try:
+        sts = boto3.client("sts")
+        assume_role_response = sts.assume_role(
+            RoleArn=iam_development_role_arn,
+            RoleSessionName="sagemaker-training-job-session",
+        )
+        credentials = assume_role_response["Credentials"]
+
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=credentials["AccessKeyId"],
+            aws_secret_access_key=credentials["SecretAccessKey"],
+            aws_session_token=credentials["SessionToken"],
+        )
+
+    except Exception as e:
+        logger.exception(
+            "Error assuming IAM role", role_arn=iam_development_role_arn, error=f"{e}"
+        )
+        raise RuntimeError from e
 
     try:
         file_objects = s3_client.list_objects_v2(
@@ -95,15 +113,19 @@ def download_model_artifacts(
 
 if __name__ == "__main__":
     application_name = os.getenv("APPLICATION_NAME", "")
-    aws_profile = os.getenv("AWS_PROFILE", "")
     artifacts_bucket = os.getenv("AWS_S3_ARTIFACTS_BUCKET_NAME", "")
+    iam_development_role_arn = os.getenv("AWS_IAM_DEVELOPMENT_ROLE_ARN", "")
 
     environment_variables = {
         "APPLICATION_NAME": application_name,
-        "AWS_PROFILE": aws_profile,
         "AWS_S3_ARTIFACTS_BUCKET_NAME": artifacts_bucket,
+        "AWS_IAM_DEVELOPMENT_ROLE_ARN": iam_development_role_arn,
     }
-    for environment_variable in [application_name, aws_profile, artifacts_bucket]:
+    for environment_variable in [
+        application_name,
+        artifacts_bucket,
+        iam_development_role_arn,
+    ]:
         if not environment_variable:
             logger.error(
                 "Missing required environment variable(s)",
@@ -114,8 +136,8 @@ if __name__ == "__main__":
     try:
         download_model_artifacts(
             application_name=application_name,
-            aws_profile=aws_profile,
             artifacts_bucket=artifacts_bucket,
+            iam_development_role_arn=iam_development_role_arn,
         )
     except Exception as e:
         logger.exception("Failed to download model artifacts", error=f"{e}")

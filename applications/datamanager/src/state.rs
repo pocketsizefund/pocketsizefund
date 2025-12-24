@@ -2,7 +2,7 @@ use aws_sdk_s3::Client as S3Client;
 use reqwest::Client as HTTPClient;
 
 #[derive(Clone)]
-pub struct PolygonSecrets {
+pub struct MassiveSecrets {
     pub base: String,
     pub key: String,
 }
@@ -10,7 +10,7 @@ pub struct PolygonSecrets {
 #[derive(Clone)]
 pub struct State {
     pub http_client: HTTPClient,
-    pub polygon: PolygonSecrets,
+    pub massive: MassiveSecrets,
     pub s3_client: S3Client,
     pub bucket_name: String,
 }
@@ -29,11 +29,11 @@ impl State {
 
         Self {
             http_client,
-            polygon: PolygonSecrets {
-                base: std::env::var("POLYGON_BASE_URL")
-                    .unwrap_or("https://api.polygon.io".to_string()),
-                key: std::env::var("POLYGON_API_KEY")
-                    .expect("POLYGON_API_KEY must be set in environment"),
+            massive: MassiveSecrets {
+                base: std::env::var("MASSIVE_BASE_URL")
+                    .unwrap_or("https://api.massive.io".to_string()),
+                key: std::env::var("MASSIVE_API_KEY")
+                    .expect("MASSIVE_API_KEY must be set in environment"),
             },
             s3_client,
             bucket_name,
