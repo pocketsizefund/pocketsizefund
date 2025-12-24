@@ -454,16 +454,9 @@ echo "Python development checks completed successfully"
 ```bash
 set -euo pipefail
 
-# Load environment variables in isolated subshell
-(
-    set -a
-    source "${MASKFILE_DIR}/.env"
-    set +a
+export APPLICATION_NAME="${application_name}"
 
-    export APPLICATION_NAME="${application_name}"
-
-    uv run python tools/run_training_job.py
-)
+uv run python tools/run_training_job.py
 ```
 
 ### artifacts
@@ -475,16 +468,8 @@ set -euo pipefail
 ```bash
 set -euo pipefail
 
-# Load environment variables in isolated subshell
-(
-    set -a
-    source "${MASKFILE_DIR}/.env"
-    set +a
+export APPLICATION_NAME="${application_name}"
 
-    export APPLICATION_NAME="${application_name}"
-
-    uv run python tools/download_model_artifacts.py
-)
+uv run python tools/download_model_artifacts.py
 ```
-
 

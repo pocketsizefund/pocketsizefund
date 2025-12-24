@@ -541,8 +541,8 @@ datamanager_task_definition = aws.ecs.TaskDefinition(
                             "valueFrom": f"{args[2]}:AWS_S3_DATA_BUCKET_NAME::",
                         },
                         {
-                            "name": "POLYGON_API_KEY",
-                            "valueFrom": f"{args[2]}:POLYGON_API_KEY::",
+                            "name": "MASSIVE_API_KEY",
+                            "valueFrom": f"{args[2]}:MASSIVE_API_KEY::",
                         },
                     ],
                     "logConfiguration": {

@@ -39,7 +39,7 @@ struct BarResult {
 
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
-struct PolygonResponse {
+struct MassiveResponse {
     adjusted: bool,
     #[serde(rename = "queryCount")]
     query_count: u64,
@@ -113,7 +113,7 @@ pub async fn sync(
     let date = payload.date.format("%Y-%m-%d").to_string();
     let url = format!(
         "{}/v2/aggs/grouped/locale/us/market/stocks/{}",
-        state.polygon.base, date
+        state.massive.base, date
     );
 
     info!("url: {}", url);
@@ -121,7 +121,7 @@ pub async fn sync(
         .http_client
         .get(url)
         .header("accept", "application/json")
-        .query(&[("adjusted", "true"), ("apiKey", state.polygon.key.as_str())])
+        .query(&[("adjusted", "true"), ("apiKey", state.massive.key.as_str())])
         .send()
         .await
     {

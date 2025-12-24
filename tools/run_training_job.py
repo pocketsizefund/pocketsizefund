@@ -12,17 +12,30 @@ logger = structlog.get_logger()
 
 def run_training_job(  # noqa: PLR0913
     application_name: str,
-    aws_profile: str,
-    image_uri: str,
+    trainer_image_uri: str,
     s3_data_path: str,
-    sagemaker_role: str,
-    output_path: str,
+    iam_sagemaker_role_arn: str,
+    s3_artifact_path: str,
+    iam_development_role_arn: str,
 ) -> None:
     logger.info("Starting training job", application_name=application_name)
 
     try:
-        session = boto3.Session(profile_name=aws_profile)
+        sts = boto3.client("sts")
+        assume_role_response = sts.assume_role(
+            RoleArn=iam_development_role_arn,
+            RoleSessionName="sagemaker-training-job-session",
+        )
+        credentials = assume_role_response["Credentials"]
+
+        session = boto3.Session(
+            aws_access_key_id=credentials["AccessKeyId"],
+            aws_secret_access_key=credentials["SecretAccessKey"],
+            aws_session_token=credentials["SessionToken"],
+        )
+
         sagemaker_session = Session(boto_session=session)
+
     except Exception as e:
         logger.exception(
             "Error creating SageMaker session",
@@ -32,12 +45,12 @@ def run_training_job(  # noqa: PLR0913
         raise RuntimeError from e
 
     estimator = Estimator(
-        image_uri=image_uri,
-        role=sagemaker_role,
+        image_uri=trainer_image_uri,
+        role=iam_sagemaker_role_arn,
         instance_count=1,
         instance_type="ml.t3.xlarge",
         sagemaker_session=sagemaker_session,
-        output_path=output_path,
+        output_path=s3_artifact_path,
     )
 
     training_data_input = TrainingInput(
@@ -59,19 +72,19 @@ def run_training_job(  # noqa: PLR0913
 
 if __name__ == "__main__":
     application_name = os.getenv("APPLICATION_NAME", "")
-    aws_profile = os.getenv("AWS_PROFILE", "")
-    image_uri = os.getenv("AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN", "")
+    trainer_image_uri = os.getenv("AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN", "")
     s3_data_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH", "")
-    sagemaker_role = os.getenv("AWS_SAGEMAKER_ROLE_ARN", "")
-    output_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH", "")
+    iam_sagemaker_role_arn = os.getenv("AWS_SAGEMAKER_ROLE_ARN", "")
+    s3_artifact_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH", "")
+    iam_development_role_arn = os.getenv("AWS_IAM_DEVELOPMENT_ROLE_ARN", "")
 
     environment_variables = {
         "APPLICATION_NAME": application_name,
-        "AWS_PROFILE": aws_profile,
-        "AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN": image_uri,
+        "AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN": trainer_image_uri,
         "AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH": s3_data_path,
-        "AWS_SAGEMAKER_ROLE_ARN": sagemaker_role,
-        "AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH": output_path,
+        "AWS_IAM_SAGEMAKER_ROLE_ARN": iam_sagemaker_role_arn,
+        "AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH": s3_artifact_path,
+        "AWS_IAM_DEVELOPMENT_ROLE_ARN": iam_development_role_arn,
     }
 
     missing_environment_variables = [
@@ -88,12 +101,13 @@ if __name__ == "__main__":
     try:
         run_training_job(
             application_name=application_name,
-            aws_profile=aws_profile,
-            image_uri=image_uri,
+            trainer_image_uri=trainer_image_uri,
             s3_data_path=s3_data_path,
-            sagemaker_role=sagemaker_role,
-            output_path=output_path,
+            iam_sagemaker_role_arn=iam_sagemaker_role_arn,
+            s3_artifact_path=s3_artifact_path,
+            iam_development_role_arn=iam_development_role_arn,
         )
+
     except Exception as e:
         logger.exception(
             "Training job failed",
