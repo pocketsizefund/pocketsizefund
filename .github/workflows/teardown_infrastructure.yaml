@@ -2,7 +2,7 @@
 name: Teardown infrastructure
 on:
   schedule:
-    - cron: 0 23 * * 1,2,3,4,5 # teardown at 6:00 PM EST
+    - cron: 0 23 * * 1-5
 jobs:
   teardown_infrastructure:
     name: Teardown infrastructure on weekday schedule
