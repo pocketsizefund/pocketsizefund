@@ -74,7 +74,7 @@ if __name__ == "__main__":
     application_name = os.getenv("APPLICATION_NAME", "")
     trainer_image_uri = os.getenv("AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN", "")
     s3_data_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH", "")
-    iam_sagemaker_role_arn = os.getenv("AWS_SAGEMAKER_ROLE_ARN", "")
+    iam_sagemaker_role_arn = os.getenv("AWS_IAM_SAGEMAKER_ROLE_ARN", "")
     s3_artifact_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH", "")
     iam_development_role_arn = os.getenv("AWS_IAM_DEVELOPMENT_ROLE_ARN", "")
 
