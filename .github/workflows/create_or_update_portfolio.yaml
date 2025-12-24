@@ -2,7 +2,7 @@
 name: Create or update portfolio
 on:
   schedule:
-    - cron: 0 15 * * 1-5 # launch at 15:00 UTC (10:00 AM EST / 11:00 AM EDT) on weekdays
+    - cron: 0 15 * * 1-5
 jobs:
   create_or_update_portfolio:
     name: Create or update portfolio on weekday schedule
