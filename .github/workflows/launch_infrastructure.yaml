@@ -25,10 +25,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
-      - name: Debug OIDC token # TEMPORARY
-        run: echo $ACTIONS_ID_TOKEN_REQUEST_TOKEN | cut -d "." -f 2 - | base64 -d | jq .sub
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ steps.request-token.outputs.id-token }}
       - name: Install Flox
         uses: flox/install-flox-action@v2
       - name: Build data manager image
