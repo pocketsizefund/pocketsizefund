@@ -36,6 +36,9 @@ jobs:
       - name: Conditionally download artifacts
         if: ${{ matrix.service == 'equitypricemodel' }}
         uses: flox/activate-action@v1
+        env:
+          AWS_IAM_DEVELOPMENT_ROLE_ARN: ${{ secrets.AWS_IAM_DEVELOPMENT_ROLE_ARN }}
+          AWS_S3_ARTIFACTS_BUCKET_NAME: ${{ secrets.AWS_S3_ARTIFACTS_BUCKET_NAME }}
         with:
           command: mask models artifacts download equitypricemodel
       - name: Build ${{ matrix.service }} image
