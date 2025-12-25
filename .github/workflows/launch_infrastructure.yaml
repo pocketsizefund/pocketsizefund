@@ -33,6 +33,11 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
       - name: Install Flox
         uses: flox/install-flox-action@v2
+      - name: Conditionally download artifacts
+        if: ${{ matrix.service == 'equitypricemodel' }}
+        uses: flox/activate-action@v1
+        with:
+          command: mask models artifacts download equitypricemodel
       - name: Build ${{ matrix.service }} image
         uses: flox/activate-action@v1
         with:

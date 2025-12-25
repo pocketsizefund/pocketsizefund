@@ -44,7 +44,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 COPY --from=builder /app /app
 
-# pre-downloaded model artifacts to local for image building
+# pre-downloaded model artifacts for image building
 
 COPY applications/equitypricemodel/src/equitypricemodel/tide_states.safetensor /app/tide_states.safetensor
 
