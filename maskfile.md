@@ -110,7 +110,16 @@ cd infrastructure/
 
 echo "Launching infrastructure"
 
-pulumi up --diff --yes --stack production
+organization_name=$(pulumi whoami)
+
+if [ -z "${organization_name}" ]; then
+    echo "Unable to determine Pulumi organization name - ensure you are logged in"
+    exit 1
+fi
+
+pulumi stack select ${organization_name}/pocketsizefund/production --create
+
+pulumi up --diff --yes
 
 echo "Forcing ECS service deployments to pull latest images"
 
