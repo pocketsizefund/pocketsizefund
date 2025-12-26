@@ -1,11 +1,9 @@
 ---
 name: Sync data
 on:
-  workflow_run:
-    workflows:
-      - Launch infrastructure
+  repository_dispatch:
     types:
-      - completed
+      - sync-data-after-scheduled-launch-infrastructure
 jobs:
   fetch_data:
     name: Sync data on weekday schedule

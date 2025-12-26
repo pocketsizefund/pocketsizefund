@@ -72,3 +72,14 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         with:
           command: mask infrastructure stack up
+  trigger_sync:
+    name: Trigger sync data workflow
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Trigger sync data workflow
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          event-type: sync-data-after-scheduled-launch-infrastructure
