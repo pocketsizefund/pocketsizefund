@@ -10,30 +10,17 @@ from sagemaker.session import Session
 logger = structlog.get_logger()
 
 
-def run_training_job(  # noqa: PLR0913
+def run_training_job(
     application_name: str,
     trainer_image_uri: str,
     s3_data_path: str,
     iam_sagemaker_role_arn: str,
     s3_artifact_path: str,
-    iam_development_role_arn: str,
 ) -> None:
     logger.info("Starting training job", application_name=application_name)
 
     try:
-        sts = boto3.client("sts")
-        assume_role_response = sts.assume_role(
-            RoleArn=iam_development_role_arn,
-            RoleSessionName="sagemaker-training-job-session",
-        )
-        credentials = assume_role_response["Credentials"]
-
-        session = boto3.Session(
-            aws_access_key_id=credentials["AccessKeyId"],
-            aws_secret_access_key=credentials["SecretAccessKey"],
-            aws_session_token=credentials["SessionToken"],
-        )
-
+        session = boto3.Session()
         sagemaker_session = Session(boto_session=session)
 
     except Exception as e:
@@ -76,7 +63,6 @@ if __name__ == "__main__":
     s3_data_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH", "")
     iam_sagemaker_role_arn = os.getenv("AWS_IAM_SAGEMAKER_ROLE_ARN", "")
     s3_artifact_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH", "")
-    iam_development_role_arn = os.getenv("AWS_IAM_DEVELOPMENT_ROLE_ARN", "")
 
     environment_variables = {
         "APPLICATION_NAME": application_name,
@@ -84,7 +70,6 @@ if __name__ == "__main__":
         "AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH": s3_data_path,
         "AWS_IAM_SAGEMAKER_ROLE_ARN": iam_sagemaker_role_arn,
         "AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH": s3_artifact_path,
-        "AWS_IAM_DEVELOPMENT_ROLE_ARN": iam_development_role_arn,
     }
 
     missing_environment_variables = [
@@ -105,7 +90,6 @@ if __name__ == "__main__":
             s3_data_path=s3_data_path,
             iam_sagemaker_role_arn=iam_sagemaker_role_arn,
             s3_artifact_path=s3_artifact_path,
-            iam_development_role_arn=iam_development_role_arn,
         )
 
     except Exception as e:
