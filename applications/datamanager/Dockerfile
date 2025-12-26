@@ -26,11 +26,16 @@ FROM chef AS builder
 
 COPY --from=planner /app/recipe.json recipe.json
 
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo chef cook --release --recipe-path recipe.json
 
 COPY applications/datamanager/src/ applications/datamanager/src/
 
-RUN cargo build --release --bin datamanager
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --bin datamanager && \
+    cp /app/target/release/datamanager /tmp/datamanager
 
 FROM debian:bullseye-slim AS server 
 
@@ -45,7 +50,7 @@ ENV SSL_CERT_DIR=/etc/ssl/certs
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/datamanager /usr/local/bin
+COPY --from=builder /tmp/datamanager /usr/local/bin/datamanager
 
 EXPOSE 8080
 
