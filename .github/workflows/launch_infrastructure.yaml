@@ -79,9 +79,9 @@ jobs:
           push: true
           tags: |
             pocketsizefund/${{ matrix.service }}-server:latest
-            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.{{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:latest
-          cache-from: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.{{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:buildcache
-          cache-to: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.{{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:buildcache,mode=max
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:latest
+          cache-from: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:buildcache
+          cache-to: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:buildcache,mode=max
   deploy:
     name: Deploy with Pulumi
     needs: build_and_push
