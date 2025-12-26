@@ -110,6 +110,10 @@ cd infrastructure/
 
 echo "Launching infrastructure"
 
+organization_name=$(pulumi whoami)
+
+pulumi stack select ${organization_name}/pocketsizefund/production --create
+
 pulumi up --diff --yes --stack production
 
 echo "Forcing ECS service deployments to pull latest images"
