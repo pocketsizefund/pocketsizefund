@@ -1,8 +1,9 @@
 ---
 name: Sync data
 on:
-  schedule:
-    - cron: 0 10 * * 1-5
+  repository_dispatch:
+    types:
+      - sync-data-after-scheduled-launch-infrastructure
 jobs:
   fetch_data:
     name: Sync data on weekday schedule
