@@ -8,7 +8,7 @@ import structlog
 logger = structlog.get_logger()
 
 
-def download_model_artifacts(
+def download_model_artifacts(  # noqa: C901, PLR0915
     application_name: str,
     artifacts_bucket: str,
     github_actions_check: bool,  # noqa: FBT001
@@ -55,11 +55,11 @@ def download_model_artifacts(
             }
         )
 
-    if not options:
-        logger.error("No artifacts found", application_name=application_name)
-        raise RuntimeError
-
     if github_actions_check:
+        if not file_objects_with_timestamps:
+            logger.error("No artifacts found", application_name=application_name)
+            raise RuntimeError
+
         latest_artifact = max(
             file_objects_with_timestamps, key=lambda x: x["last_modified"]
         )
@@ -70,6 +70,10 @@ def download_model_artifacts(
         )
 
     else:
+        if not options:
+            logger.error("No artifacts found", application_name=application_name)
+            raise RuntimeError
+
         logger.info("Available artifacts", options=options)
 
         selected_option = input("Select an artifact to download: ")
