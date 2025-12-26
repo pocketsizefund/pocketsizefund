@@ -2,7 +2,7 @@
 name: Launch infrastructure
 on:
   schedule:
-    - cron: 0 13 * * 1-5
+    - cron: 0 12 * * 1-5
   push:
     branches:
       - master

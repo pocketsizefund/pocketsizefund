@@ -36,6 +36,7 @@ def download_model_artifacts(
         raise RuntimeError from e
 
     options = set()
+    file_objects_with_timestamps = []
 
     for file_object in file_objects.get("Contents", []):
         file_object_name = file_object["Key"]
@@ -47,13 +48,22 @@ def download_model_artifacts(
             continue
 
         options.add(file_object_name_parts[1])
+        file_objects_with_timestamps.append(
+            {
+                "name": file_object_name_parts[1],
+                "last_modified": file_object["LastModified"],
+            }
+        )
 
     if not options:
         logger.error("No artifacts found", application_name=application_name)
         raise RuntimeError
 
     if github_actions_check:
-        selected_option = sorted(options)[-1]
+        latest_artifact = max(
+            file_objects_with_timestamps, key=lambda x: x["last_modified"]
+        )
+        selected_option = latest_artifact["name"]
         logger.info(
             "GitHub Actions detected, selecting latest artifact",
             selected_option=selected_option,

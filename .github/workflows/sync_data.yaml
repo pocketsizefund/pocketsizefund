@@ -1,8 +1,11 @@
 ---
 name: Sync data
 on:
-  schedule:
-    - cron: 0 10 * * 1-5
+  workflow_run:
+    workflows:
+      - Launch infrastructure
+    types:
+      - completed
 jobs:
   fetch_data:
     name: Sync data on weekday schedule
