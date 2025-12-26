@@ -75,6 +75,7 @@ jobs:
   trigger_sync:
     name: Trigger sync data workflow
     needs: deploy
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     permissions:
       contents: write
