@@ -10,7 +10,7 @@ COPY applications/equitypricemodel/ applications/equitypricemodel/
 
 COPY libraries/python/ libraries/python/
 
-RUN uv sync --no-dev --no-cache 
+RUN uv sync --no-dev 
 
 FROM python:3.12.10-slim AS trainer
 
