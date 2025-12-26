@@ -11,6 +11,7 @@ logger = structlog.get_logger()
 def download_model_artifacts(
     application_name: str,
     artifacts_bucket: str,
+    github_actions_check: bool,  # noqa: FBT001
 ) -> None:
     logger.info("Downloading model artifact", application_name=application_name)
 
@@ -51,17 +52,25 @@ def download_model_artifacts(
         logger.error("No artifacts found", application_name=application_name)
         raise RuntimeError
 
-    logger.info("Available artifacts", options=options)
-
-    selected_option = input("Select an artifact to download: ")
-
-    if selected_option not in options:
-        logger.error(
-            "Invalid selection",
+    if github_actions_check:
+        selected_option = sorted(options)[-1]
+        logger.info(
+            "GitHub Actions detected, selecting latest artifact",
             selected_option=selected_option,
-            valid_options=options,
         )
-        raise RuntimeError
+
+    else:
+        logger.info("Available artifacts", options=options)
+
+        selected_option = input("Select an artifact to download: ")
+
+        if selected_option not in options:
+            logger.error(
+                "Invalid selection",
+                selected_option=selected_option,
+                valid_options=options,
+            )
+            raise RuntimeError
 
     logger.info("Selected artifact", selected_option=selected_option)
 
@@ -103,6 +112,7 @@ def download_model_artifacts(
 if __name__ == "__main__":
     application_name = os.getenv("APPLICATION_NAME", "")
     artifacts_bucket = os.getenv("AWS_S3_ARTIFACTS_BUCKET_NAME", "")
+    github_actions_check = os.getenv("GITHUB_ACTIONS", "false").lower() == "true"
 
     environment_variables = {
         "APPLICATION_NAME": application_name,
@@ -123,6 +133,7 @@ if __name__ == "__main__":
         download_model_artifacts(
             application_name=application_name,
             artifacts_bucket=artifacts_bucket,
+            github_actions_check=github_actions_check,
         )
     except Exception as e:
         logger.exception("Failed to download model artifacts", error=f"{e}")
