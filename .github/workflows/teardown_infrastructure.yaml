@@ -9,6 +9,9 @@ jobs:
     name: Teardown infrastructure on weekday schedule
     runs-on: ubuntu-latest
     environment: pulumi
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
