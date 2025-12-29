@@ -67,7 +67,6 @@ docker build \
     --platform linux/amd64 \
     --target ${stage_name} \
     --file applications/${application_name}/Dockerfile \
-    --tag pocketsizefund/${application_name}-${stage_name}:latest \
     --tag ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest \
     .
 
