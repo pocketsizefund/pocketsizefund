@@ -48,13 +48,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_IAM_INFRASTRUCTURE_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
-      - name: Login to Amazon ECR
-        if: steps.changes.outputs.service == 'true' || github.event_name == 'schedule'
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      - name: Set up Docker Buildx
-        if: steps.changes.outputs.service == 'true' || github.event_name == 'schedule'
-        uses: docker/setup-buildx-action@v3
       - name: Install Flox
         if: steps.changes.outputs.service == 'true' || github.event_name == 'schedule'
         uses: flox/install-flox-action@v2
@@ -65,24 +58,16 @@ jobs:
           AWS_S3_ARTIFACTS_BUCKET_NAME: ${{ secrets.AWS_S3_ARTIFACTS_BUCKET_NAME }}
         with:
           command: mask models artifacts download equitypricemodel
-      - name: Get AWS Account ID
+      - name: Build ${{ matrix.service }} image
         if: steps.changes.outputs.service == 'true' || github.event_name == 'schedule'
-        id: aws-account
-        run: echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_OUTPUT
-      - name: Build and push ${{ matrix.service }} image
-        if: steps.changes.outputs.service == 'true' || github.event_name == 'schedule'
-        uses: docker/build-push-action@v5
+        uses: flox/activate-action@v1
         with:
-          context: .
-          file: applications/${{ matrix.service }}/Dockerfile
-          target: server
-          platforms: linux/amd64
-          push: true
-          tags: |
-            pocketsizefund/${{ matrix.service }}-server:latest
-            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:latest
-          cache-from: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:buildcache
-          cache-to: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/pocketsizefund/${{ matrix.service }}-server:buildcache,mode=max
+          command: mask infrastructure images build ${{ matrix.service }} server
+      - name: Push ${{ matrix.service }} image
+        if: steps.changes.outputs.service == 'true' || github.event_name == 'schedule'
+        uses: flox/activate-action@v1
+        with:
+          command: mask infrastructure images push ${{ matrix.service }} server
   deploy:
     name: Deploy with Pulumi
     needs: build_and_push
