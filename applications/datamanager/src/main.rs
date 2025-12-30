@@ -23,7 +23,7 @@ async fn main() {
         .init();
 
     let app = create_app().await;
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:9000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
     if let Err(e) = axum::serve(listener, app).await {
         tracing::error!("Server error: {}", e);
