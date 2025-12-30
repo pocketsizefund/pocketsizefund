@@ -211,7 +211,7 @@ cd infrastructure/
 BASE_URL=$(pulumi stack output psf_base_url --stack production 2>/dev/null || echo "")
 
 if [ -z "$BASE_URL" ]; then
-    echo "Error: psf_base_url not found - infrastructure might not be deployed"
+    echo "psf_base_url not found - infrastructure might not be deployed"
     exit 1
 fi
 

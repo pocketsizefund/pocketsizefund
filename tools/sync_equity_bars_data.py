@@ -56,7 +56,7 @@ def validate_and_parse_dates(date_range_json: str) -> tuple[datetime, datetime]:
     return start_date, end_date
 
 
-def sync_equity_bars_for_date(base_url: str, date: datetime) -> int:
+def sync_equity_bars_for_date(base_url: str, date: datetime) -> tuple[int, str]:
     url = f"{base_url}/equity-bars"
     date_string = date.strftime("%Y-%m-%dT00:00:00Z")
 
@@ -67,7 +67,7 @@ def sync_equity_bars_for_date(base_url: str, date: datetime) -> int:
         timeout=60,
     )
 
-    return response.status_code
+    return response.status_code, response.text
 
 
 def sync_equity_bars_data(
@@ -96,11 +96,22 @@ def sync_equity_bars_data(
         )
 
         try:
-            status_code = sync_equity_bars_for_date(base_url, current_date)
-            logger.info("Syncing data completed", status_code=status_code)
+            status_code, response_text = sync_equity_bars_for_date(
+                base_url,
+                current_date,
+            )
+            logger.info(
+                "Syncing data completed",
+                status_code=status_code,
+                response=response_text,
+            )
 
             if status_code >= 400:  # noqa: PLR2004
-                logger.error("Syncing data failed", status_code=status_code)
+                logger.error(
+                    "Syncing data failed",
+                    status_code=status_code,
+                    response=response_text,
+                )
         except requests.RequestException as e:
             logger.exception("HTTP request failed", error=f"{e}")
 
