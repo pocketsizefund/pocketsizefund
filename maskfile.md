@@ -63,16 +63,21 @@ echo "Building application image"
 
 aws_account_id=$(aws sts get-caller-identity --query Account --output text)
 aws_region=${AWS_REGION}
+if [ -z "$aws_region" ]; then
+    echo "Error: AWS_REGION environment variable is not set"
+    exit 1
+fi
+
 image_reference="${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/pocketsizefund/${application_name}-${stage_name}"
 cache_reference="${image_reference}:buildcache"
 
 echo "Setting up Docker Buildx"
-docker buildx create --use --name psf-builder 2>/dev/null || docker buildx use psf-builder || docker buildx use default
+docker buildx create --use --name psf-builder 2>/dev/null || docker buildx use psf-builder || (echo "Using default buildx builder" && docker buildx use default)
 
 echo "Logging into ECR (to pull cache if available)"
 aws ecr get-login-password --region ${aws_region} | docker login \
     --username AWS \
-    --password-stdin ${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com 2>/dev/null || true
+    --password-stdin ${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com 2>/dev/null || echo "Could not authenticate to ECR for cache (will build without cache)"
 
 echo "Building with caching (will continue if cache doesn't exist)"
 docker buildx build \
@@ -99,6 +104,11 @@ echo "Pushing application image to ECR"
 
 aws_account_id=$(aws sts get-caller-identity --query Account --output text)
 aws_region=${AWS_REGION}
+if [ -z "$aws_region" ]; then
+    echo "Error: AWS_REGION environment variable is not set"
+    exit 1
+fi
+
 image_reference="${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/pocketsizefund/${application_name}-${stage_name}"
 
 echo "Logging into ECR"
