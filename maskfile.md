@@ -54,23 +54,43 @@ echo "Development environment setup completed successfully"
 
 #### build (application_name) (stage_name)
 
-> Build application Docker images
+> Build application Docker images with optional cache pull
 
 ```bash
 set -euo pipefail
 
-echo "Building application image locally"
+echo "Building application image"
 
 aws_account_id=$(aws sts get-caller-identity --query Account --output text)
+aws_region=${AWS_REGION}
+if [ -z "$aws_region" ]; then
+    echo "Error: AWS_REGION environment variable is not set"
+    exit 1
+fi
 
-docker build \
+image_reference="${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/pocketsizefund/${application_name}-${stage_name}"
+cache_reference="${image_reference}:buildcache"
+
+echo "Setting up Docker Buildx"
+docker buildx create --use --name psf-builder 2>/dev/null || docker buildx use psf-builder || (echo "Using default buildx builder" && docker buildx use default)
+
+echo "Logging into ECR (to pull cache if available)"
+aws ecr get-login-password --region ${aws_region} | docker login \
+    --username AWS \
+    --password-stdin ${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com 2>/dev/null || echo "Could not authenticate to ECR for cache (will build without cache)"
+
+echo "Building with caching (will continue if cache doesn't exist)"
+docker buildx build \
     --platform linux/amd64 \
     --target ${stage_name} \
     --file applications/${application_name}/Dockerfile \
-    --tag ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest \
+    --tag ${image_reference}:latest \
+    --cache-from type=registry,ref=${cache_reference} \
+    --cache-to type=registry,ref=${cache_reference},mode=max \
+    --load \
     .
 
-echo "Application image built: ${application_name} ${stage_name}"
+echo "Application image built locally: ${application_name} ${stage_name}"
 ```
 
 #### push (application_name) (stage_name)
@@ -83,13 +103,21 @@ set -euo pipefail
 echo "Pushing application image to ECR"
 
 aws_account_id=$(aws sts get-caller-identity --query Account --output text)
+aws_region=${AWS_REGION}
+if [ -z "$aws_region" ]; then
+    echo "Error: AWS_REGION environment variable is not set"
+    exit 1
+fi
 
-aws ecr get-login-password \
-    --region us-east-1 | docker login \
+image_reference="${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/pocketsizefund/${application_name}-${stage_name}"
+
+echo "Logging into ECR"
+aws ecr get-login-password --region ${aws_region} | docker login \
     --username AWS \
-    --password-stdin ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com
+    --password-stdin ${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com
 
-docker push ${aws_account_id}.dkr.ecr.us-east-1.amazonaws.com/pocketsizefund/${application_name}-${stage_name}:latest
+echo "Pushing image"
+docker push ${image_reference}:latest
 
 echo "Application image pushed: ${application_name} ${stage_name}"
 ```
@@ -122,56 +150,56 @@ pulumi up --diff --yes
 
 echo "Forcing ECS service deployments to pull latest images"
 
-CLUSTER=$(pulumi stack output aws_ecs_cluster_name --stack production 2>/dev/null || echo "")
+cluster=$(pulumi stack output aws_ecs_cluster_name --stack production 2>/dev/null || echo "")
 
-if [ -z "$CLUSTER" ]; then
+if [ -z "$cluster" ]; then
     echo "Cluster not found - skipping service deployments (initial setup)"
 else
-    for SERVICE in pocketsizefund-datamanager pocketsizefund-portfoliomanager pocketsizefund-equitypricemodel; do
-        echo "Checking if $SERVICE exists and is ready"
+    for service in pocketsizefund-datamanager pocketsizefund-portfoliomanager pocketsizefund-equitypricemodel; do
+        echo "Checking if $service exists and is ready"
 
         # Wait up to 60 seconds for service to be active
-        RETRY_COUNT=0
-        MAX_RETRIES=12
-        RETRY_WAIT_SECONDS=5
-        SERVICE_READY=false
+        retry_count=0
+        maximum_retries=12
+        retry_wait_seconds=5
+        service_is_ready=false
 
-        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            SERVICE_STATUS=$(aws ecs describe-services \
-                --cluster "$CLUSTER" \
-                --services "$SERVICE" \
+        while [ $retry_count -lt $maximum_retries ]; do
+            service_status=$(aws ecs describe-services \
+                --cluster "$cluster" \
+                --services "$service" \
                 --query 'services[0].status' \
                 --output text 2>/dev/null || echo "NONE")
 
-            if [ "$SERVICE_STATUS" = "ACTIVE" ]; then
-                SERVICE_READY=true
-                echo "Service $SERVICE is ACTIVE"
+            if [ "$service_status" = "ACTIVE" ]; then
+                service_is_ready=true
+                echo "Service $service is ACTIVE"
                 break
-            elif [ "$SERVICE_STATUS" = "NONE" ]; then
-                echo "Service not found, waiting ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
+            elif [ "$service_status" = "NONE" ]; then
+                echo "Service not found, waiting ($((retry_count + 1))/$maximum_retries)"
             else
-                echo "Service status: $SERVICE_STATUS, waiting ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
+                echo "Service status: $service_status, waiting ($((retry_count + 1))/$maximum_retries)"
             fi
 
-            sleep $RETRY_WAIT_SECONDS
-            RETRY_COUNT=$((RETRY_COUNT + 1))
+            sleep $retry_wait_seconds
+            retry_count=$((retry_count + 1))
         done
 
-        if [ "$SERVICE_READY" = true ]; then
-            echo "Forcing new deployment for $SERVICE"
+        if [ "$service_is_ready" = true ]; then
+            echo "Forcing new deployment for $service"
             aws ecs update-service \
-                --cluster "$CLUSTER" \
-                --service "$SERVICE" \
+                --cluster "$cluster" \
+                --service "$service" \
                 --force-new-deployment \
                 --no-cli-pager \
                 --output text > /dev/null 2>&1 && echo "Deployment initiated" || echo "Failed to force deployment"
         else
-            echo "Skipping $SERVICE (not ready after 60s - may be initial deployment)"
+            echo "Skipping $service (not ready after 60s - may be initial deployment)"
         fi
     done
 
     echo "Stack update complete - ECS is performing rolling deployments"
-    echo "Monitor progress: aws ecs describe-services --cluster $CLUSTER --services pocketsizefund-portfoliomanager"
+    echo "Monitor progress: aws ecs describe-services --cluster $cluster --services pocketsizefund-portfoliomanager"
 fi
 
 echo "Infrastructure launched successfully"
@@ -208,19 +236,19 @@ echo "Invoking ${application_name} service"
 
 cd infrastructure/
 
-BASE_URL=$(pulumi stack output psf_base_url --stack production 2>/dev/null || echo "")
+base_url=$(pulumi stack output psf_base_url --stack production 2>/dev/null || echo "")
 
-if [ -z "$BASE_URL" ]; then
+if [ -z "$base_url" ]; then
     echo "psf_base_url not found - infrastructure might not be deployed"
     exit 1
 fi
 
 case "$application_name" in
     portfoliomanager)
-        FULL_URL="${BASE_URL}/portfolio"
-        echo "Creating portfolio: $FULL_URL"
+        full_url="${base_url}/portfolio"
+        echo "Creating portfolio: $full_url"
 
-        curl -X POST "$FULL_URL" \
+        curl -X POST "$full_url" \
             -H "Content-Type: application/json" \
             -w "\nHTTP Status: %{http_code}\n" \
             -s
@@ -229,15 +257,15 @@ case "$application_name" in
     datamanager)
         if [ -n "${date_range:-}" ]; then
             cd "${MASKFILE_DIR}"
-            uv run python tools/sync_equity_bars_data.py "$BASE_URL" "$date_range"
+            uv run python tools/sync_equity_bars_data.py "$base_url" "$date_range"
         else
-            CURRENT_DATE=$(date -u +"%Y-%m-%dT00:00:00Z")
-            FULL_URL="${BASE_URL}/equity-bars"
-            echo "Syncing equity bars: $FULL_URL"
+            current_date=$(date -u +"%Y-%m-%dT00:00:00Z")
+            full_url="${base_url}/equity-bars"
+            echo "Syncing equity bars: $full_url"
 
-            curl -X POST "$FULL_URL" \
+            curl -X POST "$full_url" \
                 -H "Content-Type: application/json" \
-                -d "{\"date\": \"$CURRENT_DATE\"}" \
+                -d "{\"date\": \"$current_date\"}" \
                 -w "\nHTTP Status: %{http_code}\n" \
                 -s
         fi
@@ -417,7 +445,7 @@ echo "Python linting completed successfully"
 
 #### test
 
-> Run Python tests using Docker Compose with coverage reporting
+> Run Python tests using coverage reporting
 
 ```bash
 set -euo pipefail
