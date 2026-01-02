@@ -113,13 +113,13 @@ aws.ec2.RouteTableAssociation(
     route_table_id=public_route_table.id,
 )
 
-# NAT Gateway for private subnets
 eip = aws.ec2.Eip(
     "nat_elastic_ip",
     domain="vpc",
     tags=tags,
 )
 
+# NAT Gateway in public subnet for private subnet outbound traffic
 nat = aws.ec2.NatGateway(
     "nat_gateway",
     subnet_id=public_subnet_1.id,
@@ -227,6 +227,60 @@ aws.ec2.SecurityGroupRule(
     to_port=0,
     cidr_blocks=["0.0.0.0/0"],
     description="Allow all outbound",
+)
+
+# VPC Endpoints Security Group
+vpc_endpoints_security_group = aws.ec2.SecurityGroup(
+    "vpc_endpoints_sg",
+    name="pocketsizefund-vpc-endpoints",
+    vpc_id=vpc.id,
+    description="Security group for VPC endpoints",
+    tags=tags,
+)
+
+aws.ec2.SecurityGroupRule(
+    "vpc_endpoints_ingress",
+    type="ingress",
+    security_group_id=vpc_endpoints_security_group.id,
+    source_security_group_id=ecs_security_group.id,
+    protocol="tcp",
+    from_port=443,
+    to_port=443,
+    description="Allow HTTPS from ECS tasks",
+)
+
+# S3 Gateway Endpoint
+s3_gateway_endpoint = aws.ec2.VpcEndpoint(
+    "s3_gateway_endpoint",
+    vpc_id=vpc.id,
+    service_name=pulumi.Output.concat("com.amazonaws.", region, ".s3"),
+    vpc_endpoint_type="Gateway",
+    route_table_ids=[private_route_table.id],
+    tags=tags,
+)
+
+# ECR API Interface Endpoint
+ecr_api_endpoint = aws.ec2.VpcEndpoint(
+    "ecr_api_endpoint",
+    vpc_id=vpc.id,
+    service_name=pulumi.Output.concat("com.amazonaws.", region, ".ecr.api"),
+    vpc_endpoint_type="Interface",
+    subnet_ids=[private_subnet_1.id, private_subnet_2.id],
+    security_group_ids=[vpc_endpoints_security_group.id],
+    private_dns_enabled=True,
+    tags=tags,
+)
+
+# ECR DKR Interface Endpoint
+ecr_dkr_endpoint = aws.ec2.VpcEndpoint(
+    "ecr_dkr_endpoint",
+    vpc_id=vpc.id,
+    service_name=pulumi.Output.concat("com.amazonaws.", region, ".ecr.dkr"),
+    vpc_endpoint_type="Interface",
+    subnet_ids=[private_subnet_1.id, private_subnet_2.id],
+    security_group_ids=[vpc_endpoints_security_group.id],
+    private_dns_enabled=True,
+    tags=tags,
 )
 
 cluster = aws.ecs.Cluster(
