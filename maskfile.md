@@ -248,10 +248,17 @@ case "$application_name" in
         full_url="${base_url}/portfolio"
         echo "Creating portfolio: $full_url"
 
-        curl -X POST "$full_url" \
+        http_code=$(curl -X POST "$full_url" \
             -H "Content-Type: application/json" \
-            -w "\nHTTP Status: %{http_code}\n" \
-            -s
+            -w "%{http_code}" \
+            -s -o /dev/stderr)
+
+        echo "HTTP Status: $http_code"
+
+        if [ "$http_code" != "200" ]; then
+            echo "Expected status code 200, received $http_code"
+            exit 1
+        fi
         ;;
 
     datamanager)

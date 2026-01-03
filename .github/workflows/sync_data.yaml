@@ -3,7 +3,7 @@ name: Sync data
 on:
   repository_dispatch:
     types:
-      - sync-data-after-scheduled-launch-infrastructure
+      - Sync data
 jobs:
   fetch_data:
     name: Sync data on weekday schedule

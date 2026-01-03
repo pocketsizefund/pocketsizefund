@@ -103,4 +103,4 @@ jobs:
       - name: Trigger sync data workflow
         uses: peter-evans/repository-dispatch@v4
         with:
-          event-type: sync-data-after-scheduled-launch-infrastructure
+          event-type: Sync data
