@@ -1,5 +1,6 @@
 ---
 name: Sync data
+run-name: Sync data
 on:
   repository_dispatch:
     types:

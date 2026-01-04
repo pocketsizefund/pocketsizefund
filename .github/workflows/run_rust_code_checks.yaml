@@ -1,5 +1,6 @@
 ---
 name: Rust code checks
+run-name: Rust code checks
 on:
   pull_request:
 jobs:
