@@ -1,5 +1,6 @@
 ---
 name: Launch infrastructure
+run-name: Launch infrastructure
 on:
   schedule:
     - cron: 0 12 * * 1-5
@@ -103,4 +104,4 @@ jobs:
       - name: Trigger sync data workflow
         uses: peter-evans/repository-dispatch@v4
         with:
-          event-type: Sync data
+          event-type: sync-data-after-scheduled-launch-infrastructure

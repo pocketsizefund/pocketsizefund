@@ -1,5 +1,6 @@
 ---
 name: Python code checks
+run-name: Python code checks
 on:
   pull_request:
 jobs:

@@ -1,5 +1,6 @@
 ---
 name: Create or update portfolio
+run-name: Create or update portfolio
 on:
   schedule:
     - cron: 0 15 * * 1-5
