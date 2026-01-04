@@ -64,7 +64,7 @@ echo "Building application image"
 aws_account_id=$(aws sts get-caller-identity --query Account --output text)
 aws_region=${AWS_REGION}
 if [ -z "$aws_region" ]; then
-    echo "Error: AWS_REGION environment variable is not set"
+    echo "AWS_REGION environment variable is not set"
     exit 1
 fi
 
@@ -90,7 +90,7 @@ docker buildx build \
     --load \
     .
 
-echo "Application image built locally: ${application_name} ${stage_name}"
+echo "Application image built: ${application_name} ${stage_name}"
 ```
 
 #### push (application_name) (stage_name)
@@ -105,7 +105,7 @@ echo "Pushing application image to ECR"
 aws_account_id=$(aws sts get-caller-identity --query Account --output text)
 aws_region=${AWS_REGION}
 if [ -z "$aws_region" ]; then
-    echo "Error: AWS_REGION environment variable is not set"
+    echo "AWS_REGION environment variable is not set"
     exit 1
 fi
 
