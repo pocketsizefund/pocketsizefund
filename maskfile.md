@@ -71,6 +71,17 @@ fi
 image_reference="${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/pocketsizefund/${application_name}-${stage_name}"
 cache_reference="${image_reference}:buildcache"
 
+# Use GHA backend for Cargo caching when running in GitHub Actions 
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "Running in GitHub Actions - using hybrid cache (gha + registry)"
+    cache_from_arguments="--cache-from type=gha --cache-from type=registry,ref=${cache_reference}"
+    cache_to_arguments="--cache-to type=gha,mode=max --cache-to type=registry,ref=${cache_reference},mode=max"
+else
+    echo "Running locally - using registry cache only"
+    cache_from_arguments="--cache-from type=registry,ref=${cache_reference}"
+    cache_to_arguments="--cache-to type=registry,ref=${cache_reference},mode=max"
+fi
+
 echo "Setting up Docker Buildx"
 docker buildx create --use --name psf-builder 2>/dev/null || docker buildx use psf-builder || (echo "Using default buildx builder" && docker buildx use default)
 
@@ -85,8 +96,8 @@ docker buildx build \
     --target ${stage_name} \
     --file applications/${application_name}/Dockerfile \
     --tag ${image_reference}:latest \
-    --cache-from type=registry,ref=${cache_reference} \
-    --cache-to type=registry,ref=${cache_reference},mode=max \
+    ${cache_from_arguments} \
+    ${cache_to_arguments} \
     --load \
     .
 
