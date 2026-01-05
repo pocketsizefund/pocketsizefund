@@ -28,7 +28,7 @@ COPY --from=builder /app /app
 
 ENV PYTHONPATH=/app/applications/equitypricemodel/src
 
-ENTRYPOINT ["uv", "run", "python", "applications/equitypricemodel/src/equitypricemodel/trainer.py"]
+ENTRYPOINT ["uv", "run", "--directory", "applications/equitypricemodel", "python", "applications/equitypricemodel/src/equitypricemodel/trainer.py"]
 
 FROM python:3.12.10-slim AS server
 
@@ -56,5 +56,5 @@ COPY applications/equitypricemodel/src/equitypricemodel/tide_data_scaler.json /a
 
 EXPOSE 8080
 
-ENTRYPOINT ["uv", "run", "uvicorn", "equitypricemodel.server:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]
+ENTRYPOINT ["uv", "run", "--directory", "applications/equitypricemodel", "uvicorn", "equitypricemodel.server:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]
 
