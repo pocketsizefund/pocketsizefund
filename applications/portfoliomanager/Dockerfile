@@ -28,5 +28,5 @@ COPY --from=builder /app /app
 
 EXPOSE 8080
 
-ENTRYPOINT ["uv", "run", "--directory", "applications/portfoliomanager", "uvicorn", "portfoliomanager.server:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]
+ENTRYPOINT ["uv", "run", "uvicorn", "portfoliomanager.server:application", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "src"]
 
