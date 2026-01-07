@@ -30,6 +30,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
     cargo chef cook --release --recipe-path recipe.json
 
+COPY Cargo.toml Cargo.lock ./
+
+COPY applications/datamanager/Cargo.toml ./applications/datamanager/Cargo.toml
+
 COPY applications/datamanager/src/ applications/datamanager/src/
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
