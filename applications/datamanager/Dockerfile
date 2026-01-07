@@ -27,8 +27,6 @@ COPY Cargo.toml Cargo.lock ./
 
 COPY applications/datamanager/Cargo.toml ./applications/datamanager/Cargo.toml
 
-COPY applications/datamanager/src/ applications/datamanager/src/
-
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
