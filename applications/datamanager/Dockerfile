@@ -6,8 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     wget \
     unzip \
-    && wget -q https://github.com/duckdb/duckdb/releases/download/v1.0.0/libduckdb-linux-amd64.zip \
-    && echo "e5561d9ee2f0d8cc375c21da84778ced19d0c4854a1c921f3fa87bb81e39c2d2  libduckdb-linux-amd64.zip" | sha256sum -c - \
+    && wget -q https://github.com/duckdb/duckdb/releases/download/v1.4.3/libduckdb-linux-amd64.zip \
+    && echo "3c7bb8d586d39ccce56442c3f6bafa97f53d7b6bb5405dac827442fcb31494aa  libduckdb-linux-amd64.zip" | sha256sum -c - \
     && unzip libduckdb-linux-amd64.zip -d /usr/local \
     && rm libduckdb-linux-amd64.zip \
     && ldconfig \
