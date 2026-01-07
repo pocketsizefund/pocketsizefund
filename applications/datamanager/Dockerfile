@@ -6,12 +6,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     wget \
     unzip \
+    && wget -q https://github.com/duckdb/duckdb/releases/download/v1.0.0/libduckdb-linux-amd64.zip \
+    && echo "e5561d9ee2f0d8cc375c21da84778ced19d0c4854a1c921f3fa87bb81e39c2d2  libduckdb-linux-amd64.zip" | sha256sum -c - \
+    && unzip libduckdb-linux-amd64.zip -d /usr/local \
+    && rm libduckdb-linux-amd64.zip \
+    && ldconfig \
+    && apt-get purge -y wget unzip \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-
-RUN wget -q https://github.com/duckdb/duckdb/releases/download/v1.1.3/libduckdb-linux-amd64.zip && \
-    unzip libduckdb-linux-amd64.zip -d /usr/local && \
-    rm libduckdb-linux-amd64.zip && \
-    ldconfig
 
 RUN rustup toolchain install stable 
 
@@ -53,18 +55,12 @@ FROM debian:trixie-slim AS server
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     openssl \
-    wget \
-    unzip \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget -q https://github.com/duckdb/duckdb/releases/download/v1.1.3/libduckdb-linux-amd64.zip && \
-    unzip libduckdb-linux-amd64.zip -d /usr/local && \
-    rm libduckdb-linux-amd64.zip && \
-    ldconfig && \
-    apt-get purge -y wget unzip && \
-    apt-get autoremove -y
+COPY --from=chef /usr/local/lib/libduckdb.so /usr/local/lib/libduckdb.so
 
-RUN update-ca-certificates
+RUN ldconfig
 
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
