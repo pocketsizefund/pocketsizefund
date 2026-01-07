@@ -98,7 +98,7 @@ docker buildx build \
     --tag ${image_reference}:latest \
     ${cache_from_arguments} \
     ${cache_to_arguments} \
-    --load \
+    --output type=docker \
     .
 
 echo "Application image built: ${application_name} ${stage_name}"
