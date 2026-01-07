@@ -20,3 +20,4 @@ data/
 **/*.safetensor
 **/*.json
 notes.md
+etc/
