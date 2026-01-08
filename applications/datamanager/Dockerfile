@@ -8,8 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     unzip \
     && wget -q https://github.com/duckdb/duckdb/releases/download/v1.4.3/libduckdb-linux-amd64.zip \
-    && unzip libduckdb-linux-amd64.zip -d /usr/local \
-    && rm libduckdb-linux-amd64.zip \
+    && unzip libduckdb-linux-amd64.zip -d /tmp/duckdb \
+    && mv /tmp/duckdb/libduckdb.so /usr/local/lib/ \
+    && mv /tmp/duckdb/*.h /usr/local/include/ \
+    && rm -rf /tmp/duckdb libduckdb-linux-amd64.zip \
     && ldconfig \
     && apt-get purge -y wget unzip \
     && apt-get autoremove -y \
