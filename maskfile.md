@@ -510,6 +510,14 @@ set -euo pipefail
 
 export APPLICATION_NAME="${application_name}"
 
+cd infrastructure
+export AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN="$(pulumi stack output aws_ecr_equitypricemodel_trainer_image)"
+export AWS_IAM_SAGEMAKER_ROLE_ARN="$(pulumi stack output aws_iam_sagemaker_role_arn)"
+export AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH="$(pulumi stack output aws_s3_model_artifacts_bucket)/artifacts"
+export AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH="$(pulumi stack output aws_s3_data_bucket)"
+
+cd ../
+
 uv run python tools/run_training_job.py
 ```
 

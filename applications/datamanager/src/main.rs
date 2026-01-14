@@ -17,10 +17,12 @@ async fn main() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "example=debug,tower_http=debug,axum=debug".into()),
+                .unwrap_or_else(|_| "datamanager=debug,tower_http=debug,axum=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+    tracing::info!("Starting datamanager service");
 
     let app = create_app().await;
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
