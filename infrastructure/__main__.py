@@ -754,7 +754,7 @@ datamanager_task_definition = aws.ecs.TaskDefinition(
                     "environment": [
                         {
                             "name": "MASSIVE_BASE_URL",
-                            "value": "https://api.polygon.io",
+                            "value": "https://api.massive.io",
                         },
                         {
                             "name": "AWS_S3_DATA_BUCKET_NAME",
