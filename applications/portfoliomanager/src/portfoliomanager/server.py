@@ -229,14 +229,14 @@ def create_portfolio() -> Response:  # noqa: PLR0911, C901
 
 
 def get_current_predictions() -> pl.DataFrame:
-    current_predictions_response = requests.get(
+    current_predictions_response = requests.post(
         url=f"{EQUITYPRICEMODEL_BASE_URL}/predictions",
         timeout=60,
     )
 
     current_predictions_response.raise_for_status()
 
-    current_predictions = pl.DataFrame(current_predictions_response.json())
+    current_predictions = pl.DataFrame(current_predictions_response.json()["data"])
 
     return add_predictions_zscore_ranked_columns(
         current_predictions=current_predictions
@@ -249,7 +249,20 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
         timeout=60,
     )
 
-    prior_portfolio_response.raise_for_status()
+    if prior_portfolio_response.status_code >= 400:
+        logger.warning(
+            "No prior portfolio found, using empty portfolio for first run",
+            status_code=prior_portfolio_response.status_code,
+        )
+        return pl.DataFrame(
+            {
+                "ticker": [],
+                "timestamp": [],
+                "side": [],
+                "dollar_amount": [],
+                "action": [],
+            }
+        )
 
     prior_portfolio = pl.DataFrame(prior_portfolio_response.json())
 
