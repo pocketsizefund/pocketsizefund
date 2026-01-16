@@ -181,7 +181,8 @@ pub async fn sync(
         }
         Err(err) => {
             warn!("Failed to parse JSON response: {}", err);
-            warn!("Raw response (first 500 chars): {}", &text_content[..text_content.len().min(500)]);
+            let truncated: String = text_content.chars().take(500).collect();
+            warn!("Raw response (first 500 chars): {}", truncated);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Invalid JSON response from API",
@@ -189,14 +190,6 @@ pub async fn sync(
                 .into_response();
         }
     };
-
-    // Log the status field if present
-    if let Some(status) = json_content.get("status") {
-        info!("API response status field: {}", status);
-    }
-    if let Some(results_count) = json_content.get("resultsCount") {
-        info!("API response resultsCount: {}", results_count);
-    }
 
     let results = match json_content.get("results") {
         Some(results) => {
