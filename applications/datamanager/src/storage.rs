@@ -13,6 +13,9 @@ use serde::Deserialize;
 use std::io::Cursor;
 use tracing::{debug, info, warn};
 
+const MIN_DATE_INT: i32 = 0;
+const MAX_DATE_INT: i32 = 99999999;
+
 pub async fn write_equity_bars_dataframe_to_s3(
     state: &State,
     dataframe: &DataFrame,
@@ -177,8 +180,8 @@ pub async fn query_equity_bars_parquet_from_s3(
 
     info!("Using S3 glob pattern: {}", s3_glob);
 
-    let start_date_int = start_timestamp.format("%Y%m%d").to_string().parse::<i32>().unwrap_or(0);
-    let end_date_int = end_timestamp.format("%Y%m%d").to_string().parse::<i32>().unwrap_or(99999999);
+    let start_date_int = start_timestamp.format("%Y%m%d").to_string().parse::<i32>().unwrap_or(MIN_DATE_INT);
+    let end_date_int = end_timestamp.format("%Y%m%d").to_string().parse::<i32>().unwrap_or(MAX_DATE_INT);
 
     debug!(
         "Date range filter: {} to {} (as integers)",
