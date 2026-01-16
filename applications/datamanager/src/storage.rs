@@ -117,10 +117,7 @@ async fn create_duckdb_connection() -> Result<Connection, Error> {
     let region = config
         .region()
         .map(|r| r.as_ref().to_string())
-        .unwrap_or_else(|| {
-            warn!("AWS region not configured, defaulting to us-east-1");
-            "us-east-1".to_string()
-        });
+        .ok_or_else(|| Error::Other("AWS region must be configured".to_string()))?;
 
     let has_session_token = credentials.session_token().is_some();
     debug!(
@@ -176,7 +173,6 @@ pub async fn query_equity_bars_parquet_from_s3(
         start_timestamp, end_timestamp, state.bucket_name
     );
 
-    // Use glob pattern with hive partitioning to handle missing files gracefully
     let s3_glob = format!(
         "s3://{}/equity/bars/daily/**/*.parquet",
         state.bucket_name
@@ -192,7 +188,6 @@ pub async fn query_equity_bars_parquet_from_s3(
         start_date_int, end_date_int
     );
 
-    // Build ticker filter
     let ticker_filter = match &tickers {
         Some(ticker_list) if !ticker_list.is_empty() => {
             debug!("Validating {} tickers for query filter", ticker_list.len());

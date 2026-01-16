@@ -24,7 +24,9 @@
       "Bash(aws s3 cp:*)",
       "Bash(python3:*)",
       "Bash(aws s3 ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(gh api:*)",
+      "Bash(gh pr view:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

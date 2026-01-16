@@ -27,6 +27,7 @@ data_bucket = aws.s3.BucketV2(
     "data_bucket",
     bucket_prefix="pocketsizefund-data-",
     tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
 )
 
 aws.s3.BucketVersioningV2(
@@ -42,6 +43,7 @@ model_artifacts_bucket = aws.s3.BucketV2(
     "model_artifacts_bucket",
     bucket_prefix="pocketsizefund-model-artifacts-",
     tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
 )
 
 aws.s3.BucketVersioningV2(
@@ -61,6 +63,7 @@ datamanager_repository = aws.ecr.Repository(
         scan_on_push=True,
     ),
     tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
 )
 
 portfoliomanager_repository = aws.ecr.Repository(
@@ -71,6 +74,7 @@ portfoliomanager_repository = aws.ecr.Repository(
         scan_on_push=True,
     ),
     tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
 )
 
 equitypricemodel_repository = aws.ecr.Repository(
@@ -81,6 +85,7 @@ equitypricemodel_repository = aws.ecr.Repository(
         scan_on_push=True,
     ),
     tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
 )
 
 equitypricemodel_trainer_repository = aws.ecr.Repository(
@@ -91,6 +96,7 @@ equitypricemodel_trainer_repository = aws.ecr.Repository(
         scan_on_push=True,
     ),
     tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
 )
 
 # Generate image URIs - these will be used in task definitions
@@ -754,7 +760,7 @@ datamanager_task_definition = aws.ecs.TaskDefinition(
                     "environment": [
                         {
                             "name": "MASSIVE_BASE_URL",
-                            "value": "https://api.polygon.io",
+                            "value": "https://api.massive.io",
                         },
                         {
                             "name": "AWS_S3_DATA_BUCKET_NAME",
