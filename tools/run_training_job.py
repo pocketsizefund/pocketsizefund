@@ -16,8 +16,13 @@ def run_training_job(
     s3_data_path: str,
     iam_sagemaker_role_arn: str,
     s3_artifact_path: str,
+    instance_type: str = "ml.g5.xlarge",
 ) -> None:
-    logger.info("Starting training job", application_name=application_name)
+    logger.info(
+        "Starting training job",
+        application_name=application_name,
+        instance_type=instance_type,
+    )
 
     try:
         session = boto3.Session()
@@ -35,7 +40,7 @@ def run_training_job(
         image_uri=trainer_image_uri,
         role=iam_sagemaker_role_arn,
         instance_count=1,
-        instance_type="ml.t3.xlarge",
+        instance_type=instance_type,
         sagemaker_session=sagemaker_session,
         output_path=s3_artifact_path,
     )
@@ -63,6 +68,7 @@ if __name__ == "__main__":
     s3_data_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH", "")
     iam_sagemaker_role_arn = os.getenv("AWS_IAM_SAGEMAKER_ROLE_ARN", "")
     s3_artifact_path = os.getenv("AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH", "")
+    instance_type = os.getenv("SAGEMAKER_INSTANCE_TYPE", "ml.g5.xlarge")
 
     environment_variables = {
         "APPLICATION_NAME": application_name,
@@ -90,6 +96,7 @@ if __name__ == "__main__":
             s3_data_path=s3_data_path,
             iam_sagemaker_role_arn=iam_sagemaker_role_arn,
             s3_artifact_path=s3_artifact_path,
+            instance_type=instance_type,
         )
 
     except Exception as e:

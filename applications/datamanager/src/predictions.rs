@@ -1,3 +1,4 @@
+use crate::data::{create_predictions_dataframe, Prediction};
 use crate::state::State;
 use crate::storage::{
     query_predictions_dataframe_from_s3, write_predictions_dataframe_to_s3, PredictionQuery,
@@ -8,14 +9,13 @@ use axum::{
     response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
-use polars::prelude::*;
 use serde::Deserialize;
-use tracing::info;
+use tracing::{info, warn};
 use urlencoding::decode;
 
 #[derive(Deserialize)]
 pub struct SavePayload {
-    pub data: DataFrame,
+    pub data: Vec<Prediction>,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -28,7 +28,17 @@ pub async fn save(
     AxumState(state): AxumState<State>,
     Json(payload): Json<SavePayload>,
 ) -> impl IntoResponse {
-    let predictions = payload.data;
+    let predictions = match create_predictions_dataframe(payload.data) {
+        Ok(df) => df,
+        Err(err) => {
+            warn!("Failed to create predictions DataFrame: {}", err);
+            return (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid prediction data: {}", err),
+            )
+                .into_response();
+        }
+    };
 
     let timestamp = payload.timestamp;
 

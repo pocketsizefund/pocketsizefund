@@ -6,11 +6,41 @@ from typing import cast
 
 import polars as pl
 import requests
+import sentry_sdk
 import structlog
 from fastapi import FastAPI, Response, status
 from internal.equity_bars_schema import equity_bars_schema
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from .alpaca_client import AlpacaClient
+
+sentry_sdk.init(
+    dsn=os.environ.get("SENTRY_DSN"),
+    environment=os.environ.get("ENVIRONMENT", "development"),
+    traces_sample_rate=1.0,
+    profiles_sample_rate=1.0,
+    enable_tracing=True,
+    propagate_traces=True,
+    integrations=[
+        LoggingIntegration(
+            level=None,
+            event_level="ERROR",
+        ),
+    ],
+)
+
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
 from .enums import PositionAction, PositionSide, TradeSide
 from .portfolio_schema import portfolio_schema
 from .risk_management import (
