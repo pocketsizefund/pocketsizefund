@@ -186,7 +186,7 @@ pub fn create_equity_details_dataframe(csv_content: String) -> Result<DataFrame,
         dataframe.width()
     );
 
-    let required_columns = vec!["sector", "industry"];
+    let required_columns = vec!["ticker", "sector", "industry"];
     let column_names = dataframe.get_column_names();
 
     debug!("Available columns: {:?}", column_names);
@@ -206,10 +206,11 @@ pub fn create_equity_details_dataframe(csv_content: String) -> Result<DataFrame,
         Error::Other(format!("Failed to select columns: {}", e))
     })?;
 
-    debug!("Normalizing sector and industry columns to uppercase and filling nulls");
+    debug!("Normalizing ticker, sector, and industry columns to uppercase and filling nulls");
     let equity_details_dataframe = dataframe
         .lazy()
         .with_columns([
+            col("ticker").str().to_uppercase().alias("ticker"),
             col("sector")
                 .str()
                 .to_uppercase()

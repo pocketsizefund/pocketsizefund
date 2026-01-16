@@ -406,6 +406,23 @@ portfoliomanager_tg = aws.lb.TargetGroup(
     tags=tags,
 )
 
+equitypricemodel_tg = aws.lb.TargetGroup(
+    "equitypricemodel_tg",
+    name="pocketsizefund-equitypricemodel",
+    port=8080,
+    protocol="HTTP",
+    vpc_id=vpc.id,
+    target_type="ip",
+    health_check=aws.lb.TargetGroupHealthCheckArgs(
+        path="/health",
+        healthy_threshold=2,
+        unhealthy_threshold=3,
+        timeout=5,
+        interval=30,
+    ),
+    tags=tags,
+)
+
 acm_certificate_arn = None  # temporary disable HTTPS
 
 if acm_certificate_arn:
@@ -511,6 +528,26 @@ aws.lb.ListenerRule(
                     "/equity-bars*",
                     "/equity-details*",
                 ]
+            )
+        )
+    ],
+    tags=tags,
+)
+
+aws.lb.ListenerRule(
+    "equitypricemodel_rule",
+    listener_arn=alb_listener.arn,
+    priority=150,
+    actions=[
+        aws.lb.ListenerRuleActionArgs(
+            type="forward",
+            target_group_arn=equitypricemodel_tg.arn,
+        )
+    ],
+    conditions=[
+        aws.lb.ListenerRuleConditionArgs(
+            path_pattern=aws.lb.ListenerRuleConditionPathPatternArgs(
+                values=["/model/*"]
             )
         )
     ],
@@ -760,11 +797,19 @@ datamanager_task_definition = aws.ecs.TaskDefinition(
                             "name": "AWS_S3_DATA_BUCKET_NAME",
                             "value": args[3],
                         },
+                        {
+                            "name": "ENVIRONMENT",
+                            "value": "production",
+                        },
                     ],
                     "secrets": [
                         {
                             "name": "MASSIVE_API_KEY",
                             "valueFrom": f"{args[2]}:MASSIVE_API_KEY::",
+                        },
+                        {
+                            "name": "SENTRY_DSN",
+                            "valueFrom": f"{args[2]}:SENTRY_DSN::",
                         },
                     ],
                     "logConfiguration": {
@@ -812,6 +857,10 @@ portfoliomanager_task_definition = aws.ecs.TaskDefinition(
                             "name": "PSF_EQUITYPRICEMODEL_BASE_URL",
                             "value": f"http://equitypricemodel.{args[1]}:8080",
                         },
+                        {
+                            "name": "ENVIRONMENT",
+                            "value": "production",
+                        },
                     ],
                     "secrets": [
                         {
@@ -825,6 +874,10 @@ portfoliomanager_task_definition = aws.ecs.TaskDefinition(
                         {
                             "name": "ALPACA_IS_PAPER",
                             "valueFrom": f"{args[3]}:ALPACA_IS_PAPER::",
+                        },
+                        {
+                            "name": "SENTRY_DSN",
+                            "valueFrom": f"{args[3]}:SENTRY_DSN::",
                         },
                     ],
                     "logConfiguration": {
@@ -851,10 +904,13 @@ equitypricemodel_task_definition = aws.ecs.TaskDefinition(
     network_mode="awsvpc",
     requires_compatibilities=["FARGATE"],
     execution_role_arn=execution_role.arn,
+    task_role_arn=task_role.arn,
     container_definitions=pulumi.Output.all(
         equitypricemodel_log_group.name,
         service_discovery_namespace.name,
         equitypricemodel_image_uri,
+        model_artifacts_bucket.bucket,
+        secret.arn,
     ).apply(
         lambda args: json.dumps(
             [
@@ -866,7 +922,21 @@ equitypricemodel_task_definition = aws.ecs.TaskDefinition(
                         {
                             "name": "PSF_DATAMANAGER_BASE_URL",
                             "value": f"http://datamanager.{args[1]}:8080",
-                        }
+                        },
+                        {
+                            "name": "AWS_S3_MODEL_ARTIFACTS_BUCKET",
+                            "value": args[3],
+                        },
+                        {
+                            "name": "ENVIRONMENT",
+                            "value": "production",
+                        },
+                    ],
+                    "secrets": [
+                        {
+                            "name": "SENTRY_DSN",
+                            "valueFrom": f"{args[4]}:SENTRY_DSN::",
+                        },
                     ],
                     "logConfiguration": {
                         "logDriver": "awslogs",
@@ -984,10 +1054,17 @@ equitypricemodel_service = aws.ecs.Service(
         security_groups=[ecs_security_group.id],
         assign_public_ip=False,
     ),
+    load_balancers=[
+        aws.ecs.ServiceLoadBalancerArgs(
+            target_group_arn=equitypricemodel_tg.arn,
+            container_name="equitypricemodel",
+            container_port=8080,
+        )
+    ],
     service_registries=aws.ecs.ServiceServiceRegistriesArgs(
         registry_arn=equitypricemodel_sd_service.arn
     ),
-    opts=pulumi.ResourceOptions(depends_on=[datamanager_service]),
+    opts=pulumi.ResourceOptions(depends_on=[alb_listener, datamanager_service]),
     tags=tags,
 )
 

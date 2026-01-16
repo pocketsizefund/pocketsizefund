@@ -1,13 +1,20 @@
 import io
 import json
 import os
+import tarfile
+import tempfile
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
+import boto3
 import polars as pl
 import requests
+import sentry_sdk
 import structlog
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Request, Response, status
 from internal.equity_bars_schema import equity_bars_schema
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from .equity_details_schema import equity_details_schema
 from .predictions_schema import predictions_schema
@@ -15,32 +22,184 @@ from .preprocess import filter_equity_bars
 from .tide_data import Data
 from .tide_model import Model
 
+sentry_sdk.init(
+    dsn=os.environ.get("SENTRY_DSN"),
+    environment=os.environ.get("ENVIRONMENT", "development"),
+    traces_sample_rate=1.0,
+    profiles_sample_rate=1.0,
+    enable_tracing=True,
+    propagate_traces=True,
+    integrations=[
+        LoggingIntegration(
+            level=None,
+            event_level="ERROR",
+        ),
+    ],
+)
+
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
 logger = structlog.get_logger()
 
 DATAMANAGER_BASE_URL = os.getenv("PSF_DATAMANAGER_BASE_URL", "http://datamanager:8080")
 
 
-application = FastAPI()
+def find_latest_artifact_key(
+    s3_client: boto3.client,
+    bucket: str,
+    prefix: str,
+) -> str:
+    """Find the latest model artifact under a prefix.
+
+    Assumes folder names contain timestamps that sort alphabetically.
+    E.g., artifacts/equitypricemodel-trainer-2026-01-14-15-00-26-204/
+    """
+    logger.info("listing_artifact_folders", bucket=bucket, prefix=prefix)
+
+    # List all "folders" under the prefix
+    paginator = s3_client.get_paginator("list_objects_v2")
+    folders: list[str] = []
+
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/"):
+        for common_prefix in page.get("CommonPrefixes", []):
+            folders.append(common_prefix["Prefix"])
+
+    if not folders:
+        message = f"No artifact folders found under s3://{bucket}/{prefix}"
+        raise ValueError(message)
+
+    # Sort and get the latest (timestamps sort alphabetically)
+    folders.sort()
+    latest_folder = folders[-1]
+
+    artifact_key = f"{latest_folder}output/model.tar.gz"
+    logger.info(
+        "found_latest_artifact",
+        folder_count=len(folders),
+        latest_folder=latest_folder,
+        artifact_key=artifact_key,
+    )
+
+    return artifact_key
 
 
-tide_model = Model.load(directory_path=".")
+def download_and_extract_artifacts(
+    s3_client: boto3.client,
+    bucket: str,
+    artifact_key: str,
+    extract_path: Path,
+) -> None:
+    """Download model artifacts from S3 and extract them."""
+    logger.info(
+        "downloading_model_artifacts",
+        bucket=bucket,
+        artifact_key=artifact_key,
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as temp_file:
+        temp_path = Path(temp_file.name)
+
+    try:
+        s3_client.download_file(bucket, artifact_key, str(temp_path))
+        logger.info("downloaded_artifact", size_bytes=temp_path.stat().st_size)
+
+        with tarfile.open(temp_path, "r:gz") as tar:
+            tar.extractall(path=extract_path)
+
+        logger.info("extracted_artifacts", extract_path=str(extract_path))
+
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load model artifacts from S3 at startup."""
+    import shutil
+
+    bucket = os.environ.get("AWS_S3_MODEL_ARTIFACTS_BUCKET")
+    artifact_path = os.environ.get("MODEL_ARTIFACT_PATH", "artifacts/")
+    model_directory = "."
+
+    if bucket:
+        # Download from S3
+        s3_client = boto3.client("s3")
+
+        # Create a persistent directory for model artifacts
+        model_directory = tempfile.mkdtemp(prefix="model_artifacts_")
+        extract_path = Path(model_directory)
+
+        try:
+            # If path ends with .tar.gz, use it directly; otherwise find latest
+            if artifact_path.endswith(".tar.gz"):
+                artifact_key = artifact_path
+            else:
+                artifact_key = find_latest_artifact_key(
+                    s3_client=s3_client,
+                    bucket=bucket,
+                    prefix=artifact_path,
+                )
+
+            download_and_extract_artifacts(
+                s3_client=s3_client,
+                bucket=bucket,
+                artifact_key=artifact_key,
+                extract_path=extract_path,
+            )
+        except Exception:
+            logger.exception("failed_to_download_artifacts")
+            raise
+
+        logger.info("loading_model", directory=model_directory)
+    else:
+        # Fall back to local files (for local development)
+        logger.info("loading_model_from_local", directory=model_directory)
+
+    app.state.model_directory = model_directory
+    app.state.tide_model = Model.load(directory_path=model_directory)
+    logger.info("model_loaded_successfully")
+
+    yield
+
+    # Cleanup on shutdown
+    if app.state.model_directory != "." and Path(app.state.model_directory).exists():
+        shutil.rmtree(app.state.model_directory, ignore_errors=True)
+
+
+application = FastAPI(lifespan=lifespan)
+
+
+@application.get("/health")
+def health_check() -> Response:
+    return Response(status_code=status.HTTP_200_OK)
+
+
+@application.post("/model/predictions")
 @application.post("/predictions")
-def create_predictions() -> Response:
+def create_predictions(request: Request) -> Response:
     logger.info("Starting prediction generation process")
 
     end_date = datetime.now(tz=UTC)
     start_date = end_date - timedelta(
-        days=35
-    )  # data preprocessing fills in more than 35 days
+        days=70
+    )  # need 42 trading days (35 input + 7 output), ~60 calendar days + buffer
 
     try:
         equity_bars_response = requests.get(
             url=f"{DATAMANAGER_BASE_URL}/equity-bars",
             params={
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
+                "start_timestamp": start_date.isoformat(),
+                "end_timestamp": end_date.isoformat(),
             },
             timeout=60,
         )
@@ -54,7 +213,6 @@ def create_predictions() -> Response:
             end_date=end_date.isoformat(),
             error=f"{e}",
         )
-
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     try:
@@ -70,7 +228,6 @@ def create_predictions() -> Response:
             "Failed to fetch equity details data",
             error=f"{e}",
         )
-
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     try:
@@ -87,7 +244,7 @@ def create_predictions() -> Response:
 
     current_timestamp = datetime.now(tz=UTC)
 
-    tide_data = Data.load(directory_path=".")
+    tide_data = Data.load(directory_path=request.app.state.model_directory)
 
     tide_data.preprocess_and_set_data(data=data)
 
@@ -97,7 +254,7 @@ def create_predictions() -> Response:
         logger.error("No data batches available for prediction")
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    raw_predictions = tide_model.predict(
+    raw_predictions = request.app.state.tide_model.predict(
         inputs=batches[-1]
     )  # preprocessing generates more than 35 days
 
@@ -143,7 +300,7 @@ def create_predictions() -> Response:
     logger.info("Successfully generated and saved predictions")
 
     return Response(
-        content=json.dumps({"data": processed_predictions.to_dict()}).encode("utf-8"),
+        content=json.dumps({"data": processed_predictions.to_dicts()}).encode("utf-8"),
         status_code=status.HTTP_200_OK,
     )
 
@@ -154,11 +311,25 @@ def parse_responses(
 ) -> pl.DataFrame:
     equity_bars_data = pl.read_parquet(io.BytesIO(equity_bars_response.content))
 
+    # Deduplicate on (ticker, timestamp) - keep last entry
+    equity_bars_data = equity_bars_data.unique(
+        subset=["ticker", "timestamp"],
+        keep="last",
+    )
+
+    # Filter out rows with zero or invalid prices
+    equity_bars_data = equity_bars_data.filter(
+        (pl.col("open_price") > 0)
+        & (pl.col("high_price") > 0)
+        & (pl.col("low_price") > 0)
+        & (pl.col("close_price") > 0)
+    )
+
     equity_bars_data = equity_bars_schema.validate(equity_bars_data)
 
     equity_bars_data = filter_equity_bars(equity_bars_data)
 
-    equity_details_data = pl.DataFrame(equity_details_response.json())
+    equity_details_data = pl.read_csv(io.BytesIO(equity_details_response.content))
 
     equity_details_data = equity_details_schema.validate(equity_details_data)
 

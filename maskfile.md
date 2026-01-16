@@ -125,7 +125,7 @@ image_reference="${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/pocketsiz
 echo "Logging into ECR"
 aws ecr get-login-password --region ${aws_region} | docker login \
     --username AWS \
-    --password-stdin ${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com
+    --password-stdin ${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com > /dev/null
 
 echo "Pushing image"
 docker push ${image_reference}:latest
@@ -549,14 +549,147 @@ cd ../
 uv run python tools/prepare_training_data.py
 ```
 
-### train (application_name)
+### trainer
 
-> Train machine learning model
+> Manage trainer Docker images
+
+#### build (application_name)
+
+> Build trainer Docker image
+
+```bash
+set -euo pipefail
+
+echo "Building ${application_name} trainer image"
+
+aws_account_id=$(aws sts get-caller-identity --query Account --output text)
+aws_region=${AWS_REGION}
+if [ -z "$aws_region" ]; then
+    echo "AWS_REGION environment variable is not set"
+    exit 1
+fi
+
+image_reference="${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/pocketsizefund/${application_name}-trainer"
+cache_reference="${image_reference}:buildcache"
+
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "Running in GitHub Actions - using hybrid cache (gha + registry)"
+    cache_from_arguments="--cache-from type=gha --cache-from type=registry,ref=${cache_reference}"
+    cache_to_arguments="--cache-to type=gha,mode=max --cache-to type=registry,ref=${cache_reference},mode=max"
+else
+    echo "Running locally - using registry cache only"
+    cache_from_arguments="--cache-from type=registry,ref=${cache_reference}"
+    cache_to_arguments="--cache-to type=registry,ref=${cache_reference},mode=max"
+fi
+
+echo "Setting up Docker Buildx"
+docker buildx create --use --name psf-builder 2>/dev/null || docker buildx use psf-builder || (echo "Using default buildx builder" && docker buildx use default)
+
+echo "Logging into ECR (to pull cache if available)"
+aws ecr get-login-password --region ${aws_region} | docker login \
+    --username AWS \
+    --password-stdin ${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com 2>/dev/null || echo "Could not authenticate to ECR for cache (will build without cache)"
+
+echo "Building with caching (will continue if cache doesn't exist)"
+docker buildx build \
+    --platform linux/amd64 \
+    --target trainer \
+    --file applications/${application_name}/Dockerfile \
+    --tag ${image_reference}:latest \
+    ${cache_from_arguments} \
+    ${cache_to_arguments} \
+    --load \
+    .
+
+echo "Trainer image built: ${application_name}"
+```
+
+#### push (application_name)
+
+> Push trainer Docker image to ECR
+
+```bash
+set -euo pipefail
+
+echo "Pushing ${application_name} trainer image to ECR"
+
+aws_account_id=$(aws sts get-caller-identity --query Account --output text)
+aws_region=${AWS_REGION}
+if [ -z "$aws_region" ]; then
+    echo "AWS_REGION environment variable is not set"
+    exit 1
+fi
+
+image_reference="${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com/pocketsizefund/${application_name}-trainer"
+
+echo "Logging into ECR"
+aws ecr get-login-password --region ${aws_region} | docker login \
+    --username AWS \
+    --password-stdin ${aws_account_id}.dkr.ecr.${aws_region}.amazonaws.com > /dev/null
+
+echo "Pushing image"
+docker push ${image_reference}:latest
+
+echo "Trainer image pushed: ${application_name}"
+```
+
+### train (application_name) [instance_preset]
+
+> Train model on SageMaker. Presets: testing, standard (default), performance, or custom instance type
 
 ```bash
 set -euo pipefail
 
 export APPLICATION_NAME="${application_name}"
+
+preset="${instance_preset:-standard}"
+
+case "$preset" in
+    testing)
+        instance_type="ml.t3.xlarge"
+        echo "================================================"
+        echo "Training with TESTING architecture (CPU)"
+        echo "Instance: ml.t3.xlarge (~\$0.23/hr)"
+        echo "Use for: Quick iteration, debugging"
+        echo "================================================"
+        ;;
+    standard)
+        instance_type="ml.g5.xlarge"
+        echo "================================================"
+        echo "Training with STANDARD architecture (GPU)"
+        echo "Instance: ml.g5.xlarge - 1x A10G (~\$1.41/hr)"
+        echo "Use for: Regular training runs"
+        echo "================================================"
+        ;;
+    performance)
+        instance_type="ml.p3.2xlarge"
+        echo "================================================"
+        echo "Training with PERFORMANCE architecture (GPU)"
+        echo "Instance: ml.p3.2xlarge - 1x V100 (~\$3.82/hr)"
+        echo "Use for: Large datasets, faster training"
+        echo "================================================"
+        ;;
+    ml.*)
+        instance_type="$preset"
+        echo "================================================"
+        echo "Training with CUSTOM architecture"
+        echo "Instance: ${instance_type}"
+        echo "================================================"
+        ;;
+    *)
+        echo "Unknown preset: $preset"
+        echo ""
+        echo "Available presets:"
+        echo "  testing     - ml.t3.xlarge (CPU, ~\$0.23/hr)"
+        echo "  standard    - ml.g5.xlarge (GPU, ~\$1.41/hr) [default]"
+        echo "  performance - ml.p3.2xlarge (GPU, ~\$3.82/hr)"
+        echo ""
+        echo "Or specify a custom instance type: ml.g4dn.xlarge"
+        exit 1
+        ;;
+esac
+
+export SAGEMAKER_INSTANCE_TYPE="${instance_type}"
 
 cd infrastructure
 export AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN="$(pulumi stack output aws_ecr_equitypricemodel_trainer_image)"
@@ -568,6 +701,23 @@ export AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH="s3://${AWS_S3_MODEL_ARTIFAC
 cd ../
 
 uv run python tools/run_training_job.py
+```
+
+### train-local (application_name)
+
+> Train machine learning model locally
+
+```bash
+set -euo pipefail
+
+export APPLICATION_NAME="${application_name}"
+
+cd infrastructure
+export AWS_S3_MODEL_ARTIFACTS_BUCKET="$(pulumi stack output aws_s3_model_artifacts_bucket)"
+
+cd ../
+
+uv run python tools/run_training_local.py
 ```
 
 ### artifacts
