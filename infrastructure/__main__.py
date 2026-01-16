@@ -7,7 +7,7 @@ current_identity = aws.get_caller_identity()
 
 account_id = current_identity.account_id
 
-region = aws.get_region().name
+region = aws.get_region().region
 
 secret = aws.secretsmanager.get_secret(
     name="pocketsizefund/production/environment_variables",
@@ -16,26 +16,95 @@ secret = aws.secretsmanager.get_secret(
 availability_zone_a = f"{region}a"
 availability_zone_b = f"{region}b"
 
-datamanager_image = aws.ecr.get_image(
-    repository_name="pocketsizefund/datamanager-server",
-    image_tag="latest",
-)
-
-portfoliomanager_image = aws.ecr.get_image(
-    repository_name="pocketsizefund/portfoliomanager-server",
-    image_tag="latest",
-)
-
-equitypricemodel_image = aws.ecr.get_image(
-    repository_name="pocketsizefund/equitypricemodel-server",
-    image_tag="latest",
-)
-
 tags = {
     "project": "pocketsizefund",
     "stack": pulumi.get_stack(),
     "manager": "pulumi",
 }
+
+# S3 Data Bucket for storing equity bars, predictions, portfolios
+data_bucket = aws.s3.BucketV2(
+    "data_bucket",
+    bucket_prefix="pocketsizefund-data-",
+    tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
+)
+
+aws.s3.BucketVersioningV2(
+    "data_bucket_versioning",
+    bucket=data_bucket.id,
+    versioning_configuration=aws.s3.BucketVersioningV2VersioningConfigurationArgs(
+        status="Enabled",
+    ),
+)
+
+# S3 Model Artifacts Bucket for storing trained model weights and checkpoints
+model_artifacts_bucket = aws.s3.BucketV2(
+    "model_artifacts_bucket",
+    bucket_prefix="pocketsizefund-model-artifacts-",
+    tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
+)
+
+aws.s3.BucketVersioningV2(
+    "model_artifacts_bucket_versioning",
+    bucket=model_artifacts_bucket.id,
+    versioning_configuration=aws.s3.BucketVersioningV2VersioningConfigurationArgs(
+        status="Enabled",
+    ),
+)
+
+# ECR Repositories - these must exist before images can be pushed
+datamanager_repository = aws.ecr.Repository(
+    "datamanager_repository",
+    name="pocketsizefund/datamanager-server",
+    image_tag_mutability="MUTABLE",
+    image_scanning_configuration=aws.ecr.RepositoryImageScanningConfigurationArgs(
+        scan_on_push=True,
+    ),
+    tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
+)
+
+portfoliomanager_repository = aws.ecr.Repository(
+    "portfoliomanager_repository",
+    name="pocketsizefund/portfoliomanager-server",
+    image_tag_mutability="MUTABLE",
+    image_scanning_configuration=aws.ecr.RepositoryImageScanningConfigurationArgs(
+        scan_on_push=True,
+    ),
+    tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
+)
+
+equitypricemodel_repository = aws.ecr.Repository(
+    "equitypricemodel_repository",
+    name="pocketsizefund/equitypricemodel-server",
+    image_tag_mutability="MUTABLE",
+    image_scanning_configuration=aws.ecr.RepositoryImageScanningConfigurationArgs(
+        scan_on_push=True,
+    ),
+    tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
+)
+
+equitypricemodel_trainer_repository = aws.ecr.Repository(
+    "equitypricemodel_trainer_repository",
+    name="pocketsizefund/equitypricemodel-trainer",
+    image_tag_mutability="MUTABLE",
+    image_scanning_configuration=aws.ecr.RepositoryImageScanningConfigurationArgs(
+        scan_on_push=True,
+    ),
+    tags=tags,
+    opts=pulumi.ResourceOptions(protect=True),
+)
+
+# Generate image URIs - these will be used in task definitions
+# For initial deployment, use a placeholder that will be updated when images are pushed
+datamanager_image_uri = datamanager_repository.repository_url.apply(lambda url: f"{url}:latest")
+portfoliomanager_image_uri = portfoliomanager_repository.repository_url.apply(lambda url: f"{url}:latest")
+equitypricemodel_image_uri = equitypricemodel_repository.repository_url.apply(lambda url: f"{url}:latest")
+equitypricemodel_trainer_image_uri = equitypricemodel_trainer_repository.repository_url.apply(lambda url: f"{url}:latest")
 
 vpc = aws.ec2.Vpc(
     "vpc",
@@ -520,17 +589,12 @@ task_role = aws.iam.Role(
     tags=tags,
 )
 
-secret_version = aws.secretsmanager.get_secret_version(secret_id=secret.id)
-data_bucket_name = pulumi.Output.secret(secret_version.secret_string).apply(
-    lambda s: json.loads(s)["AWS_S3_DATA_BUCKET_NAME"]
-)
-
 aws.iam.RolePolicy(
     "task_role_s3_policy",
     name="pocketsizefund-ecs-task-role-s3-policy",
     role=task_role.id,
-    policy=data_bucket_name.apply(
-        lambda name: json.dumps(
+    policy=pulumi.Output.all(data_bucket.arn, model_artifacts_bucket.arn).apply(
+        lambda args: json.dumps(
             {
                 "Version": "2012-10-17",
                 "Statement": [
@@ -538,13 +602,116 @@ aws.iam.RolePolicy(
                         "Effect": "Allow",
                         "Action": ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
                         "Resource": [
-                            f"arn:aws:s3:::{name}",
-                            f"arn:aws:s3:::{name}/*",
+                            args[0],
+                            f"{args[0]}/*",
+                            args[1],
+                            f"{args[1]}/*",
                         ],
                     }
                 ],
             }
         )
+    ),
+)
+
+# SageMaker Execution Role for training jobs
+sagemaker_execution_role = aws.iam.Role(
+    "sagemaker_execution_role",
+    name="pocketsizefund-sagemaker-execution-role",
+    assume_role_policy=json.dumps(
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole",
+                    "Effect": "Allow",
+                    "Principal": {"Service": "sagemaker.amazonaws.com"},
+                }
+            ],
+        }
+    ),
+    tags=tags,
+)
+
+aws.iam.RolePolicy(
+    "sagemaker_s3_policy",
+    name="pocketsizefund-sagemaker-s3-policy",
+    role=sagemaker_execution_role.id,
+    policy=pulumi.Output.all(data_bucket.arn, model_artifacts_bucket.arn).apply(
+        lambda args: json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "s3:GetObject",
+                            "s3:PutObject",
+                            "s3:DeleteObject",
+                            "s3:ListBucket",
+                        ],
+                        "Resource": [
+                            args[0],
+                            f"{args[0]}/*",
+                            args[1],
+                            f"{args[1]}/*",
+                        ],
+                    }
+                ],
+            }
+        )
+    ),
+)
+
+aws.iam.RolePolicy(
+    "sagemaker_ecr_policy",
+    name="pocketsizefund-sagemaker-ecr-policy",
+    role=sagemaker_execution_role.id,
+    policy=pulumi.Output.all(equitypricemodel_trainer_repository.arn).apply(
+        lambda args: json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "ecr:GetDownloadUrlForLayer",
+                            "ecr:BatchGetImage",
+                            "ecr:BatchCheckLayerAvailability",
+                        ],
+                        "Resource": args[0],
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": "ecr:GetAuthorizationToken",
+                        "Resource": "*",
+                    },
+                ],
+            }
+        )
+    ),
+)
+
+aws.iam.RolePolicy(
+    "sagemaker_cloudwatch_policy",
+    name="pocketsizefund-sagemaker-cloudwatch-policy",
+    role=sagemaker_execution_role.id,
+    policy=json.dumps(
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents",
+                        "logs:DescribeLogStreams",
+                    ],
+                    "Resource": "arn:aws:logs:*:*:log-group:/aws/sagemaker/*",
+                }
+            ],
+        }
     ),
 )
 
@@ -580,8 +747,9 @@ datamanager_task_definition = aws.ecs.TaskDefinition(
     task_role_arn=task_role.arn,
     container_definitions=pulumi.Output.all(
         datamanager_log_group.name,
-        datamanager_image.image_uri,
+        datamanager_image_uri,
         secret.arn,
+        data_bucket.bucket,
     ).apply(
         lambda args: json.dumps(
             [
@@ -589,11 +757,17 @@ datamanager_task_definition = aws.ecs.TaskDefinition(
                     "name": "datamanager",
                     "image": args[1],
                     "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
-                    "secrets": [
+                    "environment": [
+                        {
+                            "name": "MASSIVE_BASE_URL",
+                            "value": "https://api.massive.io",
+                        },
                         {
                             "name": "AWS_S3_DATA_BUCKET_NAME",
-                            "valueFrom": f"{args[2]}:AWS_S3_DATA_BUCKET_NAME::",
+                            "value": args[3],
                         },
+                    ],
+                    "secrets": [
                         {
                             "name": "MASSIVE_API_KEY",
                             "valueFrom": f"{args[2]}:MASSIVE_API_KEY::",
@@ -626,7 +800,7 @@ portfoliomanager_task_definition = aws.ecs.TaskDefinition(
     container_definitions=pulumi.Output.all(
         portfoliomanager_log_group.name,
         service_discovery_namespace.name,
-        portfoliomanager_image.image_uri,
+        portfoliomanager_image_uri,
         secret.arn,
     ).apply(
         lambda args: json.dumps(
@@ -686,7 +860,7 @@ equitypricemodel_task_definition = aws.ecs.TaskDefinition(
     container_definitions=pulumi.Output.all(
         equitypricemodel_log_group.name,
         service_discovery_namespace.name,
-        equitypricemodel_image.image_uri,
+        equitypricemodel_image_uri,
     ).apply(
         lambda args: json.dumps(
             [
@@ -843,8 +1017,16 @@ pulumi.export("aws_ecs_cluster_name", cluster.name)
 pulumi.export("aws_alb_dns_name", alb.dns_name)
 pulumi.export("aws_alb_url", pulumi.Output.concat(protocol, alb.dns_name))
 pulumi.export("aws_service_discovery_namespace", service_discovery_namespace.name)
-pulumi.export("aws_ecr_datamanager_image", datamanager_image.image_uri)
-pulumi.export("aws_ecr_portfoliomanager_image", portfoliomanager_image.image_uri)
-pulumi.export("aws_ecr_equitypricemodel_image", equitypricemodel_image.image_uri)
+pulumi.export("aws_ecr_datamanager_image", datamanager_image_uri)
+pulumi.export("aws_ecr_portfoliomanager_image", portfoliomanager_image_uri)
+pulumi.export("aws_ecr_equitypricemodel_image", equitypricemodel_image_uri)
+pulumi.export("aws_ecr_datamanager_repository", datamanager_repository.repository_url)
+pulumi.export("aws_ecr_portfoliomanager_repository", portfoliomanager_repository.repository_url)
+pulumi.export("aws_ecr_equitypricemodel_repository", equitypricemodel_repository.repository_url)
+pulumi.export("aws_s3_data_bucket", data_bucket.bucket)
+pulumi.export("aws_s3_model_artifacts_bucket", model_artifacts_bucket.bucket)
+pulumi.export("aws_ecr_equitypricemodel_trainer_repository", equitypricemodel_trainer_repository.repository_url)
+pulumi.export("aws_ecr_equitypricemodel_trainer_image", equitypricemodel_trainer_image_uri)
+pulumi.export("aws_iam_sagemaker_role_arn", sagemaker_execution_role.arn)
 pulumi.export("psf_base_url", psf_base_url)
 pulumi.export("readme", pulumi.Output.format(readme_content, psf_base_url))

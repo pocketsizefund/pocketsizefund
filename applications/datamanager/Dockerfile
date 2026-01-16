@@ -49,6 +49,9 @@ COPY applications/datamanager/Cargo.toml ./applications/datamanager/Cargo.toml
 
 COPY applications/datamanager/src/ applications/datamanager/src/
 
+ENV DUCKDB_LIB_DIR=/usr/local/lib
+ENV DUCKDB_INCLUDE_DIR=/usr/local/include
+
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
     cargo build --release --bin datamanager && \

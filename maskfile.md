@@ -497,9 +497,57 @@ mask development python test
 echo "Python development checks completed successfully"
 ```
 
+## data
+
+> Data management commands
+
+### sync-categories
+
+> Sync equity categories (sector/industry) from Polygon API to S3
+
+```bash
+set -euo pipefail
+
+echo "Syncing equity categories from Polygon API"
+
+cd infrastructure
+export AWS_S3_DATA_BUCKET="$(pulumi stack output aws_s3_data_bucket)"
+
+cd ../
+
+# Get API key from AWS Secrets Manager
+export MASSIVE_API_KEY=$(aws secretsmanager get-secret-value \
+    --secret-id pocketsizefund/production/environment_variables \
+    --query 'SecretString' \
+    --output text | jq -r '.MASSIVE_API_KEY')
+
+uv run python tools/sync_equity_categories.py
+
+echo "Categories sync complete"
+```
+
 ## models
 
 > Model management commands
+
+### prepare (application_name)
+
+> Prepare training data by consolidating equity bars with categories
+
+```bash
+set -euo pipefail
+
+export APPLICATION_NAME="${application_name}"
+
+cd infrastructure
+export AWS_S3_DATA_BUCKET="$(pulumi stack output aws_s3_data_bucket)"
+export AWS_S3_MODEL_ARTIFACTS_BUCKET="$(pulumi stack output aws_s3_model_artifacts_bucket)"
+export LOOKBACK_DAYS="${LOOKBACK_DAYS:-365}"
+
+cd ../
+
+uv run python tools/prepare_training_data.py
+```
 
 ### train (application_name)
 
@@ -509,6 +557,15 @@ echo "Python development checks completed successfully"
 set -euo pipefail
 
 export APPLICATION_NAME="${application_name}"
+
+cd infrastructure
+export AWS_ECR_EQUITY_PRICE_MODEL_TRAINER_IMAGE_ARN="$(pulumi stack output aws_ecr_equitypricemodel_trainer_image)"
+export AWS_IAM_SAGEMAKER_ROLE_ARN="$(pulumi stack output aws_iam_sagemaker_role_arn)"
+export AWS_S3_MODEL_ARTIFACTS_BUCKET="$(pulumi stack output aws_s3_model_artifacts_bucket)"
+export AWS_S3_EQUITY_PRICE_MODEL_ARTIFACT_OUTPUT_PATH="s3://${AWS_S3_MODEL_ARTIFACTS_BUCKET}/artifacts"
+export AWS_S3_EQUITY_PRICE_MODEL_TRAINING_DATA_PATH="s3://${AWS_S3_MODEL_ARTIFACTS_BUCKET}/training"
+
+cd ../
 
 uv run python tools/run_training_job.py
 ```

@@ -1,5 +1,6 @@
 use aws_sdk_s3::Client as S3Client;
 use reqwest::Client as HTTPClient;
+use tracing::{debug, info};
 
 #[derive(Clone)]
 pub struct MassiveSecrets {
@@ -17,23 +18,44 @@ pub struct State {
 
 impl State {
     pub async fn from_env() -> Self {
+        info!("Initializing application state from environment");
+
+        debug!("Creating HTTP client with 10s timeout");
         let http_client = HTTPClient::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .unwrap();
 
+        debug!("Loading AWS configuration");
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+
+        let region = config
+            .region()
+            .map(|r| r.as_ref().to_string())
+            .unwrap_or_else(|| "not configured".to_string());
+        info!("AWS region: {}", region);
+
         let s3_client = S3Client::new(&config);
-        let bucket_name =
-            std::env::var("AWS_S3_DATA_BUCKET_NAME").unwrap_or("pocketsizefund-data".to_string());
+
+        let bucket_name = std::env::var("AWS_S3_DATA_BUCKET_NAME")
+            .expect("AWS_S3_DATA_BUCKET_NAME must be set in environment");
+        info!("Using S3 bucket from environment: {}", bucket_name);
+
+        let massive_base = std::env::var("MASSIVE_BASE_URL")
+            .expect("MASSIVE_BASE_URL must be set in environment");
+        info!("Using Massive API base URL from environment: {}", massive_base);
+
+        let massive_key = std::env::var("MASSIVE_API_KEY")
+            .expect("MASSIVE_API_KEY must be set in environment");
+        debug!("MASSIVE_API_KEY loaded (length: {} chars)", massive_key.len());
+
+        info!("Application state initialized successfully");
 
         Self {
             http_client,
             massive: MassiveSecrets {
-                base: std::env::var("MASSIVE_BASE_URL")
-                    .unwrap_or("https://api.massive.io".to_string()),
-                key: std::env::var("MASSIVE_API_KEY")
-                    .expect("MASSIVE_API_KEY must be set in environment"),
+                base: massive_base,
+                key: massive_key,
             },
             s3_client,
             bucket_name,
