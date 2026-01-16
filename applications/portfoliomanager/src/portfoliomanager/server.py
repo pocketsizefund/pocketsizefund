@@ -24,7 +24,7 @@ sentry_sdk.init(
     integrations=[
         LoggingIntegration(
             level=None,
-            event_level="ERROR",
+            event_level="WARNING",
         ),
     ],
 )
@@ -42,8 +42,10 @@ structlog.configure(
 )
 
 from .enums import PositionAction, PositionSide, TradeSide
+from .exceptions import InsufficientPredictionsError
 from .portfolio_schema import portfolio_schema
 from .risk_management import (
+    UNCERTAINTY_THRESHOLD,
     add_equity_bars_returns_and_realized_volatility_columns,
     add_portfolio_action_column,
     add_portfolio_performance_columns,
@@ -123,6 +125,21 @@ def create_portfolio() -> Response:  # noqa: PLR0911, C901
             current_timestamp=current_timestamp,
         )
         logger.info("Created optimal portfolio", count=len(optimal_portfolio))
+    except InsufficientPredictionsError as e:
+        logger.warning(
+            "Insufficient predictions to create portfolio - no trades will be made. "
+            "This typically happens when: (1) all predictions have high uncertainty "
+            f"(inter_quartile_range > {UNCERTAINTY_THRESHOLD}), (2) not enough predictions available after "
+            "filtering, or (3) first run with limited market data. Check the filtering "
+            "breakdown logs above for details.",
+            error=str(e),
+            predictions_count=len(current_predictions),
+            prior_portfolio_count=len(prior_portfolio),
+        )
+        return Response(
+            status_code=status.HTTP_204_NO_CONTENT,
+            headers={"X-Portfolio-Status": "insufficient-predictions"},
+        )
     except Exception as e:
         logger.exception("Failed to create optimal portfolio", error=str(e))
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -249,9 +266,24 @@ def get_prior_portfolio(current_timestamp: datetime) -> pl.DataFrame:  # TEMP
         timeout=60,
     )
 
+    if prior_portfolio_response.status_code == 404:
+        logger.info(
+            "No prior portfolio found - this is expected on first run",
+            status_code=prior_portfolio_response.status_code,
+        )
+        return pl.DataFrame(
+            {
+                "ticker": [],
+                "timestamp": [],
+                "side": [],
+                "dollar_amount": [],
+                "action": [],
+            }
+        )
+
     if prior_portfolio_response.status_code >= 400:
         logger.warning(
-            "No prior portfolio found, using empty portfolio for first run",
+            "Failed to fetch prior portfolio from datamanager",
             status_code=prior_portfolio_response.status_code,
         )
         return pl.DataFrame(

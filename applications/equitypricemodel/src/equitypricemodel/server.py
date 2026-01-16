@@ -32,7 +32,7 @@ sentry_sdk.init(
     integrations=[
         LoggingIntegration(
             level=None,
-            event_level="ERROR",
+            event_level="WARNING",
         ),
     ],
 )
@@ -254,14 +254,26 @@ def create_predictions(request: Request) -> Response:
         logger.error("No data batches available for prediction")
         return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    raw_predictions = request.app.state.tide_model.predict(
-        inputs=batches[-1]
-    )  # preprocessing generates more than 35 days
+    logger.info(
+        "Processing prediction batches",
+        num_batches=len(batches),
+    )
 
-    predictions = tide_data.postprocess_predictions(
-        input_batch=batches[-1],
-        predictions=raw_predictions,
-        current_datetime=current_timestamp,
+    # Predict on ALL batches and combine results
+    all_predictions = []
+    for batch_idx, batch in enumerate(batches):
+        raw_predictions = request.app.state.tide_model.predict(inputs=batch)
+        batch_predictions = tide_data.postprocess_predictions(
+            input_batch=batch,
+            predictions=raw_predictions,
+            current_datetime=current_timestamp,
+        )
+        all_predictions.append(batch_predictions)
+
+    predictions = pl.concat(all_predictions)
+    logger.info(
+        "Combined predictions from all batches",
+        total_predictions=predictions.height,
     )
 
     # filter to only the 7th timestep

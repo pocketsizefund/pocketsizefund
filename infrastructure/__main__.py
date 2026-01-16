@@ -3,6 +3,8 @@ import json
 import pulumi
 import pulumi_aws as aws
 
+import parameters
+
 current_identity = aws.get_caller_identity()
 
 account_id = current_identity.account_id
@@ -645,6 +647,24 @@ aws.iam.RolePolicy(
     ),
 )
 
+aws.iam.RolePolicy(
+    "task_role_ssm_policy",
+    name="pocketsizefund-ecs-task-role-ssm-policy",
+    role=task_role.id,
+    policy=json.dumps(
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": ["ssm:GetParameter", "ssm:GetParameters"],
+                    "Resource": f"arn:aws:ssm:{region}:{account_id}:parameter/pocketsizefund/*",
+                }
+            ],
+        }
+    ),
+)
+
 # SageMaker Execution Role for training jobs
 sagemaker_execution_role = aws.iam.Role(
     "sagemaker_execution_role",
@@ -836,11 +856,13 @@ portfoliomanager_task_definition = aws.ecs.TaskDefinition(
     network_mode="awsvpc",
     requires_compatibilities=["FARGATE"],
     execution_role_arn=execution_role.arn,
+    task_role_arn=task_role.arn,
     container_definitions=pulumi.Output.all(
         portfoliomanager_log_group.name,
         service_discovery_namespace.name,
         portfoliomanager_image_uri,
         secret.arn,
+        parameters.uncertainty_threshold.value,
     ).apply(
         lambda args: json.dumps(
             [
@@ -860,6 +882,10 @@ portfoliomanager_task_definition = aws.ecs.TaskDefinition(
                         {
                             "name": "ENVIRONMENT",
                             "value": "production",
+                        },
+                        {
+                            "name": "PSF_UNCERTAINTY_THRESHOLD",
+                            "value": args[4],
                         },
                     ],
                     "secrets": [

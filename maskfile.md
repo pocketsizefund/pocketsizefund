@@ -734,3 +734,77 @@ export APPLICATION_NAME="${application_name}"
 uv run python tools/download_model_artifacts.py
 ```
 
+## mcp
+
+> MCP server management
+
+### setup
+
+> Set up MCP servers for Claude Code
+
+```bash
+set -euo pipefail
+
+need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing required command: $1" >&2; exit 1; }; }
+
+need claude
+need uvx
+
+: "${AWS_PROFILE:?AWS_PROFILE is not set}"
+: "${AWS_REGION:?AWS_REGION is not set}"
+
+UVX_PATH="$(command -v uvx)"
+
+detect_uvx_exe() {
+  local pkg="$1"
+
+  # AWS Labs MCP servers follow a predictable naming convention:
+  # awslabs.ecs-mcp-server -> awslabs_ecs_mcp_server
+  # awslabs.cloudwatch-mcp-server -> awslabs_cloudwatch_mcp_server
+  local base_name="${pkg%@*}"  # Remove @latest suffix
+  local exe_name="${base_name//./_}"  # Replace . with _
+  exe_name="${exe_name//-/_}"  # Replace - with _
+
+  echo "$exe_name"
+}
+
+remove_if_present() {
+  local name="$1"
+  claude mcp remove "$name" >/dev/null 2>&1 || true
+}
+
+echo "Removing existing MCP entries (ignore errors if not present)..."
+remove_if_present awslabs-ecs-mcp-server
+remove_if_present awslabs-cloudwatch-logs-mcp-server
+remove_if_present awslabs-cloudwatch-mcp-server
+
+ECS_PKG="awslabs.ecs-mcp-server@latest"
+CW_PKG="awslabs.cloudwatch-mcp-server@latest"
+
+echo "Detecting uvx executable for ECS package: $ECS_PKG"
+ECS_EXE="$(detect_uvx_exe "$ECS_PKG")"
+echo "  -> ECS executable: $ECS_EXE"
+
+echo "Detecting uvx executable for CloudWatch package: $CW_PKG"
+CW_EXE="$(detect_uvx_exe "$CW_PKG")"
+echo "  -> CloudWatch executable: $CW_EXE"
+
+echo "Adding ECS MCP server..."
+claude mcp add awslabs-ecs-mcp-server -s project \
+  -e FASTMCP_LOG_LEVEL="${FASTMCP_LOG_LEVEL:-info}" \
+  -e AWS_PROFILE="$AWS_PROFILE" \
+  -e AWS_REGION="$AWS_REGION" \
+  -- "$UVX_PATH" --from "$ECS_PKG" "$ECS_EXE"
+
+echo "Adding CloudWatch MCP server..."
+claude mcp add awslabs-cloudwatch-mcp-server -s project \
+  -e FASTMCP_LOG_LEVEL="${FASTMCP_LOG_LEVEL:-info}" \
+  -e AWS_PROFILE="$AWS_PROFILE" \
+  -e AWS_REGION="$AWS_REGION" \
+  -- "$UVX_PATH" --from "$CW_PKG" "$CW_EXE"
+
+echo
+echo "Done. Current MCP status:"
+claude mcp list
+```
+

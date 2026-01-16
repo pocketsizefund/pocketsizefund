@@ -383,8 +383,17 @@ class Data:
             num_rows = len(ticker_df)
             num_windows = num_rows - input_length - output_length + 1
 
+            if num_windows <= 0:
+                continue
+
+            # For prediction, only use the last window (most recent data)
+            # For training/validation, use all windows
+            window_indices = (
+                [num_windows - 1] if data_type == "predict" else range(num_windows)
+            )
+
             # Use numpy slicing (much faster than DataFrame slicing)
-            for i in range(num_windows):
+            for i in window_indices:
                 sample = {
                     "encoder_categorical": cat_array[i : i + input_length].copy(),
                     "encoder_continuous": cont_array[i : i + input_length].copy(),

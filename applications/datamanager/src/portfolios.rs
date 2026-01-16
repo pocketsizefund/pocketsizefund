@@ -8,7 +8,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use polars::prelude::*;
 use serde::Deserialize;
-use tracing::info;
+use tracing::{info, warn};
 
 #[derive(Deserialize)]
 pub struct SavePortfolioPayload {
@@ -60,9 +60,36 @@ pub async fn get(
     let timestamp: Option<DateTime<Utc>> = parameters.timestamp;
 
     match query_portfolio_dataframe_from_s3(&state, timestamp).await {
-        Ok(dataframe) => (StatusCode::OK, dataframe.to_string()).into_response(),
+        Ok(dataframe) => {
+            if dataframe.height() == 0 {
+                warn!("No portfolio data found - this is expected on first run");
+                return (
+                    StatusCode::NOT_FOUND,
+                    "No portfolio data found",
+                )
+                    .into_response();
+            }
+            (StatusCode::OK, dataframe.to_string()).into_response()
+        }
         Err(err) => {
-            info!("Failed to fetch portfolio from S3: {}", err);
+            let err_str = err.to_string();
+            // Check if error indicates no files found (expected on first run)
+            if err_str.contains("No files found")
+                || err_str.contains("Could not find")
+                || err_str.contains("does not exist")
+                || err_str.contains("Invalid Input")
+            {
+                warn!(
+                    "No portfolio files in S3 - this is expected on first run: {}",
+                    err
+                );
+                return (
+                    StatusCode::NOT_FOUND,
+                    "No portfolio data found - first run",
+                )
+                    .into_response();
+            }
+            warn!("Failed to fetch portfolio from S3: {}", err);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Failed to fetch portfolio: {}", err),

@@ -67,9 +67,16 @@ impl State {
             }
         };
 
-        let massive_key = std::env::var("MASSIVE_API_KEY")
-            .expect("MASSIVE_API_KEY must be set in environment");
-        debug!("MASSIVE_API_KEY loaded (length: {} chars)", massive_key.len());
+        let massive_key = match std::env::var("MASSIVE_API_KEY") {
+            Ok(key) => {
+                debug!("MASSIVE_API_KEY loaded (length: {} chars)", key.len());
+                key
+            }
+            Err(_) => {
+                warn!("MASSIVE_API_KEY not set - equity bar sync will not work");
+                String::new()
+            }
+        };
 
         info!("Application state initialized successfully");
 

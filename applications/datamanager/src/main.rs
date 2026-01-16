@@ -35,7 +35,15 @@ async fn main() {
                 .unwrap_or_else(|_| "datamanager=debug,tower_http=debug,axum=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
-        .with(sentry::integrations::tracing::layer())
+        .with(
+            sentry::integrations::tracing::layer().event_filter(|metadata| {
+                use sentry::integrations::tracing::EventFilter;
+                match metadata.level() {
+                    &tracing::Level::ERROR | &tracing::Level::WARN => EventFilter::Event,
+                    _ => EventFilter::Breadcrumb,
+                }
+            }),
+        )
         .init();
 
     tracing::info!("Starting datamanager service");

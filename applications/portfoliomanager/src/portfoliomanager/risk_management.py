@@ -1,9 +1,20 @@
 import math
+import os
 from datetime import UTC, datetime
 
 import polars as pl
+import structlog
 
 from .enums import PositionAction, PositionSide
+from .exceptions import InsufficientPredictionsError
+
+logger = structlog.get_logger()
+
+_uncertainty_threshold_value = os.getenv("PSF_UNCERTAINTY_THRESHOLD")
+if _uncertainty_threshold_value is None:
+    message = "PSF_UNCERTAINTY_THRESHOLD environment variable is required"
+    raise ValueError(message)
+UNCERTAINTY_THRESHOLD = float(_uncertainty_threshold_value)
 
 
 def add_portfolio_action_column(
@@ -212,10 +223,9 @@ def create_optimal_portfolio(
     current_predictions = current_predictions.clone()
     prior_portfolio = prior_portfolio.clone()
 
-    minimum_inter_quartile_range = 0.75
     high_uncertainty_tickers = (
         current_predictions.filter(
-            pl.col("inter_quartile_range") > minimum_inter_quartile_range
+            pl.col("inter_quartile_range") > UNCERTAINTY_THRESHOLD
         )
         .select("ticker")
         .to_series()
@@ -233,8 +243,39 @@ def create_optimal_portfolio(
         high_uncertainty_tickers + closed_position_tickers + maintained_position_tickers
     )
 
+    prediction_summary = current_predictions.select(
+        "ticker",
+        "quantile_10",
+        "quantile_50",
+        "quantile_90",
+        "inter_quartile_range",
+        "composite_score",
+    ).to_dicts()
+
+    logger.warning(
+        "Current predictions received",
+        predictions=prediction_summary,
+    )
+
+    logger.warning(
+        "Portfolio filtering breakdown",
+        total_predictions=current_predictions.height,
+        high_uncertainty_excluded=len(high_uncertainty_tickers),
+        high_uncertainty_threshold=UNCERTAINTY_THRESHOLD,
+        closed_positions_excluded=len(closed_position_tickers),
+        maintained_positions_excluded=len(maintained_position_tickers),
+        total_excluded=len(excluded_tickers),
+        high_uncertainty_tickers=high_uncertainty_tickers[:10] if high_uncertainty_tickers else [],
+    )
+
     available_predictions = current_predictions.filter(
         ~pl.col("ticker").is_in(excluded_tickers)
+    )
+
+    logger.warning(
+        "Available predictions after filtering",
+        available_count=available_predictions.height,
+        required_for_full_portfolio=20,
     )
 
     maintained_long_capital = _filter_side_capital_amount(
@@ -274,6 +315,17 @@ def create_optimal_portfolio(
     maximum_long_candidates = min(new_long_positions_needed, total_available // 2)
     maximum_short_candidates = min(
         new_short_positions_needed, total_available - maximum_long_candidates
+    )
+
+    logger.warning(
+        "Position allocation calculation",
+        total_available_predictions=total_available,
+        new_long_positions_needed=new_long_positions_needed,
+        new_short_positions_needed=new_short_positions_needed,
+        maximum_long_candidates=maximum_long_candidates,
+        maximum_short_candidates=maximum_short_candidates,
+        maintained_long_count=maintained_long_count,
+        maintained_short_count=maintained_short_count,
     )
 
     long_candidates = available_predictions.head(maximum_long_candidates)
@@ -385,8 +437,20 @@ def _collect_portfolio_positions(
         )
 
     if len(portfolio_components) == 0:
-        message = "No portfolio components to create an optimal portfolio."
-        raise ValueError(message)
+        logger.warning(
+            "No portfolio components available",
+            long_positions_count=long_positions.height,
+            short_positions_count=short_positions.height,
+            maintained_positions_count=maintained_positions.height,
+        )
+        message = (
+            "No portfolio components to create an optimal portfolio. "
+            f"Long positions: {long_positions.height}, "
+            f"Short positions: {short_positions.height}, "
+            f"Maintained positions: {maintained_positions.height}. "
+            "This may indicate insufficient predictions after filtering."
+        )
+        raise InsufficientPredictionsError(message)
 
     optimal_portfolio = pl.concat(portfolio_components)
 
