@@ -17,15 +17,13 @@ import structlog
 
 logger = structlog.get_logger()
 
-POLYGON_BASE_URL = "https://api.polygon.io"
 
-
-def fetch_all_tickers(api_key: str) -> list[dict]:
+def fetch_all_tickers(api_key: str, base_url: str) -> list[dict]:
     """Fetch all US stock tickers from Polygon API with pagination."""
     logger.info("Fetching tickers from Polygon API")
 
     all_tickers = []
-    url = f"{POLYGON_BASE_URL}/v3/reference/tickers"
+    url = f"{base_url}/v3/reference/tickers"
     params = {
         "market": "stocks",
         "active": "true",
@@ -64,16 +62,12 @@ def extract_categories(tickers: list[dict]) -> pl.DataFrame:
     rows = []
     for ticker_data in tickers:
         ticker = ticker_data.get("ticker", "")
-        # Polygon uses 'sic_description' for industry, but we can also check other fields
-        # The primary_exchange and type fields help filter
-        if ticker_data.get("type") not in ("CS", "ADRC"):  # Common Stock or ADR
+        if ticker_data.get("type") not in ("CS", "ADRC"):
             continue
 
-        # Try to get sector/industry from various fields Polygon provides
         sector = ticker_data.get("sector", "")
         industry = ticker_data.get("industry", "")
 
-        # Some tickers may not have sector/industry
         if not sector:
             sector = "NOT AVAILABLE"
         if not industry:
@@ -123,12 +117,13 @@ def upload_categories_to_s3(
 
 def sync_equity_categories(
     api_key: str,
+    base_url: str,
     bucket_name: str,
 ) -> str:
     """Main function to sync equity categories."""
     logger.info("Syncing equity categories", bucket=bucket_name)
 
-    tickers = fetch_all_tickers(api_key)
+    tickers = fetch_all_tickers(api_key, base_url)
     categories = extract_categories(tickers)
 
     s3_client = boto3.client("s3")
@@ -139,10 +134,15 @@ def sync_equity_categories(
 
 if __name__ == "__main__":
     api_key = os.getenv("MASSIVE_API_KEY")
+    base_url = os.getenv("MASSIVE_BASE_URL")
     bucket_name = os.getenv("AWS_S3_DATA_BUCKET")
 
     if not api_key:
         logger.error("MASSIVE_API_KEY environment variable not set")
+        sys.exit(1)
+
+    if not base_url:
+        logger.error("MASSIVE_BASE_URL environment variable not set")
         sys.exit(1)
 
     if not bucket_name:
@@ -152,6 +152,7 @@ if __name__ == "__main__":
     try:
         output_uri = sync_equity_categories(
             api_key=api_key,
+            base_url=base_url,
             bucket_name=bucket_name,
         )
         logger.info("Sync complete", output_uri=output_uri)

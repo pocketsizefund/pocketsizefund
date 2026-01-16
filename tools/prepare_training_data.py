@@ -8,6 +8,7 @@ This script:
 5. Outputs consolidated parquet to S3 for SageMaker training
 """
 
+import io
 import os
 import sys
 from datetime import UTC, datetime, timedelta
@@ -158,8 +159,6 @@ def write_training_data_to_s3(
     output_key: str,
 ) -> str:
     """Write consolidated training data to S3 as parquet."""
-    import io
-
     logger.info(
         "Writing training data to S3",
         bucket=bucket_name,
