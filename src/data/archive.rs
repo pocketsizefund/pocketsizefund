@@ -24,6 +24,7 @@ use crate::common::types::{
     TradeSummary,
 };
 use crate::data::attribution::{Attribution, Declaration};
+use crate::data::cadence::{CadenceCheck, CadenceError, CadenceTotals, SessionOutcome};
 use crate::data::calendar::TradingCalendar;
 use crate::data::{bars, boundaries, quotes, splits, trades};
 
@@ -146,6 +147,10 @@ pub enum ArchiveError {
     },
     #[error("failed to build a bar frame: {0}")]
     Frame(#[from] PolarsError),
+    /// A cross-cadence comparison could not be made at all, which is separate from one that ran and
+    /// disagreed — a disagreement is a finding the pass reports and carries on past.
+    #[error("failed to compare cadences: {0}")]
+    Cadence(#[from] CadenceError),
 }
 
 /// What a partition write must be true of the object already at the key.
@@ -1959,7 +1964,7 @@ pub async fn archive_quote_sessions(
     let present = present_partitions(
         s3_client,
         bucket,
-        &quote_archive_prefix(BarInterval::OneDay),
+        &quote_archive_prefix(quote_presence_interval(cadence)),
         *first,
         *last,
     )
@@ -1999,6 +2004,7 @@ pub async fn archive_quote_sessions(
     // Summed here rather than accumulated through `progress`, which is what lets the published
     // summary carry it per variant without a bar pass holding a counter it can never fill.
     let mut quotes_folded = 0usize;
+    let mut agreement = CadenceTotals::default();
     for session in requested {
         quotes_folded += archive_quote_session(
             s3_client,
@@ -2009,6 +2015,7 @@ pub async fn archive_quote_sessions(
             scope,
             cadence,
             &mut progress,
+            &mut agreement,
         )
         .await?;
     }
@@ -2019,6 +2026,21 @@ pub async fn archive_quote_sessions(
         warn!(
             symbols_failed = progress.symbols_failed,
             "Some symbols are absent from the summaries this pass wrote; re-run those sessions to repair them"
+        );
+    }
+    if agreement.sessions() > 0 {
+        // Reported whichever way it went. A cadence that only speaks up when it disagrees leaves a
+        // clean run indistinguishable from one where the check never ran.
+        let (folded_only, stored_only) = agreement.one_sided();
+        info!(
+            sessions_checked = agreement.sessions(),
+            sessions_agreeing = agreement.sessions_agreeing(),
+            rows_compared = agreement.compared(),
+            disagreements = agreement.disagreements(),
+            folded_only,
+            stored_only,
+            unresolved = ?agreement.unresolved(),
+            "Checked the folded session rows against the stored ones"
         );
     }
     info!(
@@ -2048,6 +2070,7 @@ async fn archive_quote_session(
     scope: &Scope,
     cadence: IntradayCadence,
     progress: &mut PassProgress,
+    agreement: &mut CadenceTotals,
 ) -> Result<usize, ArchiveError> {
     let Some((open, close)) = quotes::trading_hours(calendar, session) else {
         // A date the calendar does not publish. Counted rather than fatal, so one unusable session
@@ -2120,7 +2143,9 @@ async fn archive_quote_session(
         bucket,
         session,
         folded,
+        cadence,
         progress,
+        agreement,
         source.provenance(),
     )
     .await?;
@@ -2224,71 +2249,358 @@ async fn fold_whole_session(
     Ok((folded.summaries, quotes_folded))
 }
 
-/// Writes a session's summaries, one partition per cadence, daily last.
+/// The prefix a quote pass reads presence from, which must be the last partition it writes.
 ///
-/// The order is the recovery rule, not a preference. Presence is read off the daily prefix, so a
-/// pass that dies partway leaves the session looking absent and the next pass redoes every cadence —
-/// where writing the daily first would mark it done with its intraday half missing.
+/// Presence has to name something the pass is certain to write, or `archive` skips sessions it only
+/// half-wrote. The five-minute pass writes the session row last and is keyed on it; a one-minute
+/// pass does not author that row at all, so it is keyed on its own cadence — without which every
+/// session already reads present and a one-minute `archive` silently does nothing.
+fn quote_presence_interval(cadence: IntradayCadence) -> BarInterval {
+    match cadence {
+        IntradayCadence::FiveMinute => BarInterval::OneDay,
+        IntradayCadence::OneMinute => BarInterval::OneMinute,
+    }
+}
+
+/// The cadence that authors the archive's daily quote row.
+///
+/// A finer pass derives the same row from its own buckets, which is evidence about that row rather
+/// than a replacement for it. Re-emitting it would put an unverified figure over a stored one.
+const DAILY_QUOTE_AUTHOR: IntradayCadence = IntradayCadence::FiveMinute;
+
+/// The prefixes a quote pass writes, in the order it writes them.
+///
+/// Stated as an order rather than derived from [`quote_presence_interval`], so a test can pin both
+/// to literals and still assert they agree — the failure this guards is silent, and a derivation
+/// would move with whichever of the two it was derived from.
+fn quote_write_order(cadence: IntradayCadence) -> [BarInterval; 2] {
+    match cadence {
+        IntradayCadence::FiveMinute => [BarInterval::FiveMinute, BarInterval::OneDay],
+        IntradayCadence::OneMinute => [BarInterval::OneDay, BarInterval::OneMinute],
+    }
+}
+
+/// Writes a session's summaries, the prefix presence is read off last.
+///
+/// The order is the recovery rule rather than a preference, and it flips between cadences because
+/// which prefix carries presence does: a pass that dies partway has to leave the session looking
+/// absent, or the next `archive` skips what it only half-wrote.
+#[allow(clippy::too_many_arguments)]
 async fn write_quote_partitions(
     s3_client: &S3Client,
     bucket: &str,
     session: SessionDate,
     folded: Vec<QuoteSummary>,
+    cadence: IntradayCadence,
     progress: &mut PassProgress,
+    agreement: &mut CadenceTotals,
     provenance: Provenance,
 ) -> Result<(), ArchiveError> {
-    let mut one_minute: Vec<QuoteSummary> = Vec::new();
-    let mut five_minute: Vec<QuoteSummary> = Vec::new();
+    let mut intraday: Vec<QuoteSummary> = Vec::new();
     let mut daily: Vec<QuoteSummary> = Vec::new();
     for row in folded {
         match row.bar_interval() {
-            BarInterval::OneMinute => one_minute.push(row),
-            BarInterval::FiveMinute => five_minute.push(row),
             BarInterval::OneDay => daily.push(row),
+            BarInterval::OneMinute | BarInterval::FiveMinute => intraday.push(row),
         }
     }
 
     let mut written = 0usize;
-    for (interval, rows) in [
-        (BarInterval::OneMinute, one_minute),
-        (BarInterval::FiveMinute, five_minute),
-        (BarInterval::OneDay, daily),
-    ] {
-        if rows.is_empty() {
-            continue;
-        }
-        let frame = quotes::summaries_to_dataframe(&rows)?;
-        let key = date_partitioned_key(&quote_archive_prefix(interval), session.date());
-        match write_merged(
-            s3_client,
-            bucket,
-            key,
-            frame,
-            |existing, fetched, key| merge_or_replace(existing, fetched, key),
-            DerivedDataset::Quotes,
-            provenance,
-        )
-        .await
-        {
-            Ok(()) => written += rows.len(),
-            // Both arms leave the session unsummarized at this cadence. A scope that skips sessions
-            // already present will not return to it, so re-running is the operator's to decide.
-            Err(ArchiveError::Contended { key, attempts }) => {
-                warn!(key, attempts, %session, "Quote partition contended; this session was not summarized");
-                progress.sessions_failed.push(session);
-                return Ok(());
+    for prefix in quote_write_order(cadence) {
+        let rows = match prefix {
+            BarInterval::OneDay => {
+                settle_session_row(
+                    s3_client, bucket, session, &daily, cadence, progress, agreement, provenance,
+                )
+                .await?
             }
-            Err(error) => {
-                warn!(%error, %session, "Quote partition write failed; this session was not summarized");
-                progress.sessions_failed.push(session);
-                return Ok(());
+            intraday_prefix => {
+                write_intraday_partition(
+                    s3_client,
+                    bucket,
+                    session,
+                    &intraday,
+                    intraday_prefix,
+                    progress,
+                    provenance,
+                )
+                .await?
             }
-        }
+        };
+        let Some(rows) = rows else {
+            return Ok(());
+        };
+        written += rows;
     }
 
     progress.sessions_written += 1;
     progress.rows_written += written;
     Ok(())
+}
+
+/// Writes the session's intraday rows, returning how many landed.
+///
+/// `None` means the session failed and the caller should stop.
+async fn write_intraday_partition(
+    s3_client: &S3Client,
+    bucket: &str,
+    session: SessionDate,
+    intraday: &[QuoteSummary],
+    interval: BarInterval,
+    progress: &mut PassProgress,
+    provenance: Provenance,
+) -> Result<Option<usize>, ArchiveError> {
+    if intraday.is_empty() {
+        return Ok(Some(0));
+    }
+    let frame = quotes::summaries_to_dataframe(intraday)?;
+    let key = date_partitioned_key(&quote_archive_prefix(interval), session.date());
+    let survived =
+        write_quote_partition(s3_client, bucket, session, key, frame, progress, provenance).await?;
+    Ok(survived.then_some(intraday.len()))
+}
+
+/// Writes the session row, or checks it where one is already stored, returning the rows written.
+///
+/// `None` means the session failed and the caller should stop. A pass at a cadence that does not
+/// author this row writes it only where none exists, since there is nothing to overwrite.
+#[allow(clippy::too_many_arguments)]
+async fn settle_session_row(
+    s3_client: &S3Client,
+    bucket: &str,
+    session: SessionDate,
+    daily: &[QuoteSummary],
+    cadence: IntradayCadence,
+    progress: &mut PassProgress,
+    agreement: &mut CadenceTotals,
+    provenance: Provenance,
+) -> Result<Option<usize>, ArchiveError> {
+    if daily.is_empty() {
+        return Ok(Some(0));
+    }
+    let key = date_partitioned_key(&quote_archive_prefix(BarInterval::OneDay), session.date());
+    let stored = match cadence {
+        cadence if cadence == DAILY_QUOTE_AUTHOR => None,
+        _ => read_partition(s3_client, bucket, &key).await?,
+    };
+    let Some(stored) = stored else {
+        let frame = quotes::summaries_to_dataframe(daily)?;
+        let survived =
+            write_quote_partition(s3_client, bucket, session, key, frame, progress, provenance)
+                .await?;
+        return Ok(survived.then_some(daily.len()));
+    };
+
+    check_session_row(session, daily, &stored, agreement, progress)?;
+    Ok(Some(0))
+}
+
+/// Writes one quote partition, reporting whether the session survived it.
+///
+/// `false` means the session is left unsummarized at this cadence. A scope that skips sessions
+/// already present will not return to it, so re-running is the operator's to decide.
+async fn write_quote_partition(
+    s3_client: &S3Client,
+    bucket: &str,
+    session: SessionDate,
+    key: String,
+    frame: DataFrame,
+    progress: &mut PassProgress,
+    provenance: Provenance,
+) -> Result<bool, ArchiveError> {
+    match write_merged(
+        s3_client,
+        bucket,
+        key,
+        frame,
+        |existing, fetched, key| merge_or_replace(existing, fetched, key),
+        DerivedDataset::Quotes,
+        provenance,
+    )
+    .await
+    {
+        Ok(()) => Ok(true),
+        Err(ArchiveError::Contended { key, attempts }) => {
+            warn!(key, attempts, %session, "Quote partition contended; this session was not summarized");
+            progress.sessions_failed.push(session);
+            Ok(false)
+        }
+        Err(error) => {
+            warn!(%error, %session, "Quote partition write failed; this session was not summarized");
+            progress.sessions_failed.push(session);
+            Ok(false)
+        }
+    }
+}
+
+/// Compares a derived session row against the stored one, writing nothing either way.
+///
+/// Neither a disagreement nor an uncomparable pair stops the pass: the stored row belongs to another
+/// cadence, and a multi-day backfill must not end over a figure it deliberately does not own.
+fn check_session_row(
+    session: SessionDate,
+    derived: &[QuoteSummary],
+    stored: &DataFrame,
+    totals: &mut CadenceTotals,
+    progress: &mut PassProgress,
+) -> Result<(), ArchiveError> {
+    let derived = quotes::summaries_to_dataframe(derived)?;
+    let outcome =
+        match CadenceCheck::quotes().compare(&derived, stored, BarInterval::OneDay, session) {
+            Ok(outcome) => outcome,
+            // Carried like a failed fold rather than raised. A stored row this pass cannot read is one
+            // session's problem, and the intraday rows it did fold are still worth keeping.
+            Err(error) => {
+                warn!(%session, %error, "The stored session row could not be compared");
+                totals.note(session, SessionOutcome::Unusable);
+                progress.sessions_failed.push(session);
+                return Ok(());
+            }
+        };
+    if outcome.agrees() {
+        info!(%outcome, "The folded session row agrees with the stored one");
+    } else {
+        warn!(%outcome, worst = ?outcome.worst().map(|(column, worst)| format!("{column}: {worst}")), "The folded session row disagrees with the stored one");
+    }
+    totals.absorb(&outcome);
+    Ok(())
+}
+
+/// A summary family, which is a prefix and the column rules stored under it.
+///
+/// The two families differ in where they live and what reconstructs, and in nothing else — which is
+/// what lets one check answer for both instead of being written twice and kept in step by hand.
+#[derive(Clone, Copy, Debug)]
+pub enum SummaryFamily {
+    Quotes,
+    Trades,
+}
+
+impl SummaryFamily {
+    /// The archive prefix this family stores `interval` under.
+    fn prefix(self, interval: BarInterval) -> String {
+        match self {
+            SummaryFamily::Quotes => quote_archive_prefix(interval),
+            SummaryFamily::Trades => trade_archive_prefix(interval),
+        }
+    }
+
+    /// Which columns a coarser row of this family reconstructs, and how.
+    fn check(self) -> CadenceCheck {
+        match self {
+            SummaryFamily::Quotes => CadenceCheck::quotes(),
+            SummaryFamily::Trades => CadenceCheck::trades(),
+        }
+    }
+
+    /// The columns of this family no coarser row reconstructs, for a report to name.
+    pub fn opaque_columns(self) -> &'static [&'static str] {
+        self.check().opaque()
+    }
+}
+
+impl std::fmt::Display for SummaryFamily {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            SummaryFamily::Quotes => "quotes",
+            SummaryFamily::Trades => "trades",
+        })
+    }
+}
+
+/// Folds each session's `finer` partition up to `coarser` and compares it to what is stored there.
+///
+/// Reads only, and needs no vendor credential: the population is what the finer prefix holds rather
+/// than what a calendar publishes, so the check speaks for the archive as it is. One session at a
+/// time, because a one-minute quote partition is millions of rows and several will not fit at once.
+#[allow(clippy::too_many_arguments)]
+pub async fn check_cadence_agreement(
+    s3_client: &S3Client,
+    bucket: &str,
+    family: SummaryFamily,
+    finer: BarInterval,
+    coarser: BarInterval,
+    window_start: SessionDate,
+    window_end: SessionDate,
+    stride: usize,
+) -> Result<CadenceTotals, ArchiveError> {
+    let check = family.check();
+    let sessions: Vec<SessionDate> = present_partitions(
+        s3_client,
+        bucket,
+        &family.prefix(finer),
+        window_start,
+        window_end,
+    )
+    .await?
+    .into_iter()
+    .step_by(stride.max(1))
+    .collect();
+    info!(
+        %family,
+        %finer,
+        %coarser,
+        window_start = %window_start,
+        window_end = %window_end,
+        stride,
+        sessions = sessions.len(),
+        "Planned a cross-cadence check"
+    );
+
+    let mut totals = CadenceTotals::default();
+    for &session in &sessions {
+        let finer_key = date_partitioned_key(&family.prefix(finer), session.date());
+        let coarser_key = date_partitioned_key(&family.prefix(coarser), session.date());
+        // The coarse read is what can be absent: the session list came from the finer prefix.
+        let Some(coarse) = read_partition(s3_client, bucket, &coarser_key).await? else {
+            // Absent, not disagreeing. A session missing a cadence is a coverage gap for the
+            // backfill to answer, and counting it as a failed comparison would make a hole in one
+            // prefix read as evidence that the other prefix is wrong. It is still not agreement,
+            // so it is carried in the totals rather than logged beside them.
+            totals.note(session, SessionOutcome::Absent);
+            continue;
+        };
+        let Some(fine) = read_partition(s3_client, bucket, &finer_key).await? else {
+            totals.note(session, SessionOutcome::Absent);
+            continue;
+        };
+        let outcome = match check.compare(&fine, &coarse, coarser, session) {
+            Ok(outcome) => outcome,
+            // One unusable session, not the window. Ending here would discard every session already
+            // compared and report nothing about the ones after it.
+            Err(error) => {
+                warn!(%session, %error, "A session could not be compared");
+                totals.note(session, SessionOutcome::Unusable);
+                continue;
+            }
+        };
+        if outcome.agrees() {
+            info!(%outcome, "Cadences agree");
+        } else {
+            warn!(%outcome, worst = ?outcome.worst().map(|(column, worst)| format!("{column}: {worst}")), "Cadences disagree");
+        }
+        totals.absorb(&outcome);
+    }
+
+    let (folded_only, stored_only) = totals.one_sided();
+    info!(
+        %family,
+        %finer,
+        %coarser,
+        sessions_listed = sessions.len(),
+        sessions_reached = totals.sessions(),
+        sessions_agreeing = totals.sessions_agreeing(),
+        rows_compared = totals.compared(),
+        disagreements = totals.disagreements(),
+        folded_only,
+        stored_only,
+        // Dated and reasoned, not counted: a count says a re-fold is needed and cannot say which
+        // sessions to run it over, nor which of the four ways they failed to agree.
+        unresolved = ?totals.unresolved(),
+        opaque = ?check.opaque(),
+        "Cross-cadence check complete"
+    );
+    Ok(totals)
 }
 
 /// Folds the printed tape across `sessions`, per `scope`, out of Massive's flat files, which must
@@ -3346,6 +3658,87 @@ mod tests {
             );
             assert_eq!(date_from_partitioned_key(&quotes), Some(date));
         }
+    }
+
+    /// A pass has to read presence off something it is certain to write, or `archive` skips the
+    /// sessions it half-wrote. Pinned to literals because the failure is silent both ways: keyed on
+    /// a prefix the pass does not write, every session reads present and the pass does nothing at
+    /// all -- which is what a one-minute quote fold would have done against the daily prefix.
+    #[test]
+    fn test_a_pass_reads_presence_off_a_prefix_it_writes() {
+        assert_eq!(
+            quote_presence_interval(IntradayCadence::FiveMinute),
+            BarInterval::OneDay
+        );
+        assert_eq!(
+            quote_presence_interval(IntradayCadence::OneMinute),
+            BarInterval::OneMinute
+        );
+
+        // Literals, not a pairing read off `DAILY_QUOTE_AUTHOR`: an expectation derived from the
+        // constant under test moves with it and can never fail.
+        assert_eq!(DAILY_QUOTE_AUTHOR, IntradayCadence::FiveMinute);
+        for (cadence, presence) in [
+            (IntradayCadence::FiveMinute, BarInterval::OneDay),
+            (IntradayCadence::OneMinute, BarInterval::OneMinute),
+        ] {
+            assert_eq!(quote_presence_interval(cadence), presence, "{cadence:?}");
+        }
+    }
+
+    /// The prefix presence is read off has to be the last one written, or a pass that dies partway
+    /// marks the session done with half of it missing -- the `1106` partition-write-loss shape.
+    ///
+    /// Both sides are pinned to literals and then asserted to agree. Deriving either from the other
+    /// would make the assertion tautological, and the failure it guards against is silent: the
+    /// session simply never comes back.
+    #[test]
+    fn test_the_prefix_presence_is_read_off_is_written_last() {
+        assert_eq!(
+            quote_write_order(IntradayCadence::FiveMinute),
+            [BarInterval::FiveMinute, BarInterval::OneDay]
+        );
+        assert_eq!(
+            quote_write_order(IntradayCadence::OneMinute),
+            [BarInterval::OneDay, BarInterval::OneMinute]
+        );
+
+        for cadence in IntradayCadence::ALL {
+            let order = quote_write_order(cadence);
+            assert_eq!(
+                order.last().copied(),
+                Some(quote_presence_interval(cadence)),
+                "{cadence:?} reads presence off a prefix it does not write last"
+            );
+            // Both partitions, never one twice: a pass that wrote its session row in place of its
+            // intraday one would still satisfy the rule above.
+            assert_ne!(order[0], order[1], "{cadence:?}");
+        }
+    }
+
+    /// The two families' cadence checks must not be able to name each other's columns: a quote
+    /// prefix read with trade rules would ask for `volume` in a partition that has never held one.
+    #[test]
+    fn test_each_summary_family_names_its_own_prefix_and_its_own_opaque_columns() {
+        assert_eq!(
+            SummaryFamily::Quotes.prefix(BarInterval::OneMinute),
+            "data/derived/equity/quotes/interval=one_minute"
+        );
+        assert_eq!(
+            SummaryFamily::Trades.prefix(BarInterval::OneMinute),
+            "data/derived/equity/trades/interval=one_minute"
+        );
+        assert_eq!(
+            SummaryFamily::Quotes.opaque_columns(),
+            [
+                "quoted_spread_basis_points_median",
+                "quoted_spread_basis_points_ninetieth_percentile"
+            ]
+        );
+        assert_eq!(
+            SummaryFamily::Trades.opaque_columns(),
+            ["median_trade_size", "ninetieth_percentile_trade_size"]
+        );
     }
 
     /// Each fault fails the pass on its own, and a clean pass passes. This is the rule all three

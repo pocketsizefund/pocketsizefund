@@ -18,6 +18,7 @@ use fund::common::types::{
     BarInterval, IntradayCadence, LiquidityFloor, QuoteSummary, SessionDate, Ticker,
 };
 use fund::data::archive::{self, NameSelection, Scope, SessionSelection};
+use fund::data::cadence::CadenceTotals;
 use fund::data::calendar::TradingCalendar;
 use fund::data::{attribution, bars, details, quotes};
 
@@ -93,6 +94,74 @@ enum Command {
         #[command(subcommand)]
         action: ProvenanceAction,
     },
+    /// Whether a family's coarser rows are the finer rows beneath them. Writes nothing.
+    ArchiveCadence {
+        #[command(subcommand)]
+        action: CadenceAction,
+    },
+}
+
+/// Which family to fold up and compare. Both arms read the archive and write nothing.
+///
+/// A subcommand rather than a flag because the two families store different columns under different
+/// prefixes, and a flag would let a run name the quote prefix and the trade column rules.
+#[derive(Debug, Subcommand)]
+enum CadenceAction {
+    /// Compare the quote archive's cadences against each other.
+    Quotes(CadenceArguments),
+    /// Compare the trade archive's cadences against each other.
+    Trades(CadenceArguments),
+}
+
+impl CadenceAction {
+    /// Which prefix and column rules this action reads.
+    fn family(&self) -> archive::SummaryFamily {
+        match self {
+            CadenceAction::Quotes(_) => archive::SummaryFamily::Quotes,
+            CadenceAction::Trades(_) => archive::SummaryFamily::Trades,
+        }
+    }
+
+    /// The window, stride and pair of cadences this action runs over.
+    fn arguments(&self) -> &CadenceArguments {
+        match self {
+            CadenceAction::Quotes(arguments) | CadenceAction::Trades(arguments) => arguments,
+        }
+    }
+}
+
+impl CadenceArguments {
+    /// The pair to fold, refusing a direction the fold cannot run in.
+    ///
+    /// Checked here rather than by clap, which sees one argument at a time and so cannot express a
+    /// rule spanning two; `Window::new` sets the same precedent. Refused before the listing, so an
+    /// inverted pair costs no request and reports as the usage error it is.
+    fn intervals(&self) -> Result<(BarInterval, BarInterval), String> {
+        if self.from > self.to {
+            return Err(format!(
+                "--from {} is coarser than --to {}; a fold runs one way",
+                self.from.bar_interval(),
+                self.to.bar_interval()
+            ));
+        }
+        Ok((self.from.bar_interval(), self.to.bar_interval()))
+    }
+}
+
+#[derive(Debug, Args)]
+struct CadenceArguments {
+    #[command(flatten)]
+    window: WindowArguments,
+    /// Sample every Nth session the finer prefix holds, anchored at the oldest.
+    #[arg(long, default_value_t = DEFAULT_STRIDE, value_parser = stride)]
+    stride: usize,
+    /// The cadence to fold up from, which is also the prefix the session population is read off.
+    #[arg(long, value_enum, default_value = "one_minute")]
+    from: Interval,
+    /// The cadence to compare against. Refused if it is finer than `--from`, since the fold only
+    /// runs one way; equal to it is the degenerate fold, which compares each row against itself.
+    #[arg(long, value_enum, default_value = "one_day")]
+    to: Interval,
 }
 
 /// What to do about provenance the archive does not yet record.
@@ -145,6 +214,7 @@ impl Command {
             Command::EquityQuotes { .. } => "seed-equity-quotes",
             Command::EquityTrades { .. } => "seed-equity-trades",
             Command::ArchiveProvenance { .. } => "seed-archive-provenance",
+            Command::ArchiveCadence { .. } => "seed-archive-cadence",
         }
     }
 }
@@ -281,10 +351,10 @@ struct IntradayRepairArguments {
 enum QuoteAction {
     /// Fold every name the daily archive holds into the sampled sessions that have no partition
     /// yet.
-    Archive(QuoteArguments),
+    Archive(QuoteFoldArguments),
     /// Fold every name the daily archive holds into every sampled session, widening ones already
     /// summarized.
-    Widen(QuoteArguments),
+    Widen(QuoteFoldArguments),
     /// Fold named symbols and print what they read, touching no partition.
     Measure(QuoteSymbolArguments),
     /// Fold named symbols into the sampled sessions that already have a partition.
@@ -386,6 +456,27 @@ struct QuoteSymbolArguments {
     quotes: QuoteArguments,
     #[command(flatten)]
     symbols: SymbolArguments,
+    /// Cadence of the partition being repaired, which is the cadence the fold is opened at.
+    ///
+    /// A session can hold a one-minute quote partition, so a repair pinned to five minutes would
+    /// fold the wrong cadence, merge it into the wrong prefix and report success over an unrepaired
+    /// gap.
+    #[arg(long, value_enum, default_value = "five_minute")]
+    cadence: Cadence,
+}
+
+/// A whole-market quote fold, which is the only quote action that chooses its cadence.
+#[derive(Debug, Args)]
+struct QuoteFoldArguments {
+    #[command(flatten)]
+    quotes: QuoteArguments,
+    /// Cadence to fold the intraday rows at, which is also the partition they land in.
+    ///
+    /// The session row is written only by the cadence that authors it. A fold at any other cadence
+    /// derives the same row, compares it against the stored one and reports — see
+    /// `archive-cadence quotes` for that comparison run over the archive afterwards.
+    #[arg(long, value_enum, default_value = "five_minute")]
+    cadence: Cadence,
 }
 
 /// The window an archive pass runs over, as the arguments give it.
@@ -455,10 +546,43 @@ enum Cadence {
 }
 
 impl Cadence {
-    fn interval(self) -> BarInterval {
+    /// The bucket width this names, which is what a fold is opened at.
+    fn intraday(self) -> IntradayCadence {
         match self {
-            Cadence::FiveMinute => BarInterval::FiveMinute,
-            Cadence::OneMinute => BarInterval::OneMinute,
+            Cadence::FiveMinute => IntradayCadence::FiveMinute,
+            Cadence::OneMinute => IntradayCadence::OneMinute,
+        }
+    }
+
+    /// The partition rows folded at this cadence land in.
+    fn interval(self) -> BarInterval {
+        self.intraday().bar_interval()
+    }
+}
+
+/// Any interval the archive stores, which is a cadence plus the session row.
+///
+/// Separate from [`Cadence`], which names a bucket a fold can be opened at: a session row is the
+/// merge of the buckets rather than a grid of them, so it belongs to a comparison and never to a
+/// fold. The two enums are what keep `--cadence one_day` unrepresentable.
+///
+/// Ordered finest-first, which is the order a fold runs in: `--from` must not exceed `--to`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Interval {
+    #[value(name = "one_minute")]
+    OneMinute,
+    #[value(name = "five_minute")]
+    FiveMinute,
+    #[value(name = "one_day")]
+    OneDay,
+}
+
+impl Interval {
+    fn bar_interval(self) -> BarInterval {
+        match self {
+            Interval::OneMinute => BarInterval::OneMinute,
+            Interval::FiveMinute => BarInterval::FiveMinute,
+            Interval::OneDay => BarInterval::OneDay,
         }
     }
 }
@@ -659,6 +783,8 @@ enum Outcome {
     Pass(archive::PassSummary),
     /// A chunked backfill into PostgreSQL, which steps over a failed window rather than aborting.
     Chunked(ChunkedSummary),
+    /// A read-only check, which always finished and reports whether what it read agreed.
+    Checked(CadenceTotals),
     /// A run with nothing to step over: it did all of its work, or returned an error instead of it.
     Complete,
 }
@@ -669,6 +795,28 @@ impl Outcome {
         match self {
             Outcome::Pass(summary) => Some(summary.to_string()),
             Outcome::Chunked(summary) => Some(summary.to_string()),
+            Outcome::Checked(totals) => {
+                let (folded_only, stored_only) = totals.one_sided();
+                // The four ways a session did not agree, named rather than summed. A window where
+                // most sessions were absent reads identically to a clean one under a single count.
+                let unresolved: Vec<String> = totals
+                    .unresolved()
+                    .iter()
+                    .map(|(session, outcome)| format!("{session} {outcome}"))
+                    .collect();
+                Some(format!(
+                    "{} sessions reached, {} agreeing, {} rows compared, {} disagreements, {folded_only} folded-only, {stored_only} stored-only{}",
+                    totals.sessions(),
+                    totals.sessions_agreeing(),
+                    totals.compared(),
+                    totals.disagreements(),
+                    if unresolved.is_empty() {
+                        String::new()
+                    } else {
+                        format!("; unresolved: {}", unresolved.join(", "))
+                    }
+                ))
+            }
             Outcome::Complete => None,
         }
     }
@@ -693,6 +841,15 @@ impl Outcome {
                 complete = summary.is_complete(),
                 "Backfill finished"
             ),
+            Outcome::Checked(totals) => info!(
+                sessions_reached = totals.sessions(),
+                sessions_agreeing = totals.sessions_agreeing(),
+                rows_compared = totals.compared(),
+                disagreements = totals.disagreements(),
+                unresolved = ?totals.unresolved(),
+                agrees = totals.agrees(),
+                "Check finished"
+            ),
             Outcome::Complete => {}
         }
     }
@@ -703,6 +860,9 @@ impl Outcome {
         let complete = match self {
             Outcome::Pass(summary) => summary.is_complete(),
             Outcome::Chunked(summary) => summary.is_complete(),
+            // A disagreement is what this run exists to find, so it is the one outcome that must
+            // not exit zero: nothing downstream reads the report, and automation reads only this.
+            Outcome::Checked(totals) => totals.agrees(),
             Outcome::Complete => true,
         };
         if complete {
@@ -775,6 +935,7 @@ async fn run(command: &Command, today: SessionDate) -> Result<Outcome, SeedError
         Command::EquityQuotes { action } => seed_quotes(action).await,
         Command::EquityTrades { action } => seed_trades(action).await,
         Command::ArchiveProvenance { action } => seed_provenance(action).await,
+        Command::ArchiveCadence { action } => check_cadence(action).await,
     }
 }
 
@@ -1181,7 +1342,13 @@ async fn seed_quotes(action: &QuoteAction) -> Result<Outcome, SeedError> {
             let scope = action
                 .universe_scope()
                 .ok_or_else(|| SeedError::Usage(format!("{action:?} folds no universe")))??;
-            fold_sampled(arguments, scope, QuoteProvider::WholeSession).await
+            fold_sampled(
+                &arguments.quotes,
+                scope,
+                QuoteProvider::WholeSession,
+                arguments.cadence.intraday(),
+            )
+            .await
         }
         QuoteAction::Measure(symbols) => measure_sampled(symbols).await,
         QuoteAction::Repair(symbols) => {
@@ -1190,7 +1357,13 @@ async fn seed_quotes(action: &QuoteAction) -> Result<Outcome, SeedError> {
             let named = symbols.symbols.required_names()?;
             let scope = Scope::new(NameSelection::Named(named), SessionSelection::Present)
                 .map_err(|error| SeedError::Usage(error.to_string()))?;
-            fold_sampled(&symbols.quotes, scope, QuoteProvider::PerName).await
+            fold_sampled(
+                &symbols.quotes,
+                scope,
+                QuoteProvider::PerName,
+                symbols.cadence.intraday(),
+            )
+            .await
         }
     }
 }
@@ -1203,6 +1376,7 @@ async fn fold_sampled(
     arguments: &QuoteArguments,
     scope: Scope,
     provider: QuoteProvider,
+    cadence: IntradayCadence,
 ) -> Result<Outcome, SeedError> {
     let window = arguments.window.window()?;
     let (market_data, calendar) = quote_sources(&window).await?;
@@ -1221,7 +1395,7 @@ async fn fold_sampled(
     };
 
     Ok(Outcome::Pass(
-        fold_quotes(&source, &calendar, &sampled, &scope).await?,
+        fold_quotes(&source, &calendar, &sampled, &scope, cadence).await?,
     ))
 }
 
@@ -1411,7 +1585,14 @@ async fn measure_sampled(symbols: &QuoteSymbolArguments) -> Result<Outcome, Seed
     let sampled = sample(&calendar, &window, arguments.stride);
     report_sample(&window, arguments.stride, &calendar, &sampled);
 
-    measure(&market_data, &calendar, &sampled, &named).await;
+    measure(
+        &market_data,
+        &calendar,
+        &sampled,
+        &named,
+        symbols.cadence.intraday(),
+    )
+    .await;
     Ok(Outcome::Complete)
 }
 
@@ -1591,11 +1772,10 @@ async fn quote_sources(
     Ok((market_data, TradingCalendar::from_days(days)))
 }
 
-/// The cadence every quote action folds at.
+/// The cadence a probe folds at, which reports numbers and writes no partition.
 ///
-/// One-minute is plumbed the whole way through [`IntradayCadence`] but deliberately unreachable from
-/// the command line: a one-minute pass re-derives the session row, and the check that compares it
-/// against the stored one rather than overwriting it does not exist yet.
+/// The only quote action left without a flag. Every action that touches the archive takes one,
+/// because a fold at the wrong cadence lands in the wrong prefix.
 const QUOTE_CADENCE: IntradayCadence = IntradayCadence::FiveMinute;
 
 /// Which provider a fold reads from.
@@ -1615,17 +1795,12 @@ async fn fold_quotes(
     calendar: &TradingCalendar,
     sampled: &[SessionDate],
     scope: &Scope,
+    cadence: IntradayCadence,
 ) -> Result<archive::PassSummary, Box<dyn std::error::Error>> {
     let bucket = bucket_name()?;
     let s3_client = fund::common::aws::s3_client().await;
     Ok(archive::archive_quote_sessions(
-        &s3_client,
-        source,
-        calendar,
-        &bucket,
-        sampled,
-        scope,
-        QUOTE_CADENCE,
+        &s3_client, source, calendar, &bucket, sampled, scope, cadence,
     )
     .await?)
 }
@@ -1652,6 +1827,7 @@ async fn measure(
     calendar: &TradingCalendar,
     sampled: &[SessionDate],
     symbols: &BTreeSet<Ticker>,
+    cadence: IntradayCadence,
 ) {
     println!(
         "{:<8}{:<12}{:>10}{:>10}{:>10}{:>10}{:>10}{:>10}{:>12}",
@@ -1671,9 +1847,7 @@ async fn measure(
             continue;
         };
         for ticker in symbols {
-            match quotes::fold_session(market_data, ticker, *session, QUOTE_CADENCE, open, close)
-                .await
-            {
+            match quotes::fold_session(market_data, ticker, *session, cadence, open, close).await {
                 Ok((summaries, fetch)) => {
                     print_session_row(ticker, *session, &summaries, fetch.received)
                 }
@@ -1727,6 +1901,49 @@ fn print_session_row(
         quotes_folded,
         row.covered_seconds()
     );
+}
+
+// --- Cross-cadence check --------------------------------------------------------------------
+
+/// Folds one stored cadence up to another and reports whether they agree, writing nothing.
+///
+/// Needs AWS and nothing else. The population is what the finer prefix holds rather than what a
+/// calendar publishes, so this runs against the archive as it stands and asks for no vendor
+/// credential — which is what makes it usable after a subscription lapses.
+async fn check_cadence(action: &CadenceAction) -> Result<Outcome, SeedError> {
+    let arguments = action.arguments();
+    let (from, to) = arguments.intervals()?;
+    let window = arguments.window.window()?;
+    let bucket = bucket_name()?;
+    let s3_client = fund::common::aws::s3_client().await;
+
+    let totals = archive::check_cadence_agreement(
+        &s3_client,
+        &bucket,
+        action.family(),
+        from,
+        to,
+        window.start,
+        window.end,
+        arguments.stride,
+    )
+    .await
+    .map_err(box_error)?;
+
+    // Named, not counted. The medians are not decomposable, so a run that printed only agreement
+    // would read as covering the row -- which is the overstatement this whole check exists against.
+    println!(
+        "{} {} -> {}: {} of {} sessions agree over {} rows; {} columns are not decomposable and were not checked: {}",
+        action.family(),
+        from,
+        to,
+        totals.sessions_agreeing(),
+        totals.sessions(),
+        totals.compared(),
+        action.family().opaque_columns().len(),
+        action.family().opaque_columns().join(", ")
+    );
+    Ok(Outcome::Checked(totals))
 }
 
 // --- Shared plumbing ------------------------------------------------------------------------
@@ -1810,6 +2027,84 @@ mod tests {
             Command::EquityQuotes { action } => action,
             _ => panic!("expected the quote subcommand"),
         }
+    }
+
+    fn cadence_action(arguments: &[&str]) -> CadenceAction {
+        let parsed = parse(arguments).expect("valid arguments");
+        match parsed.command {
+            Command::ArchiveCadence { action } => action,
+            _ => panic!("expected the cadence subcommand"),
+        }
+    }
+
+    /// A whole-market quote fold, which is the only quote action that names its own cadence.
+    fn quote_fold(arguments: &[&str]) -> QuoteFoldArguments {
+        match quotes(arguments) {
+            QuoteAction::Archive(arguments) | QuoteAction::Widen(arguments) => arguments,
+            other => panic!("expected a whole-market fold, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_a_quote_fold_defaults_to_five_minutes_and_reaches_one_minute() {
+        let window = ["--start", "2026-08-03", "--end", "2026-08-21"];
+        for action in ["archive", "widen"] {
+            let mut defaulted = vec!["equity-quotes", action];
+            defaulted.extend_from_slice(&window);
+            assert_eq!(
+                quote_fold(&defaulted).cadence.intraday(),
+                IntradayCadence::FiveMinute
+            );
+
+            let mut one = defaulted.clone();
+            one.extend_from_slice(&["--cadence", "one_minute"]);
+            assert_eq!(
+                quote_fold(&one).cadence.intraday(),
+                IntradayCadence::OneMinute
+            );
+        }
+    }
+
+    #[test]
+    fn test_a_session_is_not_a_cadence_a_quote_fold_can_be_opened_at() {
+        // A session row is the merge of the buckets rather than a grid of them, so `one_day` names
+        // no fold. Refused by the value enum rather than checked after parsing.
+        assert!(parse(&[
+            "equity-quotes",
+            "archive",
+            "--start",
+            "2026-08-03",
+            "--end",
+            "2026-08-21",
+            "--cadence",
+            "one_day",
+        ])
+        .is_err());
+    }
+
+    #[test]
+    fn test_the_cadence_check_reads_both_families_and_defaults_to_the_session_row() {
+        let window = ["--start", "2021-08-23", "--end", "2026-08-21"];
+
+        let mut quotes = vec!["archive-cadence", "quotes"];
+        quotes.extend_from_slice(&window);
+        let action = cadence_action(&quotes);
+        assert!(matches!(action.family(), archive::SummaryFamily::Quotes));
+        assert_eq!(
+            action.arguments().from.bar_interval(),
+            BarInterval::OneMinute
+        );
+        assert_eq!(action.arguments().to.bar_interval(), BarInterval::OneDay);
+        assert_eq!(action.arguments().stride, 1);
+
+        let mut trades = vec!["archive-cadence", "trades", "--to", "five_minute"];
+        trades.extend_from_slice(&window);
+        let action = cadence_action(&trades);
+        assert!(matches!(action.family(), archive::SummaryFamily::Trades));
+        assert_eq!(
+            action.arguments().to.bar_interval(),
+            BarInterval::FiveMinute
+        );
     }
 
     #[test]
@@ -2130,7 +2425,7 @@ mod tests {
         ]) else {
             panic!("expected the archive action");
         };
-        assert_eq!(arguments.stride, 1);
+        assert_eq!(arguments.quotes.stride, 1);
 
         for value in ["0", "-1", "many"] {
             assert!(
