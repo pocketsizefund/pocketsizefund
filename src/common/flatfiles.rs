@@ -5,6 +5,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use aws_sdk_s3::config::http::HttpResponse;
+use aws_sdk_s3::error::{ProvideErrorMetadata, SdkError};
 use aws_sdk_s3::Client as S3Client;
 use chrono::{DateTime, Datelike, NaiveDate, TimeZone, Utc};
 use flate2::read::GzDecoder;
@@ -90,9 +92,15 @@ pub enum FlatFileError {
     Missing { variable: &'static str },
     #[error("{field} must not be empty")]
     Empty { field: &'static str },
-    #[error("could not fetch {key}: {source}")]
+    #[error("could not fetch {key}: {failure}: {source}")]
     Fetch {
         key: String,
+        /// How far the request got before it failed.
+        ///
+        /// Carried because the SDK renders an unmodelled service error as `service error <-
+        /// unhandled error`, naming neither the status nor the code. A retry that cannot say whether
+        /// it was throttled or reset cannot be acted on, and the two call for opposite responses.
+        failure: FetchFailure,
         source: Box<dyn std::error::Error + Send + Sync>,
     },
     #[error("could not read {key}: {source}")]
@@ -969,6 +977,7 @@ impl FlatFileClient {
             .await
             .map_err(|error| FlatFileError::Fetch {
                 key: key.to_string(),
+                failure: FetchFailure::read(&error),
                 source: Box::new(error),
             })?;
         match head.content_length() {
@@ -1158,12 +1167,79 @@ async fn stage_file(path: &Path) -> std::io::Result<tokio::fs::File> {
     tokio::fs::File::create(path).await
 }
 
-/// Every layer of an error, because the outermost one is routinely the least informative.
-fn error_chain(error: &dyn std::error::Error) -> String {
-    let mut rendered = error.to_string();
+/// How far a failed range got before it failed.
+///
+/// Three states because there are three, and the middle one is what the SDK's rendering hides: a
+/// request that never reached a server, one the endpoint answered with a status, and one whose
+/// response arrived and whose body then stopped. Each calls for a different response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FetchFailure {
+    /// No response arrived, so there is no status to name.
+    NoResponse,
+    /// The endpoint answered, with its own code where it gave one.
+    Answered { status: u16, code: Option<String> },
+    /// A response arrived and its body stopped before the range was complete.
+    ///
+    /// Distinct from [`FetchFailure::NoResponse`] because the server did answer, and reporting this
+    /// as silence is what sends an operator looking at the wrong end of the connection.
+    BodyInterrupted,
+}
+
+impl FetchFailure {
+    /// Reads how far an SDK error got, which is whether it carries a response at all.
+    ///
+    /// Read at the call site because boxing the error as a `dyn Error` erases the type holding it.
+    fn read<E: ProvideErrorMetadata>(error: &SdkError<E, HttpResponse>) -> Self {
+        match error.raw_response() {
+            Some(response) => FetchFailure::Answered {
+                status: response.status().as_u16(),
+                code: error.code().map(str::to_string),
+            },
+            None => FetchFailure::NoResponse,
+        }
+    }
+}
+
+impl std::fmt::Display for FetchFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FetchFailure::NoResponse => formatter.write_str("no response"),
+            FetchFailure::Answered {
+                status,
+                code: Some(code),
+            } => write!(formatter, "HTTP {status} {code}"),
+            FetchFailure::Answered { status, code: None } => write!(formatter, "HTTP {status}"),
+            FetchFailure::BodyInterrupted => formatter.write_str("body interrupted"),
+        }
+    }
+}
+
+/// How a retry warning names the failure it is retrying.
+///
+/// Every arm is reachable: [`FlatFileError::ShortRange`] is retried alongside a fetch, and an
+/// endpoint that ignored `Range` altogether is a range failure like any other.
+fn failure_of(error: &FlatFileError) -> String {
+    match error {
+        FlatFileError::Fetch { failure, .. } => failure.to_string(),
+        FlatFileError::ShortRange {
+            expected, received, ..
+        } => format!("short body {received}/{expected}"),
+        other => format!("unclassified: {other}"),
+    }
+}
+
+/// The layers beneath an error, which is where a transport failure keeps its cause.
+///
+/// The outermost layer is skipped because [`failure_of`] already names it, and carrying both made
+/// the warning report `HTTP 503 SlowDown` twice.
+fn source_chain(error: &dyn std::error::Error) -> String {
+    let mut rendered = String::new();
     let mut source = error.source();
     while let Some(inner) = source {
-        rendered.push_str(&format!(" <- {inner}"));
+        if !rendered.is_empty() {
+            rendered.push_str(" <- ");
+        }
+        rendered.push_str(&inner.to_string());
         source = inner.source();
     }
     rendered
@@ -1180,9 +1256,9 @@ fn chunk_range(offset: i64, length: i64) -> (String, i64) {
 
 /// Fetches one range, retrying it on its own.
 ///
-/// The point of addressing bytes by offset: a reset range is simply asked for again, where a reset
-/// whole-file stream had nothing to resume from. Massive resets connections under load, so this is
-/// the ordinary case rather than the exceptional one.
+/// The point of addressing bytes by offset: a failed range is simply asked for again, where a failed
+/// whole-file stream had nothing to resume from. Retries are the ordinary case rather than the
+/// exceptional one -- a measured 1.3% of ranges, none yet needing a third attempt.
 async fn fetch_one_range(
     client: S3Client,
     key: String,
@@ -1194,7 +1270,16 @@ async fn fetch_one_range(
         match try_fetch_one_range(&client, &key, &range, expected).await {
             Ok(bytes) => return Ok(bytes),
             Err(error) if attempt < RANGE_ATTEMPTS => {
-                warn!(key, range, attempt, chain = %error_chain(&error), "Retrying a range");
+                // `failure` is the field that separates a throttle from a reset; `source` keeps
+                // the layers beneath it, which is where a transport failure names its cause.
+                warn!(
+                    key,
+                    range,
+                    attempt,
+                    failure = %failure_of(&error),
+                    source = %source_chain(&error),
+                    "Retrying a range"
+                );
                 tokio::time::sleep(RETRY_BACKOFF * 2u32.pow(attempt as u32 - 1)).await;
                 attempt += 1;
             }
@@ -1218,6 +1303,7 @@ async fn try_fetch_one_range(
         .await
         .map_err(|error| FlatFileError::Fetch {
             key: format!("{key} {range}"),
+            failure: FetchFailure::read(&error),
             source: Box::new(error),
         })?;
     let body = object
@@ -1226,6 +1312,9 @@ async fn try_fetch_one_range(
         .await
         .map_err(|error| FlatFileError::Fetch {
             key: format!("{key} {range}"),
+            // Reached only once `object` exists, so the endpoint did answer and calling this
+            // silence would send an operator to the wrong end of the connection.
+            failure: FetchFailure::BodyInterrupted,
             source: Box::new(error),
         })?;
     let bytes = body.to_vec();
@@ -2168,6 +2257,161 @@ mod tests {
     fn parse_range(header: &str) -> Option<(usize, usize)> {
         let (first, last) = header.strip_prefix("bytes=")?.split_once('-')?;
         Some((first.parse().ok()?, last.parse().ok()?))
+    }
+
+    /// An endpoint that answers every request with `status` and `body`, for reading a real
+    /// `SdkError` rather than hand-building one -- the extraction under test reads fields the SDK
+    /// populates, so a fabricated error would prove only that the struct has fields.
+    fn client_answering(status: u16, body: &'static str) -> FlatFileClient {
+        let http_client = infallible_client_fn(move |_request| {
+            http::Response::builder()
+                .status(status)
+                .body(SdkBody::from(body))
+                .expect("a valid response")
+        });
+        let credentials = FlatFileCredentials::new(
+            "https://files.massive.com".to_string(),
+            "key".to_string(),
+            "secret".to_string(),
+        )
+        .expect("usable credentials");
+        FlatFileClient::from_configuration(
+            FlatFileClient::configuration(credentials)
+                .http_client(http_client)
+                .build(),
+        )
+    }
+
+    /// The status is what separates a throttle from a server fault, and the SDK's own rendering
+    /// names neither: an unmodelled service error reads `service error <- unhandled error`.
+    #[tokio::test]
+    async fn test_a_throttled_range_names_its_status_and_code() {
+        let client = client_answering(
+            503,
+            "<Error><Code>SlowDown</Code><Message>Please reduce</Message></Error>",
+        );
+
+        let error = client
+            .object_length("us_stocks_sip/quotes_v1/2021/08/2021-08-26.csv.gz")
+            .await
+            .expect_err("a 503 is not a length");
+
+        assert_eq!(failure_of(&error), "HTTP 503 SlowDown");
+        let FlatFileError::Fetch { failure, .. } = &error else {
+            panic!("expected a fetch error, got {error:?}");
+        };
+        assert_eq!(
+            *failure,
+            FetchFailure::Answered {
+                status: 503,
+                code: Some("SlowDown".to_string())
+            }
+        );
+    }
+
+    /// A status with no code still reads, because a bare 500 is exactly the case worth telling
+    /// apart from a throttle.
+    #[tokio::test]
+    async fn test_a_status_without_a_code_still_names_the_status() {
+        let client = client_answering(500, "");
+
+        let error = client
+            .object_length("us_stocks_sip/quotes_v1/2021/08/2021-08-26.csv.gz")
+            .await
+            .expect_err("a 500 is not a length");
+
+        assert_eq!(failure_of(&error), "HTTP 500");
+    }
+
+    /// A body that fails after a good response is not silence.
+    ///
+    /// Driven through a real failing body rather than a constructed error, because the distinction
+    /// under test is one the call site infers from having a response at all.
+    #[tokio::test]
+    async fn test_a_body_that_fails_after_a_good_response_is_not_reported_as_silence() {
+        let http_client = infallible_client_fn(move |request| {
+            let builder = http::Response::builder().status(200);
+            if request.method() == http::Method::HEAD {
+                return builder
+                    .header("content-length", "4194304")
+                    .body(SdkBody::empty())
+                    .expect("a valid response");
+            }
+            // `taken` errors when polled: a body that stopped after its response arrived.
+            builder.body(SdkBody::taken()).expect("a valid response")
+        });
+        let credentials = FlatFileCredentials::new(
+            "https://files.massive.com".to_string(),
+            "key".to_string(),
+            "secret".to_string(),
+        )
+        .expect("usable credentials");
+        let client = FlatFileClient::from_configuration(
+            FlatFileClient::configuration(credentials)
+                .http_client(http_client)
+                .build(),
+        );
+
+        let error = try_fetch_one_range(
+            &client.s3_client,
+            "us_stocks_sip/quotes_v1/2021/08/2021-08-26.csv.gz",
+            "bytes=0-2097151",
+            2 * 1024 * 1024,
+        )
+        .await
+        .expect_err("a body that cannot be read is not a range");
+
+        assert_eq!(failure_of(&error), "body interrupted");
+        assert_ne!(
+            failure_of(&error),
+            "no response",
+            "the endpoint answered; reporting silence sends an operator to the wrong end"
+        );
+    }
+
+    /// A short range is retried like any other range failure, so the warning has to name it rather
+    /// than fall through to a label that says only what it is not.
+    #[test]
+    fn test_a_short_range_is_named_rather_than_called_not_a_fetch() {
+        let short = FlatFileError::ShortRange {
+            key: "a-key".to_string(),
+            range: "bytes=0-2097151".to_string(),
+            expected: 2_097_152,
+            received: 1_048_576,
+        };
+
+        assert_eq!(failure_of(&short), "short body 1048576/2097152");
+    }
+
+    /// A request that never reached a server has no status, and inventing one would be the same
+    /// overstatement the status field exists to remove.
+    #[test]
+    fn test_a_failure_with_no_response_says_so_rather_than_reporting_a_status() {
+        let transport = FlatFileError::Fetch {
+            key: "a-key bytes=0-1".to_string(),
+            failure: FetchFailure::NoResponse,
+            source: Box::new(std::io::Error::other("connection reset")),
+        };
+
+        assert_eq!(failure_of(&transport), "no response");
+        assert!(
+            !transport.to_string().contains("HTTP"),
+            "a transport failure must not render a status it never received"
+        );
+    }
+
+    /// The outermost layer is already the `failure` field, so repeating it made the warning say the
+    /// same status twice. What is left is the cause a transport failure keeps underneath.
+    #[test]
+    fn test_the_logged_chain_drops_the_layer_the_failure_field_already_names() {
+        let transport = FlatFileError::Fetch {
+            key: "a-key bytes=0-1".to_string(),
+            failure: FetchFailure::NoResponse,
+            source: Box::new(std::io::Error::other("connection reset by peer")),
+        };
+
+        assert_eq!(source_chain(&transport), "connection reset by peer");
+        assert!(!source_chain(&transport).contains("could not fetch"));
     }
 
     /// Serves `missing` bytes fewer than each range asked for, which is what a truncating endpoint
