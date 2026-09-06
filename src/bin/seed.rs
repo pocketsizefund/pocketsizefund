@@ -15,12 +15,12 @@ use fund::common::flatfiles;
 use fund::common::log::init_tracing;
 use fund::common::massive::MassiveClient;
 use fund::common::types::{
-    BarInterval, IntradayCadence, LiquidityFloor, QuoteSummary, SessionDate, Ticker,
+    BarInterval, IntradayCadence, LiquidityFloor, QuoteSummary, SessionDate, Ticker, TradeSummary,
 };
 use fund::data::archive::{self, NameSelection, Scope, SessionSelection};
 use fund::data::cadence::CadenceTotals;
 use fund::data::calendar::TradingCalendar;
-use fund::data::{attribution, bars, details, quotes};
+use fund::data::{attribution, bars, details, quotes, trades};
 
 /// One file for the whole seeder, since it is one process however it was invoked.
 ///
@@ -388,8 +388,9 @@ impl QuoteAction {
 
 /// What a trade pass does with the sessions it is given.
 ///
-/// Two actions where quotes have five: there is no per-name repair, because a trade file *is* the
-/// session and a name missing from it is missing from the tape rather than from a retryable fetch.
+/// `repair` exists now that Alpaca serves prints per name. The whole-market actions still read a
+/// flat file, which is the only affordable route to five years; a repair reaches one name, and is
+/// also the only route that reaches past Massive's five-year window at all.
 #[derive(Debug, Subcommand)]
 enum TradeAction {
     /// Fold every name the daily archive holds into the sampled sessions that have no partition yet.
@@ -397,21 +398,35 @@ enum TradeAction {
     /// Fold every name the daily archive holds into every sampled session, widening ones already
     /// summarized.
     Widen(QuoteArguments),
+    /// Fold named symbols from Alpaca into the sampled sessions that already have a partition.
+    Repair(QuoteSymbolArguments),
+    /// Fold named symbols from Alpaca and print what they read, touching no partition.
+    ///
+    /// The seam between the two providers is only checkable read-only. Writing an Alpaca fold into
+    /// a partition built from flat files is how the quote archive ended up carrying rows from two
+    /// passes at once, and this exists so the comparison costs nothing.
+    Measure(QuoteSymbolArguments),
 }
 
 impl TradeAction {
-    /// The scope this action folds under. Both fold the whole market and differ only in sessions.
-    fn universe_scope(&self) -> Result<Scope, SeedError> {
-        whole_market(match self {
+    /// The scope an action that derives its universe from the archive folds under.
+    ///
+    /// `None` for the repair, which names its own symbols. Returned as one value so a test asserts
+    /// the scope the pass will use rather than a reconstruction of it beside it.
+    fn universe_scope(&self) -> Option<Result<Scope, SeedError>> {
+        let sessions = match self {
             TradeAction::Archive(_) => SessionSelection::Absent,
             TradeAction::Widen(_) => SessionSelection::Every,
-        })
+            TradeAction::Repair(_) | TradeAction::Measure(_) => return None,
+        };
+        Some(whole_market(sessions))
     }
 
     /// The window and stride this action runs over.
     fn arguments(&self) -> &QuoteArguments {
         match self {
             TradeAction::Archive(arguments) | TradeAction::Widen(arguments) => arguments,
+            TradeAction::Repair(symbols) | TradeAction::Measure(symbols) => &symbols.quotes,
         }
     }
 }
@@ -1510,8 +1525,22 @@ async fn seed_provenance(action: &ProvenanceAction) -> Result<Outcome, SeedError
 }
 
 async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
+    if let TradeAction::Measure(symbols) = action {
+        return measure_trades(symbols).await;
+    }
     let arguments = action.arguments();
-    let scope = action.universe_scope()?;
+    // Resolved before any credential is read, so a repair with no symbol set is refused in the first
+    // millisecond rather than after a calendar fetch.
+    let scope = match action {
+        TradeAction::Repair(symbols) => Scope::new(
+            NameSelection::Named(symbols.symbols.required_names()?),
+            SessionSelection::Present,
+        )
+        .map_err(|error| SeedError::Usage(error.to_string()))?,
+        whole_market_action => whole_market_action
+            .universe_scope()
+            .ok_or_else(|| SeedError::Usage(format!("{action:?} folds no universe")))??,
+    };
     let window = arguments.window.window()?;
 
     let credentials = AlpacaCredentials::from_env().map_err(box_error)?;
@@ -1523,21 +1552,102 @@ async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
     let sampled = sample(&calendar, &window, arguments.stride);
     report_sample(&window, arguments.stride, &calendar, &sampled);
 
-    let flat_files = flat_file_client(arguments).await?;
+    // Bound before the source so it outlives the borrow, and built only where it is used: a repair
+    // must not demand flat-file credentials to reach two names through Alpaca.
+    let flat_files;
+    let market_data;
+    let source = match action {
+        TradeAction::Repair(_) => {
+            market_data = quote_market_data()?;
+            archive::TradeSource::PerName(&market_data)
+        }
+        _ => {
+            flat_files = flat_file_client(arguments).await?;
+            archive::TradeSource::WholeSession(&flat_files)
+        }
+    };
+
     let bucket = bucket_name()?;
     let s3_client = fund::common::aws::s3_client().await;
     Ok(Outcome::Pass(
-        archive::archive_trade_sessions(
-            &s3_client,
-            &flat_files,
-            &calendar,
-            &bucket,
-            &sampled,
-            &scope,
-        )
-        .await
-        .map_err(box_error)?,
+        archive::archive_trade_sessions(&s3_client, &source, &calendar, &bucket, &sampled, &scope)
+            .await
+            .map_err(box_error)?,
     ))
+}
+
+/// Folds named symbols' prints and prints their session figures, writing nothing.
+///
+/// Sequential on purpose, as the quote measurement is: this exists to read a handful of numbers off
+/// real data and compare them against what the archive already holds.
+async fn measure_trades(symbols: &QuoteSymbolArguments) -> Result<Outcome, SeedError> {
+    let named = symbols.symbols.required_names()?;
+    let arguments = &symbols.quotes;
+    let window = arguments.window.window()?;
+    let (market_data, calendar) = quote_sources(&window).await?;
+    let sampled = sample(&calendar, &window, arguments.stride);
+    report_sample(&window, arguments.stride, &calendar, &sampled);
+
+    // The exclusion counters are printed beside the totals because they are the first thing a
+    // disagreement with the flat-file archive would be explained by: the two providers spell
+    // conditions differently, so they can admit different prints.
+    println!(
+        "{:<8}{:<12}{:>10}{:>16}{:>18}{:>11}{:>10}{:>10}",
+        "ticker", "session", "trades", "volume", "dollar_volume", "vwap", "inelig", "unresolv"
+    );
+    for session in &sampled {
+        let Some((open, close)) = quotes::trading_hours(&calendar, *session) else {
+            println!("{session}: not a published session");
+            continue;
+        };
+        for ticker in &named {
+            match trades::fold_session(&market_data, ticker, *session, open, close).await {
+                Ok((summaries, fetch)) => print_trade_row(ticker, *session, &summaries, fetch),
+                Err(error) => println!(
+                    "{:<8}{:<12} failed: {error}",
+                    ticker.as_str(),
+                    session.to_string()
+                ),
+            }
+        }
+    }
+    Ok(Outcome::Complete)
+}
+
+/// Prints one name's session row, which is the last summary the fold returns.
+fn print_trade_row(
+    ticker: &Ticker,
+    session: SessionDate,
+    summaries: &[TradeSummary],
+    fetch: fund::common::alpaca::TradeFetch,
+) {
+    let Some(row) = summaries
+        .iter()
+        .find(|row| row.bar_interval() == BarInterval::OneDay)
+    else {
+        println!(
+            "{:<8}{:<12} no prints (received {}, rejected {}, untaped {})",
+            ticker.as_str(),
+            session.to_string(),
+            fetch.received,
+            fetch.rejected,
+            fetch.untaped
+        );
+        return;
+    };
+    println!(
+        "{:<8}{:<12}{:>10}{:>16.2}{:>18.2}{:>11}{:>10}{:>10}",
+        ticker.as_str(),
+        session.to_string(),
+        row.trade_count(),
+        row.volume(),
+        row.dollar_volume(),
+        row.volume_weighted_average_price()
+            .map(|price| format!("{price:.4}"))
+            .unwrap_or_else(|| "none".to_string()),
+        row.exclusions().volume_ineligible_trades(),
+        row.exclusions().unresolved_condition_trades(),
+    );
 }
 
 /// Writes whole-market one-minute bars from Massive's flat files.
@@ -1759,6 +1869,16 @@ fn rate(quantity: f64, seconds: f64) -> f64 {
 }
 
 /// The Alpaca client and the calendar every quote action needs, measuring or writing.
+/// The SIP market-data client a per-name fold reads through.
+///
+/// SIP is pinned rather than read from `ALPACA_DATA_FEED`, for the reason [`quote_sources`] pins it:
+/// IEX's prints are one venue's, and an environment variable could put two incomparable series under
+/// one key.
+fn quote_market_data() -> Result<MarketDataClient, SeedError> {
+    let credentials = AlpacaCredentials::from_env().map_err(box_error)?;
+    Ok(MarketDataClient::new(credentials, DataFeed::Sip))
+}
+
 async fn quote_sources(
     window: &Window,
 ) -> Result<(MarketDataClient, TradingCalendar), Box<dyn std::error::Error>> {
@@ -2616,6 +2736,7 @@ mod tests {
             match arguments.command {
                 Command::EquityTrades { action } => action
                     .universe_scope()
+                    .expect("a whole-market action names a universe")
                     .expect("the whole market may write a partition")
                     .to_string(),
                 other => panic!("expected a trade action, got {other:?}"),
@@ -2626,6 +2747,21 @@ mod tests {
         // test moves with it and can never fail.
         assert_eq!(rendered("archive"), "every name, absent sessions only");
         assert_eq!(rendered("widen"), "every name, every session");
+
+        // The repair derives no universe: it names its symbols, so a scope built here would be a
+        // second answer to a question the symbol set has already answered.
+        let repair = parse(
+            &[
+                ["equity-trades", "repair", "--symbols", "AAPL"].as_slice(),
+                &window,
+            ]
+            .concat(),
+        )
+        .expect("a trade repair");
+        match repair.command {
+            Command::EquityTrades { action } => assert!(action.universe_scope().is_none()),
+            other => panic!("expected a trade action, got {other:?}"),
+        }
     }
 
     /// A scan that could not read a session found its names only in the ones it could, so both the

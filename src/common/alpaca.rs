@@ -11,7 +11,8 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::common::types::{
-    BoundaryReason, Dollars, EquityQuote, EquityTrade, SeriesBoundary, SessionDate, Ticker,
+    BoundaryReason, Dollars, EquityQuote, EquityTrade, SeriesBoundary, SessionDate, Tape, Ticker,
+    TradeConditions,
 };
 
 const PAPER_BASE_URL: &str = "https://paper-api.alpaca.markets";
@@ -2109,7 +2110,7 @@ pub struct TradeTick {
     timestamp: DateTime<Utc>,
     price: f64,
     size: f64,
-    conditions: Vec<u32>,
+    conditions: TradeConditions,
     corrected: bool,
 }
 
@@ -2122,7 +2123,7 @@ impl TradeTick {
         timestamp: DateTime<Utc>,
         price: f64,
         size: f64,
-        conditions: Vec<u32>,
+        conditions: TradeConditions,
         corrected: bool,
     ) -> Option<Self> {
         if !price.is_finite() || price <= 0.0 {
@@ -2152,7 +2153,8 @@ impl TradeTick {
         self.size
     }
 
-    pub fn conditions(&self) -> &[u32] {
+    /// How this print's conditions are spelled, which decides which table reads them.
+    pub fn conditions(&self) -> &TradeConditions {
         &self.conditions
     }
 
@@ -2167,6 +2169,76 @@ impl TradeTick {
     }
 }
 
+/// What one trade fetch moved, mirroring [`QuoteFetch`] and for the same reason.
+///
+/// `rejected` counts prints [`TradeTick::new`] refused, and `untaped` counts rows whose tape letter
+/// named no SIP — separated because a tapeless row is a row whose conditions cannot be read at all,
+/// which is a different fault from a price that made no sense.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TradeFetch {
+    pub received: usize,
+    pub rejected: usize,
+    pub untaped: usize,
+    pub pages: usize,
+    pub retries: usize,
+}
+
+/// The historical-trades envelope: rows keyed by symbol, plus the cursor.
+#[derive(Debug, Deserialize)]
+struct TradesResponse {
+    trades: Option<HashMap<String, Vec<HistoricalTradePayload>>>,
+    next_page_token: Option<String>,
+}
+
+/// One row of the historical trade stream, in the feed's own abbreviations.
+///
+/// The exchange and the trade identifier are parsed past: the archive folds a session's prints and
+/// keeps no per-print record, so the venue is not something any aggregate downstream can express.
+#[derive(Debug, Deserialize)]
+struct HistoricalTradePayload {
+    #[serde(rename = "t")]
+    timestamp: Option<DateTime<Utc>>,
+    #[serde(rename = "p", default)]
+    price: f64,
+    #[serde(rename = "s", default)]
+    size: f64,
+    /// The SIP characters, which name a condition only alongside `tape`.
+    #[serde(rename = "c", default)]
+    conditions: Vec<String>,
+    /// `A`, `B` or `C`. Absent on a row the feed did not tape, which is refused rather than guessed.
+    #[serde(rename = "z")]
+    tape: Option<String>,
+    /// Present only when the print was revised, whatever the revision was.
+    #[serde(rename = "u")]
+    update: Option<String>,
+}
+
+impl HistoricalTradePayload {
+    /// Reads one row into a tick, or `None` where it cannot carry weight.
+    ///
+    /// A missing or unrecognized tape is refused rather than defaulted: without it the conditions
+    /// cannot be resolved, and folding the print as unconditioned would silently admit exactly the
+    /// prints the exclusion policy exists to remove.
+    fn into_tick(self) -> Option<TradeTick> {
+        let tape = Tape::from_letter(*self.tape?.as_bytes().first()?)?;
+        // A SIP condition is one character. A longer token is not one this table can spell, and
+        // taking its first byte would silently read it as a different condition.
+        let characters: Vec<u8> = self
+            .conditions
+            .iter()
+            .filter(|condition| condition.len() == 1)
+            .filter_map(|condition| condition.as_bytes().first().copied())
+            .collect();
+        TradeTick::new(
+            self.timestamp?,
+            self.price,
+            self.size,
+            TradeConditions::Spelled { characters, tape },
+            self.update.is_some(),
+        )
+    }
+}
+
 /// Attempts per quote page before the fetch gives up on the whole symbol.
 ///
 /// Four, because the page is the unit that fails: one session of AAPL is 118 pages and a single
@@ -2175,8 +2247,8 @@ impl TradeTick {
 const QUOTES_PAGE_ATTEMPTS: usize = 4;
 
 /// One page and what it took to get it.
-struct FetchedPage {
-    page: QuotesResponse,
+struct FetchedPage<T> {
+    page: T,
     retries: usize,
 }
 
@@ -2520,11 +2592,11 @@ impl MarketDataClient {
     /// Separated from the retry loop so there is one place an attempt can fail from. A connection
     /// reset during `send` is the same transport fault as a body that arrives truncated, and the
     /// two have to be indistinguishable here or only one of them gets retried.
-    async fn attempt_quote_page(
+    async fn attempt_tick_page<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
         query: &[(&str, &str)],
-    ) -> Result<QuotesResponse, ClientError> {
+    ) -> Result<T, ClientError> {
         let response = self
             .get(url)
             .query(query)
@@ -2535,28 +2607,28 @@ impl MarketDataClient {
         // retries on the first real run.
         error_for_status(response)
             .await?
-            .json::<QuotesResponse>()
+            .json::<T>()
             .await
             .map_err(ClientError::Request)
     }
 
-    async fn quote_page(
+    async fn tick_page<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
         query: &[(&str, &str)],
         ticker: &Ticker,
         page: usize,
-    ) -> Result<FetchedPage, ClientError> {
+    ) -> Result<FetchedPage<T>, ClientError> {
         let mut retries = 0usize;
         let mut last_error = None;
         for attempt in 0..QUOTES_PAGE_ATTEMPTS {
             // No `?` anywhere in here. Every way the attempt can fail has to reach the match below
             // or it escapes the retry it was written for -- which is how the send arm was missed.
-            match self.attempt_quote_page(url, query).await {
+            match self.attempt_tick_page(url, query).await {
                 Ok(page) => return Ok(FetchedPage { page, retries }),
                 Err(error) if error.is_transient() => {
                     retries += 1;
-                    debug!(%ticker, page, attempt, %error, "Retrying a quote page");
+                    debug!(%ticker, page, attempt, %error, "Retrying a tick page");
                     last_error = Some(error);
                     tokio::time::sleep(page_retry_delay(attempt)).await;
                 }
@@ -2618,7 +2690,7 @@ impl MarketDataClient {
             }
 
             let payload = self
-                .quote_page(&url, &query, ticker, fetch.pages + 1)
+                .tick_page::<QuotesResponse>(&url, &query, ticker, fetch.pages + 1)
                 .await?;
             fetch.retries += payload.retries;
             let payload = payload.page;
@@ -2654,6 +2726,95 @@ impl MarketDataClient {
 
         Err(ClientError::Parse(format!(
             "{ticker} quote pagination did not end within {QUOTES_PAGE_LIMIT} pages"
+        )))
+    }
+
+    /// Streams one symbol's prints over `[start, end)` through `accept`, oldest first.
+    ///
+    /// The trade counterpart of [`MarketDataClient::fetch_quotes`], and folded rather than collected
+    /// for the same reason: a liquid name prints hundreds of thousands of times a session and the
+    /// archive keeps a dozen numbers out of it.
+    ///
+    /// `as_of` must be the session being fetched. The default is today, which would resolve a
+    /// historical window through today's symbol table and silently return another company's prints.
+    pub async fn fetch_trades<F>(
+        &self,
+        ticker: &Ticker,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+        as_of: NaiveDate,
+        mut accept: F,
+    ) -> Result<TradeFetch, ClientError>
+    where
+        F: FnMut(TradeTick),
+    {
+        let url = format!("{}/v2/stocks/trades", self.base_url);
+        let start_text = start.to_rfc3339();
+        let end_text = end.to_rfc3339();
+        let as_of_text = as_of.to_string();
+        let page_size = QUOTES_PAGE_SIZE.to_string();
+        let feed = self.feed.as_str();
+
+        let mut fetch = TradeFetch::default();
+        let mut page_token: Option<String> = None;
+
+        for _ in 1..=QUOTES_PAGE_LIMIT {
+            let mut query: Vec<(&str, &str)> = vec![
+                ("symbols", ticker.as_str()),
+                ("start", start_text.as_str()),
+                ("end", end_text.as_str()),
+                ("limit", page_size.as_str()),
+                ("feed", feed),
+                // Stated rather than inherited, as on the quote path: the tick rule reads each
+                // print against the one before it, so a descending page would sign every trade
+                // backwards.
+                ("sort", "asc"),
+                ("asof", as_of_text.as_str()),
+            ];
+            if let Some(token) = page_token.as_deref() {
+                query.push(("page_token", token));
+            }
+
+            let payload = self
+                .tick_page::<TradesResponse>(&url, &query, ticker, fetch.pages + 1)
+                .await?;
+            fetch.retries += payload.retries;
+            let payload = payload.page;
+
+            fetch.pages += 1;
+            let rows = payload
+                .trades
+                .and_then(|mut symbols| symbols.remove(ticker.as_str()))
+                .unwrap_or_default();
+            fetch.received += rows.len();
+            for row in rows {
+                let taped = row.tape.is_some();
+                match row.into_tick() {
+                    Some(tick) => accept(tick),
+                    // Counted apart: a row with no readable tape is one whose conditions cannot be
+                    // resolved at all, which is not the same fault as an unusable price.
+                    None if taped => fetch.rejected += 1,
+                    None => fetch.untaped += 1,
+                }
+            }
+
+            let Some(token) = payload.next_page_token else {
+                if fetch.rejected > 0 || fetch.untaped > 0 {
+                    debug!(
+                        %ticker,
+                        rejected = fetch.rejected,
+                        untaped = fetch.untaped,
+                        received = fetch.received,
+                        "Dropped prints that could not be folded"
+                    );
+                }
+                return Ok(fetch);
+            };
+            page_token = Some(token);
+        }
+
+        Err(ClientError::Parse(format!(
+            "{ticker} trade pagination did not end within {QUOTES_PAGE_LIMIT} pages"
         )))
     }
 
@@ -4493,6 +4654,162 @@ mod tests {
         assert!(boundary_for(&boundaries, "SPCX").is_some());
         first.assert_async().await;
         second.assert_async().await;
+    }
+
+    /// Collects what a trade fold would have seen, for the reason `collect_quotes` exists.
+    async fn collect_trades(base_url: String) -> (Vec<TradeTick>, Result<TradeFetch, ClientError>) {
+        let (start, end) = quote_window();
+        let mut ticks = Vec::new();
+        let fetch = client(base_url)
+            .fetch_trades(&ticker("AAPL"), start, end, date(2026, 8, 20), |tick| {
+                ticks.push(tick)
+            })
+            .await;
+        (ticks, fetch)
+    }
+
+    /// Conditions arrive as SIP characters and are kept as such, with the tape that reads them.
+    ///
+    /// Translating them to identifiers here would be lossy in the one direction that matters: a
+    /// character can name two conditions, which is what `Eligibility::Ambiguous` exists to say.
+    #[tokio::test]
+    async fn test_a_print_keeps_its_characters_and_the_tape_that_spells_them() {
+        let mut server = mockito::Server::new_async().await;
+        let page = server
+            .mock("GET", mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"trades":{"AAPL":[
+                    {"t":"2026-08-20T13:30:01Z","p":100.5,"s":100,"c":["@","F"],"z":"C"}
+                ]}}"#,
+            )
+            .create_async()
+            .await;
+
+        let (ticks, fetch) = collect_trades(server.url()).await;
+        let fetch = fetch.expect("one page must parse");
+
+        assert_eq!(ticks.len(), 1);
+        assert_eq!(
+            ticks[0].conditions(),
+            &TradeConditions::Spelled {
+                characters: vec![b'@', b'F'],
+                tape: Tape::UnlistedTradingPrivileges,
+            }
+        );
+        assert!(!ticks[0].corrected());
+        assert_eq!(fetch.received, 1);
+        assert_eq!(fetch.rejected, 0);
+        assert_eq!(fetch.untaped, 0);
+        page.assert_async().await;
+    }
+
+    /// A row with no readable tape is refused and counted apart.
+    ///
+    /// Folding it as unconditioned would admit exactly the prints the exclusion policy exists to
+    /// remove, because without a tape none of its characters can be resolved at all.
+    #[tokio::test]
+    async fn test_a_print_with_no_readable_tape_is_refused_rather_than_folded_unconditioned() {
+        let mut server = mockito::Server::new_async().await;
+        let page = server
+            .mock("GET", mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"trades":{"AAPL":[
+                    {"t":"2026-08-20T13:30:01Z","p":100.5,"s":100,"c":["@"]},
+                    {"t":"2026-08-20T13:30:02Z","p":100.6,"s":100,"c":["@"],"z":"Q"},
+                    {"t":"2026-08-20T13:30:03Z","p":100.7,"s":100,"c":["@"],"z":"A"}
+                ]}}"#,
+            )
+            .create_async()
+            .await;
+
+        let (ticks, fetch) = collect_trades(server.url()).await;
+        let fetch = fetch.expect("one page must parse");
+
+        // Only the `A` row survives: one has no tape at all and `Q` names no SIP.
+        assert_eq!(ticks.len(), 1);
+        assert_eq!(fetch.received, 3);
+        assert_eq!(fetch.untaped, 1, "the row carrying no tape field");
+        assert_eq!(fetch.rejected, 1, "the row whose letter names no SIP");
+        page.assert_async().await;
+    }
+
+    /// A revised print is marked corrected whatever the revision was, which is what the fold reads
+    /// before it reads anything else about the trade.
+    #[tokio::test]
+    async fn test_a_revised_print_is_marked_corrected() {
+        let mut server = mockito::Server::new_async().await;
+        let page = server
+            .mock("GET", mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"trades":{"AAPL":[
+                    {"t":"2026-08-20T13:30:01Z","p":100.5,"s":100,"c":["@"],"z":"A","u":"corrected"}
+                ]}}"#,
+            )
+            .create_async()
+            .await;
+
+        let (ticks, _) = collect_trades(server.url()).await;
+
+        assert!(ticks[0].corrected());
+        page.assert_async().await;
+    }
+
+    /// A condition token longer than one character names nothing this table can spell, and taking
+    /// its first byte would read it as a different condition entirely.
+    #[tokio::test]
+    async fn test_a_multi_character_condition_token_is_dropped_rather_than_truncated() {
+        let mut server = mockito::Server::new_async().await;
+        let page = server
+            .mock("GET", mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"trades":{"AAPL":[
+                    {"t":"2026-08-20T13:30:01Z","p":100.5,"s":100,"c":["@","FT"],"z":"A"}
+                ]}}"#,
+            )
+            .create_async()
+            .await;
+
+        let (ticks, _) = collect_trades(server.url()).await;
+
+        assert_eq!(
+            ticks[0].conditions(),
+            &TradeConditions::Spelled {
+                characters: vec![b'@'],
+                tape: Tape::ConsolidatedTapeAssociation,
+            },
+            "`FT` is dropped, not read as `F`"
+        );
+        page.assert_async().await;
+    }
+
+    /// The tick rule reads each print against the one before it, so a descending page would sign
+    /// every trade backwards. Pinned for the reason the quote path pins it.
+    #[tokio::test]
+    async fn test_the_trade_request_pins_ascending_order_and_the_session_as_of() {
+        let mut server = mockito::Server::new_async().await;
+        let page = server
+            .mock("GET", mockito::Matcher::Any)
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("sort".into(), "asc".into()),
+                mockito::Matcher::UrlEncoded("asof".into(), "2026-08-20".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"trades":{"AAPL":[]}}"#)
+            .create_async()
+            .await;
+
+        collect_trades(server.url()).await.1.expect("one page");
+
+        page.assert_async().await;
     }
 
     fn quote_window() -> (DateTime<Utc>, DateTime<Utc>) {

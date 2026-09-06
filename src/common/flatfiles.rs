@@ -14,7 +14,7 @@ use tracing::{info, warn};
 
 use crate::common::alpaca::{QuoteTick, TradeTick};
 use crate::common::provenance::{MassivePlan, MassiveTransport, PartitionProvenance, Provenance};
-use crate::common::types::{BarInterval, EquityBar, Ticker};
+use crate::common::types::{BarInterval, EquityBar, Ticker, TradeConditions};
 
 /// The bucket every dataset lives under, which Massive support named on 2026-08-24.
 const FLAT_FILE_BUCKET: &str = "flatfiles";
@@ -1462,7 +1462,7 @@ impl TradeColumns {
             timestamp,
             field(self.price)?.parse::<f64>().ok()?,
             field(self.size)?.parse::<f64>().ok()?,
-            parse_conditions(field(self.conditions)?),
+            TradeConditions::Identified(parse_conditions(field(self.conditions)?)),
             // A blank cell is "no correction", not an unreadable row. The provider has never
             // emitted one in the data measured, and a row rejected for it would disappear into the
             // `unusable` count with nothing naming the cause.
@@ -2060,7 +2060,10 @@ mod tests {
         assert_eq!(tick.timestamp().timestamp_nanos_opt(), Some(stamp(0)));
         assert_eq!(tick.price(), 156.30);
         assert_eq!(tick.size(), 0.000_8);
-        assert_eq!(tick.conditions(), &[14, 12, 37, 41]);
+        assert_eq!(
+            tick.conditions(),
+            &TradeConditions::Identified(vec![14, 12, 37, 41])
+        );
         assert!(!tick.corrected());
     }
 
