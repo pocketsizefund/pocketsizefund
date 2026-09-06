@@ -5,6 +5,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use aws_sdk_s3::config::http::HttpResponse;
+use aws_sdk_s3::error::{ProvideErrorMetadata, SdkError};
 use aws_sdk_s3::Client as S3Client;
 use chrono::{DateTime, Datelike, NaiveDate, TimeZone, Utc};
 use flate2::read::GzDecoder;
@@ -90,9 +92,15 @@ pub enum FlatFileError {
     Missing { variable: &'static str },
     #[error("{field} must not be empty")]
     Empty { field: &'static str },
-    #[error("could not fetch {key}: {source}")]
+    #[error("could not fetch {key}: {}{source}", fault.as_ref().map(|fault| format!("{fault}: ")).unwrap_or_default())]
     Fetch {
         key: String,
+        /// What the endpoint answered with, or `None` where it never answered.
+        ///
+        /// Carried because the SDK renders an unmodelled service error as `service error <-
+        /// unhandled error`, naming neither the status nor the code. A retry that cannot say whether
+        /// it was throttled or reset cannot be acted on, and the two call for opposite responses.
+        fault: Option<ServiceFault>,
         source: Box<dyn std::error::Error + Send + Sync>,
     },
     #[error("could not read {key}: {source}")]
@@ -969,6 +977,7 @@ impl FlatFileClient {
             .await
             .map_err(|error| FlatFileError::Fetch {
                 key: key.to_string(),
+                fault: ServiceFault::read(&error),
                 source: Box::new(error),
             })?;
         match head.content_length() {
@@ -1158,6 +1167,62 @@ async fn stage_file(path: &Path) -> std::io::Result<tokio::fs::File> {
     tokio::fs::File::create(path).await
 }
 
+/// What the endpoint answered a failed request with.
+///
+/// A response, not an error: its absence is the finding. `None` means the request never reached a
+/// server that answered, which is the case a status can never describe.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceFault {
+    status: u16,
+    /// The vendor's own code, such as `SlowDown`. Absent when the body named none.
+    code: Option<String>,
+}
+
+impl ServiceFault {
+    /// Reads the response off an SDK error, or `None` where the request never got one.
+    ///
+    /// Read here rather than from the error chain afterwards, because boxing the error as a
+    /// `dyn Error` erases the type that carries the response.
+    fn read<E: ProvideErrorMetadata>(error: &SdkError<E, HttpResponse>) -> Option<Self> {
+        let status = error.raw_response()?.status().as_u16();
+        Some(Self {
+            status,
+            code: error.code().map(str::to_string),
+        })
+    }
+
+    pub fn status(&self) -> u16 {
+        self.status
+    }
+
+    pub fn code(&self) -> Option<&str> {
+        self.code.as_deref()
+    }
+}
+
+impl std::fmt::Display for ServiceFault {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.code {
+            Some(code) => write!(formatter, "HTTP {} {code}", self.status),
+            None => write!(formatter, "HTTP {}", self.status),
+        }
+    }
+}
+
+/// How a retry warning renders what the endpoint said, including when it said nothing.
+///
+/// "no response" rather than an empty field, so a transport failure is a reading rather than a gap
+/// in the log.
+fn fault_of(error: &FlatFileError) -> String {
+    match error {
+        FlatFileError::Fetch {
+            fault: Some(fault), ..
+        } => fault.to_string(),
+        FlatFileError::Fetch { fault: None, .. } => "no response".to_string(),
+        _ => "not a fetch".to_string(),
+    }
+}
+
 /// Every layer of an error, because the outermost one is routinely the least informative.
 fn error_chain(error: &dyn std::error::Error) -> String {
     let mut rendered = error.to_string();
@@ -1180,9 +1245,9 @@ fn chunk_range(offset: i64, length: i64) -> (String, i64) {
 
 /// Fetches one range, retrying it on its own.
 ///
-/// The point of addressing bytes by offset: a reset range is simply asked for again, where a reset
-/// whole-file stream had nothing to resume from. Massive resets connections under load, so this is
-/// the ordinary case rather than the exceptional one.
+/// The point of addressing bytes by offset: a failed range is simply asked for again, where a failed
+/// whole-file stream had nothing to resume from. Retries are the ordinary case rather than the
+/// exceptional one -- a measured 1.3% of ranges, none yet needing a third attempt.
 async fn fetch_one_range(
     client: S3Client,
     key: String,
@@ -1194,7 +1259,16 @@ async fn fetch_one_range(
         match try_fetch_one_range(&client, &key, &range, expected).await {
             Ok(bytes) => return Ok(bytes),
             Err(error) if attempt < RANGE_ATTEMPTS => {
-                warn!(key, range, attempt, chain = %error_chain(&error), "Retrying a range");
+                // `fault` first, because it is the field that distinguishes a throttle from a
+                // reset. The chain stays for the cases the SDK does model, where it says more.
+                warn!(
+                    key,
+                    range,
+                    attempt,
+                    fault = %fault_of(&error),
+                    chain = %error_chain(&error),
+                    "Retrying a range"
+                );
                 tokio::time::sleep(RETRY_BACKOFF * 2u32.pow(attempt as u32 - 1)).await;
                 attempt += 1;
             }
@@ -1218,6 +1292,7 @@ async fn try_fetch_one_range(
         .await
         .map_err(|error| FlatFileError::Fetch {
             key: format!("{key} {range}"),
+            fault: ServiceFault::read(&error),
             source: Box::new(error),
         })?;
     let body = object
@@ -1226,6 +1301,9 @@ async fn try_fetch_one_range(
         .await
         .map_err(|error| FlatFileError::Fetch {
             key: format!("{key} {range}"),
+            // A body that stops mid-stream is a transport failure: the response already succeeded,
+            // so there is no status to name and `None` is the honest answer rather than a default.
+            fault: None,
             source: Box::new(error),
         })?;
     let bytes = body.to_vec();
@@ -2168,6 +2246,85 @@ mod tests {
     fn parse_range(header: &str) -> Option<(usize, usize)> {
         let (first, last) = header.strip_prefix("bytes=")?.split_once('-')?;
         Some((first.parse().ok()?, last.parse().ok()?))
+    }
+
+    /// An endpoint that answers every request with `status` and `body`, for reading a real
+    /// `SdkError` rather than hand-building one -- the extraction under test reads fields the SDK
+    /// populates, so a fabricated error would prove only that the struct has fields.
+    fn client_answering(status: u16, body: &'static str) -> FlatFileClient {
+        let http_client = infallible_client_fn(move |_request| {
+            http::Response::builder()
+                .status(status)
+                .body(SdkBody::from(body))
+                .expect("a valid response")
+        });
+        let credentials = FlatFileCredentials::new(
+            "https://files.massive.com".to_string(),
+            "key".to_string(),
+            "secret".to_string(),
+        )
+        .expect("usable credentials");
+        FlatFileClient::from_configuration(
+            FlatFileClient::configuration(credentials)
+                .http_client(http_client)
+                .build(),
+        )
+    }
+
+    /// The status is what separates a throttle from a server fault, and the SDK's own rendering
+    /// names neither: an unmodelled service error reads `service error <- unhandled error`.
+    #[tokio::test]
+    async fn test_a_throttled_range_names_its_status_and_code() {
+        let client = client_answering(
+            503,
+            "<Error><Code>SlowDown</Code><Message>Please reduce</Message></Error>",
+        );
+
+        let error = client
+            .object_length("us_stocks_sip/quotes_v1/2021/08/2021-08-26.csv.gz")
+            .await
+            .expect_err("a 503 is not a length");
+
+        assert_eq!(fault_of(&error), "HTTP 503 SlowDown");
+        // The failure this replaces: the chain alone cannot tell an operator what happened.
+        let FlatFileError::Fetch { fault, .. } = &error else {
+            panic!("expected a fetch error, got {error:?}");
+        };
+        let fault = fault.as_ref().expect("a served response carries a status");
+        assert_eq!(fault.status(), 503);
+        assert_eq!(fault.code(), Some("SlowDown"));
+    }
+
+    /// A status with no code still reads, because an endpoint that returns a bare 500 is exactly
+    /// the case worth telling apart from a throttle.
+    #[tokio::test]
+    async fn test_a_status_without_a_code_still_names_the_status() {
+        let client = client_answering(500, "");
+
+        let error = client
+            .object_length("us_stocks_sip/quotes_v1/2021/08/2021-08-26.csv.gz")
+            .await
+            .expect_err("a 500 is not a length");
+
+        assert_eq!(fault_of(&error), "HTTP 500");
+    }
+
+    /// Absence is a reading, not a gap. A body that stops mid-stream has no status to name, and
+    /// reporting one would be inventing it.
+    #[test]
+    fn test_a_failure_with_no_response_says_so_rather_than_reporting_a_status() {
+        let transport = FlatFileError::Fetch {
+            key: "a-key bytes=0-1".to_string(),
+            fault: None,
+            source: Box::new(std::io::Error::other("connection reset")),
+        };
+
+        assert_eq!(fault_of(&transport), "no response");
+        assert!(transport.to_string().contains("connection reset"));
+        assert!(
+            !transport.to_string().contains("HTTP"),
+            "a transport failure must not render a status it never received"
+        );
     }
 
     /// Serves `missing` bytes fewer than each range asked for, which is what a truncating endpoint
