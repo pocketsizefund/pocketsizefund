@@ -130,6 +130,24 @@ impl CadenceAction {
     }
 }
 
+impl CadenceArguments {
+    /// The pair to fold, refusing a direction the fold cannot run in.
+    ///
+    /// Checked here rather than by clap, which sees one argument at a time and so cannot express a
+    /// rule spanning two; `Window::new` sets the same precedent. Refused before the listing, so an
+    /// inverted pair costs no request and reports as the usage error it is.
+    fn intervals(&self) -> Result<(BarInterval, BarInterval), String> {
+        if self.from > self.to {
+            return Err(format!(
+                "--from {} is coarser than --to {}; a fold runs one way",
+                self.from.bar_interval(),
+                self.to.bar_interval()
+            ));
+        }
+        Ok((self.from.bar_interval(), self.to.bar_interval()))
+    }
+}
+
 #[derive(Debug, Args)]
 struct CadenceArguments {
     #[command(flatten)]
@@ -438,6 +456,13 @@ struct QuoteSymbolArguments {
     quotes: QuoteArguments,
     #[command(flatten)]
     symbols: SymbolArguments,
+    /// Cadence of the partition being repaired, which is the cadence the fold is opened at.
+    ///
+    /// A session can hold a one-minute quote partition, so a repair pinned to five minutes would
+    /// fold the wrong cadence, merge it into the wrong prefix and report success over an unrepaired
+    /// gap.
+    #[arg(long, value_enum, default_value = "five_minute")]
+    cadence: Cadence,
 }
 
 /// A whole-market quote fold, which is the only quote action that chooses its cadence.
@@ -540,7 +565,9 @@ impl Cadence {
 /// Separate from [`Cadence`], which names a bucket a fold can be opened at: a session row is the
 /// merge of the buckets rather than a grid of them, so it belongs to a comparison and never to a
 /// fold. The two enums are what keep `--cadence one_day` unrepresentable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+///
+/// Ordered finest-first, which is the order a fold runs in: `--from` must not exceed `--to`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Interval {
     #[value(name = "one_minute")]
     OneMinute,
@@ -770,13 +797,24 @@ impl Outcome {
             Outcome::Chunked(summary) => Some(summary.to_string()),
             Outcome::Checked(totals) => {
                 let (folded_only, stored_only) = totals.one_sided();
+                // The four ways a session did not agree, named rather than summed. A window where
+                // most sessions were absent reads identically to a clean one under a single count.
+                let unresolved: Vec<String> = totals
+                    .unresolved()
+                    .iter()
+                    .map(|(session, outcome)| format!("{session} {outcome}"))
+                    .collect();
                 Some(format!(
-                    "{} sessions checked, {} agreeing, {} compared nothing, {} rows compared, {} disagreements, {folded_only} folded-only, {stored_only} stored-only",
+                    "{} sessions reached, {} agreeing, {} rows compared, {} disagreements, {folded_only} folded-only, {stored_only} stored-only{}",
                     totals.sessions(),
                     totals.sessions_agreeing(),
-                    totals.uncompared().len(),
                     totals.compared(),
-                    totals.disagreements()
+                    totals.disagreements(),
+                    if unresolved.is_empty() {
+                        String::new()
+                    } else {
+                        format!("; unresolved: {}", unresolved.join(", "))
+                    }
                 ))
             }
             Outcome::Complete => None,
@@ -804,11 +842,11 @@ impl Outcome {
                 "Backfill finished"
             ),
             Outcome::Checked(totals) => info!(
-                sessions_checked = totals.sessions(),
+                sessions_reached = totals.sessions(),
                 sessions_agreeing = totals.sessions_agreeing(),
-                sessions_uncompared = totals.uncompared().len(),
                 rows_compared = totals.compared(),
                 disagreements = totals.disagreements(),
+                unresolved = ?totals.unresolved(),
                 agrees = totals.agrees(),
                 "Check finished"
             ),
@@ -1323,7 +1361,7 @@ async fn seed_quotes(action: &QuoteAction) -> Result<Outcome, SeedError> {
                 &symbols.quotes,
                 scope,
                 QuoteProvider::PerName,
-                QUOTE_CADENCE,
+                symbols.cadence.intraday(),
             )
             .await
         }
@@ -1547,7 +1585,14 @@ async fn measure_sampled(symbols: &QuoteSymbolArguments) -> Result<Outcome, Seed
     let sampled = sample(&calendar, &window, arguments.stride);
     report_sample(&window, arguments.stride, &calendar, &sampled);
 
-    measure(&market_data, &calendar, &sampled, &named).await;
+    measure(
+        &market_data,
+        &calendar,
+        &sampled,
+        &named,
+        symbols.cadence.intraday(),
+    )
+    .await;
     Ok(Outcome::Complete)
 }
 
@@ -1727,11 +1772,10 @@ async fn quote_sources(
     Ok((market_data, TradingCalendar::from_days(days)))
 }
 
-/// The cadence the quote actions that take no cadence flag fold at.
+/// The cadence a probe folds at, which reports numbers and writes no partition.
 ///
-/// A repair and a measurement both reach a handful of names through Alpaca, and both want the
-/// cadence the surrounding partition was written at: a repair that wrote one-minute rows would leave
-/// two names at a cadence the rest of the session does not carry.
+/// The only quote action left without a flag. Every action that touches the archive takes one,
+/// because a fold at the wrong cadence lands in the wrong prefix.
 const QUOTE_CADENCE: IntradayCadence = IntradayCadence::FiveMinute;
 
 /// Which provider a fold reads from.
@@ -1783,6 +1827,7 @@ async fn measure(
     calendar: &TradingCalendar,
     sampled: &[SessionDate],
     symbols: &BTreeSet<Ticker>,
+    cadence: IntradayCadence,
 ) {
     println!(
         "{:<8}{:<12}{:>10}{:>10}{:>10}{:>10}{:>10}{:>10}{:>12}",
@@ -1802,9 +1847,7 @@ async fn measure(
             continue;
         };
         for ticker in symbols {
-            match quotes::fold_session(market_data, ticker, *session, QUOTE_CADENCE, open, close)
-                .await
-            {
+            match quotes::fold_session(market_data, ticker, *session, cadence, open, close).await {
                 Ok((summaries, fetch)) => {
                     print_session_row(ticker, *session, &summaries, fetch.received)
                 }
@@ -1869,6 +1912,7 @@ fn print_session_row(
 /// credential — which is what makes it usable after a subscription lapses.
 async fn check_cadence(action: &CadenceAction) -> Result<Outcome, SeedError> {
     let arguments = action.arguments();
+    let (from, to) = arguments.intervals()?;
     let window = arguments.window.window()?;
     let bucket = bucket_name()?;
     let s3_client = fund::common::aws::s3_client().await;
@@ -1877,8 +1921,8 @@ async fn check_cadence(action: &CadenceAction) -> Result<Outcome, SeedError> {
         &s3_client,
         &bucket,
         action.family(),
-        arguments.from.bar_interval(),
-        arguments.to.bar_interval(),
+        from,
+        to,
         window.start,
         window.end,
         arguments.stride,
@@ -1889,10 +1933,10 @@ async fn check_cadence(action: &CadenceAction) -> Result<Outcome, SeedError> {
     // Named, not counted. The medians are not decomposable, so a run that printed only agreement
     // would read as covering the row -- which is the overstatement this whole check exists against.
     println!(
-        "{} {} -> {}: {} of {} sessions agree over {} rows; {} not checked: {}",
+        "{} {} -> {}: {} of {} sessions agree over {} rows; {} columns are not decomposable and were not checked: {}",
         action.family(),
-        arguments.from.bar_interval(),
-        arguments.to.bar_interval(),
+        from,
+        to,
         totals.sessions_agreeing(),
         totals.sessions(),
         totals.compared(),

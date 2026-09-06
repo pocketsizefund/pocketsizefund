@@ -1,9 +1,9 @@
 //! Cross-cadence agreement over the summaries the archive already holds.
 //!
-//! Verifies rather than re-emits: the cadences are folded in separate passes, so sum-back is a
-//! cross-pass claim, and re-deriving all of them would hide a disagreement instead of surfacing it.
+//! Verifies rather than re-emits: the cadences are folded separately, so sum-back is a cross-pass
+//! claim that re-deriving both sides would hide.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use polars::prelude::*;
 use thiserror::Error;
@@ -163,6 +163,14 @@ pub enum CadenceError {
     },
     #[error("column {column} is missing a value the comparison needs")]
     NullKey { column: &'static str },
+    /// One partition holds rows of more than one cadence, so there is no interval to fold it as.
+    ///
+    /// Reachable from the archive rather than only from a malformed file: a merge keeps rows it does
+    /// not overwrite, so a partition written twice under different rules can carry both.
+    #[error("one partition holds both {first} and {second} rows")]
+    MixedIntervals { first: String, second: String },
+    #[error("{interval} is not a cadence this archive stores")]
+    UnknownInterval { interval: String },
 }
 
 /// The columns of one summary family, split by whether a coarser row reconstructs them.
@@ -354,16 +362,32 @@ fn reconstructed_name(column: &str) -> PlSmallStr {
     format!("{column}_reconstructed").into()
 }
 
-/// The interval every row of a partition carries, or `None` where it holds no rows.
+/// The interval every row of a partition carries, or `None` where the column is absent.
 ///
 /// Read from the frame rather than passed in, so a comparison cannot be told the fine side is
-/// one-minute while the partition it was handed is five.
+/// one-minute while the partition it was handed is five. A value that is present and unreadable is
+/// refused rather than treated as absent: absent falls back to the coarse interval, which would
+/// silently disable the [`CadenceError::NotCoarser`] guard the fallback exists beneath.
 fn sole_interval(frame: &DataFrame) -> Result<Option<BarInterval>, CadenceError> {
     let Ok(column) = frame.column("bar_interval") else {
         return Ok(None);
     };
     let intervals: BTreeSet<&str> = column.str()?.iter().flatten().collect();
-    Ok(intervals.into_iter().next().and_then(BarInterval::parse))
+    let mut named = intervals.into_iter();
+    let Some(interval) = named.next() else {
+        return Ok(None);
+    };
+    if let Some(second) = named.next() {
+        return Err(CadenceError::MixedIntervals {
+            first: interval.to_string(),
+            second: second.to_string(),
+        });
+    }
+    BarInterval::parse(interval)
+        .map(Some)
+        .ok_or_else(|| CadenceError::UnknownInterval {
+            interval: interval.to_string(),
+        })
 }
 
 /// Orders the intervals coarsest-last, which is the only comparison the fold direction needs.
@@ -576,45 +600,102 @@ impl std::fmt::Display for CadenceAgreement {
     }
 }
 
-/// Adds one session's outcome to a running total across a window.
+/// What became of one session's comparison.
+///
+/// One session reaches exactly one of these, so they are variants rather than parallel lists. Only
+/// [`SessionOutcome::Agreed`] is a pass: the other four are each a different way of not having
+/// checked something, and summing them into a clean figure is what makes a check overstate itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SessionOutcome {
+    /// Every reconstructed column matched, over a population that was not empty.
+    Agreed,
+    /// At least one column disagreed.
+    Disagreed,
+    /// The two cadences shared no row, so nothing was compared.
+    NothingCompared,
+    /// The coarser prefix holds no partition for this session.
+    Absent,
+    /// A partition was there and could not be read as a cadence.
+    Unusable,
+}
+
+impl SessionOutcome {
+    /// The outcome a finished comparison reached.
+    pub fn of(agreement: &CadenceAgreement) -> Self {
+        match agreement {
+            agreement if agreement.compared() == 0 => SessionOutcome::NothingCompared,
+            agreement if agreement.agrees() => SessionOutcome::Agreed,
+            _ => SessionOutcome::Disagreed,
+        }
+    }
+}
+
+impl std::fmt::Display for SessionOutcome {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            SessionOutcome::Agreed => "agreed",
+            SessionOutcome::Disagreed => "disagreed",
+            SessionOutcome::NothingCompared => "compared nothing",
+            SessionOutcome::Absent => "absent",
+            SessionOutcome::Unusable => "unusable",
+        })
+    }
+}
+
+/// What a check found across a window, one outcome per session.
 #[derive(Clone, Debug, Default)]
 pub struct CadenceTotals {
-    sessions: usize,
-    sessions_agreeing: usize,
+    outcomes: BTreeMap<SessionDate, SessionOutcome>,
     compared: usize,
     disagreements: usize,
     finer_only: usize,
     coarser_only: usize,
-    /// Sessions that disagreed, dated rather than counted: a count cannot say which to re-fold.
-    disagreeing: Vec<SessionDate>,
-    /// Sessions whose two cadences shared no row at all.
-    ///
-    /// Neither agreement nor disagreement — the check did not run. Kept apart from both so a window
-    /// where the fold never lined up cannot be summed into a passing figure.
-    uncompared: Vec<SessionDate>,
 }
 
 impl CadenceTotals {
+    /// Records a comparison that ran, whatever it found.
     pub fn absorb(&mut self, agreement: &CadenceAgreement) {
-        self.sessions += 1;
-        self.compared += agreement.compared;
+        self.compared += agreement.compared();
         self.disagreements += agreement.disagreements();
         let (finer_only, coarser_only) = agreement.one_sided();
         self.finer_only += finer_only;
         self.coarser_only += coarser_only;
-        match agreement {
-            agreement if agreement.compared() == 0 => self.uncompared.push(agreement.session()),
-            agreement if agreement.agrees() => self.sessions_agreeing += 1,
-            agreement => self.disagreeing.push(agreement.session()),
-        }
+        self.outcomes
+            .insert(agreement.session(), SessionOutcome::of(agreement));
     }
 
+    /// Records a session no comparison could be made for, which is not the same as one that agreed.
+    pub fn note(&mut self, session: SessionDate, outcome: SessionOutcome) {
+        self.outcomes.insert(session, outcome);
+    }
+
+    /// Sessions the check reached, by any route including the ones it could not compare.
     pub fn sessions(&self) -> usize {
-        self.sessions
+        self.outcomes.len()
     }
 
     pub fn sessions_agreeing(&self) -> usize {
-        self.sessions_agreeing
+        self.sessions_with(SessionOutcome::Agreed).len()
+    }
+
+    /// The sessions that reached `outcome`, dated rather than counted.
+    ///
+    /// A count says a re-fold is needed and cannot say which sessions to run it over.
+    pub fn sessions_with(&self, outcome: SessionOutcome) -> Vec<SessionDate> {
+        self.outcomes
+            .iter()
+            .filter(|(_, reached)| **reached == outcome)
+            .map(|(session, _)| *session)
+            .collect()
+    }
+
+    /// Every session that did not agree, with the reason it did not.
+    pub fn unresolved(&self) -> Vec<(SessionDate, SessionOutcome)> {
+        self.outcomes
+            .iter()
+            .filter(|(_, outcome)| **outcome != SessionOutcome::Agreed)
+            .map(|(session, outcome)| (*session, *outcome))
+            .collect()
     }
 
     pub fn compared(&self) -> usize {
@@ -629,22 +710,16 @@ impl CadenceTotals {
         (self.finer_only, self.coarser_only)
     }
 
-    pub fn disagreeing(&self) -> &[SessionDate] {
-        &self.disagreeing
-    }
-
-    /// Sessions the check could not run over, dated for the same reason the disagreeing ones are.
-    pub fn uncompared(&self) -> &[SessionDate] {
-        &self.uncompared
-    }
-
-    /// Whether every session agreed, which is the exit condition a check reports on.
+    /// Whether every session reached agreed, which is the exit condition a check reports on.
     ///
-    /// A window that compared nothing does not pass. Both halves are load-bearing and neither is
-    /// implied by the other: a run over an empty window and a run where no fold lined up both reach
-    /// zero disagreements without having checked a single row.
+    /// A window that checked nothing does not pass, and neither does one that could only pair half
+    /// its sessions -- both reach zero disagreements without establishing anything.
     pub fn agrees(&self) -> bool {
-        self.sessions > 0 && self.uncompared.is_empty() && self.disagreements == 0
+        !self.outcomes.is_empty()
+            && self
+                .outcomes
+                .values()
+                .all(|outcome| *outcome == SessionOutcome::Agreed)
     }
 }
 
@@ -655,7 +730,11 @@ mod tests {
     use chrono::NaiveDate;
 
     fn session() -> SessionDate {
-        SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 8, 20).expect("a real date"))
+        session_on(20)
+    }
+
+    fn session_on(day: u32) -> SessionDate {
+        SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 8, day).expect("a real date"))
     }
 
     /// The instant the archive stamps a session row at, which no intraday bucket lands on.
@@ -897,8 +976,8 @@ mod tests {
         assert_eq!(empty.disagreements(), 0);
         assert!(!empty.agrees());
 
-        let mut uncompared = CadenceTotals::default();
-        uncompared.absorb(&agreement(
+        let mut totals = CadenceTotals::default();
+        totals.absorb(&agreement(
             &five_one_minute_buckets([2.0; 5], [60.0; 5]),
             &quotes(
                 BarInterval::OneDay,
@@ -907,12 +986,40 @@ mod tests {
             BarInterval::OneDay,
         ));
 
-        assert_eq!(uncompared.sessions(), 1);
-        assert_eq!(uncompared.sessions_agreeing(), 0);
-        assert_eq!(uncompared.disagreements(), 0);
-        assert_eq!(uncompared.uncompared(), [session()]);
-        assert!(uncompared.disagreeing().is_empty());
-        assert!(!uncompared.agrees());
+        assert_eq!(totals.sessions(), 1);
+        assert_eq!(totals.sessions_agreeing(), 0);
+        assert_eq!(totals.disagreements(), 0);
+        assert_eq!(
+            totals.sessions_with(SessionOutcome::NothingCompared),
+            [session()]
+        );
+        assert!(totals.sessions_with(SessionOutcome::Disagreed).is_empty());
+        assert!(!totals.agrees());
+    }
+
+    /// Four ways a session fails to agree, and only one way it passes.
+    ///
+    /// Pinned as a whole rather than one variant at a time: the failure this guards against is a
+    /// window summing the four into a clean figure, which no single-variant assertion would catch.
+    #[test]
+    fn test_only_an_agreeing_window_passes() {
+        let finer = five_one_minute_buckets([2.0; 5], [60.0; 5]);
+        let agreeing = quotes(BarInterval::FiveMinute, &[("AAPL", 0, 50, 300.0, 2.0)]);
+
+        for absent in [
+            SessionOutcome::Disagreed,
+            SessionOutcome::NothingCompared,
+            SessionOutcome::Absent,
+            SessionOutcome::Unusable,
+        ] {
+            let mut totals = CadenceTotals::default();
+            totals.absorb(&agreement(&finer, &agreeing, BarInterval::FiveMinute));
+            assert!(totals.agrees(), "one agreeing session should pass");
+
+            totals.note(session_on(21), absent);
+            assert!(!totals.agrees(), "a {absent} session must not pass");
+            assert_eq!(totals.unresolved(), [(session_on(21), absent)]);
+        }
     }
 
     #[test]
@@ -925,18 +1032,162 @@ mod tests {
             &quotes(BarInterval::FiveMinute, &[("AAPL", 0, 50, 300.0, 2.0)]),
             BarInterval::FiveMinute,
         ));
-        totals.absorb(&agreement(
-            &finer,
-            &quotes(BarInterval::FiveMinute, &[("AAPL", 0, 49, 300.0, 2.0)]),
-            BarInterval::FiveMinute,
-        ));
+        // A second session, because the totals key on the date: absorbing the same session twice
+        // records one outcome, which is what makes a re-check correct rather than double-counted.
+        totals.absorb(
+            &CadenceCheck::quotes()
+                .compare(
+                    &finer,
+                    &quotes(BarInterval::FiveMinute, &[("AAPL", 0, 49, 300.0, 2.0)]),
+                    BarInterval::FiveMinute,
+                    session_on(21),
+                )
+                .expect("a comparable pair"),
+        );
 
         assert_eq!(totals.sessions(), 2);
         assert_eq!(totals.sessions_agreeing(), 1);
         assert_eq!(totals.compared(), 2);
         assert_eq!(totals.disagreements(), 1);
         assert!(!totals.agrees());
-        assert_eq!(totals.disagreeing(), [session()]);
+        assert_eq!(
+            totals.sessions_with(SessionOutcome::Disagreed),
+            [session_on(21)]
+        );
+    }
+
+    #[test]
+    fn test_re_checking_one_session_records_one_outcome() {
+        let mut totals = CadenceTotals::default();
+        let finer = five_one_minute_buckets([2.0; 5], [60.0; 5]);
+
+        totals.note(session(), SessionOutcome::Absent);
+        assert!(!totals.agrees());
+
+        // The same session, now comparable. Keyed on the date, so the later outcome replaces the
+        // earlier one rather than leaving the window permanently unresolved.
+        totals.absorb(&agreement(
+            &finer,
+            &quotes(BarInterval::FiveMinute, &[("AAPL", 0, 50, 300.0, 2.0)]),
+            BarInterval::FiveMinute,
+        ));
+        assert_eq!(totals.sessions(), 1);
+        assert!(totals.agrees());
+    }
+
+    #[test]
+    fn test_a_partition_holding_two_cadences_is_not_foldable() {
+        // Reachable from the archive, not only from a malformed file: a merge keeps rows it does not
+        // overwrite, so a partition written twice under different rules carries both.
+        let mut mixed = quotes(
+            BarInterval::OneMinute,
+            &[("AAPL", 0, 10, 60.0, 2.0), ("AAPL", 60_000, 10, 60.0, 2.0)],
+        );
+        mixed
+            .with_column(Column::new(
+                "bar_interval".into(),
+                vec!["one_minute", "five_minute"],
+            ))
+            .expect("a replaceable column");
+
+        let error = CadenceCheck::quotes()
+            .compare(
+                &mixed,
+                &quotes(BarInterval::FiveMinute, &[("AAPL", 0, 20, 120.0, 2.0)]),
+                BarInterval::FiveMinute,
+                session(),
+            )
+            .expect_err("one partition cannot be two cadences");
+
+        assert!(matches!(error, CadenceError::MixedIntervals { .. }));
+    }
+
+    #[test]
+    fn test_an_unreadable_interval_is_refused_rather_than_assumed() {
+        // Refused rather than treated as absent: absent falls back to the coarse interval, which
+        // would silently disable the `NotCoarser` guard the fallback sits beneath.
+        let mut unreadable = quotes(BarInterval::OneMinute, &[("AAPL", 0, 10, 60.0, 2.0)]);
+        unreadable
+            .with_column(Column::new("bar_interval".into(), vec!["1Min"]))
+            .expect("a replaceable column");
+
+        let error = CadenceCheck::quotes()
+            .compare(
+                &unreadable,
+                &quotes(BarInterval::FiveMinute, &[("AAPL", 0, 10, 60.0, 2.0)]),
+                BarInterval::FiveMinute,
+                session(),
+            )
+            .expect_err("an unreadable interval names no cadence");
+
+        assert!(matches!(
+            error,
+            CadenceError::UnknownInterval { ref interval } if interval == "1Min"
+        ));
+    }
+
+    #[test]
+    fn test_a_frame_without_an_interval_column_still_compares() {
+        // The column is optional, unlike its value: a frame that never carried one is legacy data
+        // rather than corrupt, and falls back to the interval it is being folded up to.
+        let mut legacy = five_one_minute_buckets([2.0; 5], [60.0; 5]);
+        legacy.drop_in_place("bar_interval").expect("the column");
+
+        let outcome = CadenceCheck::quotes()
+            .compare(
+                &legacy,
+                &quotes(BarInterval::FiveMinute, &[("AAPL", 0, 50, 300.0, 2.0)]),
+                BarInterval::FiveMinute,
+                session(),
+            )
+            .expect("a comparable pair");
+
+        assert!(outcome.agrees());
+    }
+
+    #[test]
+    fn test_a_daily_partition_of_two_stamps_is_not_a_session() {
+        let finer = five_one_minute_buckets([2.0; 5], [60.0; 5]);
+        let coarser = quotes(
+            BarInterval::OneDay,
+            &[
+                ("AAPL", SESSION_STAMP, 50, 300.0, 2.0),
+                ("AAPL", SESSION_STAMP + 1, 50, 300.0, 2.0),
+            ],
+        );
+
+        let error = CadenceCheck::quotes()
+            .compare(&finer, &coarser, BarInterval::OneDay, session())
+            .expect_err("two stamps is not one session");
+
+        assert!(matches!(
+            error,
+            CadenceError::AmbiguousSessionStamp { stamps: 2, .. }
+        ));
+    }
+
+    #[test]
+    fn test_a_null_timestamp_has_no_bucket_to_fold_into() {
+        let mut null_stamped = quotes(BarInterval::OneMinute, &[("AAPL", 0, 10, 60.0, 2.0)]);
+        null_stamped
+            .with_column(Column::new("timestamp".into(), vec![None::<i64>]))
+            .expect("a replaceable column");
+
+        let error = CadenceCheck::quotes()
+            .compare(
+                &null_stamped,
+                &quotes(BarInterval::FiveMinute, &[("AAPL", 0, 10, 60.0, 2.0)]),
+                BarInterval::FiveMinute,
+                session(),
+            )
+            .expect_err("a row with no stamp belongs to no bucket");
+
+        assert!(matches!(
+            error,
+            CadenceError::NullKey {
+                column: "timestamp"
+            }
+        ));
     }
 
     /// A trade frame carrying only what a comparison reads, with a nullable volume-weighted price.
