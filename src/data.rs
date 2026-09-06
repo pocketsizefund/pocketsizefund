@@ -8,6 +8,7 @@ pub mod attribution;
 pub mod bars;
 pub mod boundaries;
 pub mod cache;
+pub mod cadence;
 pub mod calendar;
 pub mod conditions;
 pub mod conditions_table;
