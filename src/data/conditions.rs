@@ -250,6 +250,41 @@ mod tests {
         assert_eq!(volume_eligibility(&[15, 9_999]), Eligibility::Ineligible);
     }
 
+    /// The unspellable sentinel resolves as unknown on every tape, which is the whole point of it.
+    ///
+    /// The transport substitutes it for a condition token no table can spell. If any tape ever
+    /// claimed that byte it would resolve to a real condition instead, and a malformed print would
+    /// silently acquire that condition's eligibility.
+    #[test]
+    fn test_the_unspellable_sentinel_is_ambiguous_on_every_tape() {
+        for tape in [
+            Tape::ConsolidatedTapeAssociation,
+            Tape::UnlistedTradingPrivileges,
+            Tape::TradeDataDissemination,
+        ] {
+            assert!(
+                by_character(TradeConditions::UNSPELLABLE, tape).is_empty(),
+                "no row may claim the sentinel on {tape:?}"
+            );
+            assert_eq!(
+                volume_eligibility_from_characters(&[TradeConditions::UNSPELLABLE], tape),
+                Eligibility::Ambiguous,
+                "an unspellable token must stay visible on {tape:?}"
+            );
+        }
+        // A token we cannot read does not rescue one we can. Pinned to `M` — "Market Center Official
+        // Close", identifier 15, `updates_volume: false` — rather than to a lookup, because a test
+        // that resolved the character through the table it is checking would pass against an empty
+        // one.
+        assert_eq!(
+            volume_eligibility_from_characters(
+                &[b'M', TradeConditions::UNSPELLABLE],
+                Tape::ConsolidatedTapeAssociation
+            ),
+            Eligibility::Ineligible
+        );
+    }
+
     /// The house rule keeps odd lots and drops the two conventions that are not market prices.
     #[test]
     fn test_the_house_spread_rule_drops_only_prices_that_are_not_market_prices() {

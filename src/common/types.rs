@@ -791,6 +791,13 @@ pub enum TradeConditions {
 }
 
 impl TradeConditions {
+    /// Stands in for a token no condition table can spell, so it resolves as unknown.
+    ///
+    /// A SIP condition is one character, and `0xFF` is not one: it is outside ASCII, so no row can
+    /// claim it and every lookup answers empty. A malformed token therefore reads exactly like an
+    /// unrecognized character rather than vanishing and leaving the print looking ordinary.
+    pub const UNSPELLABLE: u8 = 0xFF;
+
     /// Whether anything is spelled here at all, which an unconditioned print is.
     pub fn is_empty(&self) -> bool {
         match self {

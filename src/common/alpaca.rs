@@ -2220,14 +2220,24 @@ impl HistoricalTradePayload {
     /// cannot be resolved, and folding the print as unconditioned would silently admit exactly the
     /// prints the exclusion policy exists to remove.
     fn into_tick(self) -> Option<TradeTick> {
-        let tape = Tape::from_letter(*self.tape?.as_bytes().first()?)?;
+        // Exactly one byte, not the first of however many: `"CTA"` would otherwise be read as tape
+        // `C` and its conditions resolved against the wrong table, with nothing counting the row as
+        // malformed.
+        let letters = self.tape?;
+        let [letter] = letters.as_bytes() else {
+            return None;
+        };
+        let tape = Tape::from_letter(*letter)?;
         // A SIP condition is one character. A longer token is not one this table can spell, and
-        // taking its first byte would silently read it as a different condition.
+        // taking its first byte would silently read it as a different condition — so it is carried
+        // as unspellable rather than dropped, which would leave a malformed print looking ordinary.
         let characters: Vec<u8> = self
             .conditions
             .iter()
-            .filter(|condition| condition.len() == 1)
-            .filter_map(|condition| condition.as_bytes().first().copied())
+            .map(|condition| match condition.as_bytes() {
+                [character] => *character,
+                _ => TradeConditions::UNSPELLABLE,
+            })
             .collect();
         TradeTick::new(
             self.timestamp?,
@@ -4705,6 +4715,42 @@ mod tests {
         page.assert_async().await;
     }
 
+    /// A tape field that is not one character is refused rather than read by its first byte.
+    ///
+    /// `"CTA"` used to be accepted as tape `C`, so its conditions were resolved against the UTP
+    /// table while nothing counted the row as malformed. Pinned to `"CTA"` specifically because its
+    /// first byte is a *valid* tape letter, which is the case a length check catches and a
+    /// `from_letter` check alone does not.
+    #[tokio::test]
+    async fn test_a_multi_character_tape_is_refused_rather_than_read_by_its_first_letter() {
+        let mut server = mockito::Server::new_async().await;
+        let page = server
+            .mock("GET", mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"trades":{"AAPL":[
+                    {"t":"2026-08-20T13:30:01Z","p":100.5,"s":100,"c":["@"],"z":"CTA"}
+                ]}}"#,
+            )
+            .create_async()
+            .await;
+
+        let (ticks, fetch) = collect_trades(server.url()).await;
+        let fetch = fetch.expect("one page must parse");
+
+        assert!(ticks.is_empty(), "a malformed tape must fold no tick");
+        assert_eq!(fetch.received, 1);
+        // `rejected`, not `untaped`: the row carries a tape field, so it is malformed rather than
+        // absent, and the two counters exist to tell those faults apart.
+        assert_eq!(
+            fetch.rejected, 1,
+            "the row must be counted, not silently dropped"
+        );
+        assert_eq!(fetch.untaped, 0);
+        page.assert_async().await;
+    }
+
     /// A row with no readable tape is refused and counted apart.
     ///
     /// Folding it as unconditioned would admit exactly the prints the exclusion policy exists to
@@ -4760,10 +4806,14 @@ mod tests {
         page.assert_async().await;
     }
 
-    /// A condition token longer than one character names nothing this table can spell, and taking
-    /// its first byte would read it as a different condition entirely.
+    /// A condition token longer than one character is kept as unknown, never truncated or dropped.
+    ///
+    /// Truncating would read `FT` as `F`, a different condition entirely. Dropping it — which this
+    /// did until it was measured — let a print whose every token was malformed fold as ordinary,
+    /// fully-eligible volume with no exclusion recorded, and `into_tick` still returned a tick so
+    /// the fetch counters reported nothing either.
     #[tokio::test]
-    async fn test_a_multi_character_condition_token_is_dropped_rather_than_truncated() {
+    async fn test_a_multi_character_condition_token_is_kept_as_unknown_not_truncated_or_dropped() {
         let mut server = mockito::Server::new_async().await;
         let page = server
             .mock("GET", mockito::Matcher::Any)
@@ -4779,13 +4829,15 @@ mod tests {
 
         let (ticks, _) = collect_trades(server.url()).await;
 
+        // Pinned to the literal `0xFF` rather than to `TradeConditions::UNSPELLABLE`, so changing the
+        // sentinel's value has to be a deliberate edit here too.
         assert_eq!(
             ticks[0].conditions(),
             &TradeConditions::Spelled {
-                characters: vec![b'@'],
+                characters: vec![b'@', 0xFF],
                 tape: Tape::ConsolidatedTapeAssociation,
             },
-            "`FT` is dropped, not read as `F`"
+            "`FT` is unknown and stays in place; it is never read as `F` nor removed"
         );
         page.assert_async().await;
     }

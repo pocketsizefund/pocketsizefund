@@ -399,13 +399,30 @@ enum TradeAction {
     /// summarized.
     Widen(QuoteArguments),
     /// Fold named symbols from Alpaca into the sampled sessions that already have a partition.
-    Repair(QuoteSymbolArguments),
+    Repair(TradeSymbolArguments),
     /// Fold named symbols from Alpaca and print what they read, touching no partition.
     ///
     /// The seam between the two providers is only checkable read-only. Writing an Alpaca fold into
     /// a partition built from flat files is how the quote archive ended up carrying rows from two
     /// passes at once, and this exists so the comparison costs nothing.
-    Measure(QuoteSymbolArguments),
+    Measure(TradeSymbolArguments),
+}
+
+/// What a per-name trade pass takes, which is the window, the stride and the names.
+///
+/// Deliberately not [`QuoteSymbolArguments`]: these routes reach Alpaca one name at a time, so
+/// `--tee-raw`, `--staging-directory` and `--cadence` name nothing they can act on, and a flag the
+/// CLI accepts and ignores reads as a setting that was applied.
+#[derive(Debug, Args)]
+struct TradeSymbolArguments {
+    #[command(flatten)]
+    window: WindowArguments,
+    /// Sample every Nth published session, anchored at the start. A multiple of 5 samples one
+    /// weekday forever; 21 does not.
+    #[arg(long, default_value_t = DEFAULT_STRIDE, value_parser = stride)]
+    stride: usize,
+    #[command(flatten)]
+    symbols: SymbolArguments,
 }
 
 impl TradeAction {
@@ -422,11 +439,23 @@ impl TradeAction {
         Some(whole_market(sessions))
     }
 
-    /// The window and stride this action runs over.
-    fn arguments(&self) -> &QuoteArguments {
+    /// The window this action runs over.
+    ///
+    /// Read separately from the stride rather than through one arguments struct, because the two
+    /// routes no longer share one: a flat-file pass also carries the raw tee, and a per-name pass
+    /// has nothing to tee.
+    fn window(&self) -> &WindowArguments {
         match self {
-            TradeAction::Archive(arguments) | TradeAction::Widen(arguments) => arguments,
-            TradeAction::Repair(symbols) | TradeAction::Measure(symbols) => &symbols.quotes,
+            TradeAction::Archive(arguments) | TradeAction::Widen(arguments) => &arguments.window,
+            TradeAction::Repair(symbols) | TradeAction::Measure(symbols) => &symbols.window,
+        }
+    }
+
+    /// How many published sessions this action steps between folds.
+    fn stride(&self) -> usize {
+        match self {
+            TradeAction::Archive(arguments) | TradeAction::Widen(arguments) => arguments.stride,
+            TradeAction::Repair(symbols) | TradeAction::Measure(symbols) => symbols.stride,
         }
     }
 }
@@ -1528,7 +1557,6 @@ async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
     if let TradeAction::Measure(symbols) = action {
         return measure_trades(symbols).await;
     }
-    let arguments = action.arguments();
     // Resolved before any credential is read, so a repair with no symbol set is refused in the first
     // millisecond rather than after a calendar fetch.
     let scope = match action {
@@ -1541,7 +1569,8 @@ async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
             .universe_scope()
             .ok_or_else(|| SeedError::Usage(format!("{action:?} folds no universe")))??,
     };
-    let window = arguments.window.window()?;
+    let window = action.window().window()?;
+    let stride = action.stride();
 
     let credentials = AlpacaCredentials::from_env().map_err(box_error)?;
     let days = TradingClient::from_env(credentials)
@@ -1549,8 +1578,8 @@ async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
         .await
         .map_err(box_error)?;
     let calendar = TradingCalendar::from_days(days);
-    let sampled = sample(&calendar, &window, arguments.stride);
-    report_sample(&window, arguments.stride, &calendar, &sampled);
+    let sampled = sample(&calendar, &window, stride);
+    report_sample(&window, stride, &calendar, &sampled);
 
     // Bound before the source so it outlives the borrow, and built only where it is used: a repair
     // must not demand flat-file credentials to reach two names through Alpaca.
@@ -1558,12 +1587,20 @@ async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
     let market_data;
     let source = match action {
         TradeAction::Repair(_) => {
-            market_data = quote_market_data()?;
+            market_data = sip_market_data()?;
             archive::TradeSource::PerName(&market_data)
         }
-        _ => {
+        TradeAction::Archive(arguments) | TradeAction::Widen(arguments) => {
             flat_files = flat_file_client(arguments).await?;
             archive::TradeSource::WholeSession(&flat_files)
+        }
+        // Returned above, before any credential is read. Named rather than swept into a catch-all so
+        // a new action cannot silently inherit the flat-file route.
+        TradeAction::Measure(_) => {
+            return Err(SeedError::Usage(
+                "a measure pass writes nothing and is answered before a source is built"
+                    .to_string(),
+            ))
         }
     };
 
@@ -1580,13 +1617,12 @@ async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
 ///
 /// Sequential on purpose, as the quote measurement is: this exists to read a handful of numbers off
 /// real data and compare them against what the archive already holds.
-async fn measure_trades(symbols: &QuoteSymbolArguments) -> Result<Outcome, SeedError> {
+async fn measure_trades(symbols: &TradeSymbolArguments) -> Result<Outcome, SeedError> {
     let named = symbols.symbols.required_names()?;
-    let arguments = &symbols.quotes;
-    let window = arguments.window.window()?;
+    let window = symbols.window.window()?;
     let (market_data, calendar) = quote_sources(&window).await?;
-    let sampled = sample(&calendar, &window, arguments.stride);
-    report_sample(&window, arguments.stride, &calendar, &sampled);
+    let sampled = sample(&calendar, &window, symbols.stride);
+    report_sample(&window, symbols.stride, &calendar, &sampled);
 
     // The exclusion counters are printed beside the totals because they are the first thing a
     // disagreement with the flat-file archive would be explained by: the two providers spell
@@ -1874,7 +1910,7 @@ fn rate(quantity: f64, seconds: f64) -> f64 {
 /// SIP is pinned rather than read from `ALPACA_DATA_FEED`, for the reason [`quote_sources`] pins it:
 /// IEX's prints are one venue's, and an environment variable could put two incomparable series under
 /// one key.
-fn quote_market_data() -> Result<MarketDataClient, SeedError> {
+fn sip_market_data() -> Result<MarketDataClient, SeedError> {
     let credentials = AlpacaCredentials::from_env().map_err(box_error)?;
     Ok(MarketDataClient::new(credentials, DataFeed::Sip))
 }

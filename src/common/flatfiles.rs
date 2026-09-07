@@ -2939,6 +2939,10 @@ mod tests {
         let (mut client, _requested) = client_serving(body.clone());
 
         let directory = std::env::temp_dir().join("fund-tee-retention-test");
+        // Cleared rather than merely created: the assertion below counts the directory's entries, and
+        // a staged object deliberately outlives the run that wrote it, so a second run on the same
+        // machine would count two. The path is fixed, so without this the test passes only once.
+        let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("a staging directory");
         // A destination that refuses everything, so `store` fails after the download succeeded.
         client = client.teeing_raw_to(RawTee::new(
