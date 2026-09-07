@@ -2603,15 +2603,48 @@ pub async fn check_cadence_agreement(
     Ok(totals)
 }
 
-/// Folds the printed tape across `sessions`, per `scope`, out of Massive's flat files, which must
-/// already be calendar-filtered on the same terms as the quote pass.
+/// Where a trade pass gets its prints.
 ///
-/// Session-major and flat-file only. There is no per-name variant because there is no repair path:
-/// a trade file is the session, so a name missing from it is missing from the tape rather than from
-/// a fetch that can be retried.
+/// The same split as [`QuoteSource`], and load-bearing for the same reason: a Massive flat file is
+/// whole-market and the only affordable route to five years, while Alpaca answers one name at a time
+/// and is the only route reaching past Massive's five-year window.
+pub enum TradeSource<'a> {
+    /// One request per name, retried per name.
+    PerName(&'a MarketDataClient),
+    /// One file per session, folded whole.
+    WholeSession(&'a FlatFileClient),
+}
+
+impl TradeSource<'_> {
+    /// Where this route's prints came from.
+    ///
+    /// Derived from the variant rather than passed beside it, so a session folded from Alpaca cannot
+    /// be filed as having come from a flat file.
+    pub const fn provenance(&self) -> Provenance {
+        match self {
+            TradeSource::PerName(_) => Provenance::alpaca(AlpacaPlan::AlgoTraderPlus),
+            TradeSource::WholeSession(_) => RawDataset::Trades.provenance(),
+        }
+    }
+}
+
+impl std::fmt::Display for TradeSource<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            TradeSource::PerName(_) => "per-name",
+            TradeSource::WholeSession(_) => "whole-session",
+        })
+    }
+}
+
+/// Folds the printed tape across `sessions`, per `scope`, from whichever route `source` names.
+///
+/// `sessions` must already be calendar-filtered on the same terms as the quote pass. A whole-session
+/// fold treats a name absent from the file as absent from the tape, while a per-name fold treats it
+/// as a fetch that can be retried — which is why the two report a failed symbol differently.
 pub async fn archive_trade_sessions(
     s3_client: &S3Client,
-    flat_files: &FlatFileClient,
+    source: &TradeSource<'_>,
     calendar: &TradingCalendar,
     bucket: &str,
     sessions: &[SessionDate],
@@ -2650,7 +2683,7 @@ pub async fn archive_trade_sessions(
     for session in requested {
         trades_folded += archive_trade_session(
             s3_client,
-            flat_files,
+            source,
             calendar,
             bucket,
             session,
@@ -2661,12 +2694,19 @@ pub async fn archive_trade_sessions(
     }
 
     if progress.symbols_failed > 0 {
-        // Deliberately not the quote pass's "re-run to repair": re-running skips the session, whose
-        // daily partition is now written, and the flat file would answer the same way if it did not.
-        warn!(
-            symbols_failed = progress.symbols_failed,
-            "Some symbols in the universe never printed in these sessions' trade files; only a widen pass revisits them"
-        );
+        // The two routes fail differently, and the remedy differs with them: a flat file that does
+        // not carry a name is answering, so re-running reads the same absence, while a per-name
+        // fetch that failed is a request to make again.
+        match source {
+            TradeSource::WholeSession(_) => warn!(
+                symbols_failed = progress.symbols_failed,
+                "Some symbols in the universe never printed in these sessions' trade files; only a widen pass revisits them"
+            ),
+            TradeSource::PerName(_) => warn!(
+                symbols_failed = progress.symbols_failed,
+                "Some symbols' trade fetches failed; a repair pass naming them fetches them again"
+            ),
+        }
     }
     info!(
         sessions_requested = progress.sessions_requested,
@@ -2685,7 +2725,7 @@ pub async fn archive_trade_sessions(
 #[allow(clippy::too_many_arguments)]
 async fn archive_trade_session(
     s3_client: &S3Client,
-    flat_files: &FlatFileClient,
+    source: &TradeSource<'_>,
     calendar: &TradingCalendar,
     bucket: &str,
     session: SessionDate,
@@ -2715,36 +2755,120 @@ async fn archive_trade_session(
         return Ok(0);
     }
 
-    info!(%session, %open, %close, universe = universe.len(), "Folding a session's printed tape");
+    info!(%session, %open, %close, %source, universe = universe.len(), "Folding a session's printed tape");
     let requested = universe.len();
-    let Some(fold) = trades::MarketFold::new(session, open, close, universe) else {
-        // Unreachable while `trading_hours` returns a published session, and cheap to say so rather
-        // than fold nothing and report the whole universe as its cost.
-        warn!(%session, %open, %close, "The session spans no time; leaving it unsummarized");
-        progress.sessions_without_data += 1;
-        return Ok(0);
-    };
-    let folded = match flat_files.fold_trades(session.date(), fold).await {
-        Ok((_, fold)) => fold.finish(),
-        Err(error) => {
-            // The file is the session: nothing partial survives it.
-            warn!(%session, %error, "A session's trade file could not be folded");
-            progress.sessions_failed.push(session);
-            return Ok(0);
+    // A tuple rather than a `SessionFolded` from both arms: `seen` is what the *file* carried, and
+    // the per-name route has no equivalent -- it counts failed fetches directly, so a value invented
+    // for it here would be read later as though a file had reported it.
+    let (summaries, trades_folded) = match source {
+        TradeSource::PerName(market_data) => {
+            fold_trade_universe(market_data, session, open, close, &universe, progress).await
+        }
+        TradeSource::WholeSession(flat_files) => {
+            let Some(fold) = trades::MarketFold::new(session, open, close, universe) else {
+                // Unreachable while `trading_hours` returns a published session, and cheap to say so
+                // rather than fold nothing and report the whole universe as its cost.
+                warn!(%session, %open, %close, "The session spans no time; leaving it unsummarized");
+                progress.sessions_without_data += 1;
+                return Ok(0);
+            };
+            match flat_files.fold_trades(session.date(), fold).await {
+                Ok((_, fold)) => {
+                    let folded = fold.finish();
+                    // Counted against what the file carried: a name that was there and never printed
+                    // is not a failure, and counting it would make almost every whole-market session
+                    // exit non-zero.
+                    progress.symbols_failed += requested.saturating_sub(folded.seen);
+                    if !folded.resumed.is_empty() {
+                        info!(%session, resumed = folded.resumed.len(), "Names whose trades arrived in more than one run");
+                    }
+                    (folded.summaries, folded.folded)
+                }
+                Err(error) => {
+                    // The file is the session: nothing partial survives it.
+                    warn!(%session, %error, "A session's trade file could not be folded");
+                    progress.sessions_failed.push(session);
+                    return Ok(0);
+                }
+            }
         }
     };
-
-    let trades_folded = folded.folded;
-    progress.symbols_failed += requested.saturating_sub(folded.seen);
-    if !folded.resumed.is_empty() {
-        info!(%session, resumed = folded.resumed.len(), "Names whose trades arrived in more than one run");
-    }
-    if folded.summaries.is_empty() {
+    if summaries.is_empty() {
         progress.sessions_without_data += 1;
         return Ok(trades_folded);
     }
-    write_trade_partitions(s3_client, bucket, session, folded.summaries, progress).await?;
+    write_trade_partitions(
+        s3_client,
+        bucket,
+        session,
+        summaries,
+        progress,
+        source.provenance(),
+    )
+    .await?;
     Ok(trades_folded)
+}
+
+/// Fans out over the universe, folding each name's prints and keeping the summaries and the cost.
+///
+/// A symbol's failure costs that symbol rather than the session, as on the quote path: the other
+/// names are already fetched and discarding them would mean paying for them twice.
+async fn fold_trade_universe(
+    market_data: &MarketDataClient,
+    session: SessionDate,
+    open: DateTime<Utc>,
+    close: DateTime<Utc>,
+    universe: &BTreeSet<Ticker>,
+    progress: &mut PassProgress,
+) -> (Vec<TradeSummary>, usize) {
+    let mut pending: Vec<Ticker> = universe.iter().cloned().collect();
+    let mut tasks = tokio::task::JoinSet::new();
+    let mut folded: Vec<TradeSummary> = Vec::new();
+    let mut trades_folded = 0usize;
+
+    loop {
+        while tasks.len() < QUOTE_CONCURRENCY {
+            let Some(ticker) = pending.pop() else { break };
+            let client = market_data.clone();
+            tasks.spawn(async move {
+                let mut last_error = None;
+                for attempt in 0..QUOTE_SYMBOL_ATTEMPTS {
+                    match trades::fold_session(&client, &ticker, session, open, close).await {
+                        Ok(folded) => return Ok(folded),
+                        Err(error) => {
+                            if !error.is_transient() {
+                                return Err((ticker, error));
+                            }
+                            last_error = Some(error);
+                        }
+                    }
+                    tokio::time::sleep(retry_delay(attempt)).await;
+                }
+                Err((
+                    ticker,
+                    last_error.expect("a failed attempt records its error"),
+                ))
+            });
+        }
+        let Some(finished) = tasks.join_next().await else {
+            break;
+        };
+        match finished {
+            Ok(Ok((summaries, fetch))) => {
+                trades_folded += fetch.received;
+                folded.extend(summaries);
+            }
+            Ok(Err((ticker, error))) => {
+                progress.symbols_failed += 1;
+                warn!(%ticker, %session, %error, "A symbol's trade fetch failed; continuing the session");
+            }
+            Err(error) => {
+                progress.symbols_failed += 1;
+                warn!(%error, %session, "A trade fold task did not complete");
+            }
+        }
+    }
+    (folded, trades_folded)
 }
 
 /// Writes one-minute bar partitions across `sessions`, per `scope`.
@@ -2851,6 +2975,7 @@ async fn write_trade_partitions(
     session: SessionDate,
     folded: Vec<TradeSummary>,
     progress: &mut PassProgress,
+    provenance: Provenance,
 ) -> Result<(), ArchiveError> {
     let mut one_minute: Vec<TradeSummary> = Vec::new();
     let mut five_minute: Vec<TradeSummary> = Vec::new();
@@ -2881,8 +3006,10 @@ async fn write_trade_partitions(
             frame,
             |existing, fetched, key| merge_or_replace(existing, fetched, key),
             DerivedDataset::Trades,
-            // Trades have one route and no repair path: a trade file *is* the session.
-            RawDataset::Trades.provenance(),
+            // Carried from the source rather than named here: a repair folds Alpaca into a partition
+            // a flat file built, and filing that as Massive-only would hide the provider seam in the
+            // one record that exists to expose it.
+            provenance,
         )
         .await
         {
@@ -3321,6 +3448,8 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
+    use crate::common::alpaca::TradeTick;
+    use crate::common::types::TradeConditions;
     use aws_smithy_http_client::test_util::infallible_client_fn;
     use aws_smithy_types::body::SdkBody;
     use chrono::NaiveDate;
@@ -3362,6 +3491,39 @@ mod tests {
         )
     }
 
+    /// As [`scripted_s3_client`], but the responder also sees the request body.
+    ///
+    /// Needed where the assertion is about what was *written* rather than where: a provenance record
+    /// is only checkable by reading the bytes it put.
+    fn scripted_s3_client_capturing(
+        respond: impl Fn(&http::Method, &str, &str) -> http::Response<SdkBody> + Send + Sync + 'static,
+    ) -> S3Client {
+        let http_client = infallible_client_fn(move |request| {
+            let method = request.method().clone();
+            let key = percent_decode_str(request.uri().path()).decode_utf8_lossy();
+            let body = request
+                .body()
+                .bytes()
+                .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
+                .unwrap_or_default();
+            respond(&method, &key, &body)
+        });
+        S3Client::from_conf(
+            aws_sdk_s3::Config::builder()
+                .behavior_version(aws_sdk_s3::config::BehaviorVersion::latest())
+                .region(aws_sdk_s3::config::Region::new("us-east-1"))
+                .credentials_provider(aws_sdk_s3::config::Credentials::new(
+                    "test-key",
+                    "test-secret",
+                    None,
+                    None,
+                    "test",
+                ))
+                .http_client(http_client)
+                .build(),
+        )
+    }
+
     /// Absent, so `write_merged` takes its `Precondition::Absent` path and writes without a merge.
     fn no_such_key() -> http::Response<SdkBody> {
         http::Response::builder()
@@ -3386,6 +3548,99 @@ mod tests {
             None,
         )
         .expect("a coherent candle must construct")
+    }
+
+    /// One name's session, folded from a single ordinary print.
+    fn one_trade_summary(ticker_symbol: &str, at: SessionDate) -> Vec<TradeSummary> {
+        let open = at.midnight();
+        let close = open + chrono::Duration::minutes(5);
+        let mut fold = crate::data::trades::SessionFold::new(
+            Ticker::new(ticker_symbol).expect("a test ticker must parse"),
+            at,
+            open,
+            close,
+        )
+        .expect("a positive session must open");
+        fold.push(
+            TradeTick::new(
+                open + chrono::Duration::seconds(1),
+                100.0,
+                10.0,
+                TradeConditions::Identified(Vec::new()),
+                false,
+            )
+            .expect("an ordinary print must construct"),
+        );
+        fold.finish()
+    }
+
+    /// A partition records the route that actually built it, not the route trades used to have.
+    ///
+    /// `write_trade_partitions` hard-coded the flat-file provenance behind a comment reading "trades
+    /// have one route and no repair path". Adding the Alpaca per-name route made that false, and an
+    /// `equity-trades repair` would have filed Alpaca rows as Massive — hiding the provider seam in
+    /// the one record kept to expose it. `TradeSource::provenance()` existed throughout and was
+    /// never called.
+    #[tokio::test]
+    async fn test_a_trade_partition_is_attributed_to_the_route_that_built_it() {
+        let bodies: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        let recorder = Arc::clone(&bodies);
+        let client = scripted_s3_client_capturing(move |method, key, body| {
+            if method == http::Method::PUT && key.ends_with(".provenance.json") {
+                recorder
+                    .lock()
+                    .expect("the recorder must not be poisoned")
+                    .push(body.to_string());
+                http::Response::builder()
+                    .status(200)
+                    .body(SdkBody::empty())
+                    .expect("a canned response must build")
+            } else if method == http::Method::PUT {
+                http::Response::builder()
+                    .status(200)
+                    .body(SdkBody::empty())
+                    .expect("a canned response must build")
+            } else {
+                no_such_key()
+            }
+        });
+
+        let at = session(2026, 9, 3);
+        let mut progress = PassProgress::default();
+        let credentials = crate::common::alpaca::AlpacaCredentials::new(
+            "test-key".to_string(),
+            "test-secret".to_string(),
+        )
+        .expect("test credentials must construct");
+        let market_data = MarketDataClient::new(credentials, crate::common::alpaca::DataFeed::Sip);
+        write_trade_partitions(
+            &client,
+            "test-bucket",
+            at,
+            one_trade_summary("AAPL", at),
+            &mut progress,
+            TradeSource::PerName(&market_data).provenance(),
+        )
+        .await
+        .expect("the partition must be written");
+
+        let written = bodies
+            .lock()
+            .expect("the recorder must not be poisoned")
+            .clone();
+        assert!(!written.is_empty(), "a sidecar must have been written");
+        // Pinned to the literal strings the record carries on the wire, not to `Provenance`'s own
+        // accessors, so a rename that moved both together would still fail here.
+        for record in &written {
+            assert!(
+                record.contains("\"provider\":\"alpaca\""),
+                "a per-name fold is Alpaca's; wrote {record}"
+            );
+            assert!(
+                !record.contains("\"provider\":\"massive\""),
+                "a per-name fold must not be filed as a flat file; wrote {record}"
+            );
+        }
     }
 
     /// Each cadence lands under its own hive partition, and trades never collide with quotes.

@@ -2,7 +2,7 @@
 //!
 //! Massive spells a condition by identifier and Alpaca by SIP character; both resolve here first.
 
-use crate::common::types::Tape;
+use crate::common::types::{Tape, TradeConditions};
 use crate::data::conditions_table::SALE_CONDITIONS;
 
 /// One row of the provider's sale-condition reference.
@@ -90,6 +90,47 @@ pub fn volume_eligibility(identifiers: &[u32]) -> Eligibility {
     }
 }
 
+/// The marker a SIP spells "no condition applies" with, which is not a condition.
+///
+/// Tape-dependent like every other spelling here: CTA writes a space and UTP an at-sign. The
+/// provider's reference table has no row for either, because Massive says the same thing by sending
+/// no conditions at all while Alpaca states it on nearly every print.
+///
+/// Counting it unknown reported the whole tape as unreadable — measured on 2026-08-20, 688,578 of
+/// AAPL's 688,608 prints and 573,781 of SPY's 573,791. Fixing only the at-sign left SPY unchanged,
+/// which is what identified the tape as the axis rather than the character.
+fn regular_sale_on(tape: Tape) -> u8 {
+    match tape {
+        Tape::ConsolidatedTapeAssociation => b' ',
+        // Alpaca reaches neither of these with a `D`, so FINRA arrives spelled as its listing
+        // venue's tape rather than its own; the at-sign is UTP's and is what a `C` row carries.
+        Tape::UnlistedTradingPrivileges | Tape::TradeDataDissemination => b'@',
+    }
+}
+
+/// The volume rule, asked of however the provider spelled the conditions.
+///
+/// The dispatch lives here rather than at the fold, so a caller cannot read Alpaca's characters
+/// against the identifier table by reaching for the wrong function.
+pub fn volume_eligibility_of(conditions: &TradeConditions) -> Eligibility {
+    match conditions {
+        TradeConditions::Identified(identifiers) => volume_eligibility(identifiers),
+        TradeConditions::Spelled { characters, tape } => {
+            volume_eligibility_from_characters(characters, *tape)
+        }
+    }
+}
+
+/// The market-price question, asked of however the provider spelled the conditions.
+pub fn carries_a_market_price_of(conditions: &TradeConditions) -> bool {
+    match conditions {
+        TradeConditions::Identified(identifiers) => carries_a_market_price(identifiers),
+        TradeConditions::Spelled { characters, tape } => {
+            carries_a_market_price_from_characters(characters, *tape)
+        }
+    }
+}
+
 /// The same question asked of Alpaca's characters, which is answerable only when they agree.
 ///
 /// Every colliding character pair agrees on `updates_volume` today, so this returns [`Eligibility::
@@ -98,6 +139,9 @@ pub fn volume_eligibility(identifiers: &[u32]) -> Eligibility {
 pub fn volume_eligibility_from_characters(characters: &[u8], tape: Tape) -> Eligibility {
     let mut unresolved = false;
     for character in characters {
+        if *character == regular_sale_on(tape) {
+            continue;
+        }
         let candidates = by_character(*character, tape);
         if candidates.is_empty() {
             unresolved = true;
@@ -204,6 +248,41 @@ mod tests {
         assert_eq!(volume_eligibility(&[37, 9_999]), Eligibility::Ambiguous);
         // Still ineligible: a code we cannot read does not rescue one we can.
         assert_eq!(volume_eligibility(&[15, 9_999]), Eligibility::Ineligible);
+    }
+
+    /// The unspellable sentinel resolves as unknown on every tape, which is the whole point of it.
+    ///
+    /// The transport substitutes it for a condition token no table can spell. If any tape ever
+    /// claimed that byte it would resolve to a real condition instead, and a malformed print would
+    /// silently acquire that condition's eligibility.
+    #[test]
+    fn test_the_unspellable_sentinel_is_ambiguous_on_every_tape() {
+        for tape in [
+            Tape::ConsolidatedTapeAssociation,
+            Tape::UnlistedTradingPrivileges,
+            Tape::TradeDataDissemination,
+        ] {
+            assert!(
+                by_character(TradeConditions::UNSPELLABLE, tape).is_empty(),
+                "no row may claim the sentinel on {tape:?}"
+            );
+            assert_eq!(
+                volume_eligibility_from_characters(&[TradeConditions::UNSPELLABLE], tape),
+                Eligibility::Ambiguous,
+                "an unspellable token must stay visible on {tape:?}"
+            );
+        }
+        // A token we cannot read does not rescue one we can. Pinned to `M` — "Market Center Official
+        // Close", identifier 15, `updates_volume: false` — rather than to a lookup, because a test
+        // that resolved the character through the table it is checking would pass against an empty
+        // one.
+        assert_eq!(
+            volume_eligibility_from_characters(
+                &[b'M', TradeConditions::UNSPELLABLE],
+                Tape::ConsolidatedTapeAssociation
+            ),
+            Eligibility::Ineligible
+        );
     }
 
     /// The house rule keeps odd lots and drops the two conventions that are not market prices.
@@ -351,5 +430,90 @@ mod tests {
                 .all(|pair| pair[0].identifier < pair[1].identifier),
             "identifiers must ascend without repeating, which `by_identifier` assumes"
         );
+    }
+
+    /// The regular-sale marker is spelled differently per tape, and reading the wrong one reports
+    /// the whole tape as unreadable.
+    ///
+    /// Pinned per tape rather than as one character: fixing only the at-sign left every NYSE-listed
+    /// name at ~100% ambiguous, because CTA writes a space. Both are asserted as *eligible*, which
+    /// is the observable difference — an unrecognized character is merely ambiguous, so a test that
+    /// only checked "not ineligible" would pass with the marker unhandled.
+    #[test]
+    fn test_the_regular_sale_marker_is_read_on_each_tape_that_spells_it() {
+        assert_eq!(
+            volume_eligibility_from_characters(b" ", Tape::ConsolidatedTapeAssociation),
+            Eligibility::Eligible,
+            "CTA spells an ordinary print with a space"
+        );
+        assert_eq!(
+            volume_eligibility_from_characters(b"@", Tape::UnlistedTradingPrivileges),
+            Eligibility::Eligible,
+            "UTP spells it with an at-sign"
+        );
+
+        // Beside a real condition it still resolves, which is the common shape on the tape: a
+        // regular sale that also updates the last price arrives as two characters, not one.
+        assert_eq!(
+            volume_eligibility_from_characters(b" I", Tape::ConsolidatedTapeAssociation),
+            volume_eligibility_from_characters(b"I", Tape::ConsolidatedTapeAssociation),
+            "the marker contributes nothing beyond itself"
+        );
+    }
+
+    /// The dispatch is the point: Alpaca's characters must not reach the identifier table.
+    ///
+    /// Pinned on `M`, which is the one input where the two tables actually disagree. As a character
+    /// it is Market Center Official Close and volume-ineligible; its byte, 77, names no identifier
+    /// at all and would resolve as merely ambiguous. Comparing against the sibling function instead
+    /// proved nothing -- a mutation swapping the tables passed, because the inputs I first chose
+    /// happened to agree.
+    #[test]
+    fn test_each_spelling_is_read_against_its_own_table() {
+        let spelled = TradeConditions::Spelled {
+            characters: vec![b'M'],
+            tape: Tape::ConsolidatedTapeAssociation,
+        };
+        assert_eq!(volume_eligibility_of(&spelled), Eligibility::Ineligible);
+
+        // The same byte read as an identifier, which is what reading it against the wrong table
+        // would do. A different answer, which is what makes the assertion above load-bearing.
+        assert_eq!(
+            volume_eligibility(&[u32::from(b'M')]),
+            Eligibility::Ambiguous
+        );
+
+        // And the identifier spelling still resolves as an identifier.
+        assert_eq!(
+            volume_eligibility_of(&TradeConditions::Identified(vec![15])),
+            Eligibility::Ineligible,
+            "identifier 15 is the same condition, spelled the other way"
+        );
+    }
+
+    /// The same character names different conditions on different tapes, which is the whole reason
+    /// a character cannot be read without one.
+    #[test]
+    fn test_alpacas_tape_letters_name_the_same_sips_as_the_numeric_markers() {
+        assert_eq!(
+            Tape::from_letter(b'A'),
+            Some(Tape::ConsolidatedTapeAssociation)
+        );
+        assert_eq!(
+            Tape::from_letter(b'B'),
+            Some(Tape::ConsolidatedTapeAssociation)
+        );
+        assert_eq!(
+            Tape::from_letter(b'C'),
+            Some(Tape::UnlistedTradingPrivileges)
+        );
+        // No letter names FINRA: a TRF print is disseminated on its listing venue's tape.
+        assert_eq!(Tape::from_letter(b'D'), None);
+        assert_eq!(Tape::from_letter(b'Q'), None);
+
+        // The two spellings agree about which SIP they mean, which is what lets one table serve
+        // both providers.
+        assert_eq!(Tape::from_letter(b'A'), Tape::from_marker(1));
+        assert_eq!(Tape::from_letter(b'C'), Tape::from_marker(3));
     }
 }

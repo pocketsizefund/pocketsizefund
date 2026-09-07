@@ -752,6 +752,18 @@ impl Tape {
             _ => None,
         }
     }
+
+    /// The tape Alpaca's letter names, which is the same three SIPs spelled differently.
+    ///
+    /// `A` and `B` are both CTA for the reason `1` and `2` are. There is no letter for FINRA: a TRF
+    /// print is disseminated on the tape of its listing venue, so it arrives as `A`, `B` or `C`.
+    pub fn from_letter(letter: u8) -> Option<Self> {
+        match letter {
+            b'A' | b'B' => Some(Tape::ConsolidatedTapeAssociation),
+            b'C' => Some(Tape::UnlistedTradingPrivileges),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for Tape {
@@ -761,6 +773,37 @@ impl std::fmt::Display for Tape {
             Tape::UnlistedTradingPrivileges => "UTP",
             Tape::TradeDataDissemination => "FINRA_TDDS",
         })
+    }
+}
+
+/// How a provider spells the sale conditions on a print.
+///
+/// Massive publishes identifiers, which name a condition outright, and Alpaca publishes the SIP
+/// characters, which name one only alongside the tape that carried them — the same condition is `B`
+/// on CTA and `W` on UTP. Carrying the spelling beside the values is what stops a character being
+/// read against the wrong table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TradeConditions {
+    /// The provider's own identifiers.
+    Identified(Vec<u32>),
+    /// SIP characters, readable only against the tape that published them.
+    Spelled { characters: Vec<u8>, tape: Tape },
+}
+
+impl TradeConditions {
+    /// Stands in for a token no condition table can spell, so it resolves as unknown.
+    ///
+    /// A SIP condition is one character, and `0xFF` is not one: it is outside ASCII, so no row can
+    /// claim it and every lookup answers empty. A malformed token therefore reads exactly like an
+    /// unrecognized character rather than vanishing and leaving the print looking ordinary.
+    pub const UNSPELLABLE: u8 = 0xFF;
+
+    /// Whether anything is spelled here at all, which an unconditioned print is.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            TradeConditions::Identified(identifiers) => identifiers.is_empty(),
+            TradeConditions::Spelled { characters, .. } => characters.is_empty(),
+        }
     }
 }
 

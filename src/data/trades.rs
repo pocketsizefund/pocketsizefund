@@ -9,12 +9,12 @@ use chrono_tz::America::New_York;
 use polars::prelude::*;
 use tracing::warn;
 
-use crate::common::alpaca::TradeTick;
+use crate::common::alpaca::{ClientError, MarketDataClient, TradeFetch, TradeTick};
 use crate::common::flatfiles::TradeSink;
 use crate::common::types::{
     BarInterval, IntradayCadence, SessionDate, Ticker, TradeExclusions, TradeSummary,
 };
-use crate::data::conditions::{carries_a_market_price, volume_eligibility, Eligibility};
+use crate::data::conditions::{carries_a_market_price_of, volume_eligibility_of, Eligibility};
 
 /// The upper quantile every summary reports beside its median.
 const UPPER_QUANTILE: f64 = 0.9;
@@ -208,7 +208,7 @@ impl SessionFold {
             bucket.exclusions.record_correction(tick.notional());
             return;
         }
-        match volume_eligibility(tick.conditions()) {
+        match volume_eligibility_of(tick.conditions()) {
             Eligibility::Ineligible => {
                 bucket.exclusions.record_volume_ineligible(tick.notional());
                 return;
@@ -218,7 +218,7 @@ impl SessionFold {
             Eligibility::Ambiguous => bucket.exclusions.record_unresolved_condition(),
             Eligibility::Eligible => {}
         }
-        if !carries_a_market_price(tick.conditions()) {
+        if !carries_a_market_price_of(tick.conditions()) {
             bucket.exclusions.record_non_market_price(tick.notional());
         }
         bucket.add(&tick, direction);
@@ -461,6 +461,29 @@ impl TradeSink for MarketFold {
     }
 }
 
+/// Folds one name's session from Alpaca, holding the prints only long enough to weigh each one.
+///
+/// The per-name counterpart to the whole-market flat-file fold, and the only route that reaches past
+/// Massive's five-year window — which covers every Massive transport, so this is what a repair of an
+/// older session has to use.
+pub async fn fold_session(
+    market_data: &MarketDataClient,
+    ticker: &Ticker,
+    session: SessionDate,
+    open: DateTime<Utc>,
+    close: DateTime<Utc>,
+) -> Result<(Vec<TradeSummary>, TradeFetch), ClientError> {
+    let Some(mut fold) = SessionFold::new(ticker.clone(), session, open, close) else {
+        return Err(ClientError::Parse(format!(
+            "{session} spans no time between {open} and {close}"
+        )));
+    };
+    let fetch = market_data
+        .fetch_trades(ticker, open, close, session.date(), |tick| fold.push(tick))
+        .await?;
+    Ok((fold.finish(), fetch))
+}
+
 /// Builds the canonical trade frame, in [`TRADE_FRAME_COLUMNS`] order.
 pub fn summaries_to_dataframe(summaries: &[TradeSummary]) -> Result<DataFrame, PolarsError> {
     let column = |name: &str, values: Vec<f64>| Column::new(name.into(), values);
@@ -582,6 +605,8 @@ pub fn summaries_to_dataframe(summaries: &[TradeSummary]) -> Result<DataFrame, P
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::common::types::TradeConditions;
     use chrono::NaiveDate;
 
     fn ticker() -> Ticker {
@@ -602,7 +627,14 @@ mod tests {
     }
 
     fn trade(minute: u32, price: f64, size: f64) -> TradeTick {
-        TradeTick::new(at(minute, 0), price, size, Vec::new(), false).expect("a usable print")
+        TradeTick::new(
+            at(minute, 0),
+            price,
+            size,
+            TradeConditions::Identified(Vec::new()),
+            false,
+        )
+        .expect("a usable print")
     }
 
     fn marked(
@@ -612,7 +644,14 @@ mod tests {
         conditions: Vec<u32>,
         corrected: bool,
     ) -> TradeTick {
-        TradeTick::new(at(minute, 0), price, size, conditions, corrected).expect("a usable print")
+        TradeTick::new(
+            at(minute, 0),
+            price,
+            size,
+            TradeConditions::Identified(conditions),
+            corrected,
+        )
+        .expect("a usable print")
     }
 
     fn fold_of(ticks: Vec<TradeTick>) -> Vec<TradeSummary> {
