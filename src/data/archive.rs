@@ -128,11 +128,9 @@ pub enum ArchiveError {
     Contended { key: String, attempts: usize },
     /// A second provider tried to write into a partition a different one already built.
     ///
-    /// Refused rather than merged. Mixing is what produced an archive whose cadences disagree about
-    /// the same name-session by a factor of thirty — the five-minute and daily quote partitions hold
-    /// Alpaca's rows for the names Massive's flat file is short on, and the one-minute cadence holds
-    /// Massive's. A partition must answer for one provider so that a reader comparing two of them is
-    /// comparing the vendors rather than the write order.
+    /// Refused rather than merged: once two providers' rows are concatenated the partition cannot
+    /// say which row came from which. A partition answers for one provider so that a reader
+    /// comparing two of them is comparing the vendors rather than the write order.
     #[error(
         "{key} was built by {existing} and {incoming} tried to write into it; a partition answers \
          for one provider. Re-fold the whole partition from one source instead of merging."
@@ -1819,9 +1817,8 @@ where
         // overwrite would discard anything a later response happens to omit, and merging costs one
         // read of an object this pass is about to replace anyway.
         let existing = read_partition_with_etag(s3_client, bucket, &key).await?;
-        // Checked before the merge, not after: once two providers' rows are concatenated the
-        // partition cannot say which row came from which, and the sidecar records the set of routes
-        // rather than a route per row. Refusing here is the only point where that is still true.
+        // Checked before the merge, not after: the sidecar records a set of routes rather than a
+        // route per row, so this is the last point at which the two providers are still separable.
         if existing.is_some() {
             refuse_a_second_provider(s3_client, bucket, &key, provenance).await?;
         }
@@ -1867,10 +1864,10 @@ where
 
 /// Refuses a write into a partition a different provider already built.
 ///
-/// A missing sidecar is allowed through: the archive predates provenance and a partition without a
-/// record is not evidence of a second provider, only of an older pass. An unreadable one is refused,
-/// because "could not tell" and "safe" are different answers and only one of them is worth acting
-/// on — the sweep that stamps sidecars is cheap and should be run rather than guessed past.
+/// A missing sidecar is allowed through because the archive predates provenance, while an unreadable
+/// one is refused, since "could not tell" and "safe" are different answers. This stops a later pass
+/// rather than a simultaneous one: a writer landing between another's partition and its sidecar sees
+/// no record and passes, a window no ordering of two objects closes.
 async fn refuse_a_second_provider(
     s3_client: &S3Client,
     bucket: &str,
@@ -1878,8 +1875,17 @@ async fn refuse_a_second_provider(
     incoming: Provenance,
 ) -> Result<(), ArchiveError> {
     let sidecar = PartitionProvenance::sidecar_key(key);
-    let Some((record, _)) = read_sidecar(s3_client, bucket, &sidecar).await? else {
-        return Ok(());
+    let record = match read_sidecar(s3_client, bucket, &sidecar).await? {
+        SidecarRead::Found(record, _) => record,
+        SidecarRead::Absent => return Ok(()),
+        SidecarRead::Unreadable => {
+            return Err(ArchiveError::Read {
+                bucket: bucket.to_string(),
+                key: sidecar,
+                message: "the provenance record did not parse, so the provider it names is unknown"
+                    .to_string(),
+            })
+        }
     };
     let foreign: Vec<&str> = record
         .routes
@@ -3326,23 +3332,34 @@ async fn read_partition_with_etag(
     )))
 }
 
-/// Writes a partition only if the object at `key` still matches `precondition`.
+/// What was found at a sidecar key.
 ///
-/// Reads a partition's provenance and the ETag it carried, or `None` where there is no record.
+/// Three-way rather than an `Option` because absent and unreadable pull the two callers opposite
+/// ways: the guard must refuse a record it cannot interpret, and the writer must not spend its
+/// retries on one.
+enum SidecarRead {
+    /// The record parsed, and carried this ETag when it was read.
+    Found(PartitionProvenance, String),
+    /// No object at the key.
+    Absent,
+    /// An object is there and did not parse, so it can neither be trusted nor replaced.
+    Unreadable,
+}
+
+/// Reads a partition's provenance and the ETag it carried.
 ///
-/// Absent and unparseable are both `None` deliberately, because refusing to write over a corrupt
-/// object would make it permanent. **A failed request is neither**, and is propagated: treating a
-/// throttle as "no record" is what lets a single-route write replace a multi-route one.
+/// A failed request is neither absent nor unreadable and is propagated: treating a throttle as "no
+/// record" is what lets a single-route write replace a multi-route one.
 async fn read_sidecar(
     s3_client: &S3Client,
     bucket: &str,
     key: &str,
-) -> Result<Option<(PartitionProvenance, String)>, ArchiveError> {
+) -> Result<SidecarRead, ArchiveError> {
     let response = match s3_client.get_object().bucket(bucket).key(key).send().await {
         Ok(response) => response,
         Err(error) => {
             return match error.into_service_error() {
-                GetObjectError::NoSuchKey(_) => Ok(None),
+                GetObjectError::NoSuchKey(_) => Ok(SidecarRead::Absent),
                 other => Err(ArchiveError::Read {
                     bucket: bucket.to_string(),
                     key: key.to_string(),
@@ -3362,9 +3379,10 @@ async fn read_sidecar(
             message: error.to_string(),
         })?
         .into_bytes();
-    Ok(serde_json::from_slice(&bytes)
-        .ok()
-        .map(|record| (record, etag)))
+    Ok(match serde_json::from_slice(&bytes) {
+        Ok(record) => SidecarRead::Found(record, etag),
+        Err(_) => SidecarRead::Unreadable,
+    })
 }
 
 /// Records where an object's bytes came from, beside the object itself.
@@ -3393,11 +3411,19 @@ async fn write_sidecar(
             }
         };
         let (record, precondition) = match existing {
-            Some((record, etag)) => (record.contributed(provenance), Precondition::Match(etag)),
-            None => (
+            SidecarRead::Found(record, etag) => {
+                (record.contributed(provenance), Precondition::Match(etag))
+            }
+            SidecarRead::Absent => (
                 PartitionProvenance::new(dataset.as_str(), session.as_deref(), provenance),
                 Precondition::Absent,
             ),
+            // An `Absent` precondition cannot replace an object that is really there, so retrying
+            // would 409 until the attempts ran out under a warning naming the wrong cause.
+            SidecarRead::Unreadable => {
+                warn!(key, "Provenance did not parse; the sweep must rewrite it");
+                return;
+            }
         };
         let body = match serde_json::to_vec(&record) {
             Ok(body) => body,
@@ -3609,6 +3635,36 @@ mod tests {
                 assert_eq!(incoming, "alpaca");
             }
             other => panic!("a second provider must be refused, got {other:?}"),
+        }
+    }
+
+    /// A record that does not parse names no provider, and "could not tell" must not be spent as
+    /// "safe" — the write is refused so the sweep can rewrite the sidecar first.
+    #[tokio::test]
+    async fn test_an_unreadable_provenance_record_is_refused_rather_than_assumed_absent() {
+        let client = scripted_s3_client(move |_method, _key| {
+            http::Response::builder()
+                .status(200)
+                .header("etag", "\"an-etag\"")
+                .body(SdkBody::from("{ this is not the record it claims to be"))
+                .expect("a canned response must build")
+        });
+
+        let refused = refuse_a_second_provider(
+            &client,
+            "test-bucket",
+            "data/derived/equity/quotes/interval=one_day/year=2022/month=01/day=04/data.parquet",
+            Provenance::alpaca(AlpacaPlan::AlgoTraderPlus),
+        )
+        .await;
+
+        match refused {
+            Err(ArchiveError::Read { key, .. }) => assert_eq!(
+                key,
+                "data/derived/equity/quotes/interval=one_day/year=2022/month=01/day=04/\
+                 data.parquet.provenance.json"
+            ),
+            other => panic!("an unreadable record must be refused, got {other:?}"),
         }
     }
 
@@ -3998,6 +4054,52 @@ mod tests {
         assert!(
             written.is_empty(),
             "a sidecar that could not be read must be left alone; wrote {written:?}"
+        );
+    }
+
+    /// A record that does not parse is left for the sweep rather than retried against.
+    ///
+    /// An `Absent` precondition cannot replace an object that is really there, so the old lenient
+    /// read spent every attempt on writes that could only 409, then warned about losing a race.
+    #[tokio::test]
+    async fn test_a_sidecar_that_does_not_parse_is_left_for_the_sweep() {
+        let seen: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        let recorder = Arc::clone(&seen);
+        let client = scripted_s3_client(move |method, key| {
+            if method == http::Method::PUT {
+                recorder
+                    .lock()
+                    .expect("the recorder must not be poisoned")
+                    .push(key.to_string());
+                http::Response::builder()
+                    .status(200)
+                    .body(SdkBody::empty())
+                    .expect("a canned response must build")
+            } else {
+                http::Response::builder()
+                    .status(200)
+                    .header("etag", "\"an-etag\"")
+                    .body(SdkBody::from("{ this is not the record it claims to be"))
+                    .expect("a canned response must build")
+            }
+        });
+
+        write_sidecar(
+            &client,
+            "test-bucket",
+            SPLITS_ARCHIVE_KEY,
+            DerivedDataset::Splits,
+            Provenance::massive(MassivePlan::StocksStarter, MassiveTransport::Rest),
+        )
+        .await;
+
+        let written = seen
+            .lock()
+            .expect("the recorder must not be poisoned")
+            .clone();
+        assert!(
+            written.is_empty(),
+            "a record that did not parse must not be written over; wrote {written:?}"
         );
     }
 

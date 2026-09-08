@@ -1604,9 +1604,8 @@ async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
         }
     };
 
-    // Refused before a single print is fetched. Alpaca's early history carries an opening auction
-    // print the archive correctly excludes, so a repair reaching back past the floor would add
-    // 0.3-2.2% of session volume, silently and by a different amount per name.
+    // Refused before a single print is fetched: past the floor Alpaca folds an opening auction
+    // print the archive correctly excludes, adding 0.3-2.2% of session volume and varying by name.
     let unfaithful = source.unfaithful_sessions(&sampled);
     if let Some(earliest) = unfaithful.first() {
         return Err(SeedError::Usage(format!(
