@@ -1604,6 +1604,22 @@ async fn seed_trades(action: &TradeAction) -> Result<Outcome, SeedError> {
         }
     };
 
+    // Refused before a single print is fetched: past the floor Alpaca folds an opening auction
+    // print the archive correctly excludes, adding 0.3-2.2% of session volume and varying by name.
+    let unfaithful = source.unfaithful_sessions(&sampled);
+    if let Some(earliest) = unfaithful.first() {
+        return Err(SeedError::Usage(format!(
+            "{source} trades are not faithful before {}: {} of {} sampled sessions are earlier, \
+             from {earliest}. Writing them would add volume the archive correctly excludes; \
+             re-fold from the raw tee instead.",
+            source
+                .faithful_from()
+                .expect("a route that refuses a session has a floor"),
+            unfaithful.len(),
+            sampled.len(),
+        )));
+    }
+
     let bucket = bucket_name()?;
     let s3_client = fund::common::aws::s3_client().await;
     Ok(Outcome::Pass(
