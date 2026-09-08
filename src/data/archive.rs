@@ -126,6 +126,22 @@ pub enum ArchiveError {
     },
     #[error("gave up on {key} after {attempts} concurrent writes by another pass")]
     Contended { key: String, attempts: usize },
+    /// A second provider tried to write into a partition a different one already built.
+    ///
+    /// Refused rather than merged. Mixing is what produced an archive whose cadences disagree about
+    /// the same name-session by a factor of thirty — the five-minute and daily quote partitions hold
+    /// Alpaca's rows for the names Massive's flat file is short on, and the one-minute cadence holds
+    /// Massive's. A partition must answer for one provider so that a reader comparing two of them is
+    /// comparing the vendors rather than the write order.
+    #[error(
+        "{key} was built by {existing} and {incoming} tried to write into it; a partition answers \
+         for one provider. Re-fold the whole partition from one source instead of merging."
+    )]
+    MixedProvenance {
+        key: String,
+        existing: String,
+        incoming: String,
+    },
     /// The trading calendar does not span the window, so which dates trade is unanswerable.
     ///
     /// Fatal rather than carried, unlike a failed session: a calendar short of the window drops real
@@ -1803,6 +1819,12 @@ where
         // overwrite would discard anything a later response happens to omit, and merging costs one
         // read of an object this pass is about to replace anyway.
         let existing = read_partition_with_etag(s3_client, bucket, &key).await?;
+        // Checked before the merge, not after: once two providers' rows are concatenated the
+        // partition cannot say which row came from which, and the sidecar records the set of routes
+        // rather than a route per row. Refusing here is the only point where that is still true.
+        if existing.is_some() {
+            refuse_a_second_provider(s3_client, bucket, &key, provenance).await?;
+        }
         let (mut frame, precondition) = match existing {
             Some((existing_frame, etag)) => (
                 merge(existing_frame, fetched.clone(), &key)?,
@@ -1840,6 +1862,38 @@ where
     Err(ArchiveError::Contended {
         key,
         attempts: CONTENDED_WRITE_ATTEMPTS,
+    })
+}
+
+/// Refuses a write into a partition a different provider already built.
+///
+/// A missing sidecar is allowed through: the archive predates provenance and a partition without a
+/// record is not evidence of a second provider, only of an older pass. An unreadable one is refused,
+/// because "could not tell" and "safe" are different answers and only one of them is worth acting
+/// on — the sweep that stamps sidecars is cheap and should be run rather than guessed past.
+async fn refuse_a_second_provider(
+    s3_client: &S3Client,
+    bucket: &str,
+    key: &str,
+    incoming: Provenance,
+) -> Result<(), ArchiveError> {
+    let sidecar = PartitionProvenance::sidecar_key(key);
+    let Some((record, _)) = read_sidecar(s3_client, bucket, &sidecar).await? else {
+        return Ok(());
+    };
+    let foreign: Vec<&str> = record
+        .routes
+        .iter()
+        .map(|route| route.provider_name())
+        .filter(|provider| *provider != incoming.provider_name())
+        .collect();
+    if foreign.is_empty() {
+        return Ok(());
+    }
+    Err(ArchiveError::MixedProvenance {
+        key: key.to_string(),
+        existing: foreign.join(" and "),
+        incoming: incoming.provider_name().to_string(),
     })
 }
 
@@ -2615,6 +2669,15 @@ pub enum TradeSource<'a> {
     WholeSession(&'a FlatFileClient),
 }
 
+/// The earliest session Alpaca's trade history reproduces faithfully.
+///
+/// Before this, Alpaca folds the opening auction print that the SIP also publishes as Market Center
+/// Official Open, which our conditions table marks volume-ineligible, so a fold from that route
+/// carries 0.3–2.2% of session volume the archive correctly excludes. Measured 2026-09-06: the
+/// disagreement ends 2022-11-07 on CTA-tape names but runs intermittently into June 2023 on
+/// Nasdaq-listed ones, and 2023-07-05 is the first session sampled clean across both.
+const ALPACA_TRADES_FAITHFUL_FROM: (i32, u32, u32) = (2023, 7, 5);
+
 impl TradeSource<'_> {
     /// Where this route's prints came from.
     ///
@@ -2625,6 +2688,43 @@ impl TradeSource<'_> {
             TradeSource::PerName(_) => Provenance::alpaca(AlpacaPlan::AlgoTraderPlus),
             TradeSource::WholeSession(_) => RawDataset::Trades.provenance(),
         }
+    }
+
+    /// The earliest session this route may be written into the archive from.
+    ///
+    /// `None` for the flat-file route, which is where the archive's trade partitions came from and
+    /// so cannot disagree with them. Some for Alpaca, whose early history differs — see
+    /// [`ALPACA_TRADES_FAITHFUL_FROM`]. Carried on the source rather than checked at the call site
+    /// because the constraint is a property of the provider, not of any one command.
+    pub fn faithful_from(&self) -> Option<SessionDate> {
+        match self {
+            TradeSource::PerName(_) => {
+                let (year, month, day) = ALPACA_TRADES_FAITHFUL_FROM;
+                Some(SessionDate::from_date(
+                    NaiveDate::from_ymd_opt(year, month, day)
+                        .expect("the faithful-from date is a real calendar date"),
+                ))
+            }
+            TradeSource::WholeSession(_) => None,
+        }
+    }
+
+    /// The sessions in `sessions` this route must not be written into, earliest first.
+    ///
+    /// Returned rather than logged so the caller refuses before fetching anything. A silent partial
+    /// skip would be worse than either refusing or proceeding: the pass would report success over a
+    /// window it only half covered.
+    pub fn unfaithful_sessions(&self, sessions: &[SessionDate]) -> Vec<SessionDate> {
+        let Some(floor) = self.faithful_from() else {
+            return Vec::new();
+        };
+        let mut refused: Vec<SessionDate> = sessions
+            .iter()
+            .copied()
+            .filter(|&day| day < floor)
+            .collect();
+        refused.sort();
+        refused
     }
 }
 
@@ -3459,6 +3559,132 @@ mod tests {
         SessionDate::from_date(
             NaiveDate::from_ymd_opt(year, month, day).expect("test date must be valid"),
         )
+    }
+
+    /// Builds an Alpaca route with throwaway credentials, for the checks that never make a request.
+    fn per_name_credentials() -> crate::common::alpaca::MarketDataClient {
+        let credentials = crate::common::alpaca::AlpacaCredentials::new(
+            "test-key".to_string(),
+            "test-secret".to_string(),
+        )
+        .expect("test credentials must construct");
+        MarketDataClient::new(credentials, crate::common::alpaca::DataFeed::Sip)
+    }
+
+    /// A second provider writing into a partition the first built is what produced quote cadences
+    /// that disagree about the same name-session by a factor of thirty.
+    ///
+    /// Refused rather than merged, because after the concatenation nothing can say which row came
+    /// from which vendor: the sidecar records a set of routes for the partition, never a route per
+    /// row.
+    #[tokio::test]
+    async fn test_a_second_provider_is_refused_rather_than_merged() {
+        let record = PartitionProvenance::new(
+            "equity_quotes",
+            Some("2022-01-04"),
+            Provenance::massive(MassivePlan::StocksAdvanced, MassiveTransport::FlatFile),
+        );
+        let body = serde_json::to_string(&record).expect("the record must serialize");
+        let client = scripted_s3_client(move |_method, _key| {
+            http::Response::builder()
+                .status(200)
+                .header("etag", "\"an-etag\"")
+                .body(SdkBody::from(body.clone()))
+                .expect("a canned response must build")
+        });
+
+        let refused = refuse_a_second_provider(
+            &client,
+            "test-bucket",
+            "data/derived/equity/quotes/interval=one_day/year=2022/month=01/day=04/data.parquet",
+            Provenance::alpaca(AlpacaPlan::AlgoTraderPlus),
+        )
+        .await;
+
+        match refused {
+            Err(ArchiveError::MixedProvenance {
+                existing, incoming, ..
+            }) => {
+                assert_eq!(existing, "massive");
+                assert_eq!(incoming, "alpaca");
+            }
+            other => panic!("a second provider must be refused, got {other:?}"),
+        }
+    }
+
+    /// The same provider re-folding its own partition is ordinary and must stay allowed — that is
+    /// what the re-fold from the raw tee will be.
+    #[tokio::test]
+    async fn test_the_same_provider_may_rewrite_its_own_partition() {
+        let record = PartitionProvenance::new(
+            "equity_quotes",
+            Some("2022-01-04"),
+            Provenance::massive(MassivePlan::StocksAdvanced, MassiveTransport::FlatFile),
+        );
+        let body = serde_json::to_string(&record).expect("the record must serialize");
+        let client = scripted_s3_client(move |_method, _key| {
+            http::Response::builder()
+                .status(200)
+                .header("etag", "\"an-etag\"")
+                .body(SdkBody::from(body.clone()))
+                .expect("a canned response must build")
+        });
+
+        // A different Massive plan and transport, deliberately: what must match is the vendor, not
+        // the route, so a Starter REST re-fold over an Advanced flat-file partition is allowed.
+        refuse_a_second_provider(
+            &client,
+            "test-bucket",
+            "data/derived/equity/quotes/interval=one_day/year=2022/month=01/day=04/data.parquet",
+            Provenance::massive(MassivePlan::StocksStarter, MassiveTransport::Rest),
+        )
+        .await
+        .expect("one vendor rewriting its own partition is not a mix");
+    }
+
+    /// Alpaca's early history carries the opening auction print the archive excludes, so a repair
+    /// reaching back that far would add 0.3-2.2% of session volume, silently and per name.
+    ///
+    /// Pinned to the literal date rather than read off `ALPACA_TRADES_FAITHFUL_FROM`, so moving the
+    /// constant has to move this too and cannot quietly widen what a repair may overwrite.
+    #[test]
+    fn test_the_alpaca_trade_route_refuses_sessions_before_its_floor() {
+        let market_data = per_name_credentials();
+        let source = TradeSource::PerName(&market_data);
+
+        assert_eq!(source.faithful_from(), Some(session(2023, 7, 5)));
+
+        let refused = source.unfaithful_sessions(&[
+            session(2022, 1, 4),
+            session(2023, 6, 15),
+            session(2023, 7, 5),
+            session(2026, 8, 21),
+        ]);
+        assert_eq!(
+            refused,
+            vec![session(2022, 1, 4), session(2023, 6, 15)],
+            "every session before the floor is refused, and the floor itself is not"
+        );
+    }
+
+    /// The flat file is where the archive's trade partitions came from, so it cannot disagree with
+    /// them and must never be refused — a floor on this route would block the only repair that
+    /// survives the Massive Advanced lapse.
+    #[test]
+    fn test_the_flat_file_trade_route_has_no_floor() {
+        let credentials = crate::common::flatfiles::FlatFileCredentials::new(
+            "https://example.invalid".to_string(),
+            "test-key".to_string(),
+            "test-secret".to_string(),
+        )
+        .expect("test credentials must construct");
+        let flat_files = FlatFileClient::new(credentials);
+        let source = TradeSource::WholeSession(&flat_files);
+
+        assert_eq!(source.faithful_from(), None);
+        assert!(source
+            .unfaithful_sessions(&[session(2021, 8, 26), session(2022, 1, 4)])
+            .is_empty());
     }
 
     /// An S3 client answering from `respond` instead of the network, given the method and the key.
