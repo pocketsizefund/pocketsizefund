@@ -1,7 +1,6 @@
 //! PostgreSQL connection handling.
 //!
-//! Connecting is fallible at startup rather than optional at runtime: every command arrives
-//! through the database, so there is no degraded mode to fall back to.
+//! Connecting is fallible at startup rather than optional at runtime: there is no degraded mode.
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;

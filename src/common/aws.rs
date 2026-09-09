@@ -29,13 +29,9 @@ pub fn date_partitioned_key(prefix: &str, date: chrono::NaiveDate) -> String {
 /// Recover the date from a key built by [`date_partitioned_key`], or `None` if the key does not
 /// have that shape.
 ///
-/// The inverse exists so a `ListObjectsV2` result can become a set of dates, which is what lets the
-/// archive answer "which sessions am I missing" by comparing what is present against what is
-/// expected. Written against the tail of the key rather than the whole of it, so it is indifferent
-/// to the prefix and cannot be broken by one being renamed.
-///
-/// `None` rather than an error: a bucket may hold objects this layout knows nothing about, and a
-/// stray key is something to skip, not something to fail a run over.
+/// Written against the tail of the key rather than the whole of it, so it is indifferent to the
+/// prefix and cannot be broken by one being renamed. `None` rather than an error: a bucket may hold
+/// objects this layout knows nothing about, and a stray key is something to skip.
 pub fn date_from_partitioned_key(key: &str) -> Option<chrono::NaiveDate> {
     let mut segments = key.rsplit('/');
     if segments.next()? != "data.parquet" {

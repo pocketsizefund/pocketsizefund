@@ -1,7 +1,6 @@
 //! TiDE training loop on the `Autodiff<NdArray>` backend.
 //!
-//! Hand-rolled rather than `burn-train`'s `Learner`. The best checkpoint is restored from memory
-//! rather than round-tripped to disk.
+//! Hand-rolled rather than `burn-train`'s `Learner`; the best checkpoint is restored from memory.
 
 use burn::backend::{Autodiff, NdArray};
 use burn::module::AutodiffModule;
@@ -165,15 +164,12 @@ pub(crate) struct EpochDecision {
     pub(crate) stop: bool,
 }
 
-/// Train the model, returning the best-checkpoint model and the per-epoch
-/// training loss history.
+/// Train the model, returning the best-checkpoint model and the per-epoch training loss history.
 ///
-/// `validation_dataset` drives early stopping. When it is `None` or empty, the **training** loss is
-/// used as the stopping metric instead — which makes early stopping measure fit rather than
-/// generalization, so it will happily run to the epoch limit on a model that has memorized the
-/// window. The caller is expected to reject an empty validation split rather than rely on this;
-/// `bin/tide_model_trainer.rs` does. The fallback exists so a deliberately validation-free run
-/// (the overfitting tests below) still terminates, not as a supported production path.
+/// `validation_dataset` drives early stopping; when it is `None` or empty the **training** loss is
+/// used instead, which measures fit rather than generalization and will run to the epoch limit on a
+/// model that has memorized the window. The caller is expected to reject an empty validation split
+/// rather than rely on that fallback, which exists so a validation-free test run still terminates.
 pub fn train(
     mut model: TiDEModel<TrainBackend>,
     train_dataset: &TrainingDataset,

@@ -1,7 +1,6 @@
 //! Which vendor and which subscription answer for a dataset.
 //!
-//! Declared in the type system rather than in prose so a new dataset cannot be added without saying
-//! where it comes from, and so "what stops working when a subscription lapses" is a query.
+//! Declared in the type system, so a dataset cannot be added without saying where it comes from.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

@@ -184,9 +184,13 @@ FROM read_parquet(
 -- prices it read, the orders it sent, the fills they produced. Joining on it is how a duration
 -- becomes an answer about where the time went.
 --
--- schema_version is 3, 4, or 5; v1 and v2 were development and their objects are gone. Three
+-- schema_version is 3 through 6; v1 and v2 were development and their objects are gone. Four
 -- payload fields have changed shape, so a query reaching into any of them must branch on the
 -- version:
+--
+--   open_pair_reading.stop_at, through v5, was written beside entry_z_score. It is derivable from
+--   it and is now absent; a query wanting the stop line on any version should compute it from
+--   entry_z_score rather than read the field, which is the same number on every past record.
 --
 --   quote_rejection, at v4, was the bare reason string 'stale_quote' or 'wide_quote'. It is now an
 --   object whose 'reason' key holds that same string alongside the reading that produced it --

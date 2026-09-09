@@ -8,7 +8,9 @@ use tracing::{error, info};
 use fund::common::alpaca::{AlpacaCredentials, TradingClient};
 use fund::common::log::init_tracing;
 use fund::common::types::{BarInterval, SessionDate};
-use fund::laboratory::convergence::{curves_of, sample_universe, Closes, Curve, Selection};
+use fund::laboratory::convergence::{
+    curves_of, sample_universe, state_at, Closes, Curve, Selection,
+};
 use fund::laboratory::intraday::{self, SessionHours};
 use fund::laboratory::intraday_convergence::{self, IntradayEntry};
 use fund::laboratory::{dataset, intraday_convergence as measure};
@@ -27,17 +29,20 @@ const DEFAULT_LOOKBACK_DAYS: i64 = 90;
 /// Names sampled from the universe by default.
 ///
 /// Pairs grow with the square, so the whole intraday universe is millions of pairs per session.
-/// Two hundred names is ~19,900 pairs, which is what #1091 measured the daily version over.
+/// Two hundred names is ~19,900 pairs, matching what the daily measurement runs over.
 const DEFAULT_UNIVERSE: usize = 200;
 
 /// Fixed, so two runs over one archive draw the same sample and differ only where the data does.
 const SAMPLE_SEED: u64 = 0x5EED;
 
-/// Round-trip cost in z-score units is not knowable without the fitted sigma, so the cost is
-/// reported in basis points beside the result rather than folded into it.
+/// Roll's effective spread for a *single* name, in basis points, measured over the same archive.
 ///
-/// Measured by Roll's estimator over the same archive: 9 to 13 basis points.
+/// Cost in z-score units is not knowable without the fitted sigma, so it is reported in basis points
+/// beside the result rather than folded into it.
 const EFFECTIVE_SPREAD_BASIS_POINTS: f64 = 10.0;
+
+/// Crossings a pair round trip pays: both legs in and both legs out.
+const PAIR_ROUND_TRIP_CROSSINGS: f64 = 4.0;
 
 struct Parameters {
     session: SessionDate,
@@ -207,21 +212,33 @@ fn report(selection: Selection, entries: &[IntradayEntry]) {
         println!("no entries");
         return;
     }
-    let states: Vec<_> = entries.iter().map(IntradayEntry::state).collect();
+    let states: Vec<_> = entries
+        .iter()
+        .map(|entry| (entry.session, entry.resolution, entry.observed))
+        .collect();
     let curves = curves_of(&states);
-    let mean_z = intraday_convergence::mean_entry_z_score(entries).unwrap_or(0.0);
 
-    println!("entries {}, mean entry z {mean_z:.3}", entries.len());
-    println!("  horizon  entries  converged  stopped  open");
+    match intraday_convergence::mean_entry_z_score(entries) {
+        Some(mean_z_score) => println!("entries {}, mean entry z {mean_z_score:.3}", entries.len()),
+        None => println!("entries {}, mean entry z not measurable", entries.len()),
+    }
+    println!("  horizon  entries  sessions  converged      se  stopped  open");
     for Curve {
         horizon,
         converged,
         stopped,
         open,
         entries: standing,
+        sessions,
+        converged_standard_error,
     } in &curves
     {
-        println!("  {horizon:>7}  {standing:>7}  {converged:>9.4}  {stopped:>7.4}  {open:>5.4}");
+        let error = converged_standard_error
+            .map_or_else(|| "      -".to_string(), |value| format!("{value:>7.4}"));
+        println!(
+            "  {horizon:>7}  {standing:>7}  {sessions:>8}  {converged:>9.4}  {error}  \
+             {stopped:>7.4}  {open:>5.4}"
+        );
     }
 
     // The statistic the horizon can answer. Full convergence asks a daily-sigma dislocation to
@@ -248,17 +265,50 @@ fn report(selection: Selection, entries: &[IntradayEntry]) {
     }
 
     if let Some(final_curve) = curves.last() {
-        let expected = final_curve.converged * mean_z
-            - final_curve.stopped * fund::portfolio::screen::STOP_LOSS_WIDENING;
+        // The shares count only the entries still standing at this horizon, so the z-score they are
+        // multiplied by has to be taken over that same cohort and not over every entry opened.
+        let standing = standing_at(entries, final_curve.horizon);
+        match intraday_convergence::mean_entry_z_score(&standing) {
+            Some(mean_z_score) => {
+                let expected = final_curve.converged * mean_z_score
+                    - final_curve.stopped * fund::portfolio::screen::STOP_LOSS_WIDENING;
+                println!(
+                    "\n  expected value at horizon {}: {expected:+.4} sigma per entry, over the \
+                     {} entries standing there (mean entry z {mean_z_score:.3})",
+                    final_curve.horizon,
+                    standing.len()
+                );
+            }
+            None => println!(
+                "\n  expected value at horizon {}: no entry stands there to value",
+                final_curve.horizon
+            ),
+        }
+        let round_trip = pair_round_trip_basis_points(EFFECTIVE_SPREAD_BASIS_POINTS);
         println!(
-            "\n  expected value at horizon {}: {expected:+.4} sigma per entry",
-            final_curve.horizon
-        );
-        println!(
-            "  round-trip cost is about {EFFECTIVE_SPREAD_BASIS_POINTS:.0} basis points; a sigma \
-             is worth that only if the fitted spread is wider than it"
+            "  pair round trip is about {round_trip:.0} basis points \
+             ({EFFECTIVE_SPREAD_BASIS_POINTS:.0} bp single-name effective spread over \
+             {PAIR_ROUND_TRIP_CROSSINGS:.0} crossings); a sigma is worth that only if the fitted \
+             spread is wider than it"
         );
     }
+}
+
+/// What a pair round trip costs, in basis points, given one name's effective spread.
+///
+/// An effective spread is the full width and a crossing pays half of it, so four crossings come to
+/// twice the single-name figure.
+fn pair_round_trip_basis_points(single_name_effective_spread: f64) -> f64 {
+    single_name_effective_spread * PAIR_ROUND_TRIP_CROSSINGS / 2.0
+}
+
+/// The entries a horizon's shares are computed over, which is what those shares may be priced with.
+fn standing_at(entries: &[IntradayEntry], horizon: usize) -> Vec<IntradayEntry> {
+    entries
+        .iter()
+        .filter(|entry| state_at(entry.resolution, entry.observed, horizon).is_some())
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]
@@ -278,6 +328,58 @@ mod tests {
         let parameters = Parameters::parse(&arguments(&["2026-08-20", "30", "50"])).unwrap();
         assert_eq!(parameters.lookback_days, 30);
         assert_eq!(parameters.universe, 50);
+    }
+
+    use fund::laboratory::convergence::{Observed, Resolution};
+
+    fn entry_with(long: &str, entry_z_score: f64, resolution: Resolution) -> IntradayEntry {
+        IntradayEntry {
+            session: SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 6, 1).unwrap()),
+            entry_bar: 0,
+            long: long.to_string(),
+            short: "SHORT".to_string(),
+            entry_z_score,
+            final_z_score: None,
+            resolution,
+            observed: Observed::default(),
+        }
+    }
+
+    /// The shares at a horizon are over the entries still standing there, so the z-score they are
+    /// priced with has to be over the same cohort. Taken over every entry opened, an entry never
+    /// observed at that horizon lends its z-score to a share it is no part of.
+    #[test]
+    fn test_the_value_at_a_horizon_prices_only_the_entries_standing_there() {
+        let entries = vec![
+            entry_with("RESOLVED", 2.0, Resolution::Converged(2)),
+            // Never priced at any horizon, so it stands nowhere.
+            entry_with("TRUNCATED", 4.0, Resolution::Unresolved),
+        ];
+
+        let standing = standing_at(&entries, 20);
+
+        assert_eq!(standing.len(), 1, "only one entry was seen that far");
+        assert_eq!(standing[0].long, "RESOLVED");
+        assert!(
+            (intraday_convergence::mean_entry_z_score(&standing).unwrap() - 2.0).abs() < 1e-12,
+            "over every entry opened it would have been 3.0"
+        );
+        assert!(
+            standing_at(&entries, 1).is_empty(),
+            "and a horizon before either was seen values nothing"
+        );
+    }
+
+    /// A pair round trip is four crossings and Roll's estimator prices one name's spread, so the
+    /// hurdle is twice the single-name figure rather than the figure itself.
+    #[test]
+    fn test_a_pair_round_trip_costs_four_crossings() {
+        assert!(
+            (pair_round_trip_basis_points(10.0) - 20.0).abs() < 1e-12,
+            "ten basis points a name is twenty for the pair, got {}",
+            pair_round_trip_basis_points(10.0)
+        );
+        assert!((pair_round_trip_basis_points(6.0) - 12.0).abs() < 1e-12);
     }
 
     /// One ticker makes no pairs, so a universe of one would measure nothing and report it as a

@@ -180,27 +180,38 @@ async fn session_hours(
 
 /// Prints the bounce reading, which decides whether anything below it can be believed.
 fn report_bounce(sessions: &[SessionReturns]) {
-    let Some(BounceReading {
+    let Some(reading) = intraday::bounce(sessions) else {
+        println!("\nbounce: no name-session carried enough returns to measure");
+        return;
+    };
+    let BounceReading {
         lag_one,
         lag_two,
         roll_spread,
         measured,
         share_negative,
-    }) = intraday::bounce(sessions)
-    else {
-        println!("\nbounce: no name-session carried enough returns to measure");
-        return;
-    };
+        lag_two_measured,
+        roll_spread_measured,
+    } = reading;
 
     println!("\nbid-ask bounce, over {measured} name-sessions");
     println!("  lag-1 autocorrelation  {lag_one:+.4}");
+    // An estimate defined on part of the population reads exactly like one defined on all of it,
+    // so the undefined share travels with every number below.
     match lag_two {
-        Some(value) => println!("  lag-2 autocorrelation  {value:+.4}"),
+        Some(value) => println!(
+            "  lag-2 autocorrelation  {value:+.4} over {lag_two_measured} name-sessions, {:.1}% undefined",
+            reading.lag_two_undefined_share() * 100.0
+        ),
         None => println!("  lag-2 autocorrelation  not estimable"),
     }
     println!("  share negative at lag-1 {share_negative:.4}");
     match roll_spread {
-        Some(spread) => println!("  Roll effective spread   {:.4}%", spread * 100.0),
+        Some(spread) => println!(
+            "  Roll effective spread   {:.4}% over {roll_spread_measured} name-sessions, {:.1}% undefined",
+            spread * 100.0,
+            reading.roll_spread_undefined_share() * 100.0
+        ),
         None => println!("  Roll effective spread   not estimable"),
     }
 }

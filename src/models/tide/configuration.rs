@@ -110,22 +110,11 @@ impl ModelParameters {
 
     /// Rejects a quantile list the rest of the pipeline cannot consume.
     ///
-    /// Three consumers read this list and each responds to a bad one differently: `quantile_loss`
-    /// pairs it positionally with tensor slices, `evaluate`'s index helpers unwrap a `partial_cmp`
-    /// and so **panic on a non-finite value**, and the prediction path sizes its output by the
-    /// count. Validating once here is what lets all three treat `quantiles()` as trustworthy
-    /// instead of each inventing its own guard.
-    ///
-    /// **The served set is fixed, because the storage columns are.** `equity_predictions` has
-    /// `quantile_10`, `quantile_50`, and `quantile_90`, and `generate_predictions` sorts the model's
-    /// output and assigns it to those three positionally. An artifact trained on `[0.1, 0.3, 0.9]`
-    /// is internally coherent and would load, predict, and store its 30th percentile under
-    /// `quantile_50` — which `EquityPrediction::expected_return` then returns as the model's median
-    /// view, with nothing anywhere to notice. Being usable is not the same as being the thing the
-    /// schema says it is.
-    ///
-    /// Order is still not required: positions are located rather than assumed, so an artifact may
-    /// list the three any way round.
+    /// Three consumers treat `quantiles()` as trustworthy rather than guarding themselves, and
+    /// `evaluate`'s index helpers panic outright on a non-finite value. The served set is fixed at
+    /// the three `equity_predictions` stores, because `generate_predictions` sorts the model's
+    /// output and assigns it to `quantile_10`, `quantile_50`, and `quantile_90` positionally; order
+    /// within the list is not required, only membership.
     fn validate_quantiles(&self) -> Result<(), String> {
         if self.quantiles.is_empty() {
             return Err("the quantile list is empty, so the model predicts nothing".to_string());

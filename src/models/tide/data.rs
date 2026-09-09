@@ -1,7 +1,6 @@
 //! Feature engineering, scaling, categorical encoding, and windowing.
 //!
-//! Training fits the scaler and mappings here; inference reuses the ones stored in the artifact.
-//! Both paths run the same functions, so a change to any of them changes both.
+//! Training fits the scaler and mappings; inference reuses the artifact's, through these same functions.
 
 use std::collections::HashMap;
 
@@ -17,23 +16,10 @@ pub type FeatureMappings = HashMap<String, CategoryMapping>;
 
 /// Per-column standardization statistics, fitted during training and reloaded at inference.
 ///
-/// **Holding one is proof that every column it carries can be scaled.** [`Scaler::new`] checks that
-/// each mean is finite, each standard deviation is finite and strictly positive, and that the two
-/// maps name the same columns — so no column is half-described and no call site re-checks.
-///
-/// It is deliberately *not* proof that a particular column is present, because a scaler over one
-/// column is a legitimate value: the unscale path asks only for `daily_return`. Covering every
-/// entry in `CONTINUOUS_COLUMNS` is a property of an *artifact*, not of the type, and
-/// [`Scaler::load`] is where it is enforced.
-///
-/// That guarantee is the point of the type rather than decoration. This value crosses a machine
-/// boundary as a JSON file, and the failure it prevents is silent: a scaler that degrades to the
-/// identity produces predictions on the wrong scale, the service reports a successful load, and
-/// nothing downstream can distinguish them from good ones — the only remaining validation is
-/// `EquityPrediction::new`'s quantile ordering, which wrong-scale values satisfy perfectly well.
-///
-/// Deliberately not `Deserialize`: deriving it would reintroduce a path into the type that skips
-/// the constructor, which is the hole this closes.
+/// Holding one is proof that every column it carries can be scaled, not that any particular column
+/// is present — covering [`CONTINUOUS_COLUMNS`] is a property of an artifact and [`Scaler::load`]
+/// enforces it. Deliberately not `Deserialize`, which would be a way into the type past the
+/// constructor.
 #[derive(Debug, Clone)]
 pub struct Scaler {
     means: HashMap<String, f64>,
@@ -95,15 +81,9 @@ impl Scaler {
 
     /// Reads a scaler from a training artifact, rejecting anything it cannot verify.
     ///
-    /// **Every branch here refuses rather than defaults.** The previous version replaced an
-    /// unparsable `means` entry with `0.0`, an unparsable `standard_deviations` entry with `1.0`,
-    /// and a missing object with an empty map — which is exactly identity scaling, reported as a
-    /// successful load.
-    ///
-    /// The column lists the artifact was fitted with are checked against this build's constants and
-    /// then dropped. Checking them is the whole of their value: an artifact fitted on a different
-    /// column set would otherwise load without complaint and scale a different set than the weights
-    /// were trained on. Carrying them further served nothing — no caller read them.
+    /// Every branch refuses rather than defaults, because a scaler degraded to the identity loads
+    /// successfully and produces predictions nothing downstream can tell from good ones. The column
+    /// lists are checked against this build's constants and then dropped; no caller reads them.
     pub fn load(path: &std::path::Path) -> Result<Self, TideError> {
         let display = path.display();
         let content = std::fs::read_to_string(path)?;
@@ -179,15 +159,19 @@ impl Scaler {
         })
     }
 
-    /// The mean and deviation for `column`, falling back to the identity pair.
+    /// The mean and deviation for `column`.
     ///
-    /// The fallback is reachable only for a column outside `CONTINUOUS_COLUMNS` — [`Scaler::load`]
-    /// rejects an artifact missing any of those.
-    fn statistics_for(&self, column: &str) -> (f64, f64) {
-        (
-            self.means.get(column).copied().unwrap_or(0.0),
-            self.standard_deviations.get(column).copied().unwrap_or(1.0),
-        )
+    /// A column the scaler was not fitted over is an error rather than the identity pair, which
+    /// would be indistinguishable downstream from a correct scaling.
+    fn statistics_for(&self, column: &str) -> Result<(f64, f64), TideError> {
+        // One lookup would answer both, since `Scaler::new` has already made the maps name the same
+        // columns; both are read so a scaler reaching here another way still cannot half-scale.
+        match (self.means.get(column), self.standard_deviations.get(column)) {
+            (Some(mean), Some(standard_deviation)) => Ok((*mean, *standard_deviation)),
+            _ => Err(TideError::Artifact(format!(
+                "the scaler was not fitted over `{column}`, so it cannot be scaled"
+            ))),
+        }
     }
 
     /// Standardizes a value into the units the model was trained in.
@@ -196,15 +180,15 @@ impl Scaler {
     /// trains on the forward image and every prediction is read back through the inverse, so the
     /// two must compose to the identity. Drift between them leaves predictions on the wrong scale,
     /// which every ordering check downstream still accepts.
-    pub fn transform_value(&self, column: &str, value: f64) -> f64 {
-        let (mean, standard_deviation) = self.statistics_for(column);
-        (value - mean) / standard_deviation
+    pub fn transform_value(&self, column: &str, value: f64) -> Result<f64, TideError> {
+        let (mean, standard_deviation) = self.statistics_for(column)?;
+        Ok((value - mean) / standard_deviation)
     }
 
     /// Maps a scaled value back to its original units.
-    pub fn inverse_transform_value(&self, column: &str, value: f64) -> f64 {
-        let (mean, standard_deviation) = self.statistics_for(column);
-        value * standard_deviation + mean
+    pub fn inverse_transform_value(&self, column: &str, value: f64) -> Result<f64, TideError> {
+        let (mean, standard_deviation) = self.statistics_for(column)?;
+        Ok(value * standard_deviation + mean)
     }
 }
 
@@ -337,15 +321,9 @@ pub fn input_feature_size(input_length: usize, output_length: usize) -> usize {
 
 /// The fraction of the observed time range that goes to **training**; the remainder validates.
 ///
-/// Named for the side it measures rather than for the split it defines. "Validation split" is
-/// ambiguous across the field — some libraries mean the held-out fraction by it — and a type whose
-/// name reads backwards is worse than a bare `f64`, because `TrainingFraction::new(0.2)` looks
-/// deliberate. At 0.2 this trains on a fifth of the window and every guard still passes.
-///
-/// Strictly between 0 and 1. At either endpoint one side of the split is empty, and an empty side
-/// is not an error anywhere downstream — [`window_frame`] simply yields no windows, training runs
-/// on nothing or validates against nothing, and the run reports a loss computed over zero rows.
-/// Rejecting the endpoint here is the only place that failure is still legible.
+/// Named for the side it measures, because "validation split" is read both ways across the field and
+/// `TrainingFraction::new(0.2)` looks deliberate either way. Strictly between 0 and 1: at an endpoint
+/// one side is empty, which no downstream step treats as an error.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TrainingFraction(f64);
 
@@ -459,19 +437,9 @@ impl Data {
 /// The timestamp at or before which a row belongs to the training side of the split:
 /// `min + (max - min) * training_fraction`.
 ///
-/// Shared with [`crate::models::tide::fit::fit`], which fits the scaler on the rows this selects
-/// while [`Data::split_by_timestamp`] later selects the rows the model trains on. The two must name
-/// the same instant — statistics fitted over a window other than the one they scale are the
-/// look-ahead this function exists to prevent — so the arithmetic lives here once rather than at
-/// both call sites.
-///
-/// A `TrainingFraction` is strictly between 0 and 1, so the cutoff never falls below the minimum
-/// timestamp: the training side is non-empty for any non-empty frame.
-///
-/// The span is measured with `checked_sub` because a column carrying timestamps at both ends of
-/// `i64` wraps it negative in a release build, which puts the cutoff below every row and empties the
-/// training side — surfacing as `fit_scaler` reporting no rows to fit on, which blames the cutoff
-/// for a corrupt column.
+/// Shared with [`crate::models::tide::fit::fit`], which fits the scaler over the rows this selects
+/// while [`Data::split_by_timestamp`] selects the rows the model trains on; statistics fitted over
+/// any other window are look-ahead, so the arithmetic lives here once rather than at both sites.
 pub(crate) fn training_cutoff(
     data: &DataFrame,
     training_fraction: TrainingFraction,
@@ -506,10 +474,6 @@ pub(crate) fn split_at_cutoff(
     Ok((train, validation))
 }
 
-/// Core windowing over a single (already preprocessed) frame.
-///
-/// `predict_mode` keeps only the final window per ticker; `with_targets`
-/// additionally extracts the future `daily_return` window as the target.
 /// Maps every session the frame holds to its position in the sorted set of them.
 ///
 /// Adjacency is therefore relative to the sessions this frame contains, not to a trading calendar:
@@ -749,20 +713,10 @@ fn window_frame(
 /// Append one row per ticker carrying `target_session`, so the windowing has a future step to spend
 /// that is not a real bar.
 ///
-/// [`window_frame`] splits one contiguous block of `input_length + output_length` rows into a past
-/// and a future half. Without this the newest bar is spent as the future calendar step, which both
-/// feeds the model the wrong session's calendar and pushes the most recent close out of the past
-/// window — so a pre-open run forecasts the session that already closed.
-///
-/// The appended row is the ticker's own last bar with `timestamp` moved to the target session.
-/// Copying it rather than inventing values means `close_price` equals the previous close, so the
-/// engineered `daily_return` is `0.0` and survives [`clean_data`]'s non-finite filter, and sector
-/// and industry carry over. None of those prices reach the model: the future half consumes only
-/// [`CATEGORICAL_COLUMNS`], and the extra row shifts the window so the past half lands on real bars.
-/// Calendar fields are left to [`engineer_features`] so only one place derives them.
-///
-/// Tickers already holding a bar at or after the target session are skipped, so a late run cannot
-/// duplicate a real row.
+/// Without this the newest bar is spent as [`window_frame`]'s future calendar step, so a pre-open run
+/// forecasts the session that already closed. The appended row copies the ticker's own last bar, so
+/// the engineered `daily_return` is `0.0` and survives [`clean_data`] while none of its prices reach
+/// the model; a ticker already holding a bar at or after the target session is skipped.
 pub(crate) fn append_forecast_session_rows(
     data: DataFrame,
     target_session: SessionDate,
@@ -869,11 +823,8 @@ pub(crate) fn engineer_features(data: DataFrame) -> Result<DataFrame, TideError>
     for (index, &timestamp_milliseconds) in timestamp_values.iter().enumerate() {
         let instant = chrono::DateTime::from_timestamp_millis(timestamp_milliseconds)
             .unwrap_or_else(|| chrono::DateTime::from_timestamp(0, 0).unwrap());
-        // Through `SessionDate`, not `date_naive()`. These are the covariates describing the
-        // trading day a bar belongs to, so they must come from the Eastern date. Reading the UTC
-        // date agreed only because a daily bar is stamped at Eastern midnight, which lands in the
-        // morning of the same UTC day -- a coincidence of the offset's sign that would reverse if
-        // the stamp ever moved later in the session.
+        // Through `SessionDate`, not `date_naive()`: these covariates name the trading day a bar
+        // belongs to, and a bar stamped at the 16:00 Eastern close only happens to share a UTC date.
         let date = SessionDate::at(instant).date();
 
         // Monday = 1 .. Sunday = 7, per polars `dt.weekday()`.
@@ -1039,8 +990,12 @@ pub(crate) fn apply_scaling(data: DataFrame, scaler: &Scaler) -> Result<DataFram
             .cast(&DataType::Float64)?
             .f64()?
             .into_no_null_iter()
-            .map(|value| scaler.transform_value(column_name, value) as f32)
-            .collect();
+            .map(|value| {
+                scaler
+                    .transform_value(column_name, value)
+                    .map(|it| it as f32)
+            })
+            .collect::<Result<_, _>>()?;
 
         result.with_column(Column::new((*column_name).into(), values))?;
     }
@@ -1112,18 +1067,9 @@ pub(crate) fn encode_categoricals(
 
 /// Rejects a column carrying nulls before its values are read positionally.
 ///
-/// `into_no_null_iter` does not skip nulls and does not check for them: it reads the raw value
-/// sitting in the null slot, which is whatever the buffer happens to hold — `0.0` in practice, but
-/// that is an implementation detail rather than a guarantee. The count therefore matches the frame
-/// and nothing fails, so a null `close_price` is scaled and fed to the model as though someone had
-/// observed it.
-///
-/// **A silent wrong value, not a crash.** Checking the extracted length instead would be inert,
-/// because the length is never wrong. The null count is the only thing that carries the
-/// information.
-///
-/// The same family of trap produced a real bug fixed in #1035, where a null `sector` put later rows
-/// on the wrong ticker.
+/// `into_no_null_iter` neither skips nulls nor checks for them: it reads whatever the buffer holds in
+/// the null slot, so the extracted length always matches the frame and a null reaches the model as an
+/// observation. The null count is the only thing that carries the information.
 fn reject_null_column(column: &Column, column_name: &str) -> Result<(), TideError> {
     let nulls = column.null_count();
     if nulls > 0 {
@@ -1251,9 +1197,9 @@ mod scaler_boundary_tests {
         assert!(error.contains("non-string"), "got: {error}");
     }
 
-    /// The headline case. A missing object used to yield an empty map, every lookup then fell back
-    /// to mean 0.0 and deviation 1.0, and scaling became the identity — reported as a successful
-    /// load, producing predictions on the wrong scale that nothing downstream can detect.
+    /// The headline case: without this, a missing object yields an empty map, every lookup falls
+    /// back to mean 0.0 and deviation 1.0, and scaling becomes the identity — a successful load
+    /// producing predictions on a wrong scale that nothing downstream can detect.
     #[test]
     fn test_load_refuses_a_missing_statistics_object_rather_than_scaling_by_identity() {
         for field in ["means", "standard_deviations"] {
@@ -1267,8 +1213,8 @@ mod scaler_boundary_tests {
         }
     }
 
-    /// Same failure by a different route: an entry that is present but not a number used to be
-    /// silently replaced with the identity value for its field.
+    /// Same failure by a different route: an entry present but not a number, which must be refused
+    /// rather than replaced with the identity value for its field.
     #[test]
     fn test_load_refuses_a_non_numeric_entry() {
         let mut artifact = well_formed_artifact();
@@ -1374,56 +1320,76 @@ mod tests {
 
     fn return_scaler() -> Scaler {
         Scaler::new(
-            HashMap::from([("daily_return".to_string(), 0.001)]),
-            HashMap::from([("daily_return".to_string(), 0.02)]),
+            HashMap::from([(TARGET_COLUMN.to_string(), 0.001)]),
+            HashMap::from([(TARGET_COLUMN.to_string(), 0.02)]),
         )
         .expect("the fixture statistics must be usable")
     }
 
     #[test]
     fn test_scaler_inverse_transform() {
-        let result = return_scaler().inverse_transform_value("daily_return", 1.0);
+        let result = return_scaler()
+            .inverse_transform_value(TARGET_COLUMN, 1.0)
+            .unwrap();
         assert!((result - 0.021).abs() < 1e-10);
     }
 
-    /// The two halves must compose to the identity in both directions. They are the reason the
-    /// forward transform moved onto `Scaler`: written separately, one can change without the other
-    /// and the only symptom is predictions on the wrong scale, which every downstream check
-    /// accepts. An unknown column falls through to the identity pair and must round-trip too.
+    /// The two halves must compose to the identity in both directions.
+    ///
+    /// Written separately, one can change without the other and the only symptom is predictions on
+    /// the wrong scale, which every downstream check accepts.
     #[test]
     fn test_scaling_and_unscaling_are_inverses() {
         let scaler = return_scaler();
         for value in [-0.05_f64, 0.0, 1e-9, 0.037, 12.5] {
-            let there_and_back = scaler.inverse_transform_value(
-                "daily_return",
-                scaler.transform_value("daily_return", value),
-            );
+            let there_and_back = scaler
+                .inverse_transform_value(
+                    TARGET_COLUMN,
+                    scaler.transform_value(TARGET_COLUMN, value).unwrap(),
+                )
+                .unwrap();
             assert!(
                 (there_and_back - value).abs() < 1e-12,
                 "forward then inverse moved {value} to {there_and_back}"
             );
 
-            let scaled = scaler.transform_value("daily_return", value);
-            let back_and_there = scaler.transform_value(
-                "daily_return",
-                scaler.inverse_transform_value("daily_return", scaled),
-            );
+            let scaled = scaler.transform_value(TARGET_COLUMN, value).unwrap();
+            let back_and_there = scaler
+                .transform_value(
+                    TARGET_COLUMN,
+                    scaler
+                        .inverse_transform_value(TARGET_COLUMN, scaled)
+                        .unwrap(),
+                )
+                .unwrap();
             assert!(
                 (back_and_there - scaled).abs() < 1e-12,
                 "inverse then forward moved {scaled} to {back_and_there}"
             );
-
-            assert_eq!(
-                scaler.transform_value("not_a_column", value),
-                value,
-                "an unknown column is the identity forward"
-            );
-            assert_eq!(
-                scaler.inverse_transform_value("not_a_column", value),
-                value,
-                "and the identity back"
-            );
         }
+    }
+
+    /// A column the scaler was never fitted over must stop the run rather than scale by the identity.
+    ///
+    /// The identity pair is indistinguishable downstream from a correct scaling: a renamed column
+    /// would have served every prediction unscaled, past `EquityPrediction`'s ordering check and
+    /// into the book, with nothing reporting it.
+    #[test]
+    fn test_an_unknown_column_cannot_be_scaled() {
+        let error = return_scaler()
+            .transform_value("not_a_column", 0.037)
+            .unwrap_err();
+
+        assert!(error.to_string().contains("not_a_column"), "{error}");
+    }
+
+    #[test]
+    fn test_an_unknown_column_cannot_be_unscaled_either() {
+        let error = return_scaler()
+            .inverse_transform_value("not_a_column", 0.037)
+            .unwrap_err();
+
+        assert!(error.to_string().contains("not_a_column"), "{error}");
     }
 
     #[test]
@@ -1718,17 +1684,12 @@ mod tests {
         assert!(TrainingFraction::new(0.8).is_ok());
     }
 
-    /// A validation split can yield no windows at all while the training split yields plenty, and
-    /// nothing in this module treats that as an error — `window_frame` just returns an empty
-    /// dataset.
+    /// A validation split can yield no windows while the training split yields plenty, and nothing
+    /// here treats that as an error.
     ///
-    /// This is the condition `bin/tide_model_trainer.rs` refuses before training, and it pins why
-    /// that guard has to exist. Downstream, an empty validation set is silent in three places at
-    /// once: early stopping falls back to the training loss, [`crate::models::tide::evaluate`]
-    /// short-circuits to zeroed metrics, and the trainer publishes `crps: 0.0` — the best score
-    /// achievable — into the drift baseline that every later run is measured against.
-    ///
-    /// The guard itself is not exercised here; it lives in `run()`, which fetches from S3.
+    /// It is what `bin/tide_model_trainer.rs` refuses before training: downstream, early stopping
+    /// falls back to the training loss and [`crate::models::tide::evaluate`] short-circuits to zeroed
+    /// metrics, so a run that validated on nothing publishes the best score achievable.
     #[test]
     fn test_a_validation_split_can_produce_no_windows_while_training_produces_many() {
         // 11 rows split at 0.8 leaves 2 validation rows, and a window needs input + output = 4.
@@ -1752,9 +1713,8 @@ mod tests {
         );
     }
 
-    /// The predict variant carries no split, so inference cannot pass one that does nothing — which
-    /// is what the `0.8` at the old predict call site was. This is a compile-time property; the
-    /// assertion here records that predicting reads the whole frame rather than a split of it.
+    /// The predict variant carries no split, so inference cannot pass one that does nothing. That is
+    /// a compile-time property; the assertion here records that predicting reads the whole frame.
     #[test]
     fn test_predict_windows_the_whole_frame_rather_than_a_split() {
         let frame = make_encoded_frame(1, 10);
@@ -1953,10 +1913,21 @@ mod tests {
         assert_eq!(dataset.past_continuous.shape()[0], 9);
     }
 
+    /// Two names over two consecutive sessions, stamped the way ingestion stamps a daily bar.
     fn raw_two_ticker_frame() -> DataFrame {
+        let first = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 6, 1).unwrap());
+        let second = first.plus_calendar_days(1);
         DataFrame::new(vec![
             Column::new("ticker".into(), vec!["BBB", "AAA", "BBB", "AAA"]),
-            Column::new("timestamp".into(), vec![0_i64, 0, 86_400_000, 86_400_000]),
+            Column::new(
+                "timestamp".into(),
+                vec![
+                    session_close(first),
+                    session_close(first),
+                    session_close(second),
+                    session_close(second),
+                ],
+            ),
             Column::new("open_price".into(), vec![1.0_f64; 4]),
             Column::new("high_price".into(), vec![1.0_f64; 4]),
             Column::new("low_price".into(), vec![1.0_f64; 4]),
@@ -2046,6 +2017,19 @@ mod tests {
         }
     }
 
+    /// The instant a daily bar carries: the 16:00 Eastern close, which is where the grouped route
+    /// [`crate::common::massive::MassiveClient::fetch_grouped_daily`] stamps it. A fixture built at
+    /// Eastern midnight sits on the edge of the session's own bounds, which ingestion never produces.
+    fn session_close(session: SessionDate) -> i64 {
+        use chrono::TimeZone;
+        chrono_tz::America::New_York
+            .from_local_datetime(&session.date().and_hms_opt(16, 0, 0).unwrap())
+            .earliest()
+            .unwrap()
+            .with_timezone(&chrono::Utc)
+            .timestamp_millis()
+    }
+
     /// Raw (pre-engineering) frame with string tickers and one bar per consecutive day.
     ///
     /// `close_price` is `100 + row`, so a window's contents identify which rows produced them.
@@ -2061,7 +2045,7 @@ mod tests {
                 let date =
                     SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 6, 1).unwrap())
                         .plus_calendar_days(row as i64);
-                timestamp.push(date.midnight().timestamp_millis());
+                timestamp.push(session_close(date));
                 close.push(100.0 + row as f64);
             }
         }
@@ -2314,15 +2298,11 @@ mod tests {
 
     #[test]
     fn test_engineer_features_day_of_week_is_monday_based_one_to_seven() {
-        // Monday = 1 .. Sunday = 7.
-        //
-        // Stamped at Eastern midnight, which is how a daily bar actually arrives. Built at UTC
-        // midnight instead — as this fixture was — every date reads as the previous Eastern day,
-        // and the assertion below became [7, 6]. The fixture, not the feature, was wrong.
+        // Monday = 1 .. Sunday = 7, stamped at the session close the way ingestion writes a bar.
         let session = |year, month, day| {
-            SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(year, month, day).unwrap())
-                .midnight()
-                .timestamp_millis()
+            session_close(SessionDate::from_date(
+                chrono::NaiveDate::from_ymd_opt(year, month, day).unwrap(),
+            ))
         };
         let monday = session(2026, 6, 8);
         let sunday = session(2026, 6, 14);
@@ -2341,6 +2321,15 @@ mod tests {
         ])
         .unwrap();
 
+        // The precondition, pinned so the fixture cannot drift back to an instant ingestion never
+        // produces: a June session closes at 16:00 in New York, which is 20:00 UTC.
+        assert_eq!(
+            monday,
+            chrono::DateTime::parse_from_rfc3339("2026-06-08T20:00:00Z")
+                .unwrap()
+                .timestamp_millis()
+        );
+
         let engineered = engineer_features(frame).unwrap();
         let day_of_week: Vec<i32> = engineered
             .column("day_of_week")
@@ -2354,12 +2343,9 @@ mod tests {
 
     /// The covariates must come from the Eastern date, on an instant where Eastern and UTC disagree.
     ///
-    /// The fixture above cannot prove this. A daily bar is stamped at Eastern midnight, which is
-    /// 04:00 or 05:00 the *same* UTC day, so `date_naive()` and `SessionDate::at` return the same
-    /// date for it and the assertion holds under either implementation.
-    ///
-    /// 01:00Z on 10 June is 21:00 on 9 June in New York — Wednesday in UTC, Tuesday in Eastern.
-    /// Reading the UTC date here yields 3; the session's own weekday is 2.
+    /// The fixture above cannot prove this: a bar stamped at the 16:00 Eastern close is 20:00 or
+    /// 21:00 the *same* UTC day, so both readings return that date. 01:00Z on 10 June is 21:00 on
+    /// 9 June in New York, where reading the UTC date yields 3 and the session's own weekday is 2.
     #[test]
     fn test_engineer_features_reads_the_eastern_date_where_the_two_disagree() {
         let late_evening = chrono::DateTime::parse_from_rfc3339("2026-06-10T01:00:00Z")

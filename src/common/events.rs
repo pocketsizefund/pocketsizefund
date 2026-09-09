@@ -242,15 +242,10 @@ pub async fn emit_errored(pool: &PgPool, command: Command, error: &str) -> Resul
 /// Finds commands requested during the current Eastern trading date that never reached a terminal
 /// outcome, and which should be re-run.
 ///
-/// This replaces a consumer offset table, and is why the `events` table needs no queue beside it.
-/// A `_requested` row with no terminal outcome is work issued and never finished — what a process
-/// killed mid-handler leaves behind, and equally what a process not running when cron fired leaves
-/// behind. Both want the same response.
-///
-/// [`Recovery::Skip`] commands are found and dropped, so the caller receives only work worth doing.
-///
-/// The window is the Eastern date because that is the boundary the trading day has, and the
-/// additional two-day bound on `created_at` keeps the hypertable from scanning every chunk.
+/// A `_requested` row with no terminal outcome is work issued and never finished, which is why the
+/// `events` table needs no queue or consumer offset beside it; [`Recovery::Skip`] commands are
+/// dropped, so the caller receives only work worth doing. The window is the Eastern trading date,
+/// and the additional two-day bound on `created_at` keeps the hypertable from scanning every chunk.
 pub async fn recover_missed_commands(pool: &PgPool) -> Result<Vec<Command>, EventError> {
     let rows = sqlx::query!(
         r#"

@@ -1,5 +1,4 @@
-//! Fit the scaler and categorical mappings from training data, and serialize the artifact JSON
-//! files the inference path loads.
+//! Fits the scaler and categorical mappings, and writes the artifact JSON the inference path loads.
 //!
 //! Categoricals encode over sorted-unique values, so the mapping is deterministic across runs.
 
@@ -9,6 +8,7 @@ use std::path::Path;
 use polars::prelude::*;
 
 use crate::common::types::LiquidityFloor;
+use crate::data::universe::filter_liquid_bars;
 use crate::models::tide::configuration::ModelParameters;
 use crate::models::tide::data::{
     apply_scaling, clean_data, demean_target, encode_categoricals, engineer_features,
@@ -27,22 +27,10 @@ pub struct FitResult {
 
 /// Fit preprocessing on a raw consolidated frame (bars joined with categories).
 ///
-/// The scaler is fitted on the rows at or before `training_fraction`'s cutoff and then applied to
-/// the whole frame, so the validation rows are standardized by statistics that never saw them.
-/// Fitting over every row instead put the validation period's own volatility in the divisor of the
-/// `daily_return` target — and [`crate::models::tide::evaluate`] scores in scaled units, so the
-/// reported CRPS was denominated in a scale the held-out data had helped set.
-///
-/// The **mappings are fitted over the whole frame**, and that asymmetry is deliberate. A mapping is
-/// a vocabulary, not a statistic: it carries which symbols, sectors, and industries exist, and
-/// nothing about their returns. Restricting it to the training rows would instead be actively
-/// harmful, because [`encode_categoricals`] drops rows whose static value it cannot map — every
-/// instrument first listed (or first clearing the liquidity floors) after the cutoff would vanish
-/// from the validation split, and, since these mappings ship in the artifact as the inference
-/// vocabulary, could not be predicted at all until it had traded the full pre-cutoff window.
-///
-/// `target` selects what the model learns to predict. Demeaning happens after cleaning and before
-/// the scaler is fitted, so the statistics describe the label the model is actually given.
+/// The scaler is fitted only on the rows at or before `training_fraction`'s cutoff, after any
+/// demeaning of `target`, so validation rows are standardized by statistics that never saw them.
+/// The categorical mappings are fitted over the whole frame instead, because they are a vocabulary
+/// rather than a statistic and [`encode_categoricals`] drops rows whose static value it cannot map.
 pub fn fit(
     raw: DataFrame,
     training_fraction: TrainingFraction,
@@ -136,48 +124,35 @@ fn build_mapping(data: &DataFrame, column: &str) -> Result<CategoryMapping, Tide
         .collect())
 }
 
-/// Row-level training filter: thresholds are inclusive, and tickers containing lowercase letters
-/// are dropped — they are distinct instruments that would collide with the uppercase ticker after
+/// The training filter: the shared liquidity screen, plus a drop of tickers containing lowercase
+/// letters — they are distinct instruments that would collide with the uppercase ticker after
 /// cleaning.
+///
+/// Liquidity is delegated to [`filter_liquid_bars`] rather than tested per row, so the population
+/// the model is fitted on is the population the universe trades: a per-session test admits a
+/// name's good days and refuses its quiet ones, which is not a set the screen can ever produce.
 pub fn filter_training_bars(
     data: DataFrame,
     floor: LiquidityFloor,
 ) -> Result<DataFrame, TideError> {
-    let close_prices = data.column("close_price")?.cast(&DataType::Float64)?;
-    let close_prices = close_prices.f64()?;
-    let volumes = data.column("volume")?.cast(&DataType::Float64)?;
-    let volumes = volumes.f64()?;
     let tickers = data.column("ticker")?.str()?;
-
-    let mask: BooleanChunked = close_prices
+    let mask: BooleanChunked = tickers
         .into_iter()
-        .zip(volumes)
-        .zip(tickers)
-        .map(|((close_price, volume), ticker)| {
-            close_price
-                .zip(volume)
-                .is_some_and(|(price, shares)| floor.admits(price, price * shares))
-                && ticker
-                    .is_some_and(|value| !value.chars().any(|character| character.is_lowercase()))
+        .map(|ticker| {
+            ticker.is_some_and(|value| !value.chars().any(|character| character.is_lowercase()))
         })
         .collect();
 
-    let filtered = data.filter(&mask)?;
-    Ok(filtered)
+    Ok(filter_liquid_bars(data.filter(&mask)?, floor)?)
 }
 
-/// Write the three artifact JSON files (scaler, mappings, parameters) the
-/// inference loader reads, into `directory`.
+/// Write the three artifact JSON files (scaler, mappings, parameters) the inference loader reads,
+/// into `directory`.
 ///
-/// Each file is serialized to a temporary name and renamed into place, and every rename happens
-/// after every serialization. A reader therefore never sees a half-written file, and the window in
-/// which the three could disagree shrinks from "between two writes" — which spans serializing a
-/// scaler over every continuous column — to three consecutive renames.
-///
-/// This is a narrowed window rather than an atomic set, and the distinction is worth stating: POSIX
-/// gives atomicity per rename, not across three. Closing it completely would mean staging a
-/// directory and renaming that. The mixed-artifact failure this guards against is a crash *during*
-/// the writes, which is where essentially all of the wall clock is.
+/// Each file is serialized to a temporary name and every rename happens after every serialization,
+/// so a reader never sees a half-written file and the window in which the three could disagree is
+/// three consecutive renames. That is a narrowed window rather than an atomic set: POSIX gives
+/// atomicity per rename, not across three.
 pub fn write_artifact_json(
     directory: &Path,
     scaler: &Scaler,
@@ -336,8 +311,8 @@ mod tests {
         }
     }
 
-    /// The leak this module was changed to close: the scaler used to be fitted over every cleaned
-    /// row, so the held-out period set the scale its own predictions were later measured on.
+    /// The leak this closes: a scaler fitted over every cleaned row lets the held-out period set the
+    /// scale its own predictions are later measured on.
     #[test]
     fn test_the_scaler_is_fitted_only_on_rows_at_or_before_the_training_cutoff() {
         let result = fit(scale_shifted_frame(), training_fraction(), Target::Raw).unwrap();
@@ -436,20 +411,24 @@ mod tests {
         );
     }
 
+    /// The screen keeps or drops a ticker whole, on the window's minimum close and average
+    /// notional — the same summary the universe query reads. A per-row test would admit a name's
+    /// good sessions and refuse its quiet ones, which is not a population the screen can produce.
     #[test]
-    fn test_filter_training_bars_is_row_level_and_inclusive() {
-        // The filter is per row, so a ticker with one qualifying row and one penny row keeps
-        // only the qualifying row. Rows exactly at the threshold are kept.
+    fn test_filter_training_bars_screens_a_ticker_whole() {
         let data = DataFrame::new(vec![
-            Column::new("ticker".into(), vec!["AAA", "AAA", "BBB"]),
-            Column::new("timestamp".into(), vec![0_i64, 86_400_000, 0]),
-            Column::new("close_price".into(), vec![0.5_f64, 1.0, 250.0]),
-            Column::new("volume".into(), vec![100_000.0_f64, 100_000.0, 200.0]),
+            Column::new("ticker".into(), vec!["DIPS", "DIPS", "KEEP", "KEEP"]),
+            Column::new("timestamp".into(), vec![0_i64, 86_400_000, 0, 86_400_000]),
+            Column::new("close_price".into(), vec![0.5_f64, 250.0, 1.0, 250.0]),
+            Column::new(
+                "volume".into(),
+                vec![100_000.0_f64, 100_000.0, 100_000.0, 100_000.0],
+            ),
         ])
         .unwrap();
 
         let filtered = filter_training_bars(data, floor(1.0, 100_000.0)).unwrap();
-        assert_eq!(filtered.height(), 1);
+
         let tickers: Vec<&str> = filtered
             .column("ticker")
             .unwrap()
@@ -457,15 +436,9 @@ mod tests {
             .unwrap()
             .into_no_null_iter()
             .collect();
-        assert_eq!(tickers, vec!["AAA"]);
-        let close: Vec<f64> = filtered
-            .column("close_price")
-            .unwrap()
-            .f64()
-            .unwrap()
-            .into_no_null_iter()
-            .collect();
-        assert_eq!(close, vec![1.0]);
+        // DIPS dipped to 0.50 once, so the minimum refuses it and both its rows go. KEEP sits
+        // exactly on the price bound and both its rows stay, threshold row included.
+        assert_eq!(tickers, vec!["KEEP", "KEEP"]);
     }
 
     /// The second threshold is notional, not share count. HIGH trades 200 shares at $250 and is

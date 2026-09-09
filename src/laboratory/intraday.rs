@@ -308,10 +308,37 @@ pub struct BounceReading {
     pub lag_two: Option<f64>,
     /// Median Roll effective spread, as a fraction of price, over the name-sessions that admit one.
     pub roll_spread: Option<f64>,
-    /// Name-sessions clearing [`MINIMUM_RETURNS`].
+    /// Name-sessions clearing [`MINIMUM_RETURNS`], which is the denominator of every share here.
     pub measured: usize,
     /// Share of those whose first-order coefficient is negative.
     pub share_negative: f64,
+    /// Of `measured`, how many admitted a lag-two estimate.
+    pub lag_two_measured: usize,
+    /// Of `measured`, how many had the negative autocovariance Roll's estimator needs.
+    pub roll_spread_measured: usize,
+}
+
+impl BounceReading {
+    /// Share of measured name-sessions where lag two could not be estimated.
+    ///
+    /// Reported beside `lag_two` because an estimator defined on a twentieth of the population must
+    /// not read the same as one defined on all of it.
+    pub fn lag_two_undefined_share(&self) -> f64 {
+        undefined_share(self.lag_two_measured, self.measured)
+    }
+
+    /// Share of measured name-sessions where Roll's estimator had nothing to say.
+    pub fn roll_spread_undefined_share(&self) -> f64 {
+        undefined_share(self.roll_spread_measured, self.measured)
+    }
+}
+
+/// The share of `total` an estimator was not defined on, or zero where nothing was measured.
+fn undefined_share(defined: usize, total: usize) -> f64 {
+    if total == 0 {
+        return 0.0;
+    }
+    (total.saturating_sub(defined)) as f64 / total as f64
 }
 
 /// Measures bid-ask bounce over per-session returns.
@@ -356,6 +383,8 @@ pub fn bounce(sessions: &[SessionReturns]) -> Option<BounceReading> {
         roll_spread: median(&mut spreads),
         measured,
         share_negative: negative as f64 / measured as f64,
+        lag_two_measured: lag_two.len(),
+        roll_spread_measured: spreads.len(),
     })
 }
 
@@ -635,10 +664,9 @@ mod tests {
         }
     }
 
-    /// **The defect this module shipped with.** A missing interior bar used to be bridged: the
-    /// closes on either side were differenced and the result counted as one five-minute return.
-    /// Every adjacency-dependent statistic here — autocorrelation, Roll, the predictors — then read
-    /// a ten-minute move as a five-minute one.
+    /// A missing interior bar must not be bridged. Differencing the closes on either side counts a
+    /// ten-minute move as a five-minute return, and every adjacency-dependent statistic here —
+    /// autocorrelation, Roll, the predictors — then reads the wrong distance.
     #[test]
     fn test_a_missing_bar_leaves_a_hole_rather_than_a_longer_return() {
         let bars = frame(&[
@@ -852,26 +880,64 @@ mod tests {
     }
 
     /// The conclusion rests on lag-2 being small, so "measured and small" must stay distinguishable
-    /// from "never measured" — a substituted zero collapses the two.
+    /// from "never measured" — a substituted zero collapses the two, and the undefined share is
+    /// what says which of the two the figure is.
     #[test]
     fn test_an_unmeasured_lag_two_is_absent_rather_than_zero() {
         let mut by_ticker = BTreeMap::new();
-        // Long enough to qualify and to admit lag one, but flat after the first move, so the
-        // variance is carried entirely by pairs lag two cannot form.
-        let mut returns = vec![Some(0.0); 40];
-        returns[0] = Some(0.01);
+        // Present in adjacent couples separated by two empty slots, so every lag-one pair forms and
+        // no lag-two pair can.
+        let mut returns = vec![None; 80];
+        for couple in 0..20 {
+            returns[couple * 4] = Some(0.01);
+            returns[couple * 4 + 1] = Some(-0.01);
+        }
         by_ticker.insert("AAA".to_string(), returns);
         let sessions = vec![SessionReturns {
             session: session_of(2026, 6, 1),
             by_ticker,
         }];
 
-        if let Some(reading) = bounce(&sessions) {
-            assert!(
-                reading.lag_two.is_none() || reading.lag_two.is_some_and(f64::is_finite),
-                "lag two is either a real measurement or absent, never a stand-in zero"
-            );
-        }
+        let reading = bounce(&sessions).expect("forty returns clear the minimum and admit lag one");
+
+        assert_eq!(reading.measured, 1);
+        assert!(
+            (reading.lag_one + 1.0).abs() < 1e-12,
+            "the couples alternate, so lag one is -1: {}",
+            reading.lag_one
+        );
+        assert_eq!(
+            reading.lag_two, None,
+            "no lag-two pair forms, and that is not a zero"
+        );
+        assert_eq!(reading.lag_two_measured, 0);
+        assert!((reading.lag_two_undefined_share() - 1.0).abs() < 1e-12);
+    }
+
+    /// An estimator defined on part of the population must not read like one defined on all of it,
+    /// so the share it was undefined on travels with the figure.
+    #[test]
+    fn test_the_undefined_share_travels_with_each_estimate() {
+        let mut by_ticker = BTreeMap::new();
+        // Alternating returns admit both lag two and Roll's negative autocovariance.
+        by_ticker.insert("AAA".to_string(), alternating(40, 0.01));
+        // A steady climb admits lag two and refuses Roll.
+        by_ticker.insert(
+            "BBB".to_string(),
+            (0..40).map(|index| Some(0.001 * index as f64)).collect(),
+        );
+        let sessions = vec![SessionReturns {
+            session: session_of(2026, 6, 1),
+            by_ticker,
+        }];
+
+        let reading = bounce(&sessions).expect("two qualifying names");
+
+        assert_eq!(reading.measured, 2);
+        assert_eq!(reading.lag_two_measured, 2);
+        assert_eq!(reading.roll_spread_measured, 1);
+        assert!((reading.lag_two_undefined_share() - 0.0).abs() < 1e-12);
+        assert!((reading.roll_spread_undefined_share() - 0.5).abs() < 1e-12);
     }
 
     /// A name that traded four times in a session carries almost no information about its own

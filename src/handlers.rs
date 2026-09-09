@@ -765,13 +765,10 @@ async fn handle_market_data_sync(
 
 /// Chained from a completed market data sync: seal the journal, export to S3, then purge.
 ///
-/// The order is fixed and the purge is conditional on the *database* export being clean. Purging
-/// after a partial export deletes rows that never reached S3, and nothing afterwards can tell that
-/// it happened.
-///
-/// The journal seals independently and does not gate the purge. It holds different data written
-/// by a different path, and letting a failure there hold PostgreSQL rows would couple two things
-/// whose only relationship is that they run on the same schedule.
+/// The order is fixed and the purge is conditional on the *database* export being clean, because
+/// purging after a partial export deletes rows that never reached S3 and nothing afterwards can
+/// tell. The journal seals independently and does not gate the purge; it holds different data
+/// written by a different path.
 async fn handle_database_export(
     state: &ServiceState,
     correlation_id: Uuid,
@@ -943,18 +940,10 @@ async fn previous_session_gaps(
 
 /// How many trading sessions the artifact skipped, when its run identifier can be read as a date.
 ///
-/// Zero is the healthy answer, and calendar days cannot express that. The trainer publishes after
-/// one session's close for the *next* session, so a healthy artifact is always dated at least one
-/// calendar day back — one midweek, three across a weekend, four across a long one. Counting days
-/// reported every one of those as stale; counting the sessions strictly between the artifact's date
-/// and today reports none of them, and still reports a genuinely skipped night.
-///
-/// Bounded by the calendar's horizon, so an artifact older than [`HORIZON_DAYS_BACKWARD`] undercounts.
-/// That only understates a number already past the threshold, so the warning still fires.
-///
-/// `None` rather than a guess when the run identifier is not date-prefixed. The trainer names runs
-/// `YYYY-MM-DD-HH-MM-SS-mmm`, but a hand-uploaded artifact need not, and reporting staleness
-/// computed from an unparsed prefix would be worse than reporting none.
+/// Sessions strictly between the artifact's date and today, not calendar days: the trainer
+/// publishes after one close for the *next* session, so a healthy artifact is always dated at least
+/// one calendar day back and zero is the healthy answer. Bounded by [`HORIZON_DAYS_BACKWARD`], so
+/// an older artifact undercounts a number already past the threshold; `None` if not date-prefixed.
 ///
 /// [`HORIZON_DAYS_BACKWARD`]: crate::data::calendar
 fn artifact_staleness_sessions(
@@ -1036,10 +1025,10 @@ mod tests {
             completion_outcome(&json!({ "pairs_opened": ["AAAA-BBBB"] })),
             CommandOutcome::Completed
         );
-        // The second documented skip, which the handlers use when the exchange halts.
+        // A reason no handler emits is warned about and recorded as completed, never panicked on.
         assert_eq!(
-            completion_outcome(&json!({ "skipped": "market_halted" })),
-            CommandOutcome::Skipped(SkipReason::MarketHalted)
+            completion_outcome(&json!({ "skipped": "no_such_reason" })),
+            CommandOutcome::Completed
         );
     }
 

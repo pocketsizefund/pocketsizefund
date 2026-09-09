@@ -26,12 +26,9 @@ pub fn log_directory() -> std::path::PathBuf {
 /// to a rolling daily file under `FUND_LOG_DIRECTORY`.
 ///
 /// `file_filter` overrides the file layer's level; an uncreatable directory disables file logging
-/// rather than failing.
-///
-/// `Some` means *this call* installed the file layer, and the `WorkerGuard` MUST then be held for
-/// the process lifetime — dropping it tears down the non-blocking writer and buffered lines are
-/// lost. `None` means it did not, either because file logging is off or because `try_init` found a
-/// subscriber already installed, which is what makes repeated calls across tests a no-op.
+/// rather than failing. `Some` means *this call* installed the file layer and the `WorkerGuard` MUST
+/// then be held for the process lifetime, since dropping it tears down the non-blocking writer and
+/// loses buffered lines; `None` means it did not, which is what makes repeated calls a no-op.
 pub fn init_tracing(
     log_file: &str,
     file_filter: Option<&str>,

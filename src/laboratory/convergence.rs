@@ -12,8 +12,8 @@ use crate::common::types::CloseReason;
 use crate::models::tide::TideError;
 use crate::portfolio::evaluate::exit_reason;
 use crate::portfolio::screen::{
-    logarithmic_returns, pearson_correlation, worst_session_move, SpreadModel, CORRELATION_MAXIMUM,
-    CORRELATION_MINIMUM, CORRELATION_WINDOW_SESSIONS, ENTRY_Z_SCORE, ENTRY_Z_SCORE_CAP,
+    admits_correlation, admits_entry_z_score, logarithmic_returns, pearson_correlation,
+    worst_session_move, SpreadModel, CORRELATION_WINDOW_SESSIONS,
     MAXIMUM_SESSION_LOGARITHMIC_RETURN,
 };
 
@@ -239,19 +239,11 @@ pub struct Entry {
     pub observed: Observed,
 }
 
-impl Entry {
-    /// Where this entry stands at `horizon`, or `None` if it could not be read there.
-    /// The pair this entry contributes to a curve, without its identity.
-    fn state(&self) -> (Resolution, Observed) {
-        (self.resolution, self.observed)
-    }
-}
-
 /// Where one entry stands at `horizon`, or `None` where it was never priced there.
 ///
 /// An entry that resolved before `horizon` keeps its resolution: the question each horizon asks is
 /// what has become of the cohort by then, not what is happening at that instant.
-fn state_at(resolution: Resolution, observed: Observed, horizon: usize) -> Option<Resolution> {
+pub fn state_at(resolution: Resolution, observed: Observed, horizon: usize) -> Option<Resolution> {
     match resolution {
         Resolution::Converged(step) | Resolution::Stopped(step) if step <= horizon => {
             Some(resolution)
@@ -263,8 +255,11 @@ fn state_at(resolution: Resolution, observed: Observed, horizon: usize) -> Optio
 
 /// Where a cohort of entries stands at one horizon.
 ///
-/// The three shares are of `entries`, which counts only the entries followed this far — an entry
-/// the archive ran out under leaves the denominator rather than counting as still open.
+/// The three shares are means over sessions of each session's own share, and
+/// `converged_standard_error` is that mean's error across sessions — entries within a session are
+/// pairs drawn from one universe sharing legs, so an error over entries would divide by far more
+/// than the information present. `entries` counts only the entries followed this far, so one the
+/// archive ran out under leaves the denominator rather than counting as still open.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Curve {
     pub horizon: usize,
@@ -272,6 +267,10 @@ pub struct Curve {
     pub stopped: f64,
     pub open: f64,
     pub entries: usize,
+    /// Sessions contributing an entry still standing at this horizon.
+    pub sessions: usize,
+    /// Absent under two sessions, which give no spread between sessions to take an error from.
+    pub converged_standard_error: Option<f64>,
 }
 
 /// Every entry `session` admits under `selection`, each followed forward until it resolves.
@@ -307,9 +306,7 @@ pub fn entries_at(
                         &logarithmic_returns(&second_window),
                     );
                     match correlation {
-                        Some(correlation)
-                            if (CORRELATION_MINIMUM..=CORRELATION_MAXIMUM)
-                                .contains(&correlation) => {}
+                        Some(correlation) if admits_correlation(correlation) => {}
                         Some(_) | None => continue,
                     }
                 }
@@ -344,13 +341,13 @@ pub fn entries_at(
                 ),
             ];
             for (long, long_window, long_price, short, short_window, short_price) in orientations {
-                let Some(model) = SpreadModel::fit(long_window, short_window) else {
+                let Ok(model) = SpreadModel::fit(long_window, short_window) else {
                     continue;
                 };
                 let Some(entry_z_score) = model.z_score(long_price, short_price) else {
                     continue;
                 };
-                if !(ENTRY_Z_SCORE..=ENTRY_Z_SCORE_CAP).contains(&entry_z_score) {
+                if !admits_entry_z_score(entry_z_score) {
                     continue;
                 }
                 entries.push(follow(closes, &model, long, short, session, entry_z_score));
@@ -470,39 +467,82 @@ pub fn without_reentry(mut entries: Vec<Entry>) -> Vec<Entry> {
 
 /// Where a cohort stands at each horizon from one to [`HORIZONS`].
 pub fn curves(entries: &[Entry]) -> Vec<Curve> {
-    curves_of(&entries.iter().map(Entry::state).collect::<Vec<_>>())
+    curves_of(
+        &entries
+            .iter()
+            .map(|entry| (entry.session, entry.resolution, entry.observed))
+            .collect::<Vec<_>>(),
+    )
 }
 
-/// The same curve over any entries carrying a resolution and what they were priced at.
+/// The same curve over any entries carrying the session they opened in and what became of them.
 ///
-/// Shared with the intraday measurement, whose horizons are bars rather than sessions: the shape of
-/// the question is identical and only the unit of the horizon differs.
-pub fn curves_of(states: &[(Resolution, Observed)]) -> Vec<Curve> {
+/// Shared with the intraday measurement, whose horizons are bars rather than sessions and whose
+/// session key is a calendar date: the shape of the question is identical and only the units differ.
+pub fn curves_of<Session: Ord + Copy>(states: &[(Session, Resolution, Observed)]) -> Vec<Curve> {
     (1..=HORIZONS)
         .map(|horizon| {
-            let standing: Vec<Resolution> = states
-                .iter()
-                .filter_map(|(resolution, observed)| state_at(*resolution, *observed, horizon))
-                .collect();
-            let share = |count: usize| {
-                if standing.is_empty() {
+            let mut by_session: BTreeMap<Session, Vec<Resolution>> = BTreeMap::new();
+            let mut standing = 0_usize;
+            for (session, resolution, observed) in states {
+                let Some(state) = state_at(*resolution, *observed, horizon) else {
+                    continue;
+                };
+                by_session.entry(*session).or_default().push(state);
+                standing += 1;
+            }
+
+            let session_share = |matching: fn(&Resolution) -> bool| -> Vec<f64> {
+                by_session
+                    .values()
+                    .map(|states| {
+                        states.iter().filter(|state| matching(state)).count() as f64
+                            / states.len() as f64
+                    })
+                    .collect()
+            };
+            let converged = session_share(|state| matches!(state, Resolution::Converged(_)));
+            let mean = |shares: &[f64]| {
+                if shares.is_empty() {
                     0.0
                 } else {
-                    count as f64 / standing.len() as f64
+                    shares.iter().sum::<f64>() / shares.len() as f64
                 }
             };
-            let count = |matching: fn(&Resolution) -> bool| {
-                standing.iter().filter(|state| matching(state)).count()
-            };
+
             Curve {
                 horizon,
-                converged: share(count(|state| matches!(state, Resolution::Converged(_)))),
-                stopped: share(count(|state| matches!(state, Resolution::Stopped(_)))),
-                open: share(count(|state| matches!(state, Resolution::Unresolved))),
-                entries: standing.len(),
+                converged: mean(&converged),
+                stopped: mean(&session_share(|state| {
+                    matches!(state, Resolution::Stopped(_))
+                })),
+                open: mean(&session_share(|state| {
+                    matches!(state, Resolution::Unresolved)
+                })),
+                entries: standing,
+                sessions: by_session.len(),
+                converged_standard_error: standard_error(&converged),
             }
         })
         .collect()
+}
+
+/// Standard error of a mean over sessions, or `None` under two of them.
+///
+/// One session gives no spread between sessions to take an error from, and reporting zero there
+/// would make a single day read as infinitely significant.
+fn standard_error(session_shares: &[f64]) -> Option<f64> {
+    if session_shares.len() < 2 {
+        return None;
+    }
+    let sessions = session_shares.len() as f64;
+    let mean = session_shares.iter().sum::<f64>() / sessions;
+    let variance = session_shares
+        .iter()
+        .map(|share| (share - mean).powi(2))
+        .sum::<f64>()
+        / (sessions - 1.0);
+    Some((variance / sessions).sqrt())
 }
 
 /// The average z-score entries were opened at, which is what a convergence is worth.
@@ -729,14 +769,12 @@ mod tests {
     }
 
     /// The window the spread is measured against must end before the session being judged, or it
-    /// contains the observation and inflates its own dispersion by exactly the move being scored.
+    /// contains the observation and inflates its own dispersion by the move being scored.
     ///
-    /// Read at the cap rather than at the entry threshold, because that is where the difference
-    /// bites. A window of sixty admitting one point `d` deviations out reports it at roughly
-    /// `d / sqrt(1 + d² / 61)`, which stays above two for every `d` above two — so an entry fires
-    /// either way and only the *upper* bound separates them. At five and a half deviations the
-    /// honest reading is past [`ENTRY_Z_SCORE_CAP`] and refused, and the contaminated one is 4.4
-    /// and admitted: the guard against unadjusted corporate actions stops working silently.
+    /// Read at the cap rather than at the entry threshold: a contaminated window still reports a
+    /// large move as above two, so an entry fires either way and only the upper bound separates
+    /// them — at five and a half deviations the honest reading is refused and the contaminated one
+    /// is admitted at 4.4.
     #[test]
     fn test_the_fit_window_ends_before_the_session_it_judges() {
         let beyond_the_cap = |session: usize| match session {
@@ -885,6 +923,48 @@ mod tests {
             let total = curve.converged + curve.stopped + curve.open;
             assert!((total - 1.0).abs() < 1e-12, "{curve:?}");
         }
+    }
+
+    /// One session gives no spread between sessions to take an error from, and a zero there would
+    /// make a single day read as infinitely significant.
+    #[test]
+    fn test_a_single_session_carries_no_standard_error() {
+        let curves = curves(&[
+            entry(Resolution::Converged(1), 1),
+            entry(Resolution::Stopped(1), 1),
+        ]);
+
+        assert_eq!(curves[0].sessions, 1, "both entries opened at session ten");
+        assert_eq!(curves[0].converged_standard_error, None);
+        assert!((curves[0].converged - 0.5).abs() < 1e-12);
+    }
+
+    /// Entries within a session are pairs from one universe sharing legs, so the shares are means
+    /// over sessions and the error is taken across them. Weighted by entries the busy session would
+    /// carry the whole reading.
+    #[test]
+    fn test_the_shares_weight_sessions_and_not_entries() {
+        let at = |session: usize, resolution: Resolution, observed: usize| {
+            let mut entry = entry(resolution, observed);
+            entry.session = session;
+            entry
+        };
+        let mut entries = vec![at(1, Resolution::Converged(1), 1)];
+        // Ten entries in one session, none of which converged.
+        entries.extend((0..10).map(|_| at(2, Resolution::Stopped(1), 1)));
+
+        let curves = curves(&entries);
+
+        assert_eq!(curves[0].entries, 11);
+        assert_eq!(curves[0].sessions, 2);
+        // Session shares are 1.0 and 0.0, so the mean is a half; weighted by entries it would be
+        // about 0.09.
+        assert!((curves[0].converged - 0.5).abs() < 1e-12, "{:?}", curves[0]);
+        assert!(
+            (curves[0].converged_standard_error.unwrap() - 0.5).abs() < 1e-12,
+            "{:?}",
+            curves[0]
+        );
     }
 
     /// The median is over the entries that converged and not over every entry: an unresolved entry

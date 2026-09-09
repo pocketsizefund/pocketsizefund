@@ -1,6 +1,6 @@
 //! The laboratory's own append-only record of what it ran.
 //!
-//! Keyed by run and rolled on the UTC date: an experiment happens at an instant, not on a session.
+//! Keyed by run and rolled on the Eastern session the run's instant falls in.
 
 use std::path::{Path, PathBuf};
 
@@ -10,6 +10,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, error};
 use uuid::Uuid;
 
+use crate::common::types::SessionDate;
 use crate::laboratory::convergence::Curve;
 use crate::laboratory::dataset::DatasetFingerprint;
 use crate::laboratory::metrics::Distribution;
@@ -105,6 +106,44 @@ pub struct RegimeMeasured {
     pub segment: String,
     pub sessions: usize,
     pub associations: Vec<Association>,
+    /// How far apart the two halves landed, recorded only on the whole-window record.
+    ///
+    /// Empty on a half's own record: the comparison qualifies the figure it is a split of, and
+    /// repeating it on each half would journal one comparison three times.
+    pub half_differences: Vec<HalfDifference>,
+}
+
+/// The gap between the two halves of the window, at one lag.
+///
+/// The split-sample check is this number against its error, not two figures that happen to point
+/// the same way.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct HalfDifference {
+    pub lag: usize,
+    /// The second half's association minus the first's.
+    pub difference: f64,
+    /// The halves are disjoint stretches, so their errors add in quadrature.
+    pub standard_error: f64,
+}
+
+impl HalfDifference {
+    /// The gap between two associations at the same lag, or `None` where either is missing.
+    pub fn between(
+        first_half: Option<&Association>,
+        second_half: Option<&Association>,
+    ) -> Option<Self> {
+        let (first_half, second_half) = (first_half?, second_half?);
+        if first_half.lag != second_half.lag {
+            return None;
+        }
+        Some(Self {
+            lag: first_half.lag,
+            difference: second_half.correlation - first_half.correlation,
+            standard_error: (first_half.standard_error.powi(2)
+                + second_half.standard_error.powi(2))
+            .sqrt(),
+        })
+    }
 }
 
 /// Whether one forecast's per-session readings carry into the sessions after them.
@@ -123,8 +162,9 @@ pub struct StabilityMeasured {
 
 /// How much one feature says about the session it precedes.
 ///
-/// `excess_bits` is the answer and the other two are why it should be believed: the raw estimate is
-/// biased upward at this sample size, and `null_bits` is that bias measured on the same rows.
+/// `excess_share` is the answer and the rest are why it should be believed: the raw estimate is
+/// biased upward at this sample size, `null_bits` is that bias measured on the same rows, and
+/// `target_entropy_bits` is the ceiling that makes two targets comparable at all.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FeatureTriaged {
     pub feature: String,
@@ -132,6 +172,10 @@ pub struct FeatureTriaged {
     pub bits: Option<Distribution>,
     pub null_bits: Option<Distribution>,
     pub excess_bits: Option<Distribution>,
+    /// What the target itself carries, which caps anything a feature can say about it.
+    pub target_entropy_bits: Option<Distribution>,
+    /// `excess_bits` as a share of that ceiling, which is the only figure comparable across targets.
+    pub excess_share: Option<Distribution>,
 }
 
 /// One frame prepared for an experiment to read.
@@ -197,19 +241,19 @@ impl Record {
     }
 }
 
-/// The file the writer currently holds open, and the UTC date it belongs to.
-struct OpenDate {
-    date: NaiveDate,
+/// The file the writer currently holds open, and the session it belongs to.
+struct OpenSession {
+    session: SessionDate,
     file: tokio::fs::File,
 }
 
-/// Appends records to the current UTC date's file.
+/// Appends records to the current session's file.
 ///
-/// The date comes from the record rather than from construction, so the file rolls at UTC midnight
-/// whatever the process was doing at the time.
+/// The session comes from the record's own instant rather than from construction, so the file rolls
+/// at Eastern midnight whatever the process was doing at the time.
 pub struct Journal {
     directory: PathBuf,
-    open_date: tokio::sync::Mutex<Option<OpenDate>>,
+    open_session: tokio::sync::Mutex<Option<OpenSession>>,
 }
 
 impl Journal {
@@ -222,7 +266,7 @@ impl Journal {
         })?;
         Ok(Self {
             directory,
-            open_date: tokio::sync::Mutex::new(None),
+            open_session: tokio::sync::Mutex::new(None),
         })
     }
 
@@ -241,18 +285,18 @@ impl Journal {
     pub async fn append(&self, record: &Record) -> Result<(), JournalError> {
         let mut line = serde_json::to_vec(record)?;
         line.push(b'\n');
-        let date = record.timestamp.date_naive();
+        let session = SessionDate::at(record.timestamp);
 
-        let mut open_date = self.open_date.lock().await;
-        let open = match open_date.as_mut() {
-            Some(open) if open.date == date => open,
+        let mut open_session = self.open_session.lock().await;
+        let open = match open_session.as_mut() {
+            Some(open) if open.session == session => open,
             _ => {
                 let file = tokio::fs::OpenOptions::new()
                     .create(true)
                     .append(true)
-                    .open(self.directory.join(file_name(date)))
+                    .open(self.directory.join(file_name(session)))
                     .await?;
-                open_date.insert(OpenDate { date, file })
+                open_session.insert(OpenSession { session, file })
             }
         };
 
@@ -282,30 +326,32 @@ impl Journal {
 
     /// Blocks appends for as long as the returned guard is held.
     pub async fn seal(&self) -> JournalGuard<'_> {
-        let mut open_date = self.open_date.lock().await;
-        *open_date = None;
+        let mut open_session = self.open_session.lock().await;
+        *open_session = None;
         JournalGuard {
-            _appends_blocked: open_date,
+            _appends_blocked: open_session,
         }
     }
 }
 
 /// Proof that no append can run while it is alive.
 pub struct JournalGuard<'a> {
-    _appends_blocked: tokio::sync::MutexGuard<'a, Option<OpenDate>>,
+    _appends_blocked: tokio::sync::MutexGuard<'a, Option<OpenSession>>,
 }
 
-/// The file one UTC date's records are written to.
-pub fn file_name(date: NaiveDate) -> String {
-    format!("laboratory-{date}.jsonl")
+/// The file one session's records are written to.
+pub fn file_name(session_date: SessionDate) -> String {
+    format!("laboratory-{}.jsonl", session_date.date())
 }
 
-/// Recovers the UTC date from a name built by [`file_name`], or `None` if it does not have that
-/// shape.
-pub fn date_from_file_name(name: &str) -> Option<NaiveDate> {
-    name.strip_prefix("laboratory-")
-        .and_then(|rest| rest.strip_suffix(".jsonl"))
-        .and_then(|date| NaiveDate::parse_from_str(date, "%Y-%m-%d").ok())
+/// Recovers the session from a name built by [`file_name`], or `None` for anything else.
+///
+/// Accepted only if it is exactly what the writer would have produced: `%Y-%m-%d` also parses
+/// `2026-8-11`, and admitting both spellings would let one session reach the export twice.
+pub fn session_from_file_name(name: &str) -> Option<SessionDate> {
+    let date = name.strip_prefix("laboratory-")?.strip_suffix(".jsonl")?;
+    let session_date = SessionDate::from_date(NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?);
+    (file_name(session_date) == name).then_some(session_date)
 }
 
 #[cfg(test)]
@@ -360,6 +406,8 @@ mod tests {
             bits: None,
             null_bits: None,
             excess_bits: None,
+            target_entropy_bits: None,
+            excess_share: None,
         });
         let value: serde_json::Value = serde_json::to_value(&triaged).unwrap();
 
@@ -396,6 +444,7 @@ mod tests {
             segment: "whole".to_string(),
             sessions: 499,
             associations: Vec::new(),
+            half_differences: Vec::new(),
         });
         let value: serde_json::Value = serde_json::to_value(&regime).unwrap();
 
@@ -466,10 +515,15 @@ mod tests {
     }
 
     #[test]
-    fn test_file_names_round_trip_through_their_date() {
-        let date = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
-        assert_eq!(file_name(date), "laboratory-2026-08-17.jsonl");
-        assert_eq!(date_from_file_name(&file_name(date)), Some(date));
+    fn test_file_names_round_trip_through_their_session() {
+        let session = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 8, 17).unwrap());
+        assert_eq!(file_name(session), "laboratory-2026-08-17.jsonl");
+        assert_eq!(session_from_file_name(&file_name(session)), Some(session));
+        assert_eq!(
+            session_from_file_name("laboratory-2026-8-17.jsonl"),
+            None,
+            "one session must not reach the export under two spellings"
+        );
     }
 
     /// `experiment_type()` restates what `rename_all` generates for the variant. Left unpinned, a
@@ -489,8 +543,39 @@ mod tests {
     /// laboratory file would file an instant under a trading day.
     #[test]
     fn test_an_application_journal_file_name_is_not_a_laboratory_one() {
-        assert_eq!(date_from_file_name("fund-2026-08-17.jsonl"), None);
-        assert_eq!(date_from_file_name("laboratory-2026-08-17.txt"), None);
+        assert_eq!(session_from_file_name("fund-2026-08-17.jsonl"), None);
+        assert_eq!(session_from_file_name("laboratory-2026-08-17.txt"), None);
+    }
+
+    /// Two halves pointing the same way is not agreement, and only the gap and its own error can
+    /// say whether they differ. The halves are disjoint, so the errors add in quadrature.
+    #[test]
+    fn test_the_gap_between_two_halves_carries_its_own_error() {
+        let half = |correlation: f64, standard_error: f64| Association {
+            lag: 1,
+            correlation,
+            standard_error,
+            pairs: 250,
+        };
+        let first = half(0.20, 0.03);
+        let second = half(0.50, 0.04);
+
+        let gap = HalfDifference::between(Some(&first), Some(&second)).unwrap();
+
+        assert_eq!(gap.lag, 1);
+        assert!((gap.difference - 0.30).abs() < 1e-12, "{gap:?}");
+        assert!((gap.standard_error - 0.05).abs() < 1e-12, "{gap:?}");
+        assert_eq!(
+            HalfDifference::between(Some(&first), None),
+            None,
+            "a half that could not be measured leaves no gap to report"
+        );
+        let other_lag = half(0.50, 0.04);
+        assert_eq!(
+            HalfDifference::between(Some(&Association { lag: 0, ..first }), Some(&other_lag)),
+            None,
+            "two lags are two questions"
+        );
     }
 
     /// The envelope is what the export partitions and joins on, so every field of it must survive
@@ -520,25 +605,39 @@ mod tests {
         );
     }
 
+    /// An evening run straddles UTC midnight and no session boundary, and the export partitions on
+    /// this name into a bucket whose every other prefix is Eastern-session-partitioned.
     #[tokio::test]
-    async fn test_records_roll_into_the_file_for_their_utc_date() {
+    async fn test_records_roll_on_the_eastern_session_and_not_the_utc_date() {
         let directory = tempfile::tempdir().unwrap();
         let journal = Journal::new(directory.path()).unwrap();
         let run_id = Uuid::new_v4();
 
-        let first = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
-        let second = NaiveDate::from_ymd_opt(2026, 8, 18).unwrap();
+        let seventeenth = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
+        let eighteenth = NaiveDate::from_ymd_opt(2026, 8, 18).unwrap();
 
-        // 23:30 on the 17th and 00:30 on the 18th: an hour apart, either side of UTC midnight.
-        for (date, hour, minute) in [(first, 23, 30), (second, 0, 30)] {
-            let timestamp = date.and_hms_opt(hour, minute, 0).unwrap().and_utc();
+        // 23:30 and 00:30 UTC are an hour apart and both fall on the evening of the 17th Eastern;
+        // 05:00 UTC on the 18th is the small hours of the 18th.
+        for (date, hour) in [(seventeenth, 23), (eighteenth, 0), (eighteenth, 5)] {
+            let timestamp = date.and_hms_opt(hour, 30, 0).unwrap().and_utc();
             journal
                 .append(&Record::new(run_id, timestamp, observation()))
                 .await
                 .unwrap();
         }
 
-        assert!(directory.path().join(file_name(first)).exists());
-        assert!(directory.path().join(file_name(second)).exists());
+        let session_file = |date: NaiveDate| {
+            directory
+                .path()
+                .join(file_name(SessionDate::from_date(date)))
+        };
+        let lines = |date: NaiveDate| std::fs::read_to_string(session_file(date)).unwrap();
+
+        assert_eq!(
+            lines(seventeenth).lines().count(),
+            2,
+            "the evening pair belongs to one session"
+        );
+        assert_eq!(lines(eighteenth).lines().count(), 1);
     }
 }

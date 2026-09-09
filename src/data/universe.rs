@@ -5,6 +5,7 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
+use polars::prelude::*;
 use sqlx::PgPool;
 use tracing::info;
 
@@ -12,14 +13,14 @@ use uuid::Uuid;
 
 use crate::common::alpaca::{ClientError, TradableAssets, TradingClient};
 use crate::common::journal::{Journal, Observation, UniverseRefreshed};
-use crate::common::types::{BarInterval, LiquidityFloor, SessionDate, Ticker};
+use crate::common::types::{BarInterval, LiquidityFloor, LiquidityRefusal, SessionDate, Ticker};
 use crate::data::cache::DailyCache;
 
 /// Trailing window over which liquidity is averaged.
 ///
 /// Long enough that a single quiet week does not evict a normally liquid name, short enough to
 /// notice one that has genuinely dried up.
-const LIQUIDITY_LOOKBACK_DAYS: i64 = 30;
+pub const LIQUIDITY_LOOKBACK_DAYS: i64 = 30;
 
 /// Errors building the universe.
 #[derive(Debug, thiserror::Error)]
@@ -51,11 +52,51 @@ impl LiquidityRow {
         }
     }
 
-    /// Whether this ticker clears `floor`, screening price on the window's minimum rather than its
-    /// average, which is the stricter of the two.
-    fn is_liquid(&self, floor: LiquidityFloor) -> bool {
+    /// Whether this ticker clears `floor`, and which bound it failed if not.
+    fn admission(&self, floor: LiquidityFloor) -> Result<(), LiquidityRefusal> {
         floor.admits(self.minimum_close_price, self.average_dollar_volume)
     }
+}
+
+/// Screens a bar frame down to the tickers that clear `floor` over the window it holds.
+///
+/// The one expression of liquidity in dataframe terms, and the same pair of statistics
+/// [`load_liquidity`] reads in SQL: `MIN(close_price)` against the price bound and
+/// `MEAN(close_price * volume)` against the notional bound, per ticker. A screen that computes a
+/// different pair makes the traded, predicted and trained populations three different sets.
+///
+/// `bars` must carry `ticker`, `close_price`, and `volume`.
+pub fn filter_liquid_bars(bars: DataFrame, floor: LiquidityFloor) -> PolarsResult<DataFrame> {
+    let liquid_tickers = bars
+        .clone()
+        .lazy()
+        .group_by([col("ticker")])
+        .agg([
+            col("close_price")
+                .cast(DataType::Float64)
+                .min()
+                .alias("minimum_close_price"),
+            // The product per session and then the mean, because the mean of a product is not the
+            // product of the means once price and volume move together.
+            (col("close_price").cast(DataType::Float64) * col("volume").cast(DataType::Float64))
+                .mean()
+                .alias("average_dollar_volume"),
+        ])
+        .filter(
+            col("minimum_close_price")
+                .gt_eq(lit(floor.minimum_close_price()))
+                .and(col("average_dollar_volume").gt_eq(lit(floor.minimum_dollar_volume()))),
+        )
+        .select([col("ticker")]);
+
+    bars.lazy()
+        .join(
+            liquid_tickers,
+            [col("ticker")],
+            [col("ticker")],
+            JoinArgs::new(JoinType::Semi),
+        )
+        .collect()
 }
 
 /// The symbols eligible to trade today, and which of them can be shorted.
@@ -85,7 +126,7 @@ impl Universe {
         let mut shortable = HashSet::new();
 
         for row in liquidity {
-            if !row.is_liquid(floor) {
+            if row.admission(floor).is_err() {
                 continue;
             }
             if !assets.is_tradable(&row.ticker) {
@@ -257,7 +298,7 @@ impl UniverseCache {
                                 alpaca_shortable: assets.shortable_count(),
                                 liquid: liquidity
                                     .iter()
-                                    .filter(|row| row.is_liquid(self.floor))
+                                    .filter(|row| row.admission(self.floor).is_ok())
                                     .count(),
                                 universe_size: universe.len(),
                                 admitted,
@@ -402,6 +443,82 @@ mod tests {
     fn test_empty_inputs_produce_an_empty_universe() {
         assert!(Universe::build(&assets(), &[], floor()).is_empty());
         assert!(Universe::build(&TradableAssets::default(), &[liquid("AAPL")], floor()).is_empty());
+    }
+
+    /// Two sessions of one ticker, so the minimum and the mean differ.
+    fn bars(rows: &[(&str, f64, i64)]) -> DataFrame {
+        let tickers: Vec<&str> = rows.iter().map(|(ticker, _, _)| *ticker).collect();
+        let close_prices: Vec<f64> = rows.iter().map(|(_, close, _)| *close).collect();
+        let volumes: Vec<i64> = rows.iter().map(|(_, _, volume)| *volume).collect();
+        DataFrame::new(vec![
+            Column::new("ticker".into(), tickers),
+            Column::new("close_price".into(), close_prices),
+            Column::new("volume".into(), volumes),
+        ])
+        .expect("the fixture frame must build")
+    }
+
+    fn surviving_tickers(frame: &DataFrame) -> Vec<String> {
+        let mut names: Vec<String> = frame
+            .column("ticker")
+            .unwrap()
+            .str()
+            .unwrap()
+            .into_no_null_iter()
+            .map(str::to_string)
+            .collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+
+    /// The dataframe screen and [`LiquidityFloor::admits`] have to agree at the boundary, or the
+    /// traded population and the trained one differ by the names sitting exactly on the floor.
+    #[test]
+    fn test_the_dataframe_screen_matches_the_floor_at_the_boundary() {
+        // 10.00 close and 50,000,000 notional: on the bound in both, which both admit.
+        let frame = bars(&[("EDGE", 10.0, 5_000_000), ("EDGE", 10.0, 5_000_000)]);
+        assert_eq!(floor().admits(10.0, 50_000_000.0), Ok(()));
+        assert_eq!(
+            surviving_tickers(&filter_liquid_bars(frame, floor()).unwrap()),
+            vec!["EDGE".to_string()]
+        );
+
+        let under = bars(&[("EDGE", 9.99, 5_000_000), ("EDGE", 9.99, 5_000_000)]);
+        assert!(filter_liquid_bars(under, floor()).unwrap().is_empty());
+    }
+
+    /// Price on the window minimum and notional on the window average, which is the definition the
+    /// universe query already reads. A screen that averaged the price instead would admit a name
+    /// that spent half the window below the floor.
+    #[test]
+    fn test_the_dataframe_screen_takes_the_minimum_price_and_the_average_notional() {
+        // Mean close 55, minimum close 5: the minimum is what binds, so this is refused.
+        let dipped = bars(&[("DIPS", 105.0, 1_000_000), ("DIPS", 5.0, 20_000_000)]);
+        assert!(filter_liquid_bars(dipped, floor()).unwrap().is_empty());
+
+        // One quiet session against one heavy one: the average carries it, which the price
+        // treatment deliberately does not do.
+        let quiet = bars(&[("FLOW", 100.0, 10_000), ("FLOW", 100.0, 2_000_000)]);
+        assert_eq!(
+            surviving_tickers(&filter_liquid_bars(quiet, floor()).unwrap()),
+            vec!["FLOW".to_string()]
+        );
+    }
+
+    /// Every bar of an admitted ticker survives, and none of a refused one: the screen is per
+    /// ticker, not per session, so a name's quiet days travel with its busy ones.
+    #[test]
+    fn test_the_dataframe_screen_keeps_or_drops_a_ticker_whole() {
+        let frame = bars(&[
+            ("KEEP", 100.0, 1_000_000),
+            ("KEEP", 100.0, 1_000_000),
+            ("DROP", 100.0, 1),
+            ("DROP", 100.0, 1),
+        ]);
+        let filtered = filter_liquid_bars(frame, floor()).unwrap();
+        assert_eq!(filtered.height(), 2);
+        assert_eq!(surviving_tickers(&filtered), vec!["KEEP".to_string()]);
     }
 
     #[tokio::test]

@@ -195,20 +195,28 @@ async fn run(
         for (name, state) in &states {
             // Both series cut with the same range, or a lag would pair a reading against the state
             // of a session outside the stretch being measured.
-            for (segment, range) in regime::segments(panel.sessions()) {
-                let state = &state[range.clone()];
-                let readings = &readings[range];
-                let record = laboratory::RegimeMeasured {
-                    predictor: evaluation.predictor.clone(),
-                    statistic: STATISTIC.to_string(),
-                    state: name.to_string(),
-                    segment: segment.to_string(),
-                    sessions: readings.iter().flatten().count(),
-                    associations: LAGS
-                        .iter()
-                        .filter_map(|lag| stability::association(state, readings, *lag))
-                        .collect(),
-                };
+            let mut segments: Vec<laboratory::RegimeMeasured> = regime::segments(panel.sessions())
+                .into_iter()
+                .map(|(segment, range)| {
+                    let state = &state[range.clone()];
+                    let readings = &readings[range];
+                    laboratory::RegimeMeasured {
+                        predictor: evaluation.predictor.clone(),
+                        statistic: STATISTIC.to_string(),
+                        state: name.to_string(),
+                        segment: segment.to_string(),
+                        sessions: readings.iter().flatten().count(),
+                        associations: LAGS
+                            .iter()
+                            .filter_map(|lag| stability::association(state, readings, *lag))
+                            .collect(),
+                        half_differences: Vec::new(),
+                    }
+                })
+                .collect();
+            attach_half_differences(&mut segments);
+
+            for record in segments {
                 info!(
                     predictor = record.predictor,
                     state = record.state,
@@ -243,10 +251,42 @@ async fn run(
     Ok(measured)
 }
 
+/// Records the gap between the two halves on the whole-window record of one state.
+///
+/// The split-sample check is the difference against its own error: two halves pointing the same way
+/// can still be far apart, and two pointing opposite ways can be one standard error from agreeing.
+fn attach_half_differences(segments: &mut [laboratory::RegimeMeasured]) {
+    let association_at = |segment: &str, lag: usize| {
+        segments
+            .iter()
+            .find(|record| record.segment == segment)
+            .and_then(|record| {
+                record
+                    .associations
+                    .iter()
+                    .find(|association| association.lag == lag)
+            })
+            .copied()
+    };
+    let differences: Vec<laboratory::HalfDifference> = LAGS
+        .iter()
+        .filter_map(|lag| {
+            laboratory::HalfDifference::between(
+                association_at(FIRST_HALF, *lag).as_ref(),
+                association_at(SECOND_HALF, *lag).as_ref(),
+            )
+        })
+        .collect();
+
+    if let Some(whole) = segments.iter_mut().find(|record| record.segment == WHOLE) {
+        whole.half_differences = differences;
+    }
+}
+
 /// One block per forecast, one row per state and lag, one column per stretch of the window.
 ///
-/// The halves sit beside the whole rather than under it, because the question they answer is whether
-/// the whole's figure is one relationship or two unrelated ones that averaged into the look of one.
+/// The halves sit beside the whole rather than under it, and the difference sits beside them:
+/// whether the whole's figure is one relationship or two is a question about that gap and its error.
 fn render(measured: &[laboratory::RegimeMeasured]) -> String {
     let mut rendered = String::new();
     let mut current = "";
@@ -254,14 +294,15 @@ fn render(measured: &[laboratory::RegimeMeasured]) -> String {
         if record.predictor != current {
             current = &record.predictor;
             rendered.push_str(&format!(
-                "\n{} ({})\n{:<24}{:>6}{:>26}{:>26}{:>26}\n",
+                "\n{} ({})\n{:<24}{:>6}{:>26}{:>26}{:>26}{:>26}\n",
                 record.predictor,
                 record.statistic,
                 "state",
                 "lag",
                 "whole",
                 "first half",
-                "second half"
+                "second half",
+                "second minus first"
             ));
         }
         if record.segment != WHOLE {
@@ -269,16 +310,39 @@ fn render(measured: &[laboratory::RegimeMeasured]) -> String {
         }
         for lag in LAGS {
             rendered.push_str(&format!(
-                "{:<24}{:>6}{:>26}{:>26}{:>26}\n",
+                "{:<24}{:>6}{:>26}{:>26}{:>26}{:>26}\n",
                 record.state,
                 lag,
                 correlation(measured, record, WHOLE, *lag),
                 correlation(measured, record, FIRST_HALF, *lag),
                 correlation(measured, record, SECOND_HALF, *lag),
+                half_difference(record, *lag),
             ));
         }
     }
     rendered
+}
+
+/// The gap between the halves with its error, or why there is none.
+fn half_difference(record: &laboratory::RegimeMeasured, lag: usize) -> String {
+    record
+        .half_differences
+        .iter()
+        .find(|difference| difference.lag == lag)
+        .map_or_else(
+            || "unmeasurable".to_string(),
+            |difference| {
+                let errors = if difference.standard_error > 0.0 {
+                    difference.difference / difference.standard_error
+                } else {
+                    f64::NAN
+                };
+                format!(
+                    "{:+.4} ± {:.4} ({errors:+.2})",
+                    difference.difference, difference.standard_error
+                )
+            },
+        )
 }
 
 /// One association with its error, or why there is none.
@@ -367,7 +431,58 @@ mod tests {
                 standard_error: 0.0448,
                 pairs: 499,
             }],
+            half_differences: Vec::new(),
         }
+    }
+
+    /// The split-sample check is the gap between the halves against its own error. Printing the
+    /// halves side by side and nothing else reduces it to eyeballing whether both point the same
+    /// way, which two halves a quarter apart can do.
+    #[test]
+    fn test_the_difference_between_the_halves_is_computed_and_rendered() {
+        let mut segments = vec![
+            measurement("breadth", WHOLE, 0.1494, 1),
+            measurement("breadth", FIRST_HALF, 0.2000, 1),
+            measurement("breadth", SECOND_HALF, 0.5000, 1),
+        ];
+        // A round error apiece, so the quadrature sum is a number to check by hand.
+        for segment in &mut segments[1..] {
+            segment.associations[0].standard_error = 0.03;
+        }
+
+        attach_half_differences(&mut segments);
+
+        let gaps = &segments[0].half_differences;
+        assert_eq!(gaps.len(), 1, "one lag was measured: {gaps:?}");
+        assert!((gaps[0].difference - 0.3).abs() < 1e-12, "{gaps:?}");
+        assert!(
+            (gaps[0].standard_error - 0.042_426_407).abs() < 1e-9,
+            "{gaps:?}"
+        );
+        assert!(
+            segments[1].half_differences.is_empty() && segments[2].half_differences.is_empty(),
+            "the gap belongs to the figure it splits, not to each half"
+        );
+
+        let rendered = render(&segments);
+        assert!(rendered.contains("second minus first"), "{rendered}");
+        assert!(rendered.contains("+0.3000 ± 0.0424 (+7.07)"), "{rendered}");
+    }
+
+    /// A half that could not be measured leaves no difference, and rendering a zero there would
+    /// read as two halves that agreed.
+    #[test]
+    fn test_a_missing_half_leaves_no_difference_rather_than_a_zero() {
+        let mut segments = vec![
+            measurement("breadth", WHOLE, 0.1494, 1),
+            measurement("breadth", FIRST_HALF, 0.2000, 1),
+        ];
+
+        attach_half_differences(&mut segments);
+
+        assert!(segments[0].half_differences.is_empty());
+        let rendered = render(&segments);
+        assert!(!rendered.contains("+0.0000"), "{rendered}");
     }
 
     /// The whole and its halves belong in one row, because the question they answer together is

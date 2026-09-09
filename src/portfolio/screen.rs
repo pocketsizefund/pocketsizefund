@@ -1,7 +1,6 @@
 //! Pair selection: which two symbols, which way round, and how strong the signal.
 //!
-//! Quadratic in the eligible universe, so the cheap tests come first: the confidence floor shrinks
-//! the input, and a pair with no shortable leg is skipped before its correlation is computed.
+//! Quadratic in the eligible universe, so the cheap tests come first.
 
 use std::collections::{HashMap, HashSet};
 
@@ -15,14 +14,9 @@ pub const CORRELATION_WINDOW_SESSIONS: usize = 60;
 
 /// Correlation band a pair's log returns must fall inside.
 ///
-/// The floor rejects pairs with nothing to mean-revert to. The ceiling rejects pairs so alike the
-/// spread is mostly microstructure noise — two share classes of one issuer — where a two-sigma move
-/// is inside the bid-ask spread.
-///
-/// **The band is on signed correlation, not magnitude.** An anti-correlated pair fits a negative
-/// hedge ratio, turning `ln(short) - hedge_ratio * ln(long)` into a sum that hedges nothing, and
-/// sizing is dollar-neutral regardless — so admitting one is a directional bet wearing a
-/// market-neutral name.
+/// The band is on signed correlation, not magnitude: an anti-correlated pair fits a negative hedge
+/// ratio, turning `ln(short) - hedge_ratio * ln(long)` into a sum that hedges nothing while sizing
+/// stays dollar-neutral. Read it through [`admits_correlation`] rather than spelling it out.
 pub const CORRELATION_MINIMUM: f64 = 0.5;
 pub const CORRELATION_MAXIMUM: f64 = 0.95;
 
@@ -31,28 +25,20 @@ pub const ENTRY_Z_SCORE: f64 = 2.0;
 
 /// Spread z-score at which an open pair has converged and is closed at a profit.
 ///
-/// Zero, not a band around zero: the spread is entered above `ENTRY_Z_SCORE` and closed when it
+/// Zero, not a band around zero: the spread is entered above [`ENTRY_Z_SCORE`] and closed when it
 /// crosses back through its own mean, which is the move the position was taken to capture.
 pub const CONVERGENCE_Z_SCORE: f64 = 0.0;
 
-/// How much further a spread must widen *beyond its own entry* before the pair is stopped out.
+/// How much further a spread must widen beyond its own entry before the pair is stopped out.
 ///
-/// Relative rather than absolute, because an absolute line cannot be right for every pair at once:
-/// with entry admitting anything at or above [`ENTRY_Z_SCORE`], a pair entered above the old fixed
-/// stop of 4.0 was already closable the moment it opened, and three of the first ten pairs opened in
-/// production were stopped on the next pass without the spread ever moving against them. Measuring
-/// from entry is what makes the stop describe adverse movement rather than absolute position.
-///
-/// Expressed in z units, so it is already normalized per pair: one unit is one standard deviation of
-/// *that* pair's own spread.
+/// Expressed in z units, so it is already normalized per pair: one unit is one standard deviation
+/// of *that* pair's own spread. Read it through [`stop_at`] rather than adding it at a call site.
 pub const STOP_LOSS_WIDENING: f64 = 1.5;
 
 /// Upper bound on the entry z-score.
 ///
-/// A data-quality guard, not a strategy rule. Mean reversion is the premise of the whole position,
-/// and a spread this far out is more often an unadjusted corporate action or a regime break than an
-/// opportunity — neither of which reverts. Rejections are counted so the rate is visible rather than
-/// inferred.
+/// A data-quality guard, not a strategy rule: a spread this far out is more often an unadjusted
+/// corporate action or a regime break than an opportunity, and neither reverts.
 pub const ENTRY_Z_SCORE_CAP: f64 = 5.0;
 
 /// Minimum model confidence for a ticker to be eligible for either leg.
@@ -60,18 +46,9 @@ pub const CONFIDENCE_FLOOR: f64 = 0.5;
 
 /// Legs the book may hold in one sector at once.
 ///
-/// This is the constraint the different-sector rule was reaching for, applied where it belongs. A
-/// reservoir of same-sector spreads ranks by the same industry factor at the top, so ten selected
-/// pairs can be one bet held ten times. That is a property of the *selection across the book*, not
-/// of any individual candidate — a single same-sector pair is a perfectly good trade, and is in
-/// fact the classic one.
-///
-/// Counted in legs rather than pairs so held and candidate positions measure the same way from a
-/// flat ticker set, and because a same-sector pair genuinely sits entirely inside one sector while
-/// a cross-sector pair only half does. Against a ten-pair book, six legs is a little under a third
-/// of the twenty on offer: enough for three same-sector pairs in one industry, not enough for the
-/// book to become an industry bet. Note it is absolute, so lowering
-/// [`crate::portfolio::size::MAXIMUM_CONCURRENT_PAIRS`] far enough would make it inert.
+/// A property of the selection across the book rather than of any candidate: a reservoir of
+/// same-sector spreads ranks by the same industry factor at the top, so ten selected pairs can be
+/// one bet held ten times. Counted in legs so held and candidate positions measure the same way.
 pub const MAXIMUM_LEGS_PER_SECTOR: usize = 6;
 
 /// Tickers needed before a screen can produce anything.
@@ -79,9 +56,8 @@ const MINIMUM_ELIGIBLE_TICKERS: usize = 2;
 
 /// Observations needed before a spread distribution can be fitted at all.
 ///
-/// Two, because the sample standard deviation removes one degree of freedom. Deliberately a separate
-/// constant from [`MINIMUM_ELIGIBLE_TICKERS`] despite sharing its value: the two are unrelated
-/// quantities, and a change to the ticker threshold must not silently move the statistical floor.
+/// Two, because the sample standard deviation removes one degree of freedom. Separate from
+/// [`MINIMUM_ELIGIBLE_TICKERS`] despite sharing its value: the two are unrelated quantities.
 const MINIMUM_SPREAD_OBSERVATIONS: usize = 2;
 
 /// Largest single-session log return a fit window may contain and still be screened.
@@ -89,9 +65,31 @@ const MINIMUM_SPREAD_OBSERVATIONS: usize = 2;
 /// A window holding a larger move is not one distribution, so the hedge ratio fitted across it does
 /// not hedge. The cause is deliberately not consulted: a split artifact and a real collapse damage
 /// the fit identically, and only one of them is fixable by re-fetching.
-///
-/// Provisional, on the same terms as [`crate::common::alpaca::MAXIMUM_QUOTE_AGE_SECONDS`].
 pub const MAXIMUM_SESSION_LOGARITHMIC_RETURN: f64 = 0.40;
+
+/// Whether `z_score` is inside the entry admission band `[ENTRY_Z_SCORE, ENTRY_Z_SCORE_CAP]`.
+///
+/// The single expression of the band. A caller spelling the comparison out itself is free to differ
+/// on a boundary, and a study that differs from the screen is a study of another strategy.
+pub fn admits_entry_z_score(z_score: f64) -> bool {
+    (ENTRY_Z_SCORE..=ENTRY_Z_SCORE_CAP).contains(&z_score)
+}
+
+/// Whether `correlation` is inside `[CORRELATION_MINIMUM, CORRELATION_MAXIMUM]`.
+///
+/// The single expression of the band, on the same terms as [`admits_entry_z_score`]. Signed, so an
+/// anti-correlated pair is refused rather than mirrored.
+pub fn admits_correlation(correlation: f64) -> bool {
+    (CORRELATION_MINIMUM..=CORRELATION_MAXIMUM).contains(&correlation)
+}
+
+/// The z-score at which a pair entered at `entry_z_score` is stopped out.
+///
+/// The single expression of the stop. It is relative because an absolute line silently forbids
+/// entries above itself, closing a pair on the same reading that opened it.
+pub fn stop_at(entry_z_score: f64) -> f64 {
+    entry_z_score + STOP_LOSS_WIDENING
+}
 
 /// Why a symbol could not be screened.
 ///
@@ -232,13 +230,71 @@ impl ScreenInput {
     }
 }
 
+/// Why a spread distribution could not be fitted.
+///
+/// Carried out of the fit rather than collapsed into `None`, so an open pair held without a signal
+/// says which of the six causes it was and — where the cause is a number — what that number was.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SpreadFitFailure {
+    /// The two close series do not describe the same sessions.
+    MisalignedSeries {
+        long_sessions: usize,
+        short_sessions: usize,
+    },
+    /// Fewer observations than a distribution can be drawn from.
+    WindowTooShort { sessions: usize, minimum: usize },
+    /// A close with no logarithm: non-positive, or not a number.
+    UnusableClose,
+    /// The long leg's log price does not move, so no slope exists to hedge with.
+    HedgeRatioUnfittable,
+    /// The hedge ratio handed in is not a usable number.
+    HedgeRatioUnusable { hedge_ratio: f64 },
+    /// The spread does not move, which makes every z-score infinite.
+    NoDispersion { standard_deviation: f64 },
+}
+
+impl SpreadFitFailure {
+    /// The stable name this failure is recorded under.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SpreadFitFailure::MisalignedSeries { .. } => "misaligned_series",
+            SpreadFitFailure::WindowTooShort { .. } => "window_too_short",
+            SpreadFitFailure::UnusableClose => "unusable_close",
+            SpreadFitFailure::HedgeRatioUnfittable => "hedge_ratio_unfittable",
+            SpreadFitFailure::HedgeRatioUnusable { .. } => "hedge_ratio_unusable",
+            SpreadFitFailure::NoDispersion { .. } => "no_dispersion",
+        }
+    }
+
+    /// The numbers behind the failure, for the ones that have any.
+    pub fn detail(&self) -> Option<String> {
+        match self {
+            SpreadFitFailure::MisalignedSeries {
+                long_sessions,
+                short_sessions,
+            } => Some(format!(
+                "long_sessions={long_sessions} short_sessions={short_sessions}"
+            )),
+            SpreadFitFailure::WindowTooShort { sessions, minimum } => {
+                Some(format!("sessions={sessions} minimum={minimum}"))
+            }
+            SpreadFitFailure::UnusableClose | SpreadFitFailure::HedgeRatioUnfittable => None,
+            SpreadFitFailure::HedgeRatioUnusable { hedge_ratio } => {
+                Some(format!("hedge_ratio={hedge_ratio}"))
+            }
+            SpreadFitFailure::NoDispersion { standard_deviation } => {
+                Some(format!("standard_deviation={standard_deviation:e}"))
+            }
+        }
+    }
+}
+
 /// The log-price spread of an oriented pair, and the distribution it is measured against.
 ///
 /// The spread is `ln(short) - hedge_ratio * ln(long)`, with `hedge_ratio` the ordinary least
-/// squares slope of the short leg's log price on the long leg's. One consequence is worth stating
-/// because everything downstream leans on it: a pair is opened only when the short leg is the
-/// expensive one, so **an entry z-score is always positive**, convergence is a fall toward zero,
-/// and a stop is a rise away from it. No call site has to reason about which sign means what.
+/// squares slope of the short leg's log price on the long leg's. A pair is opened only when the
+/// short leg is the expensive one, so an entry z-score is always positive and no call site
+/// downstream has to reason about which sign means what.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SpreadModel {
     hedge_ratio: f64,
@@ -248,37 +304,33 @@ pub struct SpreadModel {
 
 impl SpreadModel {
     /// Fits both the hedge ratio and the distribution from aligned close histories.
-    ///
-    /// Returns `None` when the series are unusable: different lengths, too short, or a spread with
-    /// no dispersion. A zero standard deviation is the degenerate case that matters — it makes
-    /// every z-score infinite, so every pair looks like a screaming entry.
-    pub fn fit(long_closes: &[f64], short_closes: &[f64]) -> Option<Self> {
+    pub fn fit(long_closes: &[f64], short_closes: &[f64]) -> Result<Self, SpreadFitFailure> {
         let (long_logs, short_logs) = aligned_logs(long_closes, short_closes)?;
-        let hedge_ratio = ordinary_least_squares_slope(&long_logs, &short_logs)?;
+        let hedge_ratio = ordinary_least_squares_slope(&long_logs, &short_logs)
+            .ok_or(SpreadFitFailure::HedgeRatioUnfittable)?;
         Self::build(hedge_ratio, &long_logs, &short_logs)
     }
 
     /// Rebuilds the distribution around a hedge ratio that was already decided.
     ///
     /// This is the exit path. Refitting here would measure a different spread from the one the
-    /// entry was taken on, judging the position against a line it was never above.
-    ///
-    /// The window length is enforced for the same reason: [`SpreadModel::fit`] is only ever called
-    /// with exactly `CORRELATION_WINDOW_SESSIONS` closes, so a shorter series draws its mean and
-    /// standard deviation from a different sample and can cross a threshold for a spread that has
-    /// not moved.
+    /// entry was taken on, and a series shorter than the window would draw its mean and deviation
+    /// from a different sample, crossing a threshold for a spread that has not moved.
     pub fn with_hedge_ratio(
         hedge_ratio: f64,
         long_closes: &[f64],
         short_closes: &[f64],
-    ) -> Option<Self> {
+    ) -> Result<Self, SpreadFitFailure> {
         if !hedge_ratio.is_finite() {
-            return None;
+            return Err(SpreadFitFailure::HedgeRatioUnusable { hedge_ratio });
         }
-        if long_closes.len() < CORRELATION_WINDOW_SESSIONS
-            || short_closes.len() < CORRELATION_WINDOW_SESSIONS
-        {
-            return None;
+        for sessions in [long_closes.len(), short_closes.len()] {
+            if sessions < CORRELATION_WINDOW_SESSIONS {
+                return Err(SpreadFitFailure::WindowTooShort {
+                    sessions,
+                    minimum: CORRELATION_WINDOW_SESSIONS,
+                });
+            }
         }
         let long_window = &long_closes[long_closes.len() - CORRELATION_WINDOW_SESSIONS..];
         let short_window = &short_closes[short_closes.len() - CORRELATION_WINDOW_SESSIONS..];
@@ -287,9 +339,13 @@ impl SpreadModel {
         Self::build(hedge_ratio, &long_logs, &short_logs)
     }
 
-    fn build(hedge_ratio: f64, long_logs: &[f64], short_logs: &[f64]) -> Option<Self> {
+    fn build(
+        hedge_ratio: f64,
+        long_logs: &[f64],
+        short_logs: &[f64],
+    ) -> Result<Self, SpreadFitFailure> {
         if !hedge_ratio.is_finite() {
-            return None;
+            return Err(SpreadFitFailure::HedgeRatioUnusable { hedge_ratio });
         }
         let spread: Vec<f64> = short_logs
             .iter()
@@ -297,12 +353,19 @@ impl SpreadModel {
             .map(|(short, long)| short - hedge_ratio * long)
             .collect();
 
-        let mean = mean(&spread)?;
-        let standard_deviation = standard_deviation(&spread, mean)?;
+        // `aligned_logs` already refused a short or non-finite series, so anything unreadable here
+        // is a spread with no dispersion by another name.
+        let mean = mean(&spread).ok_or(SpreadFitFailure::NoDispersion {
+            standard_deviation: f64::NAN,
+        })?;
+        let standard_deviation =
+            standard_deviation(&spread, mean).ok_or(SpreadFitFailure::NoDispersion {
+                standard_deviation: f64::NAN,
+            })?;
         if standard_deviation <= f64::EPSILON {
-            return None;
+            return Err(SpreadFitFailure::NoDispersion { standard_deviation });
         }
-        Some(Self {
+        Ok(Self {
             hedge_ratio,
             mean,
             standard_deviation,
@@ -327,11 +390,9 @@ impl SpreadModel {
 
     /// Standardizes a live observation of the spread against the fitted distribution.
     ///
-    /// The observation is a pair of current prices and is deliberately not part of the distribution
-    /// it is measured against — the window is closed daily bars, the observation is intraday. A
-    /// z-score taken against a distribution containing the point being scored is bounded by the
-    /// sample size and cannot exceed the threshold it is compared to, which is the failure recorded
-    /// in `dual_path_signal_agreement`.
+    /// The observation is deliberately not part of the distribution it is measured against — the
+    /// window is closed daily bars, the observation is intraday. A z-score taken against a
+    /// distribution containing the scored point is bounded by the sample size.
     pub fn z_score(&self, long_price: f64, short_price: f64) -> Option<f64> {
         if !long_price.is_finite() || long_price <= 0.0 {
             return None;
@@ -342,6 +403,65 @@ impl SpreadModel {
         let spread = short_price.ln() - self.hedge_ratio * long_price.ln();
         let z_score = (spread - self.mean) / self.standard_deviation;
         z_score.is_finite().then_some(z_score)
+    }
+}
+
+/// Why a candidate could not describe a position worth taking.
+///
+/// Carried out of [`PairCandidate::new`] rather than collapsed into `None`, so the five refusals
+/// stay five facts and each reports the number that produced it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CandidateRejection {
+    HedgeRatioUnusable {
+        hedge_ratio: f64,
+    },
+    /// The legs are oriented the wrong way round: the short leg is the cheap one.
+    EntryZScoreNotPositive {
+        entry_z_score: f64,
+    },
+    /// The model expects the short leg to out-return the long, contradicting the orientation.
+    SignalStrengthNotPositive {
+        signal_strength: f64,
+    },
+    LongPriceUnusable {
+        long_price: f64,
+    },
+    ShortPriceUnusable {
+        short_price: f64,
+    },
+}
+
+impl CandidateRejection {
+    /// The stable name this rejection is recorded under.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CandidateRejection::HedgeRatioUnusable { .. } => "hedge_ratio_unusable",
+            CandidateRejection::EntryZScoreNotPositive { .. } => "entry_z_score_not_positive",
+            CandidateRejection::SignalStrengthNotPositive { .. } => "signal_strength_not_positive",
+            CandidateRejection::LongPriceUnusable { .. } => "long_price_unusable",
+            CandidateRejection::ShortPriceUnusable { .. } => "short_price_unusable",
+        }
+    }
+
+    /// The number behind the rejection. Every variant has one.
+    pub fn detail(&self) -> String {
+        match self {
+            CandidateRejection::HedgeRatioUnusable { hedge_ratio } => {
+                format!("hedge_ratio={hedge_ratio}")
+            }
+            CandidateRejection::EntryZScoreNotPositive { entry_z_score } => {
+                format!("entry_z_score={entry_z_score}")
+            }
+            CandidateRejection::SignalStrengthNotPositive { signal_strength } => {
+                format!("signal_strength={signal_strength}")
+            }
+            CandidateRejection::LongPriceUnusable { long_price } => {
+                format!("long_price={long_price}")
+            }
+            CandidateRejection::ShortPriceUnusable { short_price } => {
+                format!("short_price={short_price}")
+            }
+        }
     }
 }
 
@@ -369,23 +489,23 @@ impl PairCandidate {
         signal_strength: f64,
         long_price: f64,
         short_price: f64,
-    ) -> Option<Self> {
+    ) -> Result<Self, CandidateRejection> {
         if !hedge_ratio.is_finite() {
-            return None;
+            return Err(CandidateRejection::HedgeRatioUnusable { hedge_ratio });
         }
         if !entry_z_score.is_finite() || entry_z_score <= 0.0 {
-            return None;
+            return Err(CandidateRejection::EntryZScoreNotPositive { entry_z_score });
         }
         if !signal_strength.is_finite() || signal_strength <= 0.0 {
-            return None;
+            return Err(CandidateRejection::SignalStrengthNotPositive { signal_strength });
         }
         if !long_price.is_finite() || long_price <= 0.0 {
-            return None;
+            return Err(CandidateRejection::LongPriceUnusable { long_price });
         }
         if !short_price.is_finite() || short_price <= 0.0 {
-            return None;
+            return Err(CandidateRejection::ShortPriceUnusable { short_price });
         }
-        Some(Self {
+        Ok(Self {
             pair_id,
             hedge_ratio,
             entry_z_score,
@@ -437,27 +557,72 @@ impl PairCandidate {
     }
 }
 
+/// Why one orientation of a pair did not become a candidate.
+///
+/// Every exit from [`orient_one`] is a variant here, so a pair that produced nothing says which
+/// test it failed rather than only that it failed one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OrientationRejection {
+    /// The leg that would be sold cannot be borrowed.
+    ShortLegNotShortable,
+    SpreadUnfitted(SpreadFitFailure),
+    /// The live prices do not standardize against the fitted distribution.
+    SpreadUnreadable,
+    EntryBelowThreshold {
+        z_score: f64,
+        threshold: f64,
+    },
+    EntryBeyondCap {
+        z_score: f64,
+        cap: f64,
+    },
+    /// The model expects the short leg to out-return the long.
+    ModelDisagrees {
+        signal_strength: f64,
+    },
+    Candidate(CandidateRejection),
+}
+
+impl OrientationRejection {
+    /// The stable name this rejection is counted under.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrientationRejection::ShortLegNotShortable => "short_leg_not_shortable",
+            OrientationRejection::SpreadUnfitted(failure) => failure.as_str(),
+            OrientationRejection::SpreadUnreadable => "spread_unreadable",
+            OrientationRejection::EntryBelowThreshold { .. } => "entry_below_threshold",
+            OrientationRejection::EntryBeyondCap { .. } => "entry_beyond_cap",
+            OrientationRejection::ModelDisagrees { .. } => "model_disagrees",
+            OrientationRejection::Candidate(rejection) => rejection.as_str(),
+        }
+    }
+
+    /// The numbers behind the rejection, for the ones that have any.
+    pub fn detail(&self) -> Option<String> {
+        match self {
+            OrientationRejection::ShortLegNotShortable | OrientationRejection::SpreadUnreadable => {
+                None
+            }
+            OrientationRejection::SpreadUnfitted(failure) => failure.detail(),
+            OrientationRejection::EntryBelowThreshold { z_score, threshold } => {
+                Some(format!("z_score={z_score:.4} threshold={threshold:.4}"))
+            }
+            OrientationRejection::EntryBeyondCap { z_score, cap } => {
+                Some(format!("z_score={z_score:.4} cap={cap:.4}"))
+            }
+            OrientationRejection::ModelDisagrees { signal_strength } => {
+                Some(format!("signal_strength={signal_strength:.6}"))
+            }
+            OrientationRejection::Candidate(rejection) => Some(rejection.detail()),
+        }
+    }
+}
+
 /// Screens every combination and returns the candidates worth opening, best first.
 ///
-/// A pair survives four tests, in increasing order of cost:
-///
-/// 1. Both legs clear the confidence floor and at least one is shortable.
-/// 2. Their log returns correlate *positively*, within `[CORRELATION_MINIMUM, CORRELATION_MAXIMUM]`.
-/// 3. The spread, oriented so the short leg is the expensive one, is at or above `ENTRY_Z_SCORE`.
-/// 4. The model agrees with that orientation — it expects the long leg to out-return the short.
-///
-/// Test four is the model doing more than gating eligibility: without it a pair can open whose
-/// spread says buy A and sell B while the prediction says the opposite.
-///
-/// **Sector is not tested here.** A same-sector spread is the canonical statistical arbitrage
-/// trade — two companies facing the same demand, the same input costs, and the same regulator,
-/// whose relative price has something to mean-revert toward — and refusing those removes exactly
-/// the pairs most likely to cointegrate, which is the property the whole strategy rests on. The
-/// real concern was never the pair but the book, so it is answered in [`select_disjoint`] by
-/// [`MAXIMUM_LEGS_PER_SECTOR`].
-///
-/// No disjointness constraint is applied — the returned list is the full reservoir and pairs may
-/// share tickers. [`select_disjoint`] is the cheap second half.
+/// Sector is not tested here: a same-sector spread is the canonical statistical arbitrage trade, so
+/// concentration is bounded across the book in [`select_disjoint`] instead. No disjointness applies
+/// either — the returned list is the full reservoir and pairs may share tickers.
 pub fn score_candidates(inputs: &[ScreenInput]) -> Vec<PairCandidate> {
     let eligible: Vec<&ScreenInput> = inputs
         .iter()
@@ -474,6 +639,9 @@ pub fn score_candidates(inputs: &[ScreenInput]) -> Vec<PairCandidate> {
     }
 
     let mut candidates: Vec<PairCandidate> = Vec::new();
+    // Tallied rather than logged per pair: the loop is quadratic in the universe, so a line each
+    // would be millions of them.
+    let mut rejections: HashMap<&'static str, usize> = HashMap::new();
     for first_index in 0..eligible.len() {
         for second_index in (first_index + 1)..eligible.len() {
             let first = eligible[first_index];
@@ -481,6 +649,7 @@ pub fn score_candidates(inputs: &[ScreenInput]) -> Vec<PairCandidate> {
 
             // At least one leg has to be shortable or there is no orientation to take.
             if !first.is_shortable && !second.is_shortable {
+                *rejections.entry("no_shortable_leg").or_default() += 1;
                 continue;
             }
 
@@ -489,14 +658,38 @@ pub fn score_candidates(inputs: &[ScreenInput]) -> Vec<PairCandidate> {
                 &logarithmic_returns(second.window()),
             );
             let Some(correlation) = correlation else {
+                *rejections.entry("correlation_unreadable").or_default() += 1;
                 continue;
             };
-            if !(CORRELATION_MINIMUM..=CORRELATION_MAXIMUM).contains(&correlation) {
+            if !admits_correlation(correlation) {
+                *rejections.entry("correlation_outside_band").or_default() += 1;
                 continue;
             }
 
-            if let Some(candidate) = orient(first, second) {
-                candidates.push(candidate);
+            match orient(first, second) {
+                Ok(candidate) => candidates.push(candidate),
+                Err(orientations) => {
+                    for rejection in orientations {
+                        *rejections.entry(rejection.as_str()).or_default() += 1;
+                        // The cap is the one rejection whose reading is worth seeing per pair: it
+                        // is how an unadjusted corporate action announces itself.
+                        match rejection {
+                            OrientationRejection::EntryBeyondCap { z_score, cap } => debug!(
+                                first = %first.ticker,
+                                second = %second.ticker,
+                                z_score,
+                                cap,
+                                "Rejected a candidate whose entry spread is beyond the cap"
+                            ),
+                            OrientationRejection::ShortLegNotShortable
+                            | OrientationRejection::SpreadUnfitted(_)
+                            | OrientationRejection::SpreadUnreadable
+                            | OrientationRejection::EntryBelowThreshold { .. }
+                            | OrientationRejection::ModelDisagrees { .. }
+                            | OrientationRejection::Candidate(_) => {}
+                        }
+                    }
+                }
             }
         }
     }
@@ -508,9 +701,12 @@ pub fn score_candidates(inputs: &[ScreenInput]) -> Vec<PairCandidate> {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
+    let mut tally: Vec<(&str, usize)> = rejections.into_iter().collect();
+    tally.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
     debug!(
         eligible = eligible.len(),
         candidates = candidates.len(),
+        rejections = ?tally,
         "Pair screen complete"
     );
     candidates
@@ -519,71 +715,76 @@ pub fn score_candidates(inputs: &[ScreenInput]) -> Vec<PairCandidate> {
 /// Decides which leg is long and which is short, and applies the entry and agreement tests.
 ///
 /// Both orientations are tried because ordinary least squares is not symmetric: the slope of `a` on
-/// `b` is not the reciprocal of the slope of `b` on `a`, so the spread has to be fitted in the
-/// orientation it will be held in rather than negated from the other one.
-fn orient(first: &ScreenInput, second: &ScreenInput) -> Option<PairCandidate> {
+/// `b` is not the reciprocal of the slope of `b` on `a`. On refusal both causes are returned, in
+/// the order tried, because a pair that fails one test each way failed for two different reasons.
+fn orient(
+    first: &ScreenInput,
+    second: &ScreenInput,
+) -> Result<PairCandidate, [OrientationRejection; 2]> {
     // `first` short, `second` long; then the reverse. At most one can clear a positive entry
     // threshold, since the two spreads move in opposite directions.
-    for (long, short) in [(second, first), (first, second)] {
-        if !short.is_shortable {
-            continue;
-        }
-        let Some(model) = SpreadModel::fit(long.window(), short.window()) else {
-            continue;
-        };
-        let Some(z_score) = model.z_score(long.price, short.price) else {
-            continue;
-        };
-        if z_score < ENTRY_Z_SCORE {
-            continue;
-        }
-        // Bounded above as well as below. Mean reversion is the premise of the position, and a
-        // spread this stretched is more often an unadjusted corporate action or a regime break than
-        // an opportunity.
-        if z_score > ENTRY_Z_SCORE_CAP {
-            debug!(
-                long = %long.ticker,
-                short = %short.ticker,
-                z_score,
-                cap = ENTRY_Z_SCORE_CAP,
-                "Rejected a candidate whose entry spread is beyond the cap"
-            );
-            continue;
-        }
+    let forward = match orient_one(second, first) {
+        Ok(candidate) => return Ok(candidate),
+        Err(rejection) => rejection,
+    };
+    let reverse = match orient_one(first, second) {
+        Ok(candidate) => return Ok(candidate),
+        Err(rejection) => rejection,
+    };
+    Err([forward, reverse])
+}
 
-        // The model has to agree that the cheap leg is the one to own. `PairCandidate::new`
-        // enforces this too; checking here as well keeps the loop from silently falling through to
-        // the other orientation on a rejection that is about the model rather than the spread.
-        let signal_strength = long.expected_return - short.expected_return;
-        if signal_strength <= 0.0 {
-            continue;
-        }
-
-        return PairCandidate::new(
-            PairID::new(long.ticker.clone(), short.ticker.clone()),
-            model.hedge_ratio(),
-            z_score,
-            signal_strength,
-            long.price,
-            short.price,
-        );
+/// Applies every entry test to one fixed orientation.
+fn orient_one(
+    long: &ScreenInput,
+    short: &ScreenInput,
+) -> Result<PairCandidate, OrientationRejection> {
+    if !short.is_shortable {
+        return Err(OrientationRejection::ShortLegNotShortable);
     }
-    None
+    let model = SpreadModel::fit(long.window(), short.window())
+        .map_err(OrientationRejection::SpreadUnfitted)?;
+    let z_score = model
+        .z_score(long.price, short.price)
+        .ok_or(OrientationRejection::SpreadUnreadable)?;
+    if !admits_entry_z_score(z_score) {
+        return Err(if z_score < ENTRY_Z_SCORE {
+            OrientationRejection::EntryBelowThreshold {
+                z_score,
+                threshold: ENTRY_Z_SCORE,
+            }
+        } else {
+            OrientationRejection::EntryBeyondCap {
+                z_score,
+                cap: ENTRY_Z_SCORE_CAP,
+            }
+        });
+    }
+
+    // The model has to agree that the cheap leg is the one to own. Checked here as well as in
+    // `PairCandidate::new` so the caller can tell a model disagreement from a spread rejection.
+    let signal_strength = long.expected_return - short.expected_return;
+    if signal_strength <= 0.0 {
+        return Err(OrientationRejection::ModelDisagrees { signal_strength });
+    }
+
+    PairCandidate::new(
+        PairID::new(long.ticker.clone(), short.ticker.clone()),
+        model.hedge_ratio(),
+        z_score,
+        signal_strength,
+        long.price,
+        short.price,
+    )
+    .map_err(OrientationRejection::Candidate)
 }
 
 /// Greedily takes up to `limit` candidates that share no ticker with each other or with `held`,
 /// and that keep every sector within [`MAXIMUM_LEGS_PER_SECTOR`].
 ///
-/// Disjointness is why rejecting a candidate changes what is available below it: excluding one pair
-/// frees both of its tickers, so a pair further down that was skipped for a collision becomes
-/// selectable. Re-selecting is therefore not the same as taking the next item off the list. The
-/// sector cap behaves the same way and for the same reason.
-///
-/// **The cap is seeded from the book, not from this pass.** `held` carries the legs already open,
-/// so a sector at its limit stays at its limit rather than admitting a fresh allocation every time
-/// the evaluator runs. A held ticker whose sector is unknown — a name whose `equity_details` row
-/// went away, say — contributes to no sector rather than to a fabricated one; it still blocks
-/// re-entry through `used`.
+/// The sector cap is seeded from the book, not from this pass, so a sector at its limit stays there
+/// rather than being handed a fresh allowance every five minutes. A held ticker whose sector is
+/// unknown contributes to no sector rather than to a fabricated one, and still blocks re-entry.
 pub fn select_disjoint(
     candidates: &[PairCandidate],
     limit: usize,
@@ -641,34 +842,77 @@ pub fn select_disjoint(
     selected
 }
 
+/// Why an open pair has no spread model this pass.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ExitModelFailure {
+    /// One or both legs are absent from the session's close history.
+    MissingCloseHistory,
+    /// The history is present and the distribution could not be rebuilt from it.
+    Unfitted(SpreadFitFailure),
+}
+
+impl ExitModelFailure {
+    /// The stable name this failure is recorded under.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ExitModelFailure::MissingCloseHistory => "missing_close_history",
+            ExitModelFailure::Unfitted(failure) => failure.as_str(),
+        }
+    }
+
+    /// The name and, where there is one, the reading behind it.
+    pub fn detail(&self) -> String {
+        match self {
+            ExitModelFailure::MissingCloseHistory => "missing_close_history".to_string(),
+            ExitModelFailure::Unfitted(failure) => match failure.detail() {
+                Some(detail) => format!("{}: {detail}", failure.as_str()),
+                None => failure.as_str().to_string(),
+            },
+        }
+    }
+}
+
 /// Builds the exit models for open pairs, keyed by pair identifier.
 ///
-/// A pair whose legs are missing from `closes` gets no model and therefore no spread reading. The
-/// caller treats that as "no exit signal", not as "hold forever" — the pre-close liquidation closes
-/// it regardless, so the worst case is that it is held until 15:45 rather than exited on a signal.
+/// Every supplied pair gets an entry, successful or not: "held with no signal" and "held because
+/// its history went missing" are different operational facts, and a pair absent from the map would
+/// collapse them. The caller never reads a failure as "hold forever" — the pre-close liquidation
+/// closes it regardless.
 pub fn exit_models<'a>(
     pairs: impl IntoIterator<Item = (&'a PairID, f64)>,
     closes: &HashMap<Ticker, Vec<f64>>,
-) -> HashMap<PairID, SpreadModel> {
+) -> HashMap<PairID, Result<SpreadModel, ExitModelFailure>> {
     let mut models = HashMap::new();
     for (pair_id, hedge_ratio) in pairs {
-        let (Some(long_closes), Some(short_closes)) =
-            (closes.get(pair_id.long()), closes.get(pair_id.short()))
-        else {
-            continue;
+        let built = match (closes.get(pair_id.long()), closes.get(pair_id.short())) {
+            (Some(long_closes), Some(short_closes)) => {
+                SpreadModel::with_hedge_ratio(hedge_ratio, long_closes, short_closes)
+                    .map_err(ExitModelFailure::Unfitted)
+            }
+            (None, _) | (_, None) => Err(ExitModelFailure::MissingCloseHistory),
         };
-        if let Some(model) = SpreadModel::with_hedge_ratio(hedge_ratio, long_closes, short_closes) {
-            models.insert(pair_id.clone(), model);
-        }
+        models.insert(pair_id.clone(), built);
     }
     models
 }
 
-/// Takes the natural logarithm of two series, returning `None` unless both are the same usable
-/// length with no non-positive value.
-fn aligned_logs(long_closes: &[f64], short_closes: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
-    if long_closes.len() != short_closes.len() || long_closes.len() < MINIMUM_SPREAD_OBSERVATIONS {
-        return None;
+/// Takes the natural logarithm of two series, refusing unless both are the same usable length with
+/// no non-positive value.
+fn aligned_logs(
+    long_closes: &[f64],
+    short_closes: &[f64],
+) -> Result<(Vec<f64>, Vec<f64>), SpreadFitFailure> {
+    if long_closes.len() != short_closes.len() {
+        return Err(SpreadFitFailure::MisalignedSeries {
+            long_sessions: long_closes.len(),
+            short_sessions: short_closes.len(),
+        });
+    }
+    if long_closes.len() < MINIMUM_SPREAD_OBSERVATIONS {
+        return Err(SpreadFitFailure::WindowTooShort {
+            sessions: long_closes.len(),
+            minimum: MINIMUM_SPREAD_OBSERVATIONS,
+        });
     }
     let to_logs = |closes: &[f64]| -> Option<Vec<f64>> {
         closes
@@ -676,7 +920,10 @@ fn aligned_logs(long_closes: &[f64], short_closes: &[f64]) -> Option<(Vec<f64>, 
             .map(|close| (close.is_finite() && *close > 0.0).then(|| close.ln()))
             .collect()
     };
-    Some((to_logs(long_closes)?, to_logs(short_closes)?))
+    match (to_logs(long_closes), to_logs(short_closes)) {
+        (Some(long_logs), Some(short_logs)) => Ok((long_logs, short_logs)),
+        (None, _) | (_, None) => Err(SpreadFitFailure::UnusableClose),
+    }
 }
 
 /// The window's largest single-session move, by magnitude, as a signed log return.
@@ -789,11 +1036,8 @@ mod tests {
     /// Both legs share a common factor; the follower's idiosyncratic component puts the correlation
     /// near 0.8 rather than 1.0 and gives the spread dispersion to revert within.
     ///
-    /// Two failure modes are avoided deliberately. A series with no idiosyncratic component
-    /// correlates at 1.0 and is rejected by `CORRELATION_MAXIMUM`; one whose spread has no variance
-    /// is rejected by [`SpreadModel::build`]. Either produces zero candidates and every test built
-    /// on it then asserts nothing, which is what
-    /// `test_the_fixture_yields_at_least_one_candidate` guards.
+    /// A series with no idiosyncratic component correlates at 1.0 and one whose spread has no
+    /// variance will not fit; either produces zero candidates and every test below asserts nothing.
     fn cointegrated_series(sessions: usize) -> (Vec<f64>, Vec<f64>) {
         let mut leader = Vec::with_capacity(sessions);
         let mut follower = Vec::with_capacity(sessions);
@@ -851,17 +1095,78 @@ mod tests {
     #[test]
     fn test_fit_rejects_a_spread_with_no_dispersion() {
         let closes = vec![100.0; CORRELATION_WINDOW_SESSIONS];
-        assert_eq!(SpreadModel::fit(&closes, &closes), None);
+        // The cause, not merely the refusal: a flat series is refused by two different tests on the
+        // way through, and only one of them is the degenerate distribution.
+        assert_eq!(
+            SpreadModel::fit(&closes, &closes).expect_err("a flat spread must be refused"),
+            SpreadFitFailure::HedgeRatioUnfittable
+        );
+
+        let (long_closes, _) = cointegrated_series(CORRELATION_WINDOW_SESSIONS);
+        let failure = SpreadModel::with_hedge_ratio(1.0, &long_closes, &long_closes)
+            .expect_err("a spread against itself has no dispersion");
+        let SpreadFitFailure::NoDispersion { standard_deviation } = failure else {
+            panic!("expected no dispersion, got {failure:?}");
+        };
+        assert_eq!(standard_deviation, 0.0);
     }
 
     #[test]
     fn test_fit_rejects_misaligned_or_non_positive_series() {
         let (long_closes, short_closes) = cointegrated_series(CORRELATION_WINDOW_SESSIONS);
-        assert_eq!(SpreadModel::fit(&long_closes[1..], &short_closes), None);
+        assert_eq!(
+            SpreadModel::fit(&long_closes[1..], &short_closes)
+                .expect_err("misaligned series must be refused"),
+            SpreadFitFailure::MisalignedSeries {
+                long_sessions: 59,
+                short_sessions: 60,
+            }
+        );
 
         let mut negative = long_closes.clone();
         negative[10] = -1.0;
-        assert_eq!(SpreadModel::fit(&negative, &short_closes), None);
+        assert_eq!(
+            SpreadModel::fit(&negative, &short_closes)
+                .expect_err("a non-positive close must be refused"),
+            SpreadFitFailure::UnusableClose
+        );
+    }
+
+    #[test]
+    fn test_every_spread_failure_has_a_stable_name_and_the_numbered_ones_carry_a_reading() {
+        assert_eq!(
+            SpreadFitFailure::MisalignedSeries {
+                long_sessions: 60,
+                short_sessions: 59,
+            }
+            .detail()
+            .expect("a misalignment reports both lengths"),
+            "long_sessions=60 short_sessions=59"
+        );
+        assert_eq!(
+            SpreadFitFailure::WindowTooShort {
+                sessions: 12,
+                minimum: 60,
+            }
+            .as_str(),
+            "window_too_short"
+        );
+        assert_eq!(SpreadFitFailure::UnusableClose.detail(), None);
+        assert_eq!(SpreadFitFailure::HedgeRatioUnfittable.detail(), None);
+        assert_eq!(
+            SpreadFitFailure::HedgeRatioUnusable {
+                hedge_ratio: f64::NAN,
+            }
+            .as_str(),
+            "hedge_ratio_unusable"
+        );
+        assert_eq!(
+            SpreadFitFailure::NoDispersion {
+                standard_deviation: 0.0,
+            }
+            .as_str(),
+            "no_dispersion"
+        );
     }
 
     /// The observation is intraday and the window is closed daily bars, so the point being scored
@@ -899,10 +1204,14 @@ mod tests {
                 1.0,
                 &long_closes[..short_history],
                 &short_closes[..short_history],
-            ),
-            None
+            )
+            .expect_err("a short series must be refused"),
+            SpreadFitFailure::WindowTooShort {
+                sessions: 59,
+                minimum: 60,
+            }
         );
-        assert!(SpreadModel::with_hedge_ratio(1.0, &long_closes, &short_closes).is_some());
+        assert!(SpreadModel::with_hedge_ratio(1.0, &long_closes, &short_closes).is_ok());
     }
 
     /// A longer history is trimmed to the window rather than fitted over all of it, so an exit
@@ -971,15 +1280,13 @@ mod tests {
         assert!(!score_candidates(&screenable_inputs()).is_empty());
     }
 
-    /// Three tickers in two sectors, with the short-leg candidate stretched away from its partner
-    /// so the spread reads above the entry threshold.
+    /// Two cointegrated names with the short-leg candidate stretched 1.2% away from its partner.
+    ///
+    /// The generated series is near-deterministic — its spread deviation is about 0.3% — so a
+    /// larger stretch scores a z the screen would never admit and every test built on it would
+    /// assert against a candidate that cannot exist. This lands at z ~ 3.0.
     fn screenable_inputs() -> Vec<ScreenInput> {
         let (leader, follower) = cointegrated_series(CORRELATION_WINDOW_SESSIONS);
-        // 1.2%, not the 50% this used to stretch by. The generated series is near-deterministic —
-        // its spread deviation is about 0.3%, two orders below a real pair's — so a 50% dislocation
-        // scored z = 128, a value the screen would never see and the exit rule would close
-        // instantly. Every test built on the fixture was therefore asserting against a candidate
-        // that could not exist. This lands at z ~ 3.0, inside the band the screen actually admits.
         let stretched = follower.last().unwrap() * 1.012;
         vec![
             input("AAAA", leader.clone(), *leader.last().unwrap(), 0.03),
@@ -989,12 +1296,16 @@ mod tests {
 
     /// Every candidate the screen emits must survive its own entry reading.
     ///
-    /// The screen and the exit rule were each internally consistent and never checked against one
-    /// another, which is how entries above the old absolute stop of 4.0 were admitted and then
-    /// closed by the next pass. Composing the two here is the only place that gap is visible.
+    /// Composing the screen and the exit rule is the only place a candidate born closable is
+    /// visible: each half is internally consistent about a threshold the other never sees.
     #[test]
     fn test_no_candidate_is_closable_at_its_own_entry() {
-        for candidate in score_candidates(&screenable_inputs()) {
+        let candidates = score_candidates(&screenable_inputs());
+        // The count before the readings. A loop over an empty reservoir asserts nothing, and the
+        // fixture produces exactly one pair from two names.
+        assert_eq!(candidates.len(), 1, "the fixture must produce a candidate");
+
+        for candidate in candidates {
             let entry = candidate.entry_z_score();
             assert!(
                 entry <= ENTRY_Z_SCORE_CAP,
@@ -1009,6 +1320,10 @@ mod tests {
     }
 
     /// The cap is an upper bound on what the screen will emit, not advice.
+    ///
+    /// The emptiness is the assertion, so it has to be attributed: the same two names produce a
+    /// candidate at a stretch inside the band, and the orientation names the cap as what refused
+    /// them. An empty reservoir on its own is equally consistent with a broken fixture.
     #[test]
     fn test_a_spread_beyond_the_cap_is_not_a_candidate() {
         let (leader, follower) = cointegrated_series(CORRELATION_WINDOW_SESSIONS);
@@ -1018,13 +1333,25 @@ mod tests {
             input("AAAA", leader.clone(), *leader.last().unwrap(), 0.03),
             input("BBBB", follower.clone(), dislocated, -0.02),
         ];
-        for candidate in score_candidates(&inputs) {
-            assert!(
-                candidate.entry_z_score() <= ENTRY_Z_SCORE_CAP,
-                "a dislocated spread at z={} cleared the cap",
-                candidate.entry_z_score()
-            );
-        }
+
+        assert_eq!(score_candidates(&screenable_inputs()).len(), 1);
+        assert_eq!(
+            score_candidates(&inputs).len(),
+            0,
+            "a dislocated spread is not a candidate"
+        );
+
+        // In the order tried: BBBB long is the mirror of the dislocation and reads below the
+        // floor; AAAA long is the stretched orientation, and the cap is what turns it away.
+        let [bbbb_long, aaaa_long] =
+            orient(&inputs[0], &inputs[1]).expect_err("the dislocation must be refused");
+        assert_eq!(bbbb_long.as_str(), "entry_below_threshold");
+
+        let OrientationRejection::EntryBeyondCap { z_score, cap } = aaaa_long else {
+            panic!("expected the cap to refuse it, got {aaaa_long:?}");
+        };
+        assert!(z_score > 5.0, "the fixture must sit beyond the cap");
+        assert_eq!(cap, 5.0, "the cap reported is the one in schema terms");
     }
 
     /// The spread decides which leg is expensive; the short leg is the expensive one, always. An
@@ -1038,11 +1365,14 @@ mod tests {
         assert!(candidate.entry_z_score() >= ENTRY_Z_SCORE);
     }
 
-    /// Every entry score is positive by construction, which is what lets convergence be "falls to
-    /// zero" and a stop be "rises past four" with no sign handling anywhere downstream.
+    /// Every entry score is positive by construction, which is what lets convergence be a fall to
+    /// zero with no sign handling anywhere downstream.
     #[test]
     fn test_every_candidate_carries_a_positive_entry_score() {
-        for candidate in score_candidates(&screenable_inputs()) {
+        let candidates = score_candidates(&screenable_inputs());
+        assert_eq!(candidates.len(), 1, "the fixture must produce a candidate");
+
+        for candidate in candidates {
             assert!(candidate.entry_z_score() > 0.0);
             assert!(candidate.signal_strength() > 0.0);
         }
@@ -1092,14 +1422,8 @@ mod tests {
 
     /// Two cointegrated names are a candidate, whatever sectors they are in.
     ///
-    /// This replaces a test asserting the reverse. A same-sector spread is the canonical statistical
-    /// arbitrage trade, and within-sector correlation is where the `[0.5, 0.95]` band is most
-    /// densely populated, so the old rule removed disproportionately many of the best candidates.
-    ///
-    /// Sector cannot even be *expressed* here any more: `ScreenInput` no longer carries one, because
-    /// nothing in scoring reads it. That is the strongest statement of the change — the screen has
-    /// no sector to consider. Concentration is bounded in `select_disjoint` instead, and the tests
-    /// for it are below.
+    /// Sector cannot even be expressed here: `ScreenInput` does not carry one, because nothing in
+    /// scoring reads it. Concentration is bounded in [`select_disjoint`] instead.
     #[test]
     fn test_scoring_does_not_consider_sector() {
         // The shared fixture rather than a second hand-rolled dislocation, so the entry score stays
@@ -1263,7 +1587,7 @@ mod tests {
         for close in broken.iter_mut().skip(CORRELATION_WINDOW_SESSIONS / 2) {
             *close *= 0.1;
         }
-        assert!(SpreadModel::with_hedge_ratio(0.9, &leader, &broken).is_some());
+        assert!(SpreadModel::with_hedge_ratio(0.9, &leader, &broken).is_ok());
     }
 
     #[test]
@@ -1338,7 +1662,7 @@ mod tests {
 
         assert_eq!(
             selected.len(),
-            MAXIMUM_LEGS_PER_SECTOR / 2,
+            3,
             "six legs allows three same-sector pairs, not six"
         );
         assert_eq!(
@@ -1372,7 +1696,7 @@ mod tests {
 
         assert_eq!(
             selected.len(),
-            MAXIMUM_LEGS_PER_SECTOR,
+            6,
             "one leg per sector per pair, so six pairs fit inside a six-leg cap"
         );
     }
@@ -1408,15 +1732,13 @@ mod tests {
 
         let selected = select_disjoint(&candidates, 10, &held, &sectors);
 
-        assert_eq!(selected.len(), MAXIMUM_LEGS_PER_SECTOR / 2);
+        assert_eq!(selected.len(), 3);
     }
 
     /// An empty sector map caps nothing.
     ///
-    /// Recorded as a property of this function, not as a claim about the system: `build_screen_inputs`
-    /// refuses a ticker with no sector before it can become a candidate, precisely so an unmeasurable
-    /// name cannot slip past the cap. What this pins is that the *cap* is the only thing doing the
-    /// capping — remove the upstream filter and concentration becomes unbounded, silently.
+    /// A property of this function, not a claim about the system: `build_screen_inputs` refuses a
+    /// ticker with no sector upstream, so what this pins is that the cap is the only thing capping.
     #[test]
     fn test_an_empty_sector_map_constrains_nothing() {
         let (candidates, _) = same_sector_candidates(5, "Technology");
@@ -1438,20 +1760,51 @@ mod tests {
         .expect("the test candidate must be constructible")
     }
 
+    /// Five distinct refusals, each naming itself and the number it refused. Collapsed into one
+    /// answer they are a candidate that "did not construct", which no bound can be moved from.
     #[test]
     fn test_candidate_rejects_a_backwards_orientation_or_a_contradicting_model() {
         let pair_id = PairID::new(ticker("AAAA"), ticker("BBBB"));
+        let refuse = |hedge_ratio, entry_z_score, signal_strength, long_price, short_price| {
+            PairCandidate::new(
+                pair_id.clone(),
+                hedge_ratio,
+                entry_z_score,
+                signal_strength,
+                long_price,
+                short_price,
+            )
+            .expect_err("the candidate must be refused")
+        };
+
         assert_eq!(
-            PairCandidate::new(pair_id.clone(), 1.0, -2.5, 0.02, 100.0, 100.0),
-            None
+            refuse(f64::NAN, 2.5, 0.02, 100.0, 100.0).as_str(),
+            "hedge_ratio_unusable"
         );
         assert_eq!(
-            PairCandidate::new(pair_id.clone(), 1.0, 2.5, -0.02, 100.0, 100.0),
-            None
+            refuse(1.0, -2.5, 0.02, 100.0, 100.0),
+            CandidateRejection::EntryZScoreNotPositive {
+                entry_z_score: -2.5
+            }
         );
         assert_eq!(
-            PairCandidate::new(pair_id, 1.0, 2.5, 0.02, 100.0, 0.0),
-            None
+            refuse(1.0, 2.5, -0.02, 100.0, 100.0),
+            CandidateRejection::SignalStrengthNotPositive {
+                signal_strength: -0.02
+            }
+        );
+        assert_eq!(
+            refuse(1.0, 2.5, 0.02, 0.0, 100.0),
+            CandidateRejection::LongPriceUnusable { long_price: 0.0 }
+        );
+        assert_eq!(
+            refuse(1.0, 2.5, 0.02, 100.0, 0.0),
+            CandidateRejection::ShortPriceUnusable { short_price: 0.0 }
+        );
+        // The whole string: the detail is aggregated out of the journal, so the format is contract.
+        assert_eq!(
+            refuse(1.0, -2.5, 0.02, 100.0, 100.0).detail(),
+            "entry_z_score=-2.5"
         );
     }
 
@@ -1495,18 +1848,32 @@ mod tests {
         assert!(select_disjoint(&candidates, 0, &HashSet::new(), &HashMap::new()).is_empty());
     }
 
+    /// A pair with no history is named rather than dropped: absent from the map it is
+    /// indistinguishable from a pair whose distribution genuinely would not fit.
     #[test]
-    fn test_exit_models_skips_a_pair_whose_history_is_missing() {
+    fn test_exit_models_names_a_pair_whose_history_is_missing() {
         let (long_closes, short_closes) = cointegrated_series(CORRELATION_WINDOW_SESSIONS);
         let mut closes = HashMap::new();
         closes.insert(ticker("AAAA"), long_closes);
         closes.insert(ticker("BBBB"), short_closes);
+        closes.insert(ticker("CCCC"), vec![100.0; CORRELATION_WINDOW_SESSIONS]);
 
         let present = PairID::new(ticker("AAAA"), ticker("BBBB"));
         let absent = PairID::new(ticker("AAAA"), ticker("ZZZZ"));
-        let models = exit_models([(&present, 1.0), (&absent, 1.0)], &closes);
+        let flat = PairID::new(ticker("CCCC"), ticker("CCCC"));
+        let models = exit_models([(&present, 1.0), (&absent, 1.0), (&flat, 1.0)], &closes);
 
-        assert!(models.contains_key(&present));
-        assert!(!models.contains_key(&absent));
+        assert_eq!(models.len(), 3, "every supplied pair gets an entry");
+        assert!(models[&present].is_ok());
+        assert_eq!(
+            models[&absent].expect_err("a pair with no history must say so"),
+            ExitModelFailure::MissingCloseHistory
+        );
+        assert_eq!(
+            models[&flat]
+                .expect_err("a flat spread must say so")
+                .as_str(),
+            "no_dispersion"
+        );
     }
 }

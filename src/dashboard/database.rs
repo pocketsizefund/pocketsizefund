@@ -1,7 +1,6 @@
 //! Read-only queries behind the dashboard, and the aggregations computed from them.
 //!
-//! Raw `sqlx::query` rather than the macros, so the dashboard adds no `.sqlx` cache entries. The
-//! aggregations are pure functions over rows they were handed, testable without a database.
+//! Raw `sqlx::query` rather than the macros, so the dashboard adds no `.sqlx` cache entries.
 
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -116,16 +115,11 @@ async fn fetch_account_snapshot_history(
 
 /// Fetches the sessions in which capital moved into or out of the account, within a session range.
 ///
-/// Bounded to the snapshot history the dashboard displays, because a transfer outside it cannot
-/// change any published figure: every baseline [`compute_period_returns`] measures from comes out of
-/// that same history. Bounding also keeps the scan off the whole table —
-/// `idx_account_activities_transaction_time` covers this predicate, and there is no index on
-/// `activity_type`.
-///
-/// Timestamps come back raw and become sessions through [`SessionDate::at`], rather than being
-/// converted in SQL: `(transaction_time AT TIME ZONE 'America/New_York')::date` would hide the column
-/// behind an expression and defeat that index, which is the same reasoning
-/// [`SessionDate::bounds`] documents for itself.
+/// Bounded to the snapshot history the dashboard displays, because every baseline
+/// [`compute_period_returns`] measures from comes out of that same history, and because
+/// `idx_account_activities_transaction_time` covers this predicate where nothing indexes
+/// `activity_type`. Timestamps come back raw and become sessions through [`SessionDate::at`]:
+/// converting in SQL would hide the column behind an expression and defeat that index.
 async fn fetch_transfer_sessions(
     pool: &PgPool,
     first: SessionDate,

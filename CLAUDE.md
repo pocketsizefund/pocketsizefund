@@ -6,116 +6,68 @@
 
 This is a collection of guidelines and references.
 
-- Rust is the primary project language
 - [devenv](https://devenv.sh/) manages the development environment, tasks, and local services
 - Services run on a single exe.dev VM via `devenv --profile application up` in both dev and production
-- Secrets are managed via [secretspec](https://secretspec.dev/) with the `awssm` provider
-- Rust code follows Cargo workspace conventions
-- AWS S3 is used for blob storage
-- AWS Secrets Manager stores secrets in secretspec format (`secretspec/{project}/{profile}/{key}`)
-- Use `devenv tasks run checks:rust` for comprehensive Rust checks
+- Secrets are managed via [secretspec](https://secretspec.dev/) with the `awssm` provider, stored in AWS
+  Secrets Manager as `secretspec/{project}/{profile}/{key}`
+- Use `devenv tasks run checks:rust` for comprehensive Rust checks; `devenv tasks run` supports prefix group
+  execution, so `checks:rust` runs every `checks:rust:*` subtask
+- Introduce new dependencies only after approval
+- Use Polars for [Rust](https://docs.rs/polars/latest/polars/) dataframes
+- See `README.md` "Principles" section for developer philosophy
 - Docstrings are one sentence on what the item is for, plus at most two more for a caveat, invariant, or
-  assumption a caller cannot read off the signature; never multi-paragraph, and never longer than the
-  item it documents
-- Module documentation is three lines maximum
-- In-line comments are one line and appear only where a step is genuinely surprising, with two lines the
-  hard ceiling
+  assumption a caller cannot read off the signature; module documentation is three lines maximum, and an
+  in-line comment is one line where a step is genuinely surprising, with two the hard ceiling
 - Rationale belongs in the commit message rather than the source — why this approach and not the obvious
   one, what broke before, what the alternative would cost; the source states the constraint and the commit
   argues it
 - Spell identifiers out fully in code (variables, functions, fields, modules): prefer `dataframe` over
-  `df`, `message` over `msg`, `error_message` over `err_msg`, `quantity` over `qty`, `index` over `idx`,
-  `column` over `col`, `value` over `val`, `volatility` over `vol`, `profit_and_loss` over `pnl`,
-  `timezone` over `tz`, and `aggregate` over `agg`
+  `df`, `message` over `msg`, `quantity` over `qty`, `index` over `idx`, `value` over `val`, `column` over
+  `col`, and `volatility` over `vol`
 - Expand metric and domain acronyms in identifiers too: `root_mean_squared_error` (not `rmse`),
-  `mean_absolute_error` (not `mae`), `mean_squared_error` (not `mse`), `r_squared` (not `r2`),
-  `continuous_ranked_probability_score` (not `crps`), `end_of_day` (not `eod`), and `postgres` (not `pg`)
-- Keep only universally-understood acronyms as-is: formats, protocols, and identity (`csv`, `json`,
-  `sql`, `http`, `url`, `uri`, `io`, `id`, `uuid`, `api`) and established domain or proper-noun terms
-  (`aws`, `utc`, `etf`, `ohlcv`, `guc`); case acronyms as ordinary words per language convention
-- Never rename fixed external identifiers: devenv profile names (`application`, `trainer`), the `awssm` secretspec
-  provider, the `tide` model and package name, environment variables and secret keys (e.g.
-  `DATABASE_URL`, `ALPACA_API_KEY_ID`), library import aliases (`np`, `pl`, `pa`), linter directives
-  (`noqa`), and external library fields and parameters (e.g. the Alpaca/Massive `vw` deserialization
-  field, datetime `tz=`/`tzinfo`)
-- Apply the spell-it-out rule to new code, to identifiers you touch, and to dedicated cleanup passes;
-  already-shipped database and schema identifiers (index, constraint, and column names) and stored
-  values are effectively fixed and change only via an explicit migration
-- Follow Rust recommended casing conventions
-- Introduce new dependencies only after approval
-- Use Polars for [Rust](https://docs.rs/polars/latest/polars/) dataframes
-- Ensure Rust automated test suites achieve at least 75% line or statement coverage
-- Exclude generated code, third-party code, tooling boilerplate, and anything explicitly excluded in this repository
-  from test coverage calculations
-- Structured log messages should be short sentences with sentence case (e.g., "Starting data sync" not "STARTING DATA SYNC")
-- When debugging or fixing bugs, check structured logs and error log files in `/var/log/fund/` to understand what happened
-- After fixing a bug, create a Git commit with a detailed summary of the root cause and fix in the commit message
-- When creating GitHub issues or pull requests, use the templates in the `.github/` directory and follow commented instructions
-- When naming branches, use an all-lowercase, hyphenated, and concise summary of the work being done
-- `models/` folder contains model definitions and training code and `src/` contains application code
-- See `README.md` "Principles" section for developer philosophy
-- If something goes wrong during a task, stop immediately and re-plan rather than continuing
-- Use subagents to keep main context window clean and offload research, exploration, and analysis work
-- Prove changes work before marking tasks complete - run `devenv tasks run` checks, compare behavior, demonstrate correctness
-- Verify against real data before reporting done, and say which route was used: `secretspec run --
-  curl` against Alpaca or Massive, DuckDB over the S3 parquet, or a trainer rehearsal read back from
-  `/var/log/fund/`; when only fixtures were exercised, say so plainly, and ask to be pointed at real
-  data rather than inferring
-- Before filtering a provider feed by date, check whether the filter matches the event's own date or
-  the provider's record time — Alpaca's activity `date=`/`after=` match record time, so a date-only
-  row dated D is returned by a query for D+1
-- For non-trivial changes, pause and ask "Is there a more elegant way?" before implementing
-- Make every change as simple as possible and impact minimal code
-- Find root causes and avoid temporary fixes - maintain high standards
-- Changes should only touch what's necessary to avoid introducing bugs
-- If uncertainty arises, ask for help or input rather than guessing
-- Do not introduce abstractions for single-use code
+  `mean_absolute_error` (not `mae`), `continuous_ranked_probability_score` (not `crps`), and `end_of_day`
+  (not `eod`)
+- Keep only universally-understood acronyms as-is: formats, protocols, and identity (`csv`, `json`, `sql`,
+  `http`, `url`, `uri`, `io`, `id`, `uuid`, `api`) and established domain or proper-noun terms (`aws`,
+  `utc`, `etf`, `ohlcv`); case acronyms as ordinary words per language convention
+- Never rename fixed external identifiers: devenv profile names (`application`, `trainer`), the `awssm`
+  secretspec provider, the `tide` model and package name, environment variables and secret keys, library
+  import aliases, linter directives, and external library fields and parameters
+- Apply the spell-it-out rule to new code and to identifiers you touch; already-shipped schema identifiers
+  and stored values are effectively fixed and change only via an explicit migration
 - Always match existing styles and patterns in the codebase for consistency
-- When fixing a bug, write tests that reproduce the bug before fixing it, then verify the tests pass after the fix
-- Pin test expectations to literals, never to the constant or list the test is checking — an
-  expectation derived from the value under test moves with it and can never fail
-- Prove a new assertion is load-bearing before trusting it: break the code it covers, watch the test
-  fail, restore
-- Do not use emojis in commit messages, GitHub issues, or pull requests - maintain a professional tone
-- When possible, use GitHub's GraphQL API directly for scripts and tools where token efficiency matters
-- When the user indicates pull request review bots have provided feedback, suggest running `/update-pull-request`
-- Invoke skills and suggest commands based on conversational context rather than waiting for explicit slash commands
-- Guard against division by zero when computing ratios or percentages from DataFrame aggregations
-- When Polars `Series.sum()` is used on a potentially empty or all-null series, handle the `None` return case
-- `devenv tasks run` supports prefix group execution: `checks:rust` runs all `checks:rust:*` subtasks
-- Prefer validated constructors with private fields over public struct literals — a value in scope should be proof of its
-  own validity, not a candidate for re-checking downstream
-- `schema.sql` is the single source of truth for the database schema; all DDL must use idempotent forms
-  (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`,
-  `DO` block checking `cron.job` for existence before calling `cron.schedule*(...)`, etc.)
-  so the file can be safely re-run against any populated database — never add migration-style
-  `ALTER TABLE`, `DROP TABLE`, or bare `UPDATE` blocks
-- Utilize category theory when designing data transformations and model architectures - functors, monads, and natural
-  transformations; this leads to more composable, reusable, and maintainable code
-- Only use existing repository labels for GitHub issues and pull requests
-- After any change to `schema.sql` or a `query!` macro, run `cargo sqlx prepare -- --all-features` to
-  regenerate the `.sqlx/` offline cache; if Postgres is not already running, start it first with
-  `devenv up -d --no-tui` then poll `pg_isready` until it accepts connections; use
-  `cargo sqlx prepare --check -- --all-features` to verify without updating the cache; the
-  `dashboard` uses raw `sqlx::query()` (no macros) and has no offline cache entries
+- Structured log messages should be short sentences with sentence case (e.g., "Starting data sync" not
+  "STARTING DATA SYNC")
 - Encode domain constraints in the type system: use enums with per-variant data to make invalid states
   unrepresentable at compile time rather than checking validity at runtime
-- Use `match` (not `if let` chains) when handling enum variants — exhaustive matching ensures every variant is
-  handled and the compiler flags missing cases when variants change
-- Wrap primitive types in tuple structs to enforce domain type safety (e.g., `struct Price(f64)`); never accept
-  a raw `f64` or `String` where a specific domain value is required
+- Wrap primitive types in tuple structs to enforce domain type safety (e.g., `struct Price(f64)`); never
+  accept a raw `f64` or `String` where a specific domain value is required
+- Prefer validated constructors with private fields over public struct literals — a value in scope should
+  be proof of its own validity, not a candidate for re-checking downstream
+- Use `match` (not `if let` chains) when handling enum variants, and never write a wildcard arm — the
+  compiler flags every site that needs attention when a variant is added, but only if no arm swallows the rest
+- Model state machines with two enums (states and transitions) matched as a tuple:
+  `match (current_state, transition) { ... }` — keeps business logic exhaustive and legible
+- `Option` means unmeasurable, never zero — zero is a measurement and absence is not
+- An absence carries its cause: when something is missing or refused, the type records why, along with the
+  number that produced the refusal
+- Two fields that must agree will eventually not; if one is a function of the other, derive it rather than
+  storing both
+- Write a comparison in one place — four call sites checking against the same constant are four rules that
+  agree only by coincidence
+- Design structs to be flat and normalized: each struct represents one concept with only its own fields;
+  avoid deep nesting or struct embedding as a substitute for inheritance
+- Prefer transformations that compose: a mapping that preserves structure, an operation with an identity
+  and an associative combine, and a round trip that returns the original are the shapes worth reaching for
 - Time has exactly two kinds and they never mix: an instant is a moment on the timeline and is always UTC
   (`DateTime<Utc>`, `TIMESTAMPTZ`), while a session is a trading day and is always an `America/New_York`
-  calendar date — that is what the exchange's day is, not a display preference. A session is
-  `data::calendar::SessionDate`, never a bare `NaiveDate`: derive one from an instant with `SessionDate::at`
-  and convert back with `.midnight()`/`.bounds()`, never via `Utc::now().date_naive()` or a hardcoded offset
-- `SessionDate::from_date` is for dates already expressed in Eastern terms — a parsed argument, a `DATE`
-  column, an exchange calendar entry — so transport modules (`common::alpaca`, `common::massive`,
-  `common::aws`) keep `NaiveDate` and the wrap happens at the domain boundary; render Eastern only at the
-  display boundary; `.midnight()` is for genuinely date-only values, such as an Alpaca transfer that
-  arrives with a date and no time, and never for a daily bar — those are stamped at the session
-  close (16:00 Eastern, so 20:00 UTC under daylight saving and 21:00 outside it), and a fixture
-  stamped at midnight sits on the edge of `bounds()` in a way ingestion never produces
+  calendar date — that is what the exchange's day is, not a display preference
+- A session is `data::calendar::SessionDate`, never a bare `NaiveDate`: derive one from an instant with
+  `SessionDate::at` and convert back with `.midnight()`/`.bounds()`, never via `Utc::now().date_naive()`
+  or a hardcoded offset
+- `SessionDate::from_date` is for dates already expressed in Eastern terms, so transport modules keep
+  `NaiveDate` and the wrap happens at the domain boundary; `.midnight()` is for genuinely date-only values
+  and never for a daily bar, which is stamped at the 16:00 Eastern close
 - `SessionDate` guarantees the timezone, not tradability: weekends and holidays are representable and
   `plus_calendar_days` will land on them, so only `TradingCalendar::is_trading_day` answers whether a date
   trades — never infer it from the type
@@ -123,7 +75,85 @@ This is a collection of guidelines and references.
   durations and timeouts carry no zone, so measure them on a monotonic clock (`tokio::time::Instant`), and
   schedule trading jobs with a UTC cron expression gated on the Eastern wall clock, a pairing that
   `tests/test_schedules.rs` enforces
-- Model state machines with two enums (states and transitions) matched as a tuple:
-  `match (current_state, transition) { ... }` — keeps business logic exhaustive and legible
-- Design structs to be flat and normalized: each struct represents one concept with only its own fields;
-  avoid deep nesting or struct embedding as a substitute for inheritance
+- Guard against division by zero when computing ratios or percentages from DataFrame aggregations, and
+  handle the `None` that Polars `Series.sum()` returns on an empty or all-null series
+- Ensure Rust automated test suites achieve at least 75% line or statement coverage, excluding generated
+  code, third-party code, tooling boilerplate, and anything explicitly excluded in this repository
+- When fixing a bug, write tests that reproduce the bug before fixing it, then verify the tests pass after
+  the fix
+- Pin test expectations to literals, never to the constant or list the test is checking — an expectation
+  derived from the value under test moves with it and can never fail
+- Prove a new assertion is load-bearing before trusting it: break the code it covers, watch the test fail,
+  restore
+- Assert the key set before comparing values — "for every element of the result" is vacuously true when the
+  result is empty
+- Never build a fixture from the belief under test; probe the live payload before typing a struct against
+  it, because a mock only proves the parser agrees with the fixture
+- Test the seam between components — two units that are each correct and each individually tested can still
+  be jointly broken
+- Assert mathematical properties the output must have as an object (mass integrates to one, no negative
+  probabilities, a mean that lands on the forward) rather than agreement with a fixture
+- Before believing a result, actively attempt to produce it from nothing — permute the labels, shuffle the
+  target, or feed the pipeline noise, and confirm the effect disappears
+- Run the identical pipeline on an input that cannot contain the effect; whatever it reports is the
+  machinery's own bias, and every real reading has to clear it
+- A control must differ from the treatment in exactly one respect, and it must be able to vary — a control
+  that cannot fail is not a control
+- Before trusting a measurement that reports nothing, confirm the instrument reports something when
+  something is there
+- State the trivial baseline before reading any metric, and quote skill against a named baseline rather
+  than a raw score
+- Unusually low variance across seeds is a warning rather than a quality signal — it means the metric is
+  pinned by the shape of the data rather than by anything the model learned
+- Magnitude before significance: ask whether the effect could pay for itself at measured cost before asking
+  whether it is real
+- Split the sample and test the difference between the halves, never whether both halves point the same way
+- Fix every free choice before looking at the result, and record each one with the number it produced
+- Scope a kill precisely — say exactly what was refuted and under what conditions, because over-claiming a
+  refutation closes doors that are still open and under-claiming reopens ones that are shut
+- Correcting an instance does not generalise the lesson; run the check deliberately against each new
+  measurement rather than remembering it as a past mistake
+- Standard errors assume independent observations, which financial data never is — aggregate to the level
+  that actually varies and report effective sample size rather than row count
+- Always report the undefined share alongside an estimate; an estimator silently defined on 60% of its
+  inputs reads exactly like a complete measurement
+- Print the population and the boundary values beside any difference — `1254 / 1254 / 0 / 0` is a proof and
+  a bare `0` is not
+- Screen on the quantity being paid for rather than a correlate of it, and check a screen's units before
+  checking its threshold
+- Levels drift and ranks do not — a threshold fixed in absolute units is a moving quantile, so scale
+  windows and cutoffs to the distribution's own width
+- Screen first, then average: a subset's cost read off the whole distribution's deciles is the wrong
+  number, and so is costing a strategy at an average over buckets it does not trade
+- Never quantile-bin an unordered category — nominal is not ordinal, and binning one merges unrelated
+  groups on the basis of the order they happened to arrive in
+- Compare mutual information as a share of the target's entropy rather than in raw bits, and subtract a
+  permutation-null baseline before reading the table
+- The universe is part of the answer, so journal it beside the result — the set of instruments collected
+  and the set measured over are different questions with different answers
+- Before filtering a provider feed by date, check whether the filter matches the event's own date or the
+  provider's record time — Alpaca's activity `date=`/`after=` match record time, so a date-only row dated
+  D is returned by a query for D+1
+- If something goes wrong during a task, stop immediately and re-plan rather than continuing
+- For non-trivial changes, pause and ask "Is there a more elegant way?" before implementing
+- Make every change as simple as possible, touching only what is necessary to avoid introducing bugs
+- Find root causes and avoid temporary fixes - maintain high standards
+- Do not introduce abstractions for single-use code
+- Use subagents to keep main context window clean and offload research, exploration, and analysis work
+- Invoke skills and suggest commands based on conversational context rather than waiting for explicit slash
+  commands
+- Prove changes work before marking tasks complete - run `devenv tasks run` checks, compare behavior,
+  demonstrate correctness
+- Verify against real data before reporting done, and say which route was used: `secretspec run -- curl`
+  against a provider, DuckDB over the S3 parquet, or a trainer rehearsal read back from `/var/log/fund/`;
+  when only fixtures were exercised, say so plainly, and ask to be pointed at real data rather than
+  inferring
+- When debugging or fixing bugs, check structured logs and error log files in `/var/log/fund/` to
+  understand what happened
+- A bug-fix commit message states the root cause and the fix rather than restating the diff
+- When creating GitHub issues or pull requests, use the templates in the `.github/` directory and follow
+  commented instructions
+- When naming branches, use an all-lowercase, hyphenated, and concise summary of the work being done
+- Only use existing repository labels for GitHub issues and pull requests
+- Do not use emojis in commit messages, GitHub issues, or pull requests - maintain a professional tone
+- When possible, use GitHub's GraphQL API directly for scripts and tools where token efficiency matters

@@ -117,7 +117,7 @@ pub fn entries_in_session(
             ];
             for (long, long_window, long_prices, short, short_window, short_prices) in orientations
             {
-                let Some(model) = SpreadModel::fit(long_window, short_window) else {
+                let Ok(model) = SpreadModel::fit(long_window, short_window) else {
                     continue;
                 };
                 let Some(entry) = follow(&model, session, long, long_prices, short, short_prices)

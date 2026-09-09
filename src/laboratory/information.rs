@@ -21,18 +21,29 @@ pub const NAMES_PER_CELL: usize = 1;
 
 /// What one session's cross-section says about a feature.
 ///
-/// Both figures are reported because their difference is the answer and their gap is the reason:
 /// `null_bits` is the bias a hundred-cell table carries at this sample size, and it is not small.
+/// `target_entropy` is the ceiling: mutual information cannot exceed it, so two targets compared in
+/// raw bits are being compared by their ceilings.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct SessionInformation {
     pub bits: f64,
     pub null_bits: f64,
+    /// Entropy of the binned target, in bits.
+    pub target_entropy: f64,
 }
 
 impl SessionInformation {
     /// Bits above what an unrelated feature scores on the same cross-section.
     pub fn excess(&self) -> f64 {
         self.bits - self.null_bits
+    }
+
+    /// Excess bits as a share of what the target itself carries, or `None` where it carries nothing.
+    ///
+    /// The comparable figure: a target cut into two bins caps every feature at one bit and one cut
+    /// into ten caps them at 3.32, so the raw excess ranks the cuts and not the features.
+    pub fn excess_share(&self) -> Option<f64> {
+        (self.target_entropy > 0.0).then(|| self.excess() / self.target_entropy)
     }
 }
 
@@ -180,6 +191,30 @@ pub fn mutual_information(feature: &[usize], target: &[usize]) -> Option<f64> {
     Some(bits)
 }
 
+/// Shannon entropy of a binned variable, in bits.
+///
+/// The ceiling on what any feature can say about it, which is what makes a share of it comparable
+/// across targets where a raw bit count is not.
+pub fn entropy(bins: &[usize]) -> Option<f64> {
+    if bins.is_empty() {
+        return None;
+    }
+    let total = bins.len() as f64;
+    let mut counts: std::collections::BTreeMap<usize, f64> = std::collections::BTreeMap::new();
+    for bin in bins {
+        *counts.entry(*bin).or_default() += 1.0;
+    }
+    Some(
+        counts
+            .into_values()
+            .map(|count| {
+                let share = count / total;
+                -share * share.log2()
+            })
+            .sum(),
+    )
+}
+
 /// Measures one session's cross-section, and the same cross-section with the feature shuffled.
 ///
 /// Shuffling breaks the association while leaving both marginals alone, so what it scores is
@@ -208,8 +243,13 @@ pub fn measure_session(
     let mut shuffled = feature_bins;
     shuffled.shuffle(&mut StdRng::seed_from_u64(seed));
     let null_bits = mutual_information(&shuffled, &target_bins)?;
+    let target_entropy = entropy(&target_bins)?;
 
-    Some(SessionInformation { bits, null_bits })
+    Some(SessionInformation {
+        bits,
+        null_bits,
+        target_entropy,
+    })
 }
 
 /// One session's cross-section: a feature read before the session, and what it forecasts.
@@ -342,6 +382,68 @@ mod tests {
         );
         // The shuffled copy of a perfect association is worth the bias and nothing more.
         assert!(measured.null_bits < 0.1, "{measured:?}");
+    }
+
+    /// Mutual information is capped by the target's own entropy, so a comparison in raw bits is a
+    /// comparison of caps. A perfect association reaches exactly one, which is the top of the scale.
+    #[test]
+    fn test_excess_is_reported_as_a_share_of_what_the_target_carries() {
+        let (feature, target) = paired(1000, |index| index as f64);
+        let measured = measure_session(&feature, &target, DEFAULT_BINS, 1).unwrap();
+
+        assert!(
+            (measured.target_entropy - 10.0_f64.log2()).abs() < 1e-9,
+            "ten equal bins carry log2(10): {measured:?}"
+        );
+        let share = measured
+            .excess_share()
+            .expect("the target carries something");
+        assert!(
+            share > 0.95,
+            "a perfect association takes nearly all: {share}"
+        );
+        assert!(
+            share <= 1.0 + 1e-9,
+            "and cannot exceed the ceiling: {share}"
+        );
+    }
+
+    /// The same relationship measured against a coarser target scores fewer raw bits and the same
+    /// share, which is the whole reason the share is the reported figure.
+    #[test]
+    fn test_a_coarser_target_lowers_the_bits_and_not_the_share() {
+        let (feature, target) = paired(1000, |index| index as f64);
+
+        let ten = measure_session(&feature, &target, 10, 1).unwrap();
+        let two = measure_session(&feature, &target, 2, 1).unwrap();
+
+        assert!(
+            (two.target_entropy - 1.0).abs() < 1e-9,
+            "two equal bins carry one bit: {two:?}"
+        );
+        assert!(
+            two.excess() < ten.excess() - 1.0,
+            "the coarser cut scores far fewer raw bits: {two:?} {ten:?}"
+        );
+        let (coarse, fine) = (two.excess_share().unwrap(), ten.excess_share().unwrap());
+        assert!(
+            (coarse - fine).abs() < 0.05,
+            "and the same share of its own ceiling: {coarse} {fine}"
+        );
+    }
+
+    /// A target every name shares carries nothing, and dividing by that ceiling is unmeasurable
+    /// rather than infinite or zero.
+    #[test]
+    fn test_a_target_carrying_nothing_has_no_share_to_report() {
+        let measured = SessionInformation {
+            bits: 0.0,
+            null_bits: 0.0,
+            target_entropy: 0.0,
+        };
+        assert_eq!(measured.excess_share(), None);
+        assert_eq!(entropy(&[]), None);
+        assert_eq!(entropy(&[3, 3, 3]), Some(0.0));
     }
 
     /// Reversing the target is still a perfect association: mutual information counts shared
@@ -554,9 +656,9 @@ mod tests {
         );
     }
 
-    /// The market's own move is a constant across a session, and the bins are cut by rank, so it
-    /// is already absent from every figure here. Measured before this was understood: an outcome
-    /// that demeaned the target returned bit-identical numbers, because it could not do otherwise.
+    /// The market's own move is a constant across a session, and the bins are cut by rank, so it is
+    /// already absent from every figure here — an outcome that demeaned the target could only
+    /// return bit-identical numbers.
     #[test]
     fn test_the_sessions_own_move_is_already_out_of_the_measurement() {
         let (feature, target) = paired(1000, |index| ((index * 37) % 1000) as f64);
@@ -604,9 +706,8 @@ mod tests {
         );
     }
 
-    /// The defect this replaced: a nominal column cut into ten quantiles merges its groups by
-    /// nothing but their numbering, and the data has thirteen sectors and a hundred and fifty-one
-    /// industries.
+    /// A nominal column cut into ten quantiles merges its groups by nothing but their numbering,
+    /// and the data has thirteen sectors and a hundred and fifty-one industries.
     #[test]
     fn test_more_groups_than_bins_stay_apart() {
         let values: Vec<usize> = (0..40).map(|index| index % 20).collect();

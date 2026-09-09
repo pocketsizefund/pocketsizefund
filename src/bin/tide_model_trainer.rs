@@ -1,16 +1,6 @@
 //! The trainer: repair, load, train, publish. Runs on its own machine with no database.
 //!
-//! It fetches its own bars from Massive and writes its own parquet rather than reading the
-//! application's nightly export, so the only thing crossing between the two VMs is the finished
-//! artifact. The archive it owns is the long-term record of those bars; the application exports
-//! only its own tables.
-//!
-//! Frames are built through [`fund::data::bars::bars_to_dataframe`], shared with the application:
-//! if the two diverged, the model would train on columns the inference path does not produce.
-//!
-//! Nothing here touches a database, and Alpaca is optional — Massive answers bars by date, so there
-//! is no symbol list to build. The trading calendar and the boundary table do need a broker key, and
-//! both warn and carry on without one: a repair that also requests holidays beats no repair.
+//! It fetches its own bars and writes its own parquet; only the finished artifact crosses the VMs.
 
 use burn::module::AutodiffModule;
 use burn::tensor::backend::Backend;
@@ -320,12 +310,22 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let inner_model = best_model.valid();
-    let metrics = evaluate(&inner_model, &validation_dataset, &parameters)?;
+    let report = evaluate(&inner_model, &validation_dataset, &parameters)?;
+    let metrics = report.metrics;
+    // Every figure beside the trivial forecast it has to beat: a CRPS alone quotes no skill, and a
+    // directional accuracy alone is the base rate whenever the median never turns negative.
     info!(
         continuous_ranked_probability_score = metrics.continuous_ranked_probability_score,
+        baseline = report.baseline_name,
+        baseline_continuous_ranked_probability_score =
+            report.baseline.continuous_ranked_probability_score,
+        continuous_ranked_probability_score_skill =
+            report.continuous_ranked_probability_score_skill(),
         directional_accuracy = metrics.directional_accuracy,
+        base_rate = report.baseline.directional_accuracy,
         quantile_coverage = metrics.quantile_coverage,
-        "Evaluation metrics"
+        nominal_coverage = report.nominal_coverage,
+        "Evaluation metrics against the trivial forecast"
     );
 
     let staging = tempfile::tempdir()?;
@@ -380,19 +380,26 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
     // Every variant named. A wildcard would send a future `DriftStatus` down the informational path
     // with no compiler error, which is the case where a new signal is most likely to be missed.
+    // The trivial forecast rides along on both arms: the drift baseline is this model's own past, so
+    // a run can hold steady against every prior run while never having beaten a constant.
     match drift.status {
         DriftStatus::DriftDetected => warn!(
             current_continuous_ranked_probability_score =
                 drift.current_continuous_ranked_probability_score,
-            baseline_continuous_ranked_probability_score =
+            prior_runs_continuous_ranked_probability_score =
                 drift.baseline_continuous_ranked_probability_score,
+            trivial_forecast = report.baseline_name,
+            trivial_forecast_continuous_ranked_probability_score =
+                report.baseline.continuous_ranked_probability_score,
             "Model drift detected"
         ),
         DriftStatus::NoDrift | DriftStatus::InsufficientHistory => info!(
             status = ?drift.status,
             current_continuous_ranked_probability_score = drift.current_continuous_ranked_probability_score,
-            baseline_continuous_ranked_probability_score = drift.baseline_continuous_ranked_probability_score,
+            prior_runs_continuous_ranked_probability_score = drift.baseline_continuous_ranked_probability_score,
             prior_runs = prior_continuous_ranked_probability_scores.len(),
+            trivial_forecast = report.baseline_name,
+            trivial_forecast_continuous_ranked_probability_score = report.baseline.continuous_ranked_probability_score,
             message = drift.message,
             "Drift check complete"
         ),
@@ -411,6 +418,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         "epochs_run": losses.len(),
         "final_train_loss": losses.last().copied().unwrap_or_default(),
         "metrics": metrics,
+        // The same three metrics for a forecast that knows only the training distribution, so a
+        // later reader can quote skill rather than a raw score it has nothing to compare against.
+        "baseline": {
+            "name": report.baseline_name,
+            "metrics": report.baseline,
+            "nominal_coverage": report.nominal_coverage,
+        },
         "train_samples": train_dataset.len(),
         "validation_samples": validation_dataset.len(),
         // `crps` keys are the published spelling and stay that way; see `EvaluationMetrics`. Renaming
@@ -548,26 +562,11 @@ fn training_configuration() -> Result<TrainConfiguration, Box<dyn std::error::Er
     )?)
 }
 
-/// Reads every available daily partition over the lookback window and concatenates them.
-///
-/// Missing days — holidays and sessions Massive has never answered for — are skipped rather than
-/// treated as errors, which is what lets one unavailable session cost a day of history instead of
-/// the whole run. Stage one has already tried to fill everything else.
-///
-/// Weekends are stepped over rather than requested. Stage one never writes a weekend partition, so
-/// a request for one is a guaranteed 404 — about a hundred of them per run. Skipping them here uses
-/// the same predicate the archive scan does, which is what keeps reader and writer agreeing about
-/// which days the archive can hold at all.
-/// The bar columns training consumes, in the types [`fund::data::bars::bars_to_dataframe`] writes.
-///
-/// Deliberately a subset of what the archive holds: `bar_interval` and `transactions` are written
-/// but never trained on, so projecting them away costs nothing.
 /// CRPS from the most recent prior runs' `run_metadata.json`, newest first.
 ///
 /// Read from the standalone metadata object rather than from inside the artifact tarball, so a
-/// baseline can be built without downloading every prior run. An unreadable run is skipped and the
-/// rest are kept; only an unlistable prefix yields nothing. Either way a drift baseline that cannot
-/// be read is not a reason to fail a training run.
+/// baseline can be built without downloading every prior run. An unreadable run is skipped and an
+/// unlistable prefix yields nothing, because a drift baseline is not a reason to fail a training run.
 async fn fetch_prior_continuous_ranked_probability_scores(
     s3_client: &aws_sdk_s3::Client,
     bucket: &str,

@@ -92,13 +92,9 @@ pub fn volume_eligibility(identifiers: &[u32]) -> Eligibility {
 
 /// The marker a SIP spells "no condition applies" with, which is not a condition.
 ///
-/// Tape-dependent like every other spelling here: CTA writes a space and UTP an at-sign. The
-/// provider's reference table has no row for either, because Massive says the same thing by sending
-/// no conditions at all while Alpaca states it on nearly every print.
-///
-/// Counting it unknown reported the whole tape as unreadable — measured on 2026-08-20, 688,578 of
-/// AAPL's 688,608 prints and 573,781 of SPY's 573,791. Fixing only the at-sign left SPY unchanged,
-/// which is what identified the tape as the axis rather than the character.
+/// Tape-dependent like every other spelling here: CTA writes a space and UTP an at-sign, and the
+/// provider's reference table has a row for neither. Counting it unknown reports nearly every print
+/// on the tape as unreadable, so both spellings must be recognized rather than one.
 fn regular_sale_on(tape: Tape) -> u8 {
     match tape {
         Tape::ConsolidatedTapeAssociation => b' ',
@@ -393,23 +389,32 @@ mod tests {
         ));
     }
 
-    /// Both providers reach the same verdict on the same trade.
+    /// Both providers reach the same verdict on the same trade, and it is the verdict named here.
     ///
     /// The point of the whole module: a bulk fold reading Massive identifiers and a nightly fold
-    /// reading Alpaca characters must not disagree about whether a print is volume.
+    /// reading Alpaca characters must not disagree about whether a print is volume. Each pair
+    /// carries its own literal expectation, so both paths regressing to `Eligible` together fails.
     #[test]
     fn test_the_two_provider_spellings_agree_on_eligibility() {
         let tape = Tape::ConsolidatedTapeAssociation;
-        for (identifiers, characters) in [
-            (vec![37u32], b"I".to_vec()),
-            (vec![16], b"Q".to_vec()),
-            (vec![15], b"M".to_vec()),
-            (vec![14], b"F".to_vec()),
+        for (identifiers, characters, expected) in [
+            // Odd Lot Trade, which is real volume.
+            (vec![37u32], b"I".to_vec(), Eligibility::Eligible),
+            // Market Center Official Open and Close, which are the auctions.
+            (vec![16], b"Q".to_vec(), Eligibility::Ineligible),
+            (vec![15], b"M".to_vec(), Eligibility::Ineligible),
+            // Intermarket Sweep, which is an ordinary print.
+            (vec![14], b"F".to_vec(), Eligibility::Eligible),
         ] {
             assert_eq!(
                 volume_eligibility(&identifiers),
+                expected,
+                "{identifiers:?} must be {expected:?}"
+            );
+            assert_eq!(
                 volume_eligibility_from_characters(&characters, tape),
-                "{identifiers:?} and {characters:?} must agree"
+                expected,
+                "{characters:?} must be {expected:?}"
             );
         }
     }

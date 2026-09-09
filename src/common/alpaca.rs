@@ -501,16 +501,12 @@ impl OrderIntent {
     }
 }
 
-/// Where a submitted order stands, reduced to the three answers a caller acts on.
+/// Where a submitted order stands, collapsed from Alpaca's fifteen statuses to the three answers a
+/// caller acts on: keep waiting, use the fill, or unwind.
 ///
-/// Alpaca publishes fifteen order statuses. Collapsing them here rather than at each call site is
-/// what makes the caller's `match` exhaustive over outcomes it can actually respond to — keep
-/// waiting, use the fill, or unwind — instead of over a string it has to remember the meaning of.
-/// Every variant carries the broker's own status alongside the collapse, because the collapse is
-/// what the caller acts on and the raw status is what explains it afterwards. An order this process
-/// gave up on is recorded as `timed_out`, which is our word; whether Alpaca had it as `pending_new`
-/// or `accepted` at that moment is the difference between never reaching the market and reaching it
-/// with no contra side.
+/// Every variant carries the broker's own status beside the collapse, because the collapse is what
+/// a caller acts on and the raw status is what explains it afterwards. `timed_out` is our word, not
+/// Alpaca's.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OrderState {
     /// Alpaca still has it: accepted, queued, or partially filled. Ask again.
@@ -1309,7 +1305,11 @@ impl TradingClient {
         Ok(outcomes)
     }
 
-    /// Fetches one activity type for a single session date, walking pagination.
+    /// Fetches one activity type stamped `date` by Alpaca's own record clock, walking pagination.
+    ///
+    /// `date` is not the session an activity belongs to. Only a type carrying a real
+    /// `transaction_time` — [`ActivityType::Fill`] — answers this query for the day asked; a
+    /// date-only type is recorded the following morning, so `date=D` returns the row dated `D-1`.
     pub async fn fetch_activities(
         &self,
         activity_type: &ActivityType,
@@ -1451,13 +1451,9 @@ impl TradingClient {
 
     /// Fetches the daily equity curve over an inclusive date range.
     ///
-    /// **Alpaca's own `end` is exclusive**, so the day after it is what gets sent, making this
-    /// signature inclusive and sparing every caller the knowledge. Verified against the paper
-    /// account 2026-08-09: asking through Monday 2026-06-15 stopped at Friday the 12th. Left
-    /// uncompensated it drops the newest session, which is the one most likely to need repair.
-    ///
-    /// Days with a `null` equity are dropped rather than zeroed, since a zero would claim the
-    /// account was worthless rather than unvalued.
+    /// **Alpaca's own `end` is exclusive**, so the day after it is what gets sent and this
+    /// signature is inclusive. Days with a `null` equity are dropped rather than zeroed, since a
+    /// zero would claim the account was worthless rather than unvalued.
     pub async fn fetch_portfolio_history(
         &self,
         start: NaiveDate,
@@ -1517,16 +1513,12 @@ impl TradingClient {
     }
 }
 
-/// Midnight Eastern on a settlement date, as the equivalent UTC instant.
+/// Midnight Eastern on a settlement date, as the equivalent UTC instant, for the activities that
+/// carry a `date` and no time.
 ///
-/// Non-trade activities carry a `date` and no time, but `account_activities.transaction_time` is
-/// `NOT NULL`, so an instant has to be chosen. Eastern midnight is the only choice that round-trips:
-/// consumers recover the session with `SessionDate::at`, which reads the Eastern calendar day, so
-/// midnight UTC would resolve to the *previous* session for the whole Eastern evening and file a
-/// transfer against the wrong day's capital flows.
-///
-/// Duplicates `SessionDate::midnight`, which cannot be called from here: it lives in
-/// `data::calendar`, and that module already depends on this one.
+/// The only choice that round-trips through `SessionDate::at`: midnight UTC resolves to the
+/// *previous* session for the whole Eastern evening. Duplicates `SessionDate::midnight`, which
+/// cannot be borrowed back because `data::calendar` already depends on this module.
 fn eastern_midnight(date: NaiveDate) -> DateTime<Utc> {
     let local_midnight = date
         .and_hms_opt(0, 0, 0)
@@ -2251,9 +2243,9 @@ impl HistoricalTradePayload {
 
 /// Attempts per quote page before the fetch gives up on the whole symbol.
 ///
-/// Four, because the page is the unit that fails: one session of AAPL is 118 pages and a single
-/// dropped connection anywhere in the chain used to cost the name. Bounded rather than generous —
-/// a page that fails four times running is not a blip.
+/// Four, because the page is the unit that fails: one session of AAPL is 118 pages, so a single
+/// dropped connection anywhere in the chain would otherwise cost the whole name. Bounded rather
+/// than generous — a page that fails four times running is not a blip.
 const QUOTES_PAGE_ATTEMPTS: usize = 4;
 
 /// One page and what it took to get it.
@@ -2591,17 +2583,11 @@ impl MarketDataClient {
         )))
     }
 
-    /// Fetches one page, retrying the page itself while the failure is transient.
-    ///
-    /// Retried here rather than by the caller because the caller's unit is the whole symbol: AAPL
-    /// is 118 pages over one session, so restarting it to recover one dropped connection discards
-    /// 117 pages of work and gives the largest names both the highest failure odds and the dearest
-    /// recovery. The token identifies the page, so resuming at it is exact.
     /// One attempt at one page, with every failure mode expressed as the returned error.
     ///
-    /// Separated from the retry loop so there is one place an attempt can fail from. A connection
+    /// Separated from the retry loop so there is one place an attempt can fail from: a connection
     /// reset during `send` is the same transport fault as a body that arrives truncated, and the
-    /// two have to be indistinguishable here or only one of them gets retried.
+    /// two must be indistinguishable here or only one of them gets retried.
     async fn attempt_tick_page<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
@@ -2622,6 +2608,11 @@ impl MarketDataClient {
             .map_err(ClientError::Request)
     }
 
+    /// Fetches one page, retrying the page itself while the failure is transient.
+    ///
+    /// Retried here rather than by the caller, whose unit is the whole symbol: AAPL is 118 pages
+    /// over one session, so restarting it to recover one dropped connection discards 117 pages of
+    /// work. The token identifies the page, so resuming at it is exact.
     async fn tick_page<T: serde::de::DeserializeOwned>(
         &self,
         url: &str,
@@ -2650,17 +2641,13 @@ impl MarketDataClient {
         Err(last_error.expect("a failed attempt records its error"))
     }
 
-    /// Streams one symbol's quotes over `[start, end)` through `accept`, oldest first.
+    /// Streams one symbol's quotes over `[start, end)` through `accept`, oldest first, refusing
+    /// unusable books so `accept` only ever sees a quote worth weighing.
     ///
-    /// A fold rather than a `Vec` because the volume forbids collecting: AAPL alone printed 846,305
-    /// quotes on 2026-08-20, which is 110MB of JSON, and the archive wants a dozen numbers out of
-    /// it. Each page is dropped once `accept` has seen it, so peak memory is one page.
-    ///
-    /// Ticks arrive in ascending time order, which every time-weighted fold downstream depends on,
-    /// and unusable books are refused here so `accept` only ever sees a quote worth weighing.
-    ///
-    /// `as_of` is the day whose mapping resolves `ticker`, and must be the session being fetched:
-    /// the default is today, which would read a historical window through today's symbol table.
+    /// A fold rather than a `Vec` because the volume forbids collecting: each page is dropped once
+    /// `accept` has seen it, so peak memory is one page. `as_of` is the day whose mapping resolves
+    /// `ticker` and must be the session being fetched — the default is today, which would read a
+    /// historical window through today's symbol table.
     pub async fn fetch_quotes<F>(
         &self,
         ticker: &Ticker,
@@ -2830,13 +2817,9 @@ impl MarketDataClient {
 
     /// Fetches point-in-time snapshots for `tickers`, in bounded chunks.
     ///
-    /// A chunk that fails is logged and skipped; its symbols simply go unpriced. Partial pricing
-    /// narrows the entry set and holds the exits it cannot price, both of which beat pricing
-    /// nothing at all. Only a total failure — every chunk failing — is reported as an error, which
-    /// keeps that report meaningful for the common single-chunk case.
-    ///
-    /// The failed chunk's symbols come back named. Downstream, a symbol Alpaca had no quote for and
-    /// one whose request never completed are the same absence, and they are not the same problem.
+    /// A chunk that fails is skipped and its symbols named in `failed_tickers`, so a symbol Alpaca
+    /// had no quote for stays distinguishable from one whose request never completed. Only a total
+    /// failure — every chunk failing — is reported as an error.
     pub async fn fetch_snapshots(&self, tickers: &[Ticker]) -> Result<SnapshotFetch, ClientError> {
         if tickers.is_empty() {
             return Ok(SnapshotFetch::default());
@@ -4112,7 +4095,7 @@ mod tests {
             .mock("GET", "/v2/stocks/snapshots?symbols=AAPL&feed=sip")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(FULL_SNAPSHOT)
+            .with_body(SNAPSHOT_PAYLOAD)
             .create_async()
             .await;
 
@@ -4125,26 +4108,27 @@ mod tests {
         mock.assert_async().await;
     }
 
-    const FULL_SNAPSHOT: &str = r#"{
+    /// The two components a snapshot is read for, spelled as Alpaca sends them.
+    const SNAPSHOT_PAYLOAD: &str = r#"{
         "AAPL": {
             "latestTrade": {"t":"2026-06-10T15:59:00Z","p":201.5},
-            "latestQuote": {"t":"2026-06-10T15:59:30Z","bp":201.0,"ap":202.0,"bs":10,"as":12},
-            "minuteBar": {"t":"2026-06-10T15:59:00Z","o":201.1,"h":201.9,"l":201.0,"c":201.5,"v":15000.0,"vw":201.4,"n":120},
-            "dailyBar": {"t":"2026-06-10T04:00:00Z","o":199.0,"h":202.5,"l":198.5,"c":201.5,"v":2500000.0,"vw":200.9,"n":18000},
-            "prevDailyBar": {"t":"2026-06-09T04:00:00Z","o":197.0,"h":199.5,"l":196.5,"c":199.0,"v":2100000.0,"vw":198.2,"n":16000}
+            "latestQuote": {"t":"2026-06-10T15:59:30Z","bp":201.0,"ap":202.0,"bs":10,"as":12}
         }
     }"#;
 
-    /// The whole payload must survive, not just the quote. The previous daily bar in particular is
-    /// a free end-of-day backfill that the earlier quote-only parse discarded.
+    /// Both readings survive the parse, not just the quote.
+    ///
+    /// The bars Alpaca sends beside them are deliberately unparsed: this route prices the current
+    /// moment, and a daily bar belongs to the archive, stamped at the 16:00 Eastern close rather
+    /// than at the 04:00 UTC a snapshot carries.
     #[tokio::test]
-    async fn test_fetch_snapshots_retains_every_component() {
+    async fn test_fetch_snapshots_keeps_the_quote_and_the_trade() {
         let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("GET", "/v2/stocks/snapshots?symbols=AAPL&feed=iex")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(FULL_SNAPSHOT)
+            .with_body(SNAPSHOT_PAYLOAD)
             .create_async()
             .await;
 
@@ -4169,7 +4153,7 @@ mod tests {
         let mock = server
             .mock("GET", "/v2/stocks/snapshots?symbols=AAPL&feed=iex")
             .with_status(200)
-            .with_body(FULL_SNAPSHOT)
+            .with_body(SNAPSHOT_PAYLOAD)
             .create_async()
             .await;
 
@@ -4236,7 +4220,7 @@ mod tests {
         let mock = server
             .mock("GET", "/v2/stocks/snapshots?symbols=AAPL&feed=iex")
             .with_status(200)
-            .with_body(FULL_SNAPSHOT)
+            .with_body(SNAPSHOT_PAYLOAD)
             .create_async()
             .await;
 
@@ -4717,9 +4701,9 @@ mod tests {
 
     /// A tape field that is not one character is refused rather than read by its first byte.
     ///
-    /// `"CTA"` used to be accepted as tape `C`, so its conditions were resolved against the UTP
-    /// table while nothing counted the row as malformed. Pinned to `"CTA"` specifically because its
-    /// first byte is a *valid* tape letter, which is the case a length check catches and a
+    /// Read by its first byte, `"CTA"` passes as tape `C` and its conditions resolve against the
+    /// UTP table while nothing counts the row as malformed. Pinned to `"CTA"` specifically because
+    /// its first byte is a *valid* tape letter, which is the case a length check catches and a
     /// `from_letter` check alone does not.
     #[tokio::test]
     async fn test_a_multi_character_tape_is_refused_rather_than_read_by_its_first_letter() {

@@ -1,7 +1,6 @@
-//! The stock splits the bar archive is adjusted against, read by [`crate::data::adjust`].
-//!
-//! One S3 object rather than a partition per session: a split belongs to its execution date, but
-//! the feed revises and cancels announced ones, so only the whole table is ever authoritative.
+//! The stock splits the bar archive is adjusted against, read by [`crate::data::adjust`]. One S3
+//! object rather than a partition per session: the feed revises and cancels announced splits, so
+//! only the whole table is ever authoritative.
 
 use chrono::{DateTime, Utc};
 use polars::prelude::*;
@@ -46,13 +45,9 @@ pub fn splits_to_dataframe(
 /// Merges a stored splits table with a freshly fetched one.
 ///
 /// The fetched rows are the row set: a split the feed no longer reports has been cancelled, and
-/// keeping it would adjust prices across a split that never happened. Only `first_seen` survives
-/// from the stored copy, taking the earlier of the two so a row keeps the date we first saw it
-/// rather than the date of the latest fetch.
-///
-/// An empty fetch is the exception, and keeps the stored table. Replacing means an upstream answering
-/// success with nothing would erase every corporate action we hold, and the feed has never held
-/// nothing — it goes back to 1978.
+/// only `first_seen` survives from the stored copy, taking the earlier of the two so a row keeps
+/// the date it was first seen. An empty fetch is the exception and keeps the stored table, so an
+/// upstream answering success with nothing cannot erase every corporate action we hold.
 pub fn merge_splits(existing: DataFrame, fetched: DataFrame) -> Result<DataFrame, PolarsError> {
     if fetched.height() == 0 {
         return Ok(existing);

@@ -55,15 +55,9 @@ pub const DETAILS_ARCHIVE_KEY: &str = "data/derived/equity/details/details.csv";
 
 /// S3 key for the stock splits the bars are adjusted against.
 ///
-/// Read by [`crate::data::adjust::SplitTableCache`] at read time and by the trainer before it
-/// builds a dataset, so both see the same basis.
-///
-/// One object rather than a partition per session, unlike the bars beside it. A split belongs to
-/// its execution date, but the feed revises and cancels announced ones, so a per-date layout would
-/// leave a cancelled split sitting in a partition nothing revisits.
-///
-/// Under `corporate_actions/` rather than a directory of its own, because spinoffs and symbol
-/// changes are the same kind of fact read the same way and belong beside it as sibling files.
+/// One object rather than a partition per session, unlike the bars beside it: the feed revises and
+/// cancels announced splits, so a per-date layout would leave a cancelled one sitting in a
+/// partition nothing revisits.
 pub const SPLITS_ARCHIVE_KEY: &str = "data/derived/equity/corporate_actions/splits.parquet";
 
 /// Object holding every date a symbol's price series may not be read across.
@@ -72,19 +66,12 @@ pub const SPLITS_ARCHIVE_KEY: &str = "data/derived/equity/corporate_actions/spli
 /// purposes: a split says how to restate a price across a date, a boundary says not to.
 pub const BOUNDARIES_ARCHIVE_KEY: &str = "data/derived/equity/corporate_actions/boundaries.parquet";
 
-/// Trailing sessions re-fetched even when a partition already exists.
+/// Trailing sessions re-fetched even when a partition already exists, so a bar restated after the
+/// close reaches [`merge_partitions`] rather than being skipped as a day already held.
 ///
-/// Gap-filling alone never revisits a day it has, but a later response can *correct* an earlier one
-/// — a bar restated after the close, a symbol that arrived late. That is what [`merge_partitions`]
-/// and its last-write-wins strategy are for, and without a deliberate overlap they would have
-/// nothing to do. Kept separate from the gap scan because the two answer different questions, and
-/// the single fixed lookback that used to serve both could not do either well.
-///
-/// Counted in sessions, and it has to be taken from `expected` rather than measured backwards from
-/// `end` in calendar days. The two disagree across a weekend: a Monday run with a two-*day* floor
-/// lands on Saturday, so only Monday is above it and the preceding Friday is never revisited. The
-/// trainer runs weekdays, which made that every Monday, on the session a weekend gives the most
-/// time to be restated.
+/// Counted in sessions and taken from `expected`, never measured backwards from `end` in calendar
+/// days: a Monday run with a two-*day* floor lands on Saturday, leaving the preceding Friday — the
+/// session a weekend gives the most time to be restated — never revisited.
 const CORRECTION_WINDOW_SESSIONS: usize = 2;
 
 /// Sessions fetched before their partitions are written and the buffer released.
@@ -611,20 +598,12 @@ fn stampable_prefixes() -> Vec<StampablePrefix> {
     let mut found = Vec::new();
     for dataset in DerivedDataset::ALL {
         match dataset {
-            DerivedDataset::Bars | DerivedDataset::Quotes | DerivedDataset::Trades => {
-                let build: fn(BarInterval) -> String = match dataset {
-                    DerivedDataset::Bars => bar_archive_prefix,
-                    DerivedDataset::Quotes => quote_archive_prefix,
-                    _ => trade_archive_prefix,
-                };
-                for interval in BarInterval::ALL {
-                    found.push(StampablePrefix {
-                        dataset: dataset.as_str().to_string(),
-                        interval: Some(interval),
-                        prefix: build(interval),
-                        object: "data.parquet",
-                    });
-                }
+            DerivedDataset::Bars => found.extend(session_partitions(dataset, bar_archive_prefix)),
+            DerivedDataset::Quotes => {
+                found.extend(session_partitions(dataset, quote_archive_prefix))
+            }
+            DerivedDataset::Trades => {
+                found.extend(session_partitions(dataset, trade_archive_prefix))
             }
             // One object, not a partition tree, so the prefix is its parent and the object its name.
             DerivedDataset::Splits => found.push(whole_table(dataset, SPLITS_ARCHIVE_KEY)),
@@ -646,6 +625,22 @@ fn stampable_prefixes() -> Vec<StampablePrefix> {
     found
 }
 
+/// One session-partitioned prefix per cadence, which `build` names.
+fn session_partitions(
+    dataset: DerivedDataset,
+    build: fn(BarInterval) -> String,
+) -> Vec<StampablePrefix> {
+    BarInterval::ALL
+        .into_iter()
+        .map(|interval| StampablePrefix {
+            dataset: dataset.as_str().to_string(),
+            interval: Some(interval),
+            prefix: build(interval),
+            object: "data.parquet",
+        })
+        .collect()
+}
+
 /// A whole-table object described as a prefix and a filename, so the sweep can list it like any other.
 fn whole_table(dataset: DerivedDataset, key: &'static str) -> StampablePrefix {
     let (prefix, object) = key
@@ -660,7 +655,9 @@ fn whole_table(dataset: DerivedDataset, key: &'static str) -> StampablePrefix {
 }
 
 /// The session a partition or raw key belongs to, whatever its object is called.
-fn session_from_key(key: &str, object: &str) -> Option<NaiveDate> {
+///
+/// The partition path is written in Eastern terms, so this is the boundary the wrap happens at.
+fn session_from_key(key: &str, object: &str) -> Option<SessionDate> {
     let mut segments = key.rsplit('/');
     if segments.next()? != object {
         return None;
@@ -668,7 +665,7 @@ fn session_from_key(key: &str, object: &str) -> Option<NaiveDate> {
     let day: u32 = segments.next()?.strip_prefix("day=")?.parse().ok()?;
     let month: u32 = segments.next()?.strip_prefix("month=")?.parse().ok()?;
     let year: i32 = segments.next()?.strip_prefix("year=")?.parse().ok()?;
-    NaiveDate::from_ymd_opt(year, month, day)
+    NaiveDate::from_ymd_opt(year, month, day).map(SessionDate::from_date)
 }
 
 /// Every partition key under `prefix`, with whether it already carries a sidecar.
@@ -821,20 +818,11 @@ pub async fn sweep_partition_provenance(
 
 /// Fetches and writes every session in `[window_start, window_end]` the archive is missing.
 ///
-/// **A set difference, not a lookback**, so a missed night, a week of downtime, and an empty bucket
-/// are one case where a fixed lookback repairs only the first. Expected means "worth requesting"
-/// rather than "the market traded", since the trainer holds no broker credentials to consult a
-/// calendar with: a holiday is requested, answered with nothing, and requested again, at a cost of
-/// roughly ten empty requests a year that [`PassSummary`] reports rather than hides.
-///
-/// Idempotent: a second pass over an unchanged window requests only the correction window and
-/// writes the same rows back. Safe to interrupt, because partitions are written as each chunk
-/// completes and no state outside the bucket records progress — an interrupted seed keeps
-/// everything it had already written, and the next pass sees the rest as gaps.
-///
-/// Safe to run concurrently with another pass over the same bucket, which the trainer's nightly
-/// repair and an operator's seed can be. Each partition is written under a precondition on what was
-/// read, so a racing writer is detected rather than overwritten; see [`write_partition`].
+/// **A set difference, not a lookback**, so a missed night, a week of downtime and an empty bucket
+/// are one case. Expected means "worth requesting" rather than "the market traded", so a holiday is
+/// requested, answered with nothing, and requested again. Idempotent, safe to interrupt, and safe
+/// to run concurrently over the same bucket — [`write_partition`] writes under a precondition on
+/// what it read, so a racing writer is rejected rather than overwritten.
 pub async fn archive_missing_sessions(
     s3_client: &S3Client,
     massive: &MassiveClient,
@@ -1150,7 +1138,7 @@ impl std::fmt::Display for Scope {
 /// The sessions a pass touches, which [`SessionSelection`] decides.
 ///
 /// Split out from the S3 listing so the rule is testable without a bucket. Seeding and repairing
-/// want opposite sets, and getting that backwards is the defect #1102 was written for.
+/// want opposite sets.
 fn sessions_for(
     selection: SessionSelection,
     offered: &[SessionDate],
@@ -1767,14 +1755,11 @@ struct Universe {
 
 /// Merges `fetched` into the partition for `session` and writes it back, conditional on what it read.
 ///
-/// The read-merge-write is a compare-and-swap. S3 returns the object's `ETag` on read, and the write
-/// carries `If-Match` on it -- or `If-None-Match: *` when the partition did not exist -- so a pass
-/// that raced another one is rejected with `412` instead of silently discarding the other's rows.
-/// The whole cycle is retried against the now-current object, which is why the merge is redone
-/// rather than the buffer resent.
-///
-/// This matters more than it would have before bars left the nightly export: `data/` is now their
-/// only copy, so a lost write has no second source to recover from.
+/// The read-merge-write is a compare-and-swap on the object's `ETag`: the write carries `If-Match`
+/// on it -- or `If-None-Match: *` when the partition did not exist -- so a pass that raced another
+/// is rejected with `412` instead of silently discarding the other's rows. The whole cycle is
+/// retried against the now-current object, which is why the merge is redone rather than the buffer
+/// resent.
 async fn write_partition(
     s3_client: &S3Client,
     bucket: &str,
@@ -1999,14 +1984,8 @@ impl std::fmt::Display for QuoteSource<'_> {
 
 /// Folds the quoted book across `sessions`, per `scope`, taking its ticks from `source`.
 ///
-/// Session-major rather than ticker-major, unlike the intraday bar pass: a quote request is already
-/// bounded to one session's hours, so there is nothing to gain by holding a chunk of them. That is
-/// also why the never-create rule costs nothing here: a session-major pass never fetches outside the
-/// sessions it selected, while a bar chunk spans a range and needs [`writable_session`] at the write.
-///
-/// Regular hours only, taken from the calendar so an early close is 3.5 hours rather than 6.5. The
+/// Regular hours only, taken from the calendar so an early close is 3.5 hours rather than 6.5: the
 /// overnight book is an order of magnitude wider and would swamp any session mean it entered.
-///
 /// `sessions` must already be calendar-filtered, which the returned summary assumes when it reports
 /// a session that answered with nothing as a fault rather than as a holiday.
 pub async fn archive_quote_sessions(
@@ -3057,9 +3036,8 @@ async fn archive_bar_flat_file_session(
         return Ok(());
     }
 
-    // Through `write_partitions` rather than `write_partition`, for one session at a time. The
-    // plural form is where contention and write faults are carried instead of ending the pass --
-    // the #1106 behaviour, and a third hand-written copy of those arms could drift from it.
+    // Through `write_partitions` rather than `write_partition`, for one session at a time: the
+    // plural form is where contention and write faults are carried instead of ending the pass.
     write_partitions(
         s3_client,
         bucket,
@@ -3274,13 +3252,9 @@ pub async fn archive_details(
 
 /// Reads one archived partition, distinguishing a missing object from a failed request.
 ///
-/// `Ok(None)` means the partition genuinely does not exist yet. Every other failure propagates: a
-/// credential error, a throttle, or a network fault silently treated as "missing" would shorten the
-/// training window without any signal, and the model would just be slightly worse for reasons
-/// nothing recorded.
-///
-/// For readers that only want the data. A writer wants [`read_partition_with_etag`], because the
-/// ETag is what makes its write conditional on the version it merged from.
+/// `Ok(None)` means the partition genuinely does not exist yet; every other failure propagates,
+/// because a throttle silently treated as "missing" would shorten the training window with no
+/// signal. A writer wants [`read_partition_with_etag`], whose ETag makes its write conditional.
 pub async fn read_partition(
     s3_client: &S3Client,
     bucket: &str,
@@ -3856,13 +3830,11 @@ mod tests {
         fold.finish()
     }
 
-    /// A partition records the route that actually built it, not the route trades used to have.
+    /// A partition records the route that actually built it, not a hard-coded one.
     ///
-    /// `write_trade_partitions` hard-coded the flat-file provenance behind a comment reading "trades
-    /// have one route and no repair path". Adding the Alpaca per-name route made that false, and an
-    /// `equity-trades repair` would have filed Alpaca rows as Massive — hiding the provider seam in
-    /// the one record kept to expose it. `TradeSource::provenance()` existed throughout and was
-    /// never called.
+    /// Trades have two routes, the flat-file fold and the Alpaca per-name repair, so provenance has
+    /// to come from [`TradeSource::provenance`]: filing an `equity-trades repair` under Massive
+    /// would hide the provider seam in the one record kept to expose it.
     #[tokio::test]
     async fn test_a_trade_partition_is_attributed_to_the_route_that_built_it() {
         let bodies: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
@@ -4059,8 +4031,8 @@ mod tests {
 
     /// A record that does not parse is left for the sweep rather than retried against.
     ///
-    /// An `Absent` precondition cannot replace an object that is really there, so the old lenient
-    /// read spent every attempt on writes that could only 409, then warned about losing a race.
+    /// An `Absent` precondition cannot replace an object that is really there, so a lenient read
+    /// spends every attempt on writes that can only 409, then warns about losing a race.
     #[tokio::test]
     async fn test_a_sidecar_that_does_not_parse_is_left_for_the_sweep() {
         let seen: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
@@ -4148,9 +4120,8 @@ mod tests {
 
     /// One session's write failing must cost that session and no other.
     ///
-    /// The regression test #1106 could not have: before it, any non-contention error returned from
-    /// `write_partitions`, so a single transient fault discarded every session after it — which is
-    /// what ended a five-hour whole-market pass four fifths of the way through.
+    /// A non-contention error returned from `write_partitions` would discard every session after
+    /// it, which on a five-hour whole-market pass costs whatever is left of the run.
     #[tokio::test]
     async fn test_a_failed_partition_write_costs_only_its_own_session() {
         let doomed = session(2026, 9, 3);

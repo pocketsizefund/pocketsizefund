@@ -1,9 +1,6 @@
-//! Shared fixtures for the integration suite.
-//!
-//! Everything here runs against the devenv-managed PostgreSQL, applying the real `schema.sql` to a
-//! database the suite owns outright. That matters more than it sounds: these tests exist precisely
-//! to exercise what the unit tests cannot — the hypertables, the CHECK constraints, the notify
-//! trigger, and the queries as PostgreSQL actually plans them.
+//! Shared fixtures for the integration suite, against the devenv-managed PostgreSQL with the real
+//! `schema.sql` applied to a database the suite owns outright — which is what makes the
+//! hypertables, the CHECK constraints, and the notify trigger reachable at all.
 
 #![allow(dead_code)]
 
@@ -16,13 +13,10 @@ const SCHEMA_SQL: &str = include_str!("../../schema.sql");
 
 /// Prefix for the databases the integration suite owns outright.
 ///
-/// Deliberately not the development database: these tests delete from every table, and pointing
-/// them at `fund` would destroy local data on every run.
-///
-/// One database *per test binary*, not one shared between them. `#[serial]` only serializes tests
-/// within a process, and cargo runs test binaries concurrently — so a shared database would have
-/// two binaries deleting from the same tables at the same time, with the flakes landing wherever
-/// the timing fell.
+/// Deliberately not the development database: these tests delete from every table, so pointing them
+/// at `fund` would destroy local data. One database *per test binary*, because `#[serial]` only
+/// serializes within a process while cargo runs test binaries concurrently, and a shared database
+/// would have two of them deleting from the same tables at once.
 const TEST_DATABASE_PREFIX: &str = "fund_test";
 
 /// Connections per test pool.
@@ -32,16 +26,10 @@ const TEST_POOL_MAX_CONNECTIONS: u32 = 4;
 
 /// Databases this process has already created and populated.
 ///
-/// Holds names rather than pools, and that is load-bearing. A `PgPool` is bound to the tokio runtime
-/// that created it, and every `#[tokio::test]` builds its own runtime; caching a pool here meant the
-/// second test to run inherited a handle whose background reaper had died with the first test's
-/// runtime, and every acquire from it failed with `PoolTimedOut`. This is the trap recorded in
-/// `rust_test_pitfalls`.
-///
-/// A set rather than a single `OnceCell`, so the readiness is keyed by database. A `OnceCell` is
-/// initialized once per *process*: a binary calling `test_pool` with two suffixes would create the
-/// first database, then skip the initializer for the second and connect to a database that was
-/// never created — surfacing as a bare connection error rather than as fixture misuse.
+/// Holds names rather than pools: a `PgPool` is bound to the tokio runtime that created it and every
+/// `#[tokio::test]` builds its own, so a cached pool leaves the next test acquiring against a dead
+/// reaper and failing with `PoolTimedOut`. A set rather than a single `OnceCell`, which initializes
+/// once per *process* and would let a second suffix connect to a database that was never created.
 static PREPARED_DATABASES: tokio::sync::Mutex<Option<std::collections::HashSet<String>>> =
     tokio::sync::Mutex::const_new(None);
 
@@ -52,19 +40,12 @@ fn database_url_base() -> String {
 
 /// Strips the parts of `schema.sql` that cannot be applied to a second database.
 ///
-/// Only pg_cron is removed, and not because it is unavailable in general: the extension is
-/// restricted by `cron.database_name` to a single database, so `CREATE EXTENSION` fails anywhere
-/// else. That covers the extension, the `DO` blocks that schedule jobs, and any function defined in
-/// the `cron` schema.
-///
-/// TimescaleDB is deliberately *not* stripped. It was, back when these tests ran against a vanilla
-/// Postgres container, which meant every assertion ran against a schema with no hypertables and no
-/// retention policies — measurably not the schema being shipped.
-///
-/// `DO` blocks are buffered rather than dropped on sight: the idiom is shared between pg_cron
-/// scheduling, which this database cannot run, and plain DDL such as the `events_notify` trigger,
-/// which it very much needs. Dropping every block took the trigger with it, leaving NOTIFY silent
-/// here and the listener untestable.
+/// Only pg_cron, because `cron.database_name` restricts the extension to a single database — that
+/// covers the extension, the `DO` blocks that schedule jobs, and anything in the `cron` schema.
+/// TimescaleDB is deliberately *not* stripped, since a schema with no hypertables and no retention
+/// policies is not the schema being shipped. `DO` blocks are buffered rather than dropped on sight,
+/// because the idiom is shared with plain DDL such as the `events_notify` trigger, and dropping
+/// every block leaves NOTIFY silent here and the listener untestable.
 fn filter_schema_for_test(schema: &str) -> String {
     let mut kept: Vec<&str> = Vec::new();
     let mut do_block: Vec<&str> = Vec::new();
@@ -129,14 +110,11 @@ fn filter_schema_for_test(schema: &str) -> String {
 
 /// Returns a pool to this binary's test database, recreating it on first use.
 ///
-/// `suffix` must be unique per test binary and must be a plain identifier — it is interpolated into
-/// `CREATE DATABASE`, which PostgreSQL will not accept as a bound parameter.
-///
-/// The database is **dropped and recreated**, not reused. `CREATE TABLE IF NOT EXISTS` is a no-op
-/// against a table that already exists with a different shape, so a test database left over from an
-/// earlier schema silently keeps its old columns and fails much later with a confusing error about
-/// a missing column in an index. That is the same property the production cutover has to respect;
-/// here it costs nothing to simply start clean.
+/// `suffix` must be unique per test binary and a plain identifier, since it is interpolated into
+/// `CREATE DATABASE`, which PostgreSQL will not accept as a bound parameter. The database is
+/// **dropped and recreated**, not reused: `CREATE TABLE IF NOT EXISTS` is a no-op against a table
+/// that already exists with a different shape, so a stale one keeps its old columns and fails much
+/// later with a confusing error about a missing column in an index.
 pub async fn test_pool(suffix: &str) -> PgPool {
     assert!(
         suffix
@@ -227,14 +205,10 @@ pub fn session_close(date: SessionDate) -> DateTime<Utc> {
 /// Inserts daily bars for each ticker over `sessions` consecutive **calendar** days ending today.
 ///
 /// Calendar days, not trading sessions: the loop applies no weekday filter, so the series includes
-/// weekends. The synthetic prices still satisfy the correlation property the screen needs, so this
-/// only matters to a reader sizing a window that must align with real sessions.
-///
-/// The two legs are driven by a shared factor plus an idiosyncratic one, so their log returns
-/// correlate around 0.8 — inside the screen's `[0.5, 0.95]` band — and the spread has real
-/// dispersion. A fixture whose legs correlate at 1.0 is rejected by the screen and yields zero
-/// pairs, which makes every test built on it pass while asserting nothing. That is the trap
-/// recorded in `statistical_arbitrage_test_fixtures`.
+/// weekends. The two legs are a shared factor plus an idiosyncratic one, so their log returns
+/// correlate around 0.8, inside the screen's `[0.5, 0.95]` band — legs correlating at 1.0 are
+/// rejected by the screen and yield zero pairs, which makes every test built on them pass while
+/// asserting nothing.
 pub async fn seed_correlated_bars(pool: &PgPool, tickers: &[&str], sessions: i64) {
     let today = SessionDate::at(Utc::now());
 

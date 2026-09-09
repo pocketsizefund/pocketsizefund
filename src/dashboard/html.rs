@@ -29,14 +29,10 @@ pub fn render_html(state: &DashboardState) -> String {
 
 /// Formats an instant for display: Eastern wall clock, with the zone stated.
 ///
-/// Every timestamp on this page goes through here, so the page cannot mix zones. Eastern rather
-/// than UTC because that is the timezone the trading day has — rendered in UTC, the page disagreed
-/// with the session it was describing for the last four or five hours of every evening, which is
-/// exactly when an operator is checking whether the post-close jobs ran and exactly when the UTC
-/// date has already rolled over to tomorrow.
-///
-/// Elapsed times — [`format_age`], holding durations — are differences between two instants and
-/// carry no zone, so they do not come through here.
+/// Every timestamp on this page goes through here, so the page cannot mix zones, and Eastern rather
+/// than UTC because that is the timezone the trading day has. Elapsed times — [`format_age`],
+/// holding durations — are differences between two instants and carry no zone, so they do not come
+/// through here.
 fn eastern_stamp(instant: DateTime<Utc>, format: &str) -> String {
     format!(
         "{} ET",
@@ -667,7 +663,7 @@ mod tests {
     /// The fixture instant is 20:00 UTC, which is 16:00 Eastern, so the two cannot be confused: a
     /// regression to UTC brings the 20:00 back and the assertion fails rather than passing on a
     /// shared substring. The closed pair at 19:00 UTC and the event at 19:55 UTC are checked for
-    /// the same reason — they are the two columns that used to render with no zone at all.
+    /// the same reason.
     #[test]
     fn test_every_timestamp_renders_in_eastern_and_says_so() {
         let html = render_html_at(&populated_state(), now());

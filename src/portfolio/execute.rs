@@ -1,7 +1,6 @@
 //! Order submission and fill confirmation. The only module that sends an order.
 //!
-//! Opening a pair is two orders that must both work or neither hold; see [`open_pair`] for the
-//! ordering that makes the common failure free to recover from.
+//! Opening a pair is two orders that must both work or neither hold; see [`open_pair`].
 
 use std::time::Duration;
 

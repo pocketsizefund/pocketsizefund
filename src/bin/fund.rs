@@ -1,13 +1,6 @@
-//! The service: one process, woken entirely by pg_cron.
-//!
-//! There is no `--module` flag, no in-process scheduler, and no WebSocket. The process connects,
-//! replays anything today's cron fired while it was down, then listens on the `events` channel and
-//! dispatches. Every unit of work is a row somebody else wrote.
-//!
-//! Each notification is handled on its own task. The five-minute evaluation and a post-close sync
-//! can legitimately overlap, and serializing the listener would mean a slow export delaying an
-//! exit. Two instances of the *same* command cannot overlap; that is the in-flight claim in
-//! [`fund::handlers`].
+//! The service: one process, woken entirely by pg_cron, with no in-process scheduler.
+//! It replays what cron fired while it was down, then handles each `events` notification on its own
+//! task; two instances of the *same* command cannot overlap, via the claim in [`fund::handlers`].
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -31,17 +24,11 @@ const LISTENER_RECONNECT_DELAY: Duration = Duration::from_secs(5);
 
 /// How long to wait for running handlers after shutdown is requested.
 ///
-/// What matters is a handler with side effects part-applied: a liquidation between two broker
-/// orders, an export between S3 and the purge, or one that has not yet written its terminal event.
-/// Dropping one leaves a `_requested` row with no outcome while the process logs a clean stop.
-///
-/// Derived from the work. The longest wait is one pair opening, two legs at
-/// [`fund::portfolio::execute::FILL_TIMEOUT`] each — sixty seconds. Seventy-five leaves margin for
-/// the terminal event write and stays inside the 120 process-compose allows before escalating.
-///
-/// The bound holds only because the evaluation pass stops *starting* pairs once shutdown is
-/// requested; see `entries_abandoned` in [`fund::portfolio::evaluate`]. Without that the pass works
-/// through every approved candidate and no fixed timeout covers it.
+/// Derived from the longest unit of work: one pair opening is two legs at
+/// [`fund::portfolio::execute::FILL_TIMEOUT`] each, and seventy-five seconds leaves margin for the
+/// terminal event write inside the 120 process-compose allows before escalating. The bound holds
+/// only because the evaluation pass stops *starting* pairs once shutdown is requested; see
+/// `entries_abandoned` in [`fund::portfolio::evaluate`].
 const HANDLER_DRAIN_TIMEOUT: Duration = Duration::from_secs(75);
 
 #[tokio::main]
@@ -268,10 +255,9 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc as StdArc;
 
-    /// The property the whole change exists for: work still running when shutdown is requested runs
-    /// to completion rather than being dropped at its next await point. Before this, `tokio::spawn`
-    /// detached the task and the runtime cancelled it when `main` returned — truncating a
-    /// liquidation between broker orders, or a handler before it wrote its terminal event.
+    /// Work still running when shutdown is requested runs to completion rather than being dropped at
+    /// its next await point. A detached `tokio::spawn` is cancelled when `main` returns, which would
+    /// truncate a liquidation between broker orders or a handler before its terminal event.
     #[tokio::test]
     async fn test_drain_waits_for_a_running_handler_to_finish() {
         let finished = StdArc::new(AtomicUsize::new(0));

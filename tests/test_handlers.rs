@@ -1,9 +1,6 @@
-//! Cross-module flows against a real database and a mocked broker.
-//!
-//! These are the tests that exercise the paths a unit test cannot assemble: the evaluation pass end
-//! to end, the pre-close liquidation, and the post-close account sync. Each one runs against the
-//! real `schema.sql` and a `mockito` server standing in for Alpaca, so the assertions cover the
-//! wiring between modules rather than any one module's arithmetic.
+//! Cross-module flows against the real `schema.sql` and a `mockito` server standing in for Alpaca:
+//! the evaluation pass end to end, the pre-close liquidation, and the post-close account sync. The
+//! assertions cover the wiring between modules rather than any one module's arithmetic.
 
 mod common;
 
@@ -115,14 +112,11 @@ fn of_type<'a>(records: &'a [serde_json::Value], event_type: &str) -> Vec<&'a se
 
 /// The five most recent weekday sessions ending at `session_date`.
 ///
-/// Weekends are filtered rather than taken as consecutive calendar days, so
-/// `previous_trading_day` answers what it would in production: Friday for a Monday session, not
-/// Sunday. Without the filter a Monday would silently exercise a calendar that cannot exist, and the
-/// gap test would pass while checking nothing real.
-///
-/// `is_weekend` rather than `is_trading_day` because this *builds* the calendar the latter consults;
-/// it is the case that method's own documentation names, "bounding a fetch range before the calendar
-/// is available". Holidays are not modelled — no test here turns on one.
+/// Weekends are filtered rather than taken as consecutive calendar days, so `previous_trading_day`
+/// answers Friday for a Monday session; without the filter a Monday exercises a calendar that cannot
+/// exist and the gap test passes while checking nothing real. `is_weekend` rather than
+/// `is_trading_day` because this *builds* the calendar the latter consults, and holidays are not
+/// modelled.
 fn calendar_ending_at(session_date: SessionDate) -> TradingCalendar {
     let days = (0..10)
         .map(|offset| session_date.plus_calendar_days(-offset))
@@ -154,6 +148,38 @@ async fn mock_no_return_activities(server: &mut mockito::ServerGuard) {
         .expect_at_least(1)
         .create_async()
         .await;
+}
+
+/// The activity types the sync asks for by session date, one request each.
+///
+/// Literals rather than `account::synced_activity_types()`: a mock built from the list under test
+/// moves with any edit to it, and an emptied list would leave the tests passing with no request made.
+const PER_SESSION_ACTIVITY_TYPES: [&str; 1] = ["FILL"];
+
+/// Answers each of [`PER_SESSION_ACTIVITY_TYPES`] with an empty list.
+///
+/// The returned mocks each expect `expected_requests` hits, so `assert_async` fails on a type the
+/// sync stopped asking for as well as on one it asked for twice.
+async fn mock_no_per_session_activities(
+    server: &mut mockito::ServerGuard,
+    expected_requests: usize,
+) -> Vec<mockito::Mock> {
+    let mut mocks = Vec::new();
+    for activity_type in PER_SESSION_ACTIVITY_TYPES {
+        mocks.push(
+            server
+                .mock(
+                    "GET",
+                    mockito::Matcher::Regex(format!("^/v2/account/activities/{activity_type}")),
+                )
+                .with_status(200)
+                .with_body("[]")
+                .expect(expected_requests)
+                .create_async()
+                .await,
+        );
+    }
+    mocks
 }
 
 /// A universe holding exactly the named tickers, every one of them shortable.
@@ -507,13 +533,10 @@ async fn test_a_pass_opens_a_pair_and_records_it() {
 /// The same fixture as above, with shutdown already requested: the pass must open nothing and say
 /// so, rather than submitting orders it may not survive to record.
 ///
-/// This is what makes the drain's timeout in `bin/fund.rs` a real bound. Opening a pair is two
-/// broker legs at `FILL_TIMEOUT` each, so a pass that keeps working through its approved list
-/// cannot be covered by any fixed timeout — the list's length is decided by the screen. Bounding
-/// the *start* of new pairs is what caps the worst case at the one pair already in flight.
-///
-/// `.expect(0)` on the order mock is the assertion that matters. Without it this test would pass on
-/// a summary that merely reported zero opens while orders went out anyway.
+/// This is what makes the drain's timeout in `bin/fund.rs` a real bound: opening a pair is two
+/// broker legs at `FILL_TIMEOUT` each, so bounding the *start* of new pairs is what caps the worst
+/// case at the one pair already in flight. `.expect(0)` on the order mock is the assertion that
+/// matters, since without it the test passes on a summary reporting zero opens while orders go out.
 #[tokio::test]
 #[serial]
 async fn test_a_pass_opens_nothing_once_shutdown_is_requested() {
@@ -1136,8 +1159,8 @@ async fn test_liquidation_flattens_the_book_and_marks_every_pair() {
 /// A liquidation that could not reach the broker still records that it was attempted.
 ///
 /// This is the last thing standing between an open book and an overnight position. A run that
-/// failed at the bulk close used to leave no trace of having happened at all, which reads exactly
-/// like a liquidation that was never scheduled.
+/// failed at the bulk close and left no trace would read exactly like a liquidation that was never
+/// scheduled.
 #[tokio::test]
 #[serial]
 async fn test_a_failed_liquidation_records_the_attempt() {
@@ -1455,17 +1478,7 @@ async fn test_the_account_sync_stores_transfers_without_attributing_them() {
         .with_body(account_body(30_000))
         .create_async()
         .await;
-    for activity_type in account::synced_activity_types() {
-        server
-            .mock(
-                "GET",
-                mockito::Matcher::Regex(format!("^/v2/account/activities/{activity_type}")),
-            )
-            .with_status(200)
-            .with_body("[]")
-            .create_async()
-            .await;
-    }
+    let per_session = mock_no_per_session_activities(&mut server, 1).await;
     // On the trailing window, which is the only request that can reach it: a transfer is dated and
     // created the morning after, so this session's own `date=` query returns the previous one's.
     let _deposit = server
@@ -1506,6 +1519,11 @@ async fn test_the_account_sync_stores_transfers_without_attributing_them() {
     .await
     .expect("the sync must run");
 
+    // Asserted before the loop, which proves nothing over an empty list of mocks.
+    assert_eq!(per_session.len(), 1);
+    for mock in &per_session {
+        mock.assert_async().await;
+    }
     assert_eq!(summary.activities_stored, 1);
     assert_eq!(
         summary.activities_unattributed, 0,
@@ -1554,17 +1572,8 @@ async fn test_the_account_sync_reports_a_missing_previous_session() {
         .with_body(account_body(100_000))
         .create_async()
         .await;
-    for activity_type in account::synced_activity_types() {
-        server
-            .mock(
-                "GET",
-                mockito::Matcher::Regex(format!("^/v2/account/activities/{activity_type}")),
-            )
-            .with_status(200)
-            .with_body("[]")
-            .create_async()
-            .await;
-    }
+    // Three syncs below, each asking once per type.
+    let per_session = mock_no_per_session_activities(&mut server, 3).await;
     mock_no_return_activities(&mut server).await;
 
     let trading = TradingClient::with_base_url(credentials(), server.url());
@@ -1607,6 +1616,12 @@ async fn test_the_account_sync_reports_a_missing_previous_session() {
     .await
     .expect("the sync must run");
     assert_eq!(repaired.previous_session_gap, None);
+
+    // Asserted before the loop, which proves nothing over an empty list of mocks.
+    assert_eq!(per_session.len(), 1);
+    for mock in &per_session {
+        mock.assert_async().await;
+    }
 }
 
 fn account_body(equity: i64) -> String {
@@ -1687,17 +1702,8 @@ async fn test_a_fee_from_an_earlier_session_is_stored_as_a_cost() {
         .with_body(account_body(30_000))
         .create_async()
         .await;
-    for activity_type in account::synced_activity_types() {
-        server
-            .mock(
-                "GET",
-                mockito::Matcher::Regex(format!("^/v2/account/activities/{activity_type}")),
-            )
-            .with_status(200)
-            .with_body("[]")
-            .create_async()
-            .await;
-    }
+    // Two syncs below, each asking once per type.
+    let per_session = mock_no_per_session_activities(&mut server, 2).await;
     let _fees = server
         .mock(
             "GET",
@@ -1774,4 +1780,10 @@ async fn test_a_fee_from_an_earlier_session_is_stored_as_a_cost() {
         2,
         "an overlapping window must not record a fee it already recorded"
     );
+
+    // Asserted before the loop, which proves nothing over an empty list of mocks.
+    assert_eq!(per_session.len(), 1);
+    for mock in &per_session {
+        mock.assert_async().await;
+    }
 }

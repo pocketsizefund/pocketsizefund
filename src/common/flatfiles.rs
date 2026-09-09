@@ -148,13 +148,9 @@ pub enum FlatFileError {
 
 /// Credentials for `files.massive.com`: issued by Massive, spoken in S3's dialect, not AWS's.
 ///
-/// Named `MASSIVE_S3_*` rather than anything containing `AWS` on purpose. This process also holds
-/// real AWS credentials and writes the archive with them, and `aws_config::load_defaults` reads
-/// `AWS_ACCESS_KEY_ID` from the environment — so a name in that family would hand Massive's key to
-/// every genuine AWS call in the same binary.
-///
-/// Deliberately does not derive `Debug`: it holds a secret key, and a derived `Debug` puts that key
-/// into any log line or panic message that formats a struct containing one.
+/// Named `MASSIVE_S3_*` rather than anything containing `AWS` because `aws_config::load_defaults`
+/// reads `AWS_ACCESS_KEY_ID` from the environment, and this process also holds real AWS credentials
+/// it writes the archive with. Deliberately does not derive `Debug`: it holds a secret key.
 #[derive(Clone)]
 pub struct FlatFileCredentials {
     endpoint_url: String,
@@ -275,10 +271,9 @@ impl BarSink for Vec<EquityBar> {
 
 /// One of Massive's flat-file datasets, which is also which parser its rows want.
 ///
-/// An enum rather than the string this used to be, because the value names two things that must
-/// agree — the vendor path a fold reads and the archive prefix its bytes are teed to — and a pair of
-/// strings passed separately can disagree. Both derive from the variant here, so a fold cannot read
-/// trades and file them under quotes.
+/// An enum rather than a string, because the value names two things that must agree — the vendor
+/// path a fold reads and the archive prefix its bytes are teed to. Both derive from the variant
+/// here, so a fold cannot read trades and file them under quotes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RawDataset {
     Quotes,
@@ -449,13 +444,11 @@ impl FlatFileFold {
 
     /// Refuses a file whose rows descend in time within a ticker.
     ///
-    /// The quote fold weighs each tick by the interval to the next, so a descending run weighs every one
-    /// at zero and still produces a summary — a silent wrong answer rather than a failure. Massive
-    /// does not document the row order and it cannot be inspected before paying, so it is asserted.
-    ///
+    /// The quote fold weighs each tick by the interval to the next, so a descending run weighs every
+    /// one at zero and still produces a summary — a silent wrong answer rather than a failure.
     /// The threshold is not a tuning knob: an ascending file inverts only where the SIP itself ties
     /// or reorders, a handful of rows per name, while a descending file inverts every row after the
-    /// first. Nothing real sits between them.
+    /// first.
     fn require_ascending(&self, key: &str) -> Result<(), FlatFileError> {
         let forwards = self.ticks_folded.saturating_sub(self.backwards);
         if self.backwards <= forwards {
@@ -1334,7 +1327,7 @@ async fn try_fetch_one_range(
 /// Presents the ordered chunks as something the gzip decoder can read.
 ///
 /// Blocking by construction: it is handed to `spawn_blocking` alongside the decoder and the parser,
-/// so waiting for the next chunk is the same wait the old single stream did.
+/// so waiting for the next chunk blocks only that thread.
 struct ChunkReader {
     receiver: tokio::sync::mpsc::Receiver<Result<Vec<u8>, FlatFileError>>,
     current: std::io::Cursor<Vec<u8>>,
@@ -2902,8 +2895,8 @@ mod tests {
     }
 
     /// A completion that fails leaves every part open and billing exactly as a failed part upload
-    /// would. This was a real hole: the abort used to hang off the `send_parts` error arm only, so
-    /// the completion path reached the same outcome by a door with no abort behind it.
+    /// would. The completion path reaches that outcome without passing through the `send_parts`
+    /// error arm, so the abort cannot hang off that arm alone.
     #[tokio::test]
     async fn test_a_failed_completion_still_aborts_the_upload() {
         let (directory, path) = staged_object("failed-completion", 4096);

@@ -328,18 +328,10 @@ pub async fn load_bars_dataframe(
 /// Loads a trailing window of closes per ticker, aligned across tickers by session and restated
 /// onto `as_of`'s share basis.
 ///
-/// Every series has the same length and position `i` is the same session across all of them.
-/// Tickers missing any session are dropped rather than gap-filled — this is why it is not a
-/// `GROUP BY ticker`: two equal-length series covering different dates correlate different days,
-/// and nothing downstream carries a sign that it happened.
-///
-/// Both bounds on `timestamp` are expressed against the column directly rather than wrapped in an
-/// expression, so hypertable chunk exclusion applies. The upper one is what keeps the window and
-/// `as_of` the same day: without it the most recent sessions in the table are taken whatever
-/// `as_of` says, and a replay would load today's closes and restate them onto a past date.
-///
-/// Adjusting per row while the timestamps are still in hand is why the returned shape needs no
-/// dates: it drops them, and a caller adjusting afterwards would have nothing to key the factor on.
+/// Every series has the same length and position `i` is the same session across all of them;
+/// tickers missing any session are dropped rather than gap-filled. Both `timestamp` bounds are
+/// expressed against the column directly so hypertable chunk exclusion applies, and the upper one
+/// is what keeps the window on `as_of`'s day rather than the table's most recent sessions.
 pub async fn load_aligned_closes(
     pool: &PgPool,
     bar_interval: BarInterval,

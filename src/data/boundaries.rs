@@ -1,7 +1,6 @@
 //! The dates a symbol's price series may not be read across.
 //!
-//! One S3 object, refreshed over a date range and merged with what is stored. Applied at read time
-//! by [`crate::data::truncate`].
+//! One S3 object, merged with what is stored, applied at read time by [`crate::data::truncate`].
 
 use chrono::{DateTime, Utc};
 use polars::prelude::*;
@@ -60,13 +59,11 @@ pub fn boundaries_to_dataframe(
 
 /// Merges a stored boundary table with one fetched over `start..=end`.
 ///
-/// Unlike [`crate::data::splits::merge_splits`], which replaces the row set outright because that
-/// feed answers with its whole history, this one answers only for a range — so stored rows the
-/// refresh could not have re-reported survive, and absence within it means cancelled.
-///
-/// The range is matched on `process_date`, never on `date`. Alpaca filters a request by when it
-/// processed an action, while the boundary is stamped with when the price moved, and those differ
-/// by years: filtering survivors on the wrong one leaves a cancelled action archived forever.
+/// The fetch answers only for a range, unlike [`crate::data::splits::merge_splits`], so stored rows
+/// the refresh could not have re-reported survive and absence within the range means cancelled.
+/// The range is matched on `process_date`, never on `date`: Alpaca filters a request by when it
+/// processed an action while the boundary is stamped with when the price moved, and those differ by
+/// years.
 pub fn merge_boundaries(
     existing: DataFrame,
     fetched: DataFrame,

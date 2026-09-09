@@ -1,15 +1,6 @@
 //! Schema-level integration tests: the constraints, the trigger, and the queries as PostgreSQL
-//! actually runs them.
-//!
-//! Everything here is something a unit test cannot reach. The CHECK constraints only exist in the
-//! database; the notify trigger only fires in the database; the alignment guarantee in
-//! `load_aligned_closes` depends on how the query is planned, not on how the Rust reads.
-//!
-//! Session windows are always built with `SessionDate::at(now).bounds()`, never from
-//! `now.date_naive()`. The second is the UTC calendar date, which between 20:00 Eastern and
-//! midnight names *tomorrow* — so the window starts four hours in the future and excludes the rows
-//! the test just seeded. It is the trading day these queries are bounded by, and a test that
-//! assumes the two coincide fails for four hours every evening.
+//! actually plans them. Session windows are always built with `SessionDate::at(now).bounds()` and
+//! never `now.date_naive()`, which after 20:00 Eastern names tomorrow and excludes the seeded rows.
 
 mod common;
 
@@ -857,9 +848,9 @@ async fn test_the_bar_frame_is_restated_onto_todays_share_basis() {
     );
 }
 
-/// The window a loader reads and the basis it restates onto have to be the same day. Both bounds
-/// used to come off the wall clock while the factor came off `as_of`, so a replay would have loaded
-/// today's sessions and adjusted them to a past date.
+/// The window a loader reads and the basis it restates onto have to be the same day. Bounds taken
+/// off the wall clock while the factor comes off `as_of` let a replay load today's sessions and
+/// adjust them to a past date.
 #[tokio::test]
 #[serial]
 async fn test_the_loaded_window_follows_as_of_rather_than_the_clock() {

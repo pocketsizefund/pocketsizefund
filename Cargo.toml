@@ -102,3 +102,9 @@ percent-encoding = "2.3"
 mockito = "1.7"
 serial_test = "4.0"
 tower = { version = "0.5", features = ["util"] }
+
+# Full debug info pushes the test binary past the size where macOS arm64 unwinding faults: the
+# panic message prints and the process then dies with SIGSEGV, so a failing test is reported as a
+# crash and names no assertion. Line tables keep file-and-line backtraces at a fraction of the size.
+[profile.test]
+debug = "line-tables-only"

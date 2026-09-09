@@ -1,7 +1,6 @@
 //! The five-minute pass, and the pre-close liquidation that backs it up.
 //!
-//! Each half is observe, decide, apply, with the decision a pure function of its reading; see
-//! [`evaluate_pass`] for the two properties that arrangement exists to protect.
+//! Each half is observe, decide, apply, with the decision a pure function of its reading.
 
 use std::collections::{HashMap, HashSet};
 
@@ -38,8 +37,8 @@ use crate::portfolio::execute::{
 use crate::portfolio::pairs::{self, OpenPair, PairsError};
 use crate::portfolio::risk::{RiskBlock, RiskGate};
 use crate::portfolio::screen::{
-    self, ScreenInput, SpreadModel, CONVERGENCE_Z_SCORE, CORRELATION_WINDOW_SESSIONS,
-    STOP_LOSS_WIDENING,
+    self, ExitModelFailure, ScreenInput, SpreadModel, CONVERGENCE_Z_SCORE,
+    CORRELATION_WINDOW_SESSIONS,
 };
 use crate::portfolio::size::{self, SizedPair, SizingParameters};
 
@@ -108,7 +107,8 @@ pub struct ClosedRecord {
 pub struct ExitReading {
     pub open_pairs: Vec<OpenPair>,
     pub prices: HashMap<Ticker, CheckedPrice>,
-    pub models: HashMap<PairID, SpreadModel>,
+    /// One entry per open pair, carrying why the model is missing when it is.
+    pub models: HashMap<PairID, Result<SpreadModel, ExitModelFailure>>,
     pub session: SessionDate,
     pub now: DateTime<Utc>,
 }
@@ -244,15 +244,9 @@ pub struct EvaluationSummary {
 
 /// Decides whether an open pair should be closed at this spread reading.
 ///
-/// The spread is `ln(short) - hedge_ratio * ln(long)` and entry is always above
-/// [`crate::portfolio::screen::ENTRY_Z_SCORE`], so convergence is a fall back through zero. There is
-/// no sign handling here because the orientation invariant already removed it.
-///
-/// The stop is measured from `entry_z_score` rather than from a fixed line. An absolute stop cannot
-/// be right for every pair at once: it silently forbids entries above itself, and the screen has no
-/// matching upper bound, so pairs were opened already past it and closed on the next pass having
-/// never moved. Convergence stays absolute, because crossing the mean is the move the position was
-/// taken to capture regardless of where it started.
+/// Entry is always positive, so convergence is a fall back through zero and no sign handling is
+/// needed. The stop is measured from `entry_z_score` because an absolute one silently forbids
+/// entries above itself; convergence stays absolute, since crossing the mean is the move captured.
 pub fn exit_reason(z_score: f64, entry_z_score: f64) -> Option<CloseReason> {
     if !z_score.is_finite() || !entry_z_score.is_finite() {
         return None;
@@ -260,7 +254,7 @@ pub fn exit_reason(z_score: f64, entry_z_score: f64) -> Option<CloseReason> {
     if z_score <= CONVERGENCE_Z_SCORE {
         return Some(CloseReason::Convergence);
     }
-    if z_score >= entry_z_score + STOP_LOSS_WIDENING {
+    if z_score >= screen::stop_at(entry_z_score) {
         return Some(CloseReason::StopLoss);
     }
     None
@@ -741,8 +735,8 @@ async fn observe_candidates(
 /// Scores, selects, sizes, and admits. Pure, and the round's whole decision.
 ///
 /// Every scored candidate is seeded as `not_selected` and relabelled as it survives each stage —
-/// `risk_refused` if the gate turned it down, `planned` if it cleared — so a candidate that fell out
-/// at selection is recorded as precisely as one that was approved.
+/// `sizing_refused`, `risk_refused`, or `planned` — so a candidate that fell out at selection is
+/// recorded as precisely as one that was approved.
 pub fn decide_entries(
     account: &AccountReading,
     reading: &CandidatesReading,
@@ -756,14 +750,19 @@ pub fn decide_entries(
         &reading.held,
         &reading.screened.sectors,
     );
-    let sized = size::size_pairs(&selected, account.account.equity(), sizing);
+    let (sized, sizing_refusals) = size::size_pairs(&selected, account.account.equity(), sizing);
     let (approved, refusals) = gate.admit_all(&sized);
 
     let mut plan = EntryPlan {
         candidates_screened: candidates.len(),
-        refusals: refusals
+        refusals: sizing_refusals
             .iter()
-            .map(|refusal| format!("{}: {}", refusal.block.as_str(), refusal.block))
+            .map(|refused| format!("{}: {}", refused.refusal.as_str(), refused.refusal))
+            .chain(
+                refusals
+                    .iter()
+                    .map(|refusal| format!("{}: {}", refusal.block.as_str(), refusal.block)),
+            )
             .collect(),
         candidates: candidates
             .iter()
@@ -796,6 +795,14 @@ pub fn decide_entries(
             candidate.long_notional = Some(pair.long_notional().value());
             candidate.short_quantity = Some(Decimal::from(pair.short_shares().get()));
             candidate.gross_exposure = Some(pair.gross_exposure());
+        }
+    }
+    // A candidate the sizer turned down is not one the ranking never reached, and only the cause
+    // separates them once both are absent from the plan.
+    for refused in &sizing_refusals {
+        if let Some(candidate) = plan.candidates.get_mut(refused.pair_id.as_str()) {
+            candidate.decision = CandidateDecision::SizingRefused;
+            candidate.refusal = Some(format!("{}: {}", refused.refusal.as_str(), refused.refusal));
         }
     }
     for refusal in &refusals {
@@ -1044,7 +1051,7 @@ pub fn decide_exits(reading: &ExitReading) -> ExitPlan {
             spread_standard_deviation: None,
             z_score: None,
             entry_z_score: pair.entry_z_score(),
-            stop_at: pair.entry_z_score() + screen::STOP_LOSS_WIDENING,
+            spread_model_failure: None,
             entry_session: SessionDate::at(pair.opened_at()),
             minutes_held: pair.minutes_held(reading.now),
             decision: PairDecision::Held,
@@ -1060,11 +1067,27 @@ pub fn decide_exits(reading: &ExitReading) -> ExitPlan {
             plan.readings.push(open_pair_reading);
             continue;
         };
-        let Some(model) = reading.models.get(pair.pair_id()) else {
-            warn!(pair_id = %pair.pair_id(), "Open pair has no rebuildable spread model");
-            open_pair_reading.decision = PairDecision::NoSpreadModel;
-            plan.readings.push(open_pair_reading);
-            continue;
+        let model = match reading.models.get(pair.pair_id()) {
+            Some(Ok(model)) => model,
+            // The cause travels with the refusal: a leg whose history went missing and a spread
+            // that will not fit are held identically and fixed differently.
+            Some(Err(failure)) => {
+                warn!(
+                    pair_id = %pair.pair_id(),
+                    failure = failure.as_str(),
+                    "Open pair has no rebuildable spread model"
+                );
+                open_pair_reading.decision = PairDecision::NoSpreadModel;
+                open_pair_reading.spread_model_failure = Some(failure.detail());
+                plan.readings.push(open_pair_reading);
+                continue;
+            }
+            None => {
+                warn!(pair_id = %pair.pair_id(), "Open pair was never offered to the model builder");
+                open_pair_reading.decision = PairDecision::NoSpreadModel;
+                plan.readings.push(open_pair_reading);
+                continue;
+            }
         };
 
         open_pair_reading.model_hedge_ratio = Some(model.hedge_ratio());
@@ -1082,14 +1105,13 @@ pub fn decide_exits(reading: &ExitReading) -> ExitPlan {
         //
         // A z-score on its own is unfalsifiable: a pair recorded at entry z 6.09 and read at 1.25
         // five minutes later is indistinguishable from a price move, a refitted distribution, and a
-        // bug, and the exit path previously logged only its decision. These five fields are what
-        // separate those cases, and the pass that does not close anything is the one that needs
-        // them most.
+        // bug. These five fields separate those cases, and the pass that closes nothing needs them
+        // most.
         debug!(
             pair_id = %pair.pair_id(),
             z_score,
             entry_z_score = pair.entry_z_score(),
-            stop_at = pair.entry_z_score() + screen::STOP_LOSS_WIDENING,
+            stop_at = screen::stop_at(pair.entry_z_score()),
             spread_mean = model.mean(),
             spread_standard_deviation = model.standard_deviation(),
             hedge_ratio = model.hedge_ratio(),
@@ -1442,6 +1464,29 @@ mod tests {
     use super::*;
     use crate::portfolio::screen::ENTRY_Z_SCORE;
 
+    /// The live long-leg price the exit fixture reads.
+    const FIXTURE_LONG_PRICE: f64 = 100.0;
+
+    /// Two cointegrated series whose hedge ratio is far from one.
+    ///
+    /// Both legs move, which is what keeps the hedge ratio in the algebra: against a constant long
+    /// leg `ln(short) - hedge_ratio * ln(long)` differs from `ln(short)` by a constant, the z-score
+    /// is invariant to the ratio, and no test can see it. Such a pair also cannot arise from the
+    /// entry path, since ordinary least squares refuses a constant predictor.
+    fn exit_fixture_series() -> (Vec<f64>, Vec<f64>) {
+        let long_closes: Vec<f64> = (0..CORRELATION_WINDOW_SESSIONS)
+            .map(|index| 100.0 * (1.0 + 0.010 * (index as f64 * 0.7).sin()))
+            .collect();
+        let short_closes: Vec<f64> = (0..CORRELATION_WINDOW_SESSIONS)
+            .map(|index| {
+                50.0 * (1.0
+                    + 0.020 * (index as f64 * 0.7).sin()
+                    + 0.004 * (index as f64 * 1.9 + 1.0).sin())
+            })
+            .collect();
+        (long_closes, short_closes)
+    }
+
     /// One open pair, its spread model, and prices placing the spread at `z_at_close`.
     fn exit_reading_for(z_at_close: f64, priced: bool) -> ExitReading {
         exit_reading_with(z_at_close, priced, true, 0)
@@ -1460,24 +1505,25 @@ mod tests {
         let short = Ticker::new("BBBB").unwrap();
         let pair_id = PairID::new(long.clone(), short.clone());
 
-        // Only the short leg moves: wiggling both proportionally holds `ln(short) - ln(long)`
-        // constant, and a spread with no dispersion is the fixture that makes a test assert nothing.
-        let long_closes: Vec<f64> = vec![100.0; CORRELATION_WINDOW_SESSIONS];
-        let short_closes: Vec<f64> = (0..CORRELATION_WINDOW_SESSIONS)
-            .map(|index| if index % 2 == 0 { 50.0 } else { 51.0 })
-            .collect();
-        let model = SpreadModel::with_hedge_ratio(1.0, &long_closes, &short_closes)
-            .expect("the fixture series must fit");
+        let (long_closes, short_closes) = exit_fixture_series();
+        // Fitted rather than assumed, so the stored ratio is the one the entry path would have
+        // produced for this pair and the exit measures the spread the entry was taken on.
+        let model =
+            SpreadModel::fit(&long_closes, &short_closes).expect("the fixture series must fit");
+        let hedge_ratio = model.hedge_ratio();
 
-        // Solve for the short price that puts the spread at the requested z.
-        let short_price =
-            (model.mean() + z_at_close * model.standard_deviation() + 100.0_f64.ln()).exp();
+        // Solve for the short price that puts the spread at the requested z. The hedge ratio is in
+        // the solve, so a model that ignored it would land the reading somewhere else entirely.
+        let short_price = (model.mean()
+            + z_at_close * model.standard_deviation()
+            + hedge_ratio * FIXTURE_LONG_PRICE.ln())
+        .exp();
 
         let mut prices = HashMap::new();
         if priced {
             prices.insert(
                 long.clone(),
-                CheckedPrice::for_test(100.0, PriceSource::LastTrade),
+                CheckedPrice::for_test(FIXTURE_LONG_PRICE, PriceSource::LastTrade),
             );
             prices.insert(
                 short.clone(),
@@ -1488,7 +1534,12 @@ mod tests {
         let opened_at = DateTime::from_timestamp(1_770_000_000, 0).unwrap();
         let mut models = HashMap::new();
         if modelled {
-            models.insert(pair_id.clone(), model);
+            models.insert(pair_id.clone(), Ok(model));
+        } else {
+            models.insert(
+                pair_id.clone(),
+                Err(screen::ExitModelFailure::MissingCloseHistory),
+            );
         }
 
         let read_at = opened_at + chrono::Duration::days(sessions_later);
@@ -1496,7 +1547,7 @@ mod tests {
             open_pairs: vec![OpenPair::new(
                 uuid::Uuid::nil(),
                 pair_id,
-                1.0,
+                hedge_ratio,
                 ENTRY_Z_SCORE,
                 opened_at,
             )],
@@ -1505,6 +1556,38 @@ mod tests {
             session: SessionDate::at(read_at),
             now: read_at,
         }
+    }
+
+    /// The fixture's hedge ratio has to participate in the z-score, or every exit test below is
+    /// blind to it. Both halves are load-bearing: a ratio near one would be indistinguishable from
+    /// the degenerate case, and a z-score unmoved by a change in the ratio would prove it cancels.
+    #[test]
+    fn test_the_exit_fixture_hedge_ratio_participates_in_the_reading() {
+        let reading = exit_reading_for(-1.0, true);
+        let stored = reading.open_pairs[0].hedge_ratio();
+        assert!(
+            (stored - 1.0).abs() > 0.5,
+            "the fitted ratio must be far from one, got {stored}"
+        );
+
+        let (long_closes, short_closes) = exit_fixture_series();
+        let long_price = FIXTURE_LONG_PRICE;
+        let short_price = reading.prices[&Ticker::new("BBBB").unwrap()].price();
+
+        let fitted = SpreadModel::fit(&long_closes, &short_closes).expect("the fixture must fit");
+        let shifted = SpreadModel::with_hedge_ratio(stored + 0.5, &long_closes, &short_closes)
+            .expect("a shifted ratio must still fit");
+
+        let fitted_z = fitted
+            .z_score(long_price, short_price)
+            .expect("the fitted model must read");
+        let shifted_z = shifted
+            .z_score(long_price, short_price)
+            .expect("the shifted model must read");
+        assert!(
+            (fitted_z - shifted_z).abs() > 0.1,
+            "changing the hedge ratio must move the reading; got {fitted_z} and {shifted_z}"
+        );
     }
 
     /// The point of the split: the exit decision is a pure function of a value, so it runs with no
@@ -1557,7 +1640,9 @@ mod tests {
     /// would silently apply the session-local stop to an overnight pair.
     #[test]
     fn test_a_pair_from_an_earlier_session_is_scored_on_convergence_alone() {
-        let widened = ENTRY_Z_SCORE + STOP_LOSS_WIDENING + 1.0;
+        // 2.0 entry plus the 1.5 widening plus a margin, as literals: an expectation derived
+        // from the constant under test moves with it and can never fail.
+        let widened = 4.5;
 
         let same_session = decide_exits(&exit_reading_with(widened, true, true, 0));
         assert_eq!(
@@ -1575,13 +1660,18 @@ mod tests {
         assert_eq!(overnight.readings[0].decision, PairDecision::Held);
     }
 
-    /// A pair whose spread model could not be rebuilt is held and named, never closed.
+    /// A pair whose spread model could not be rebuilt is held and named, never closed — and the
+    /// record carries which of the six ways it failed, since each is fixed differently.
     #[test]
     fn test_a_pair_without_a_spread_model_is_held_and_named() {
         let plan = decide_exits(&exit_reading_with(-1.0, true, false, 0));
 
         assert!(plan.closes.is_empty());
         assert_eq!(plan.readings[0].decision, PairDecision::NoSpreadModel);
+        assert_eq!(
+            plan.readings[0].spread_model_failure.as_deref(),
+            Some("missing_close_history")
+        );
         assert_eq!(
             plan.unpriced, 0,
             "it was priced; what it lacked was the model"
@@ -1593,7 +1683,11 @@ mod tests {
     #[test]
     fn test_the_exit_thresholds_bracket_the_entry_threshold() {
         const _: () = assert!(CONVERGENCE_Z_SCORE < ENTRY_Z_SCORE);
-        const _: () = assert!(STOP_LOSS_WIDENING > 0.0);
+        assert_eq!(
+            screen::stop_at(2.0),
+            3.5,
+            "the stop sits above the entry it measures from"
+        );
         assert_eq!(exit_reason(ENTRY_Z_SCORE, ENTRY_Z_SCORE), None);
     }
 
@@ -1605,11 +1699,9 @@ mod tests {
 
     #[test]
     fn test_a_spread_widening_past_the_stop_is_a_stop_loss() {
+        // 2.5 entry plus a 1.5 widening, spelled out rather than derived from the constant.
         let entry = 2.5;
-        assert_eq!(
-            exit_reason(entry + STOP_LOSS_WIDENING, entry),
-            Some(CloseReason::StopLoss)
-        );
+        assert_eq!(exit_reason(4.0, entry), Some(CloseReason::StopLoss));
         assert_eq!(exit_reason(entry + 3.0, entry), Some(CloseReason::StopLoss));
     }
 
@@ -1617,7 +1709,7 @@ mod tests {
     #[test]
     fn test_a_spread_inside_the_band_is_held() {
         assert_eq!(exit_reason(1.0, 2.5), None);
-        assert_eq!(exit_reason(2.5 + STOP_LOSS_WIDENING - 0.01, 2.5), None);
+        assert_eq!(exit_reason(3.99, 2.5), None);
     }
 
     /// The whole point of measuring from entry: a wide entry gets the same room as a narrow one.
@@ -1656,7 +1748,7 @@ mod tests {
     #[test]
     fn test_the_cross_session_rule_differs_from_the_session_local_rule() {
         let entry = 2.0;
-        let widened = entry + STOP_LOSS_WIDENING;
+        let widened = 3.5;
         assert_eq!(exit_reason(widened, entry), Some(CloseReason::StopLoss));
         assert_eq!(convergence_only(widened), None);
     }

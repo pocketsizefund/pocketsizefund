@@ -42,14 +42,10 @@ impl<T: Clone> DailyCache<T> {
 
     /// Today's value, rebuilding it when the cache is cold or was filled on an earlier date.
     ///
-    /// `worth_caching` decides whether the rebuilt value is stored, and the answer is not always
-    /// yes. An empty universe or an empty close history is a failed read, and storing one would
-    /// answer "nothing is there" for the rest of the Eastern date; an empty splits table is a real
-    /// answer that should be kept.
-    ///
-    /// A rebuild that finds the slot written since it started discards its own result rather than
-    /// storing it. Otherwise an [`DailyCache::invalidate`] landing mid-rebuild would be undone by
-    /// the rebuild it was meant to invalidate, pinning the superseded value until the date rolls.
+    /// `worth_caching` decides whether the rebuilt value is stored: an empty universe or an empty
+    /// close history is a failed read, while an empty splits table is a real answer. A rebuild that
+    /// finds the slot written since it started discards its own result, so an
+    /// [`DailyCache::invalidate`] landing mid-rebuild is not undone by the rebuild it invalidated.
     pub async fn get<Error, Rebuild, Rebuilding>(
         &self,
         today: SessionDate,
