@@ -304,7 +304,7 @@ pub(crate) const CATEGORICAL_COLUMNS: &[&str] = &[
     "year",
 ];
 
-pub(crate) const STATIC_CATEGORICAL_COLUMNS: &[&str] = &["ticker", "sector", "industry"];
+pub const STATIC_CATEGORICAL_COLUMNS: &[&str] = &["ticker", "sector", "industry"];
 
 /// The model target is the future window of `daily_return`, which is the last
 /// continuous column. Fitting and windowing index into this position.

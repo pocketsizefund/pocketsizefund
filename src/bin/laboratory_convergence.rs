@@ -257,7 +257,7 @@ fn render(measured: &[laboratory::ConvergenceMeasured]) -> String {
 
         rendered.push_str(&format!("{:>8}", "horizon"));
         for arm in &arms {
-            rendered.push_str(&format!("{:>34}", arm.selection));
+            rendered.push_str(&format!("{:>43}", arm.selection));
         }
         rendered.push('\n');
         rendered.push_str(&format!("{:>8}", ""));

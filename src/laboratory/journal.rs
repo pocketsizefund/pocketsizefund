@@ -339,9 +339,17 @@ pub struct JournalGuard<'a> {
     _appends_blocked: tokio::sync::MutexGuard<'a, Option<OpenSession>>,
 }
 
+/// Prefix naming files whose date is an Eastern session.
+///
+/// Distinct from the `laboratory-` files an earlier build wrote, whose date was the UTC day. The two
+/// disagree either side of 20:00 Eastern, and nothing in a file says which rule named it, so the
+/// generations are told apart by name rather than by inspection. Legacy files are inert: they are
+/// never appended to, exported, or deleted, and can be removed by hand.
+const SESSION_FILE_PREFIX: &str = "laboratory-session-";
+
 /// The file one session's records are written to.
 pub fn file_name(session_date: SessionDate) -> String {
-    format!("laboratory-{}.jsonl", session_date.date())
+    format!("{SESSION_FILE_PREFIX}{}.jsonl", session_date.date())
 }
 
 /// Recovers the session from a name built by [`file_name`], or `None` for anything else.
@@ -349,7 +357,9 @@ pub fn file_name(session_date: SessionDate) -> String {
 /// Accepted only if it is exactly what the writer would have produced: `%Y-%m-%d` also parses
 /// `2026-8-11`, and admitting both spellings would let one session reach the export twice.
 pub fn session_from_file_name(name: &str) -> Option<SessionDate> {
-    let date = name.strip_prefix("laboratory-")?.strip_suffix(".jsonl")?;
+    let date = name
+        .strip_prefix(SESSION_FILE_PREFIX)?
+        .strip_suffix(".jsonl")?;
     let session_date = SessionDate::from_date(NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?);
     (file_name(session_date) == name).then_some(session_date)
 }
@@ -517,13 +527,22 @@ mod tests {
     #[test]
     fn test_file_names_round_trip_through_their_session() {
         let session = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 8, 17).unwrap());
-        assert_eq!(file_name(session), "laboratory-2026-08-17.jsonl");
+        assert_eq!(file_name(session), "laboratory-session-2026-08-17.jsonl");
         assert_eq!(session_from_file_name(&file_name(session)), Some(session));
         assert_eq!(
-            session_from_file_name("laboratory-2026-8-17.jsonl"),
+            session_from_file_name("laboratory-session-2026-8-17.jsonl"),
             None,
             "one session must not reach the export under two spellings"
         );
+    }
+
+    /// A file the previous build wrote names a UTC day, and nothing inside it says so.
+    ///
+    /// Read as a session it would ship records either side of 20:00 Eastern to the wrong partition
+    /// and then delete the only local copy, so it must not be recognised at all.
+    #[test]
+    fn test_a_legacy_utc_dated_file_is_not_read_as_a_session() {
+        assert_eq!(session_from_file_name("laboratory-2026-08-17.jsonl"), None);
     }
 
     /// `experiment_type()` restates what `rename_all` generates for the variant. Left unpinned, a

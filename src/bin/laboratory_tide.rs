@@ -24,6 +24,7 @@ use fund::laboratory::{dataset, forecast};
 use fund::models::tide::configuration::ModelParameters;
 use fund::models::tide::data::{
     input_feature_size, DatasetKind, FeatureMappings, Target, TrainingDataset, TrainingFraction,
+    STATIC_CATEGORICAL_COLUMNS,
 };
 use fund::models::tide::model::TiDEModel;
 use fund::models::tide::train::{train, TrainBackend, TrainConfiguration};
@@ -340,16 +341,15 @@ async fn run(parameters: &Parameters) -> Result<Report, Box<dyn std::error::Erro
         )?);
     }
 
-    // The sessions and the names the model was actually measured over. Every baseline is cut to
-    // both: comparing a forecast scored on fifty sessions against one scored on five hundred
-    // compares two stretches of calendar, and one scored over every listed name against one scored
-    // over the names that had a contiguous window compares two universes.
-    let measured_sessions: BTreeSet<i64> = validation_data
-        .forecast_sessions()
-        .iter()
-        .copied()
-        .collect();
-    let universe_tickers = measured_tickers(&validation_data, &prepared.fit.mappings)?;
+    // The exact cells the model was measured over. Every baseline is cut to the same ones: a
+    // forecast scored on fifty sessions against one scored on five hundred compares two stretches of
+    // calendar, and a name scored on every session against one scored only where its window was
+    // contiguous compares two universes — in which case the difference reported as model quality is
+    // partly a difference in population.
+    let measured = measured_pairs(&validation_data, &prepared.fit.mappings)?;
+    let measured_sessions: BTreeSet<i64> = measured.iter().map(|(session, _)| *session).collect();
+    let universe_tickers: BTreeSet<String> =
+        measured.iter().map(|(_, ticker)| ticker.clone()).collect();
     let universe = Universe {
         tickers: universe_tickers.len(),
         sessions: measured_sessions.len(),
@@ -376,8 +376,10 @@ async fn run(parameters: &Parameters) -> Result<Report, Box<dyn std::error::Erro
         .into());
     }
     // Cut by name before the panel is built, so every session of a measured name's history survives
-    // — momentum needs twenty sessions of it, and cutting by session as well would starve it.
-    let panel = Panel::from_frame(&restrict_to_tickers(&returns.returns, &universe_tickers)?)?;
+    // — momentum needs twenty sessions of it, and cutting by session as well would starve it. The
+    // mask then holds the grading to the model's own cells without touching that history.
+    let panel = Panel::from_frame(&restrict_to_tickers(&returns.returns, &universe_tickers)?)?
+        .scoring_restricted_to(&measured);
     let baselines: Vec<Box<dyn Predictor>> = vec![
         Box::new(CrossSectionalMean),
         Box::new(Persistence),
@@ -559,11 +561,14 @@ fn permute_targets(dataset: &TrainingDataset, seed: u64) -> Result<TrainingDatas
     )
 }
 
-/// The names the model's samples exist for, decoded through the mappings the fit produced.
-fn measured_tickers(
+/// The `(session, ticker)` cells the model's samples exist for, decoded through the fit's mappings.
+///
+/// Pairs rather than names: windowing drops a name from the sessions its history is not contiguous
+/// over, so the set of names it was measured on does not say which sessions each was measured in.
+fn measured_pairs(
     dataset: &TrainingDataset,
     mappings: &FeatureMappings,
-) -> Result<BTreeSet<String>, Box<dyn std::error::Error>> {
+) -> Result<BTreeSet<(i64, String)>, Box<dyn std::error::Error>> {
     let mapping = mappings.get("ticker").ok_or(
         "the fitted mappings carry no `ticker` column, so the model's names cannot be read",
     )?;
@@ -571,17 +576,24 @@ fn measured_tickers(
         .iter()
         .map(|(name, id)| (*id, name.as_str()))
         .collect();
+    // Derived rather than assumed to be zero: reordering the constant would otherwise decode a
+    // sector code through the ticker mapping and build a plausible, wrong universe.
+    let column = STATIC_CATEGORICAL_COLUMNS
+        .iter()
+        .position(|name| *name == "ticker")
+        .ok_or("the static categorical columns carry no `ticker`, so a sample names no symbol")?;
 
     let encoded = dataset.static_categorical();
-    let mut tickers = BTreeSet::new();
+    let sessions = dataset.forecast_sessions();
+    let mut pairs = BTreeSet::new();
     for sample in 0..dataset.len() {
-        let id = encoded[[sample, 0, 0]];
+        let id = encoded[[sample, 0, column]];
         let name = names.get(&id).ok_or_else(|| {
             format!("sample {sample} carries encoded ticker {id}, which the mapping does not name")
         })?;
-        tickers.insert((*name).to_string());
+        pairs.insert((sessions[sample], (*name).to_string()));
     }
-    Ok(tickers)
+    Ok(pairs)
 }
 
 /// Cuts the returns frame to the names the model was measured on, keeping their whole history.

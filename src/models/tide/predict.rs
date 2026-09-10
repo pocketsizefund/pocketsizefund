@@ -200,8 +200,17 @@ pub fn filter_equity_bars(
     let Some(newest_timestamp) = newest_timestamp else {
         return Ok(data);
     };
-    let window_start =
-        newest_timestamp - universe::LIQUIDITY_LOOKBACK_DAYS * 24 * 60 * 60 * 1_000 + 1;
+    // Eastern calendar days rather than a multiple of 24 hours, and inclusive at the lower edge,
+    // because that is what `universe::load_liquidity` asks Postgres for.
+    let newest_instant = DateTime::from_timestamp_millis(newest_timestamp).ok_or_else(|| {
+        PredictionError::DataConsolidation(format!(
+            "bar timestamp {newest_timestamp} is not an instant"
+        ))
+    })?;
+    let window_start = SessionDate::at(newest_instant)
+        .plus_calendar_days(-universe::LIQUIDITY_LOOKBACK_DAYS)
+        .midnight()
+        .timestamp_millis();
 
     let window = data
         .clone()
@@ -764,6 +773,76 @@ mod tests {
         let result = filter_equity_bars(data, floor(10.0, 50_000_000.0)).unwrap();
 
         assert_eq!(result.height(), 0);
+    }
+
+    /// The window's own lower edge is inside it, matching `load_liquidity`'s `timestamp >= $2`.
+    ///
+    /// An exclusive bound here and an inclusive one in SQL disagree on exactly one session, which is
+    /// the session most likely to decide a marginal name.
+    #[test]
+    fn test_a_bar_exactly_on_the_window_edge_is_inside_it() {
+        let newest = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 6, 30).unwrap());
+        let edge = newest
+            .plus_calendar_days(-universe::LIQUIDITY_LOOKBACK_DAYS)
+            .midnight()
+            .timestamp_millis();
+        let data = DataFrame::new(vec![
+            Column::new("ticker".into(), vec!["EDGE", "EDGE"]),
+            // The older bar sits on the edge and carries all the notional; drop it and the name
+            // averages below the floor.
+            Column::new(
+                "timestamp".into(),
+                vec![edge, newest.midnight().timestamp_millis()],
+            ),
+            Column::new("close_price".into(), vec![50.0, 50.0]),
+            Column::new("volume".into(), vec![4_000_000i64, 0]),
+        ])
+        .unwrap();
+
+        let result = filter_equity_bars(data, floor(10.0, 50_000_000.0)).unwrap();
+
+        assert_eq!(result.height(), 2);
+    }
+
+    /// The window is 30 Eastern calendar days, not 30 multiples of 24 hours.
+    ///
+    /// A window ending after the March transition opens an hour later in UTC than a fixed offset
+    /// does, so a fixed offset reaches back into a session the universe has already stopped counting
+    /// and can admit a name on liquidity that is outside the window.
+    #[test]
+    fn test_the_window_counts_calendar_days_across_a_daylight_saving_transition() {
+        // 2026-03-08 is the spring transition; a window ending 2026-03-20 spans it.
+        let newest = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 3, 20).unwrap());
+        let oldest = newest.plus_calendar_days(-universe::LIQUIDITY_LOOKBACK_DAYS);
+        let fixed_offset_start =
+            newest.midnight().timestamp_millis() - universe::LIQUIDITY_LOOKBACK_DAYS * 86_400_000;
+
+        assert_eq!(
+            oldest.midnight().timestamp_millis() - fixed_offset_start,
+            3_600_000,
+            "the calendar bound must open an hour after the fixed-offset one across the transition"
+        );
+
+        // All of the name's notional sits in that one disputed hour, so whether it clears the floor
+        // is exactly the question of which bound is used.
+        let data = DataFrame::new(vec![
+            Column::new("ticker".into(), vec!["SPRUNG", "SPRUNG"]),
+            Column::new(
+                "timestamp".into(),
+                vec![fixed_offset_start, newest.midnight().timestamp_millis()],
+            ),
+            Column::new("close_price".into(), vec![50.0, 50.0]),
+            Column::new("volume".into(), vec![4_000_000i64, 0]),
+        ])
+        .unwrap();
+
+        let result = filter_equity_bars(data, floor(10.0, 50_000_000.0)).unwrap();
+
+        assert_eq!(
+            result.height(),
+            0,
+            "a bar an hour outside the calendar window must not admit the name"
+        );
     }
 
     #[test]
