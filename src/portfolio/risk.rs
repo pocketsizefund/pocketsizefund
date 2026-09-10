@@ -1,7 +1,6 @@
 //! The risk gate: every condition here only ever stops an *entry*.
 //!
-//! Nothing can block an exit. The book is flat overnight without exception, so a gate that could
-//! refuse to close a position would be a way to carry one.
+//! Nothing can block an exit: the book is flat overnight without exception.
 
 use rust_decimal::Decimal;
 use tracing::{info, warn};
@@ -284,7 +283,7 @@ mod tests {
     use super::*;
     use crate::common::types::{Dollars, PairID, Ticker};
     use crate::portfolio::screen::PairCandidate;
-    use crate::portfolio::size::size_pair;
+    use crate::portfolio::size::{size_pair, size_pairs};
 
     fn account(equity: i64, long: i64, short: i64) -> AccountSnapshot {
         AccountSnapshot::new(
@@ -473,6 +472,84 @@ mod tests {
         // rather than left looking as though the screen dropped it.
         assert_eq!(refusals[0].pair_id.as_str(), "CCCC-DDDD");
         assert_eq!(refusals[1].pair_id.as_str(), "EEEE-FFFF");
+    }
+
+    /// The nth distinct pair of symbols. `Ticker` admits letters only, so the index is spelled.
+    fn candidate_for_index(index: usize) -> PairCandidate {
+        let letter = (b'A' + index as u8) as char;
+        PairCandidate::new(
+            PairID::new(
+                Ticker::new(&format!("L{letter}{letter}{letter}")).unwrap(),
+                Ticker::new(&format!("S{letter}{letter}{letter}")).unwrap(),
+            ),
+            1.0,
+            2.5,
+            0.02,
+            100.0,
+            100.0,
+        )
+        .expect("the test candidate must be constructible")
+    }
+
+    /// The per-leg budget and the gross cap are two halves of one calibration, and only their
+    /// composition shows it: a full ten-pair book lands exactly on the cap, admitted by a strict
+    /// `>` and nothing else. Neither module can state this alone.
+    #[test]
+    fn test_a_full_book_of_sized_pairs_lands_exactly_on_the_gross_cap() {
+        let parameters = SizingParameters::new(10, 1.0).unwrap();
+        let equity = Decimal::from(100_000);
+        let candidates: Vec<PairCandidate> = (0..10).map(candidate_for_index).collect();
+
+        let (sized, refusals) = size_pairs(&candidates, equity, &parameters);
+        assert_eq!(sized.len(), 10, "every candidate sizes at this budget");
+        assert!(refusals.is_empty());
+        // 5,000 a leg, a 100-dollar short rounding to 50 whole shares: 10,000 gross a pair.
+        assert_eq!(sized[0].gross_exposure(), Decimal::from(10_000));
+
+        let mut gate = RiskGate::new(
+            &account(100_000, 0, 0),
+            Some(equity),
+            0,
+            Some(120),
+            parameters,
+            true,
+        );
+        assert_eq!(gate.gross_exposure_cap(), Decimal::from(100_000));
+
+        let (approved, blocked) = gate.admit_all(&sized);
+        assert_eq!(approved.len(), 10, "a full book fits the cap exactly");
+        assert!(blocked.is_empty());
+    }
+
+    /// There is no headroom whatsoever: one dollar of exposure already on the account is enough to
+    /// refuse the tenth pair, which is what "lands exactly on the cap" costs.
+    #[test]
+    fn test_a_dollar_of_prior_exposure_refuses_the_last_pair_of_a_full_book() {
+        let parameters = SizingParameters::new(10, 1.0).unwrap();
+        let equity = Decimal::from(100_000);
+        let candidates: Vec<PairCandidate> = (0..10).map(candidate_for_index).collect();
+        let (sized, _) = size_pairs(&candidates, equity, &parameters);
+
+        let mut gate = RiskGate::new(
+            &account(100_000, 1, 0),
+            Some(equity),
+            0,
+            Some(120),
+            parameters,
+            true,
+        );
+        let (approved, blocked) = gate.admit_all(&sized);
+
+        assert_eq!(approved.len(), 9);
+        assert_eq!(blocked.len(), 1);
+        assert_eq!(blocked[0].pair_id.as_str(), "LJJJ-SJJJ");
+        assert_eq!(
+            blocked[0].block,
+            RiskBlock::GrossExposure {
+                projected: Decimal::from(100_001),
+                cap: Decimal::from(100_000),
+            }
+        );
     }
 
     #[test]

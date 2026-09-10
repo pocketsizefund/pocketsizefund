@@ -1,7 +1,6 @@
-//! The post-close account sync: what Alpaca says actually happened.
-//!
-//! Balances land in `account_snapshots`, activities in `account_activities` keyed by Alpaca's own
-//! identifier, and then the fills — and only the fills — are attributed back to their pairs.
+//! The post-close account sync: what Alpaca says actually happened. Balances land in
+//! `account_snapshots`, activities in `account_activities` keyed by Alpaca's own identifier, and
+//! then the fills — and only the fills — are attributed back to their pairs.
 
 use std::collections::{HashMap, HashSet};
 
@@ -390,15 +389,11 @@ fn position_reading(position: &Position) -> PositionReading {
 
 /// The previous trading session, when it has no snapshot of its own.
 ///
-/// A sync that failed at 16:15 leaves a hole nothing else notices, and the equity series is what a
-/// time-weighted return will eventually be folded from — a fold cannot chain across a missing
-/// session, and by the time one is discovered it may be months old.
-/// `/v2/account/portfolio/history` can refill it.
-///
-/// Asking the calendar for the previous session, rather than testing a date against
-/// [`TradingCalendar::is_trading_day`], is deliberate: it only ever returns days it actually holds,
-/// so a date beyond the fetched horizon cannot pass for a holiday. `None` means either no gap or no
-/// calendar reaching back that far, and neither is worth failing the sync over.
+/// A sync that failed at 16:15 leaves a hole nothing else notices, and a time-weighted return
+/// cannot chain across a missing session; `/v2/account/portfolio/history` can refill it. Asking the
+/// calendar for the previous session, rather than testing a date against
+/// [`TradingCalendar::is_trading_day`], means a date beyond the fetched horizon cannot pass for a
+/// holiday, and `None` means either no gap or no calendar reaching back that far.
 async fn missing_previous_snapshot(
     pool: &PgPool,
     calendar: &TradingCalendar,
@@ -445,13 +440,10 @@ pub struct Attribution {
 /// Attributes fills to the pairs whose legs and window they fall inside.
 ///
 /// A fill belongs to a pair when its symbol is one of the pair's legs and its timestamp is within
-/// the pair's open window. Profit and loss is the sum of the signed cash flows: a buy is negative,
-/// a sell positive, so a pair that opened and closed cleanly sums to what it made.
-///
-/// A fill matching more than one pair is counted against **none** of them and reported as
-/// unattributed. That means the same symbol traded in two overlapping pairs, which
-/// [`crate::portfolio::screen::select_disjoint`] is supposed to prevent — so splitting the fill
-/// would produce two plausible numbers and hide an upstream bug.
+/// the pair's open window; profit and loss is the sum of the signed cash flows, a buy negative and
+/// a sell positive. A fill matching more than one pair is counted against **none** of them and
+/// reported as unattributed, because that means an upstream bug in
+/// [`crate::portfolio::screen::select_disjoint`] rather than something to split.
 pub fn attribute(closed: &[ClosedPair], activities: &[AccountActivity]) -> Attribution {
     let mut realized: HashMap<Uuid, Decimal> = closed
         .iter()

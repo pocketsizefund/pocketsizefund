@@ -1,10 +1,6 @@
 //! Running the TiDE model: from stored market history to rows in `equity_predictions`.
-//!
-//! The [`crate::common::types::LiquidityFloor`] is passed in and the artifact does not record the
-//! one it was fitted against, so an artifact older than the current floor is served under a screen
-//! it never saw. [`filter_to_trained_tickers`] is what bounds that: it intersects against the
-//! artifact's own vocabulary, so a stale floor narrows the served set rather than handing the
-//! scaler a name it never trained on.
+//! The artifact does not record the [`crate::common::types::LiquidityFloor`] it was fitted against,
+//! so [`filter_to_trained_tickers`] intersects the served set against its own vocabulary instead.
 
 use burn::backend::NdArray;
 use chrono::{DateTime, Utc};
@@ -14,9 +10,10 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::common::types::{EquityPrediction, LiquidityFloor, SessionDate, Ticker};
+use crate::data::universe;
 
 use crate::models::tide::artifact::ModelState;
-use crate::models::tide::data::{Data, DatasetKind};
+use crate::models::tide::data::{Data, DatasetKind, TARGET_COLUMN};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PredictionError {
@@ -112,12 +109,9 @@ pub fn consolidate_data(
 /// Collapses repeated `(ticker, timestamp)` bars, keeping the highest-volume row of each pair.
 ///
 /// A provider that serves two instruments under one symbol yields two bars for one session, and
-/// keeping whichever arrived last picked the wrong series for BCPC and OP on every day of a
-/// two-year archive. Volume separates them where price cannot: the two TPC series opened fifty
-/// cents apart, while their volumes differed five-fold.
-///
-/// Every collapse is logged, because a silent tie-break is how the wrong instrument trained for two
-/// years without anything recording that a choice had been made.
+/// volume separates them where price cannot: the two TPC series opened fifty cents apart while their
+/// volumes differed five-fold. Every collapse is logged, because a silent tie-break leaves nothing
+/// recording that a choice between two instruments was made at all.
 fn resolve_duplicate_bars(bars: DataFrame) -> Result<DataFrame, PredictionError> {
     let before = bars.height();
 
@@ -183,48 +177,62 @@ fn duplicated_tickers(bars: &DataFrame) -> Result<Vec<String>, PredictionError> 
     Ok(names)
 }
 
-/// Drops tickers whose trailing averages fall below `floor`.
+/// Drops tickers that do not clear `floor` over the same window the traded universe screens.
 ///
-/// Screens the *average* close where [`crate::data::universe::LiquidityRow`] screens the window's
-/// minimum, which is the stricter test, so every name the universe admits still reaches this one.
-/// Both bounds are inclusive, as in [`LiquidityFloor::admits`] — polars needs the thresholds as
-/// expressions, so this is one of the two screens that cannot call it and has a boundary test
-/// instead.
+/// The frame carries a longer history than the screen reads, because the features need it and the
+/// universe does not: the statistics are taken over the trailing
+/// [`universe::LIQUIDITY_LOOKBACK_DAYS`], so the predicted set is the traded set rather than a
+/// superset of it. Screening the whole frame would let a name that has since dried up keep a
+/// prediction on the strength of history the universe has already stopped counting.
 pub fn filter_equity_bars(
     data: DataFrame,
     floor: LiquidityFloor,
 ) -> Result<DataFrame, PredictionError> {
     let before_count = data.height();
+    let consolidation = |error: PolarsError| PredictionError::DataConsolidation(error.to_string());
 
-    let valid_tickers = data
+    let newest_timestamp = data
+        .column("timestamp")
+        .map_err(consolidation)?
+        .i64()
+        .map_err(consolidation)?
+        .max();
+    let Some(newest_timestamp) = newest_timestamp else {
+        return Ok(data);
+    };
+    // Eastern calendar days rather than a multiple of 24 hours, and inclusive at the lower edge,
+    // because that is what `universe::load_liquidity` asks Postgres for.
+    let newest_instant = DateTime::from_timestamp_millis(newest_timestamp).ok_or_else(|| {
+        PredictionError::DataConsolidation(format!(
+            "bar timestamp {newest_timestamp} is not an instant"
+        ))
+    })?;
+    let window_start = SessionDate::at(newest_instant)
+        .plus_calendar_days(-universe::LIQUIDITY_LOOKBACK_DAYS)
+        .midnight()
+        .timestamp_millis();
+
+    let window = data
         .clone()
         .lazy()
-        .group_by([col("ticker")])
-        .agg([
-            col("close_price").mean().alias("average_close_price"),
-            (col("close_price") * col("volume").cast(DataType::Float64))
-                .mean()
-                .alias("average_dollar_volume"),
-        ])
-        .filter(
-            col("average_close_price")
-                .gt_eq(lit(floor.minimum_close_price()))
-                .and(col("average_dollar_volume").gt_eq(lit(floor.minimum_dollar_volume()))),
-        )
-        .select([col("ticker")])
+        .filter(col("timestamp").gt_eq(lit(window_start)))
         .collect()
-        .map_err(|error| PredictionError::DataConsolidation(error.to_string()))?;
+        .map_err(consolidation)?;
+    let liquid = universe::filter_liquid_bars(window, floor).map_err(consolidation)?;
 
     let filtered = data
         .lazy()
         .join(
-            valid_tickers.lazy(),
+            liquid
+                .lazy()
+                .select([col("ticker")])
+                .unique(None, UniqueKeepStrategy::Any),
             [col("ticker")],
             [col("ticker")],
             JoinArgs::new(JoinType::Semi),
         )
         .collect()
-        .map_err(|error| PredictionError::DataConsolidation(error.to_string()))?;
+        .map_err(consolidation)?;
 
     info!(
         before = before_count,
@@ -280,19 +288,21 @@ pub fn filter_to_trained_tickers(
     Ok(filtered)
 }
 
-/// Inverse-scale the predicted `daily_return` quantiles and sort them monotonic.
+/// Inverse-scale the predicted target quantiles and sort them monotonic.
 ///
+/// Named through [`TARGET_COLUMN`] rather than spelled out, so a rename reaches the scaler lookup
+/// too — a literal that drifted from the constant would leave every served prediction unscaled.
 /// Quantile crossing is routine in quantile regression; sorting is the standard remedy.
 pub(crate) fn unscale_and_sort_quantiles(
     scaled_quantiles: &[f64],
     scaler: &crate::models::tide::data::Scaler,
-) -> Vec<f64> {
+) -> Result<Vec<f64>, crate::models::tide::TideError> {
     let mut unscaled: Vec<f64> = scaled_quantiles
         .iter()
-        .map(|value| scaler.inverse_transform_value("daily_return", *value))
-        .collect();
+        .map(|value| scaler.inverse_transform_value(TARGET_COLUMN, *value))
+        .collect::<Result<_, _>>()?;
     unscaled.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
-    unscaled
+    Ok(unscaled)
 }
 
 /// Timestamp for horizon step `step`, where step 0 is the Eastern session `now` falls in.
@@ -396,9 +406,8 @@ pub fn generate_predictions(
     let mut results = Vec::with_capacity(sample_count);
     for sample_index in 0..sample_count {
         let ticker_id = dataset.static_categorical()[[sample_index, 0, 0]];
-        // Reported rather than defaulted. This used to fall back to the literal string "UNKNOWN",
-        // which is a valid ticker format -- so an unmappable id was stored as a prediction for a
-        // symbol called UNKNOWN rather than failing.
+        // Reported rather than defaulted: any placeholder string here is a valid ticker format, so
+        // an unmappable id would be stored as a prediction for a symbol of that name.
         let raw_ticker = reverse_ticker_map.get(&ticker_id).ok_or_else(|| {
             PredictionError::Postprocessing(format!(
                 "sample {sample_index} carries encoded ticker {ticker_id}, which the artifact's \
@@ -421,7 +430,8 @@ pub fn generate_predictions(
             let scaled: Vec<f64> = (0..quantile_count)
                 .map(|quantile| predictions_data[base_index + quantile] as f64)
                 .collect();
-            let quantiles = unscale_and_sort_quantiles(&scaled, model_state.scaler());
+            let quantiles = unscale_and_sort_quantiles(&scaled, model_state.scaler())
+                .map_err(|error| PredictionError::Postprocessing(error.to_string()))?;
 
             results.push(
                 EquityPrediction::new(
@@ -531,13 +541,10 @@ pub async fn insert_predictions(
 
 /// Loads the most recent prediction per ticker within a half-open instant range.
 ///
-/// The range is the current session's Eastern day, so a pass on a morning when the pre-open
-/// inference failed reads nothing rather than reading yesterday's prediction as though it were
-/// today's. A stale artifact is acceptable and logged; a stale *prediction* silently presented as
-/// current is not, because nothing downstream carries the timestamp far enough to notice.
-///
-/// `DISTINCT ON` rather than a group-by join: the table's primary key is `(ticker, timestamp)`, so
-/// the newest row per ticker is a single ordered scan of the day's chunk.
+/// The range is the current session's Eastern day, so a morning when the pre-open inference failed
+/// reads nothing rather than yesterday's prediction presented as today's — nothing downstream carries
+/// the timestamp far enough to notice. `DISTINCT ON` rather than a group-by join, because the primary
+/// key is `(ticker, timestamp)` and the newest row per ticker is one ordered scan of the day's chunk.
 pub async fn load_predictions_between(
     pool: &PgPool,
     start: chrono::DateTime<chrono::Utc>,
@@ -615,7 +622,7 @@ mod tests {
             .expect("test floor must be valid")
     }
 
-    /// A scaler over `daily_return` alone, which is all `unscale_and_sort_quantiles` reads.
+    /// A scaler over the target column alone, which is all `unscale_and_sort_quantiles` reads.
     ///
     /// Built through the validated constructor, so a future tightening of the `Scaler` contract
     /// fails here once rather than in five separate fixtures.
@@ -624,8 +631,8 @@ mod tests {
         standard_deviation: f64,
     ) -> crate::models::tide::data::Scaler {
         crate::models::tide::data::Scaler::new(
-            std::collections::HashMap::from([("daily_return".to_string(), mean)]),
-            std::collections::HashMap::from([("daily_return".to_string(), standard_deviation)]),
+            std::collections::HashMap::from([(TARGET_COLUMN.to_string(), mean)]),
+            std::collections::HashMap::from([(TARGET_COLUMN.to_string(), standard_deviation)]),
         )
         .expect("test scaler statistics must be usable")
     }
@@ -708,13 +715,13 @@ mod tests {
     /// exactly $10.00 was admitted to the universe, trained on, and dropped at inference.
     #[test]
     fn test_filter_equity_bars_keeps_a_ticker_exactly_at_both_thresholds() {
-        // Two bars either side of each threshold, so the averages land on it exactly rather than
-        // near it: (8 + 12)/2 = 10.00 and ($40M + $60M)/2 = $50,000,000.
+        // The lowest close sits on the price bound and the mean notional on the notional bound:
+        // min(10, 12) = 10.00, and ($40M + $60M)/2 = $50,000,000.
         let data = DataFrame::new(vec![
             Column::new("ticker".into(), vec!["EDGE", "EDGE"]),
             Column::new("timestamp".into(), vec![1000i64, 2000]),
-            Column::new("close_price".into(), vec![8.0, 12.0]),
-            Column::new("volume".into(), vec![5_000_000i64, 5_000_000]),
+            Column::new("close_price".into(), vec![10.0, 12.0]),
+            Column::new("volume".into(), vec![4_000_000i64, 5_000_000]),
         ])
         .unwrap();
 
@@ -724,6 +731,117 @@ mod tests {
             result.height(),
             2,
             "a ticker sitting exactly on both thresholds must survive inference filtering"
+        );
+    }
+
+    /// The screened quantity is the window's *minimum* close, which is what the traded universe
+    /// reads. An average admits a name that spent half the window untradeable.
+    #[test]
+    fn test_a_name_whose_close_only_averages_above_the_floor_is_refused() {
+        let data = DataFrame::new(vec![
+            Column::new("ticker".into(), vec!["DIPPER", "DIPPER"]),
+            Column::new("timestamp".into(), vec![1000i64, 2000]),
+            // Mean 10.00, minimum 4.00.
+            Column::new("close_price".into(), vec![4.0, 16.0]),
+            Column::new("volume".into(), vec![20_000_000i64, 20_000_000]),
+        ])
+        .unwrap();
+
+        let result = filter_equity_bars(data, floor(10.0, 50_000_000.0)).unwrap();
+
+        assert_eq!(result.height(), 0);
+    }
+
+    /// The window is the traded universe's, not the whole frame the features need, so liquidity
+    /// that predates the window cannot keep a name that has since dried up.
+    #[test]
+    fn test_liquidity_older_than_the_window_does_not_admit_a_name() {
+        let day = 24 * 60 * 60 * 1_000i64;
+        let newest = 1_000 * day;
+        let data = DataFrame::new(vec![
+            Column::new("ticker".into(), vec!["FADED", "FADED"]),
+            Column::new(
+                "timestamp".into(),
+                // One bar inside the 30-day window, one 60 days before it.
+                vec![newest - 60 * day, newest],
+            ),
+            Column::new("close_price".into(), vec![50.0, 50.0]),
+            Column::new("volume".into(), vec![10_000_000i64, 100]),
+        ])
+        .unwrap();
+
+        let result = filter_equity_bars(data, floor(10.0, 50_000_000.0)).unwrap();
+
+        assert_eq!(result.height(), 0);
+    }
+
+    /// The window's own lower edge is inside it, matching `load_liquidity`'s `timestamp >= $2`.
+    ///
+    /// An exclusive bound here and an inclusive one in SQL disagree on exactly one session, which is
+    /// the session most likely to decide a marginal name.
+    #[test]
+    fn test_a_bar_exactly_on_the_window_edge_is_inside_it() {
+        let newest = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 6, 30).unwrap());
+        let edge = newest
+            .plus_calendar_days(-universe::LIQUIDITY_LOOKBACK_DAYS)
+            .midnight()
+            .timestamp_millis();
+        let data = DataFrame::new(vec![
+            Column::new("ticker".into(), vec!["EDGE", "EDGE"]),
+            // The older bar sits on the edge and carries all the notional; drop it and the name
+            // averages below the floor.
+            Column::new(
+                "timestamp".into(),
+                vec![edge, newest.midnight().timestamp_millis()],
+            ),
+            Column::new("close_price".into(), vec![50.0, 50.0]),
+            Column::new("volume".into(), vec![4_000_000i64, 0]),
+        ])
+        .unwrap();
+
+        let result = filter_equity_bars(data, floor(10.0, 50_000_000.0)).unwrap();
+
+        assert_eq!(result.height(), 2);
+    }
+
+    /// The window is 30 Eastern calendar days, not 30 multiples of 24 hours.
+    ///
+    /// A window ending after the March transition opens an hour later in UTC than a fixed offset
+    /// does, so a fixed offset reaches back into a session the universe has already stopped counting
+    /// and can admit a name on liquidity that is outside the window.
+    #[test]
+    fn test_the_window_counts_calendar_days_across_a_daylight_saving_transition() {
+        // 2026-03-08 is the spring transition; a window ending 2026-03-20 spans it.
+        let newest = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 3, 20).unwrap());
+        let oldest = newest.plus_calendar_days(-universe::LIQUIDITY_LOOKBACK_DAYS);
+        let fixed_offset_start =
+            newest.midnight().timestamp_millis() - universe::LIQUIDITY_LOOKBACK_DAYS * 86_400_000;
+
+        assert_eq!(
+            oldest.midnight().timestamp_millis() - fixed_offset_start,
+            3_600_000,
+            "the calendar bound must open an hour after the fixed-offset one across the transition"
+        );
+
+        // All of the name's notional sits in that one disputed hour, so whether it clears the floor
+        // is exactly the question of which bound is used.
+        let data = DataFrame::new(vec![
+            Column::new("ticker".into(), vec!["SPRUNG", "SPRUNG"]),
+            Column::new(
+                "timestamp".into(),
+                vec![fixed_offset_start, newest.midnight().timestamp_millis()],
+            ),
+            Column::new("close_price".into(), vec![50.0, 50.0]),
+            Column::new("volume".into(), vec![4_000_000i64, 0]),
+        ])
+        .unwrap();
+
+        let result = filter_equity_bars(data, floor(10.0, 50_000_000.0)).unwrap();
+
+        assert_eq!(
+            result.height(),
+            0,
+            "a bar an hour outside the calendar window must not admit the name"
         );
     }
 
@@ -807,7 +925,7 @@ mod tests {
         let scaler = daily_return_scaler(0.0, 1.0);
 
         // Crossed raw quantiles (q10 > q50) must come back monotonic.
-        let sorted = unscale_and_sort_quantiles(&[0.05, 0.02, 0.03], &scaler);
+        let sorted = unscale_and_sort_quantiles(&[0.05, 0.02, 0.03], &scaler).unwrap();
         assert_eq!(sorted, vec![0.02, 0.03, 0.05]);
     }
 
@@ -815,8 +933,8 @@ mod tests {
     fn test_predictions_are_visible_to_the_same_session_evaluation() {
         // The 09:00 Eastern run exists to feed the same session's evaluation passes, which select
         // rows with `eastern_day_bounds`. A stamp built at UTC midnight falls in the *previous*
-        // Eastern day's window -- 20:00 the day before, under EDT -- so the prediction written this
-        // morning is never the one read this afternoon.
+        // Eastern day's window -- 20:00 or 19:00 the day before in New York -- so the prediction
+        // written this morning is never the one read this afternoon.
         use crate::common::types::SessionDate;
 
         for day in [
@@ -1084,7 +1202,7 @@ mod tests {
         let scaler = daily_return_scaler(0.0, 1.0);
 
         // Already-sorted quantiles must come back unchanged.
-        let result = unscale_and_sort_quantiles(&[0.01, 0.02, 0.03], &scaler);
+        let result = unscale_and_sort_quantiles(&[0.01, 0.02, 0.03], &scaler).unwrap();
         assert_eq!(result, vec![0.01, 0.02, 0.03]);
     }
 
@@ -1093,7 +1211,7 @@ mod tests {
         // inverse_transform = value * std + mean
         let scaler = daily_return_scaler(0.005, 0.01);
 
-        let result = unscale_and_sort_quantiles(&[-1.0, 0.0, 1.0], &scaler);
+        let result = unscale_and_sort_quantiles(&[-1.0, 0.0, 1.0], &scaler).unwrap();
         // -1.0 * 0.01 + 0.005 = -0.005, 0.0 * 0.01 + 0.005 = 0.005, 1.0 * 0.01 + 0.005 = 0.015
         assert!((result[0] - (-0.005)).abs() < 1e-12);
         assert!((result[1] - 0.005).abs() < 1e-12);
@@ -1284,7 +1402,7 @@ mod tests {
     fn test_unscale_and_sort_quantiles_single_element() {
         let scaler = daily_return_scaler(0.0, 1.0);
 
-        let result = unscale_and_sort_quantiles(&[0.05], &scaler);
+        let result = unscale_and_sort_quantiles(&[0.05], &scaler).unwrap();
         assert_eq!(result.len(), 1);
         assert!((result[0] - 0.05).abs() < 1e-12);
     }
@@ -1293,7 +1411,7 @@ mod tests {
     fn test_unscale_and_sort_quantiles_empty_input() {
         let scaler = daily_return_scaler(0.0, 1.0);
 
-        let result = unscale_and_sort_quantiles(&[], &scaler);
+        let result = unscale_and_sort_quantiles(&[], &scaler).unwrap();
         assert!(result.is_empty());
     }
 }

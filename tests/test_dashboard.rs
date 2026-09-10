@@ -1,14 +1,6 @@
-//! The dashboard's queries, run against the real schema.
-//!
-//! This target exists because the dashboard is the one part of the tree with no compile-time check
-//! on its SQL. Everything else uses `sqlx::query!`, which fails the build on a mistyped column;
-//! the dashboard uses raw `sqlx::query` so it adds no entries to the offline cache, and the price
-//! of that is that a wrong column name is a runtime error on a page nobody is watching when it
-//! breaks. Running every query once against a real database is what buys the guarantee back.
-//!
-//! The rows are written through the production writers wherever one exists — `record_open`,
-//! `record_close`, `store_snapshot` — rather than by hand. A dashboard test that seeds its own rows
-//! with its own INSERT proves the query parses, not that it reads what the service writes.
+//! The dashboard's queries, run against the real schema: raw `sqlx::query` carries no compile-time
+//! column check, so running each query once is the only one there is. Rows go in through the
+//! production writers, since seeding by hand proves the query parses, not that it reads our writes.
 
 mod common;
 

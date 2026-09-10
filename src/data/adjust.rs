@@ -114,14 +114,11 @@ impl SplitTable {
 
     /// The factor putting a bar of `ticker` on `session` onto `as_of`'s share basis.
     ///
-    /// Splits are applied when they execute strictly after the bar and no later than `as_of`. The
-    /// lower bound is exclusive because a split executes at the open, so the bar stamped that day
-    /// already reflects it. The upper bound is what keeps an *announced* split out: the table
-    /// carries them months ahead, and applying one would restate today's history onto a basis the
-    /// market has not moved to, leaving it incomparable with the live quote it gets screened against.
-    ///
-    /// A composition that leaves the representable range falls back to
-    /// [`AdjustmentFactor::IDENTITY`] — the same answer an unknown ticker gets.
+    /// Splits are applied when they execute strictly after the bar and no later than `as_of`: a
+    /// split executes at the open, so the bar stamped that day already reflects it, and the upper
+    /// bound keeps an *announced* split from restating history onto a basis the market has not
+    /// moved to. A composition that leaves the representable range falls back to
+    /// [`AdjustmentFactor::IDENTITY`], the same answer an unknown ticker gets.
     pub fn factor_at(
         &self,
         ticker: &str,
@@ -302,6 +299,7 @@ mod tests {
     use super::*;
     use crate::common::types::{EquitySplit, Ticker};
     use crate::data::splits::splits_to_dataframe;
+    use chrono::TimeZone;
 
     fn session(value: &str) -> SessionDate {
         SessionDate::from_date(value.parse().expect("a valid session date"))
@@ -426,11 +424,43 @@ mod tests {
         );
     }
 
+    /// The instant ingestion stamps a daily bar at, which is the 16:00 Eastern close.
+    ///
+    /// Not `midnight()`: that sits exactly on the lower edge of the session's `bounds()`, a place
+    /// no real bar is written, so a fixture using it would not exercise the conversion at all.
+    fn session_close(session_date: &str) -> i64 {
+        let local_close = session(session_date)
+            .date()
+            .and_hms_opt(16, 0, 0)
+            .expect("16:00 is a valid wall-clock time");
+        chrono_tz::America::New_York
+            .from_local_datetime(&local_close)
+            .earliest()
+            .expect("16:00 Eastern is unambiguous")
+            .timestamp_millis()
+    }
+
+    /// The bar fixture is stamped where ingestion stamps one, strictly inside the session.
+    ///
+    /// `midnight()` sits exactly on the lower edge of `bounds()`, so a fixture using it agrees with
+    /// the fold by accident rather than by describing a bar the archive could hold.
+    #[test]
+    fn test_a_bar_fixture_is_stamped_at_the_session_close() {
+        let (start, end) = session("2026-06-26").bounds();
+        let stamp =
+            DateTime::from_timestamp_millis(session_close("2026-06-26")).expect("a real instant");
+        assert!(
+            stamp > start && stamp < end,
+            "{stamp} is not inside the session"
+        );
+        assert_eq!(stamp.to_rfc3339(), "2026-06-26T20:00:00+00:00");
+    }
+
     fn bars(ticker: &str, session_date: &str, close: f64, volume: i64) -> DataFrame {
         df![
             "ticker" => [ticker],
             "bar_interval" => ["1Day"],
-            "timestamp" => [session(session_date).midnight().timestamp_millis()],
+            "timestamp" => [session_close(session_date)],
             "open_price" => [close],
             "high_price" => [close],
             "low_price" => [close],

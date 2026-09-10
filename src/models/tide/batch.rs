@@ -1,7 +1,6 @@
 //! Windowed ndarray datasets into Burn tensors.
 //!
-//! Training and inference both flatten through here, so the feature ordering cannot drift between
-//! them.
+//! Training and inference both flatten through here, so the feature ordering cannot drift.
 
 use burn::prelude::*;
 
@@ -11,13 +10,9 @@ use crate::models::tide::data::TrainingDataset;
 /// Checks that a dataset can produce the input the loaded weights were trained to consume.
 ///
 /// [`build_input_tensor`] derives its width from the *dataset's* shapes and never consults the
-/// parameters, so a dataset built from a different feature set reshapes cleanly and then fails
-/// inside the first linear layer — a burn panic about tensor dimensions, on the pre-open inference
-/// path, naming neither the artifact nor the column set.
-///
-/// Called once per dataset rather than inside the batch loop: the invariant is a property of
-/// `(dataset, parameters)`, not of a chunk, and the inference path would otherwise re-check it for
-/// every batch of 4096.
+/// parameters, so a mismatched feature set reshapes cleanly and then fails inside the first linear
+/// layer, as a burn panic naming neither the artifact nor the column set. Called once per dataset
+/// rather than inside the batch loop, since the invariant is a property of `(dataset, parameters)`.
 pub fn validate_input_shape(
     dataset: &TrainingDataset,
     parameters: &ModelParameters,

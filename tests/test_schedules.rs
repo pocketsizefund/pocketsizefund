@@ -1,23 +1,6 @@
-//! The trading schedules in `schema.sql`, checked against the clock they claim to keep.
-//!
-//! Every job that matters fires on a **UTC** cron expression and gates on the **Eastern** wall
-//! clock in its own `WHERE` clause. That pairing is what makes a daylight-saving transition need no
-//! schema re-apply: the expression fires across both candidate UTC hours and the gate discards the
-//! one that is an hour off. It is also entirely a convention — nothing enforced it, and the
-//! reasoning lived in comments. Editing one half without the other produces a job that fires twice
-//! a day for half the year, or not at all for the other half, and neither shows up until it does.
-//!
-//! The test harness in `tests/common/mod.rs` strips `pg_cron` out of the schema before applying it,
-//! so these blocks were not merely untested but deliberately excluded. This file reads `schema.sql`
-//! as text instead, which needs no database and no extension.
-//!
-//! The invariant, stated once: **the set of Eastern times a job fires at is the same on every
-//! trading weekday of the year.** That is precisely what daylight-saving safety means, and it holds
-//! for a job firing once a day and for one firing every five minutes without special-casing either.
-//!
-//! Unrecognized syntax is rejected rather than skipped. A cron form this parser does not understand,
-//! or a job absent from the tables below, fails the test — otherwise the next schedule added here
-//! would be silently unverified, which is the state this file exists to end.
+//! The trading schedules in `schema.sql`, read as text so no database or `pg_cron` is needed.
+//! Each gated job fires on a UTC cron expression and gates on the Eastern wall clock, and the
+//! invariant checked here is that its Eastern firing times are identical on every day of the year.
 
 use std::collections::BTreeMap;
 
@@ -419,14 +402,26 @@ fn test_every_gated_schedule_keeps_the_same_eastern_clock_all_year() {
 /// A gated job must fire on trading weekdays and never on a weekend.
 #[test]
 fn test_gated_schedules_never_fire_on_a_weekend() {
-    for job in parse_jobs(SCHEMA) {
+    let jobs = parse_jobs(SCHEMA);
+    let mut checked = 0;
+    for job in &jobs {
         if UNGATED_JOBS.contains(&job.name.as_str()) {
             continue;
         }
         let expression = parse_expression(&job.expression, &job.name);
         let gate = parse_gate(&job.body, &job.name);
+        let by_eastern_date = firings_by_eastern_date(&expression, &gate);
 
-        let weekend_dates: Vec<NaiveDate> = firings_by_eastern_date(&expression, &gate)
+        // Checked before the weekend filter below, which finds nothing in a map that is empty for
+        // the opposite reason: a job that fires on no day at all also fires on no weekend.
+        assert_eq!(
+            by_eastern_date.keys().copied().collect::<Vec<NaiveDate>>(),
+            expected_eastern_dates(&expression),
+            "job '{}' does not fire on every day its schedule admits",
+            job.name
+        );
+
+        let weekend_dates: Vec<NaiveDate> = by_eastern_date
             .into_keys()
             .filter(|eastern_date| {
                 matches!(
@@ -441,7 +436,15 @@ fn test_gated_schedules_never_fire_on_a_weekend() {
             "job '{}' fires on {weekend_dates:?}, which are not trading days",
             job.name
         );
+
+        checked += 1;
     }
+
+    assert_eq!(
+        checked,
+        jobs.len() - UNGATED_JOBS.len(),
+        "every gated job must have been checked"
+    );
 }
 
 /// The specific defect the gate exists to prevent: a job firing twice on the same Eastern day.
@@ -458,6 +461,7 @@ fn test_a_once_daily_job_fires_exactly_once_per_session() {
         "market-data-sync-requested",
     ];
 
+    let mut checked = 0;
     for job in parse_jobs(SCHEMA) {
         if !once_daily.contains(&job.name.as_str()) {
             continue;
@@ -473,7 +477,18 @@ fn test_a_once_daily_job_fires_exactly_once_per_session() {
             job.name
         );
 
-        for (eastern_date, times) in firings_by_eastern_date(&expression, &gate) {
+        let by_eastern_date = firings_by_eastern_date(&expression, &gate);
+
+        // Checked before the per-day comparison below, because a day with no firing at all is
+        // absent from the map rather than present with the wrong count.
+        assert_eq!(
+            by_eastern_date.keys().copied().collect::<Vec<NaiveDate>>(),
+            expected_eastern_dates(&expression),
+            "job '{}' does not fire on every day its schedule admits",
+            job.name
+        );
+
+        for (eastern_date, times) in by_eastern_date {
             assert_eq!(
                 times.len(),
                 1,
@@ -482,7 +497,15 @@ fn test_a_once_daily_job_fires_exactly_once_per_session() {
                 times.len()
             );
         }
+
+        checked += 1;
     }
+
+    assert_eq!(
+        checked,
+        once_daily.len(),
+        "every once-daily job named above must have been found in the schema"
+    );
 }
 
 /// The parser refuses what it does not model, rather than reading it as "never fires".
@@ -513,11 +536,11 @@ fn test_the_parser_reads_the_forms_the_schema_uses() {
     assert_eq!(parse_field("13,14", 0, 23, "job"), vec![13, 14]);
     assert_eq!(
         parse_field("13-20", 0, 23, "job"),
-        (13..=20).collect::<Vec<u32>>()
+        vec![13, 14, 15, 16, 17, 18, 19, 20]
     );
     assert_eq!(
         parse_field("*/5", 0, 59, "job"),
-        (0..=55).step_by(5).collect::<Vec<u32>>()
+        vec![0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
     );
     // Sunday is expressible as either 0 or 7, and both must normalize to the same day.
     assert_eq!(parse_expression("0 3 * * 0", "job").days_of_week, vec![0]);

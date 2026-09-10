@@ -1,16 +1,14 @@
 //! Recovers which route built each archived object, from pass logs and from declared configuration.
 //!
-//! Logs are one source among two, not a special case; they are simply the only record of the quote
-//! archive's two routes.
+//! Logs are one source among two, and the only record of the quote archive's two routes.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use chrono::NaiveDate;
 use serde::Deserialize;
 
 use crate::common::provenance::{AlpacaPlan, MassivePlan, MassiveTransport, Provenance};
-use crate::common::types::BarInterval;
+use crate::common::types::{BarInterval, SessionDate};
 
 /// What one log line attests to: a dataset, optionally one cadence of it, and a session.
 ///
@@ -18,7 +16,7 @@ use crate::common::types::BarInterval;
 /// both do — and `Some` where it does not. **One-minute bars are the case that forces this**: they
 /// come from a flat file while the five-minute and daily partitions for the same session come from
 /// Massive's REST route, so a key without a cadence would attribute all three to the flat file.
-pub type Attribution = BTreeMap<(String, Option<BarInterval>, NaiveDate), Vec<Provenance>>;
+pub type Attribution = BTreeMap<(String, Option<BarInterval>, SessionDate), Vec<Provenance>>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AttributionError {
@@ -77,12 +75,12 @@ pub fn routes_from_logs(directory: &Path) -> Result<Attribution, AttributionErro
 }
 
 /// What one log line says, where it says anything.
-fn attribute(fields: &Fields) -> Option<(String, Option<BarInterval>, NaiveDate, Provenance)> {
+fn attribute(fields: &Fields) -> Option<(String, Option<BarInterval>, SessionDate, Provenance)> {
     match fields.message.as_str() {
         // The quote pass names its route in the line itself, which is the only reason the two
         // sources are separable at all.
         "Folding a session's quoted book" => {
-            let date = fields.session.as_deref()?.parse().ok()?;
+            let date = SessionDate::from_date(fields.session.as_deref()?.parse().ok()?);
             let route = match fields.source.as_deref()? {
                 "per-name" => Provenance::alpaca(AlpacaPlan::AlgoTraderPlus),
                 "whole-session" => {
@@ -108,7 +106,7 @@ fn attribute(fields: &Fields) -> Option<(String, Option<BarInterval>, NaiveDate,
 }
 
 /// Splits `us_stocks_sip/trades_v1/2023/06/2023-06-14.csv.gz` into our dataset name and its date.
-fn vendor_key_parts(key: &str) -> Option<(String, Option<BarInterval>, NaiveDate)> {
+fn vendor_key_parts(key: &str) -> Option<(String, Option<BarInterval>, SessionDate)> {
     let mut segments = key.split('/');
     segments.next()?;
     // `minute_aggs_v1` attests to the one-minute cadence and to nothing else; the other two folds
@@ -120,7 +118,7 @@ fn vendor_key_parts(key: &str) -> Option<(String, Option<BarInterval>, NaiveDate
         _ => return None,
     };
     let file = key.rsplit('/').next()?;
-    let date = file.split('.').next()?.parse().ok()?;
+    let date = SessionDate::from_date(file.split('.').next()?.parse().ok()?);
     Some((dataset.to_string(), interval, date))
 }
 
@@ -189,12 +187,14 @@ fn log_files(directory: &Path) -> Result<Vec<std::path::PathBuf>, AttributionErr
 mod tests {
     use super::*;
 
+    use chrono::NaiveDate;
+
     fn write(directory: &Path, name: &str, lines: &[&str]) {
         std::fs::write(directory.join(name), lines.join("\n")).expect("the fixture writes");
     }
 
-    fn session(year: i32, month: u32, day: u32) -> NaiveDate {
-        NaiveDate::from_ymd_opt(year, month, day).expect("a real date")
+    fn session(year: i32, month: u32, day: u32) -> SessionDate {
+        SessionDate::from_date(NaiveDate::from_ymd_opt(year, month, day).expect("a real date"))
     }
 
     #[test]

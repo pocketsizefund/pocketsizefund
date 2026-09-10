@@ -8,6 +8,44 @@ use rust_decimal::Decimal;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
+/// Which bound of a [`LiquidityFloor`] a name failed, and the reading that failed it.
+///
+/// A bound can only be moved from the readings it refused, so a refusal that says only "excluded"
+/// cannot be calibrated against anything.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LiquidityRefusal {
+    ClosePrice { observed: f64, minimum: f64 },
+    DollarVolume { observed: f64, minimum: f64 },
+}
+
+impl LiquidityRefusal {
+    /// The stable name this refusal is recorded under.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LiquidityRefusal::ClosePrice { .. } => "close_price",
+            LiquidityRefusal::DollarVolume { .. } => "dollar_volume",
+        }
+    }
+
+    /// The reading and the bound it failed.
+    pub fn detail(&self) -> String {
+        match self {
+            LiquidityRefusal::ClosePrice { observed, minimum } => {
+                format!("close_price={observed:.4} minimum={minimum:.4}")
+            }
+            LiquidityRefusal::DollarVolume { observed, minimum } => {
+                format!("dollar_volume={observed:.2} minimum={minimum:.2}")
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for LiquidityRefusal {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.detail())
+    }
+}
+
 /// The boundary of the modeled and served equity universe: the price and daily notional a name
 /// must clear.
 ///
@@ -24,8 +62,7 @@ impl LiquidityFloor {
     /// The floor every path uses until a caller declares its own.
     ///
     /// Both figures are conventions rather than measurements, and the notional one drifts with the
-    /// market it screens: it admitted 20.6% of priced names in 2022 and 23.0% in 2026, as
-    /// market-wide dollar volume nearly doubled.
+    /// market it screens: it admitted 20.6% of priced names in 2022 and 23.0% in 2026.
     pub const CURRENT: Self = Self {
         minimum_close_price: 10.0,
         minimum_dollar_volume: 50_000_000.0,
@@ -42,11 +79,24 @@ impl LiquidityFloor {
 
     /// Whether a name trading at `close_price` on `dollar_volume` is inside the universe.
     ///
-    /// Both bounds are inclusive, and this is the only place that comparison is written. Every
-    /// screen that reached for the constants separately was free to differ on the boundary, and the
-    /// one that did admitted a name to training and then refused to predict for it.
-    pub fn admits(&self, close_price: f64, dollar_volume: f64) -> bool {
-        close_price >= self.minimum_close_price && dollar_volume >= self.minimum_dollar_volume
+    /// Both bounds are inclusive, and this is the only place that comparison is written. Price is
+    /// tested first, so a name failing both is reported on its price.
+    pub fn admits(&self, close_price: f64, dollar_volume: f64) -> Result<(), LiquidityRefusal> {
+        // The `is_nan` half is load-bearing: a bare `<` admits a reading that fails every
+        // comparison, which is how an unpriceable name reaches a screen that thinks it is liquid.
+        if close_price.is_nan() || close_price < self.minimum_close_price {
+            return Err(LiquidityRefusal::ClosePrice {
+                observed: close_price,
+                minimum: self.minimum_close_price,
+            });
+        }
+        if dollar_volume.is_nan() || dollar_volume < self.minimum_dollar_volume {
+            return Err(LiquidityRefusal::DollarVolume {
+                observed: dollar_volume,
+                minimum: self.minimum_dollar_volume,
+            });
+        }
+        Ok(())
     }
 
     pub fn minimum_close_price(&self) -> f64 {
@@ -73,13 +123,9 @@ impl std::fmt::Display for LiquidityFloor {
 /// Serializes a [`Decimal`] as a JSON number rather than a quoted string.
 ///
 /// `Decimal`'s own `Serialize` writes a string, which a reader has to cast before it can do
-/// arithmetic and which shows its quotes to anyone reading a rendered payload. Used through
-/// `#[serde(with = "...")]` on every field that reaches JSON.
-///
-/// Routes through [`Decimal::as_f64`], which returns an `f64` rather than an `Option`, so there is
-/// no failure to handle. `rust_decimal::serde::float` does the same conversion through `to_f64`
-/// and unwraps it — infallible in that crate today, since `to_f64` is `Some(self.as_f64())`, but
-/// an unwrap in the journal write path is not a thing to inherit from a dependency's internals.
+/// arithmetic; used through `#[serde(with = "...")]` on every field that reaches JSON. Routes
+/// through [`Decimal::as_f64`], which returns an `f64` rather than an `Option`, so there is no
+/// failure to handle and no unwrap in the journal write path.
 pub mod decimal_number {
     use super::Decimal;
     use serde::{de, Deserialize, Deserializer, Serializer};
@@ -329,23 +375,10 @@ impl<'de> Deserialize<'de> for Notional {
 
 /// A trading day, identified by its `America/New_York` calendar date.
 ///
-/// The type exists to make a session and an instant impossible to confuse. Both used to be spelled
-/// `NaiveDate`/`DateTime`, and every timekeeping bug this system has had was that confusion: a
-/// session derived from `Utc::now().date_naive()`, a prediction stamped at UTC midnight, a session
-/// and its label computed from two separate expressions. None of those is expressible here.
-///
-/// There are exactly two ways in. [`SessionDate::at`] converts an instant, which is the only
-/// correct way to answer "what trading day is it now". [`SessionDate::from_date`] takes a date
-/// already expressed in Eastern terms — parsed from a command-line argument, read from a `DATE`
-/// column, or returned by an exchange API that publishes Eastern dates. A `NaiveDate` obtained any
-/// other way, and a UTC date in particular, has no business becoming one of these.
-///
-/// **What it guarantees is the timezone, not tradability.** A `SessionDate` is a calendar date in
-/// the frame the exchange keeps; it is not proof that the market opens that day. Weekends and
-/// holidays are perfectly representable, and [`SessionDate::plus_calendar_days`] will land on them.
-/// Whether a date trades is [`crate::data::calendar::TradingCalendar::is_trading_day`]'s question,
-/// and it is the only thing that can answer it — the calendar is fetched from Alpaca, and a holiday
-/// table in the type system would be a second source that can disagree.
+/// There are exactly two ways in: [`SessionDate::at`] converts an instant, and
+/// [`SessionDate::from_date`] takes a date already expressed in Eastern terms. What it guarantees
+/// is the timezone, not tradability — only
+/// [`crate::data::calendar::TradingCalendar::is_trading_day`] can answer whether a date trades.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 pub struct SessionDate(NaiveDate);
@@ -621,9 +654,7 @@ impl<'r> sqlx::Decode<'r, sqlx::Postgres> for PairID {
 
 /// The sampling interval of an OHLCV bar.
 ///
-/// Part of the `equity_bars` primary key. Every variant now has a writer:
-/// [`BarInterval::OneMinute`] gained one with the flat-file bar route, which had been the outstanding
-/// case this paragraph used to record.
+/// Part of the `equity_bars` primary key, and every variant has a writer.
 ///
 /// [`BarInterval::as_str`] must match the `bar_interval` CHECK constraint exactly. It is the
 /// snake_case of the variant name, which lets `rename_all` derive the same string for serde so what
@@ -669,8 +700,7 @@ impl BarInterval {
     }
 
     /// Parses the canonical stored form. Returns `None` for anything else, including Alpaca's
-    /// `1Day`/`1Min` timeframe spelling — that vocabulary belonged to a bars endpoint this
-    /// codebase no longer calls, and accepting it here would let it back in unnoticed.
+    /// `1Day`/`1Min` timeframe spelling, which is not a form this table stores.
     pub fn parse(raw: &str) -> Option<Self> {
         BarInterval::ALL
             .into_iter()
@@ -1434,10 +1464,9 @@ mod trade_exclusion_tests {
 
     /// Every recorded exclusion moves its count and its dollars together.
     ///
-    /// The reason the fields are private. Recording a rule used to be two statements at each of
-    /// three call sites, so a fourth rule added later could increment a count and forget its
-    /// dollars — and these columns are the archive's audit trail, so the audit would be the thing
-    /// that was wrong. Pinned to literals rather than to a sum of the inputs.
+    /// The reason the fields are private: a rule recorded as two separate statements can increment
+    /// a count and forget its dollars, and these columns are the archive's audit trail. Pinned to
+    /// literals rather than to a sum of the inputs.
     #[test]
     fn test_a_recorded_exclusion_moves_its_count_and_its_dollars_together() {
         let mut exclusions = TradeExclusions::default();
@@ -1494,8 +1523,10 @@ pub struct TradeSummary {
     dollar_volume: f64,
     /// `None` when no eligible share traded, which an exclusion-only bar is.
     volume_weighted_average_price: Option<f64>,
-    median_trade_size: f64,
-    ninetieth_percentile_trade_size: f64,
+    /// `None` when no eligible print has a size to report, which an exclusion-only bar is.
+    median_trade_size: Option<f64>,
+    /// Measurable exactly when [`TradeSummary::median_trade_size`] is.
+    ninetieth_percentile_trade_size: Option<f64>,
     /// Buys minus sells in shares, signed by the tick rule — a trade above the previous price is a
     /// buy, below is a sell, equal inherits the last non-zero direction.
     signed_volume: f64,
@@ -1516,8 +1547,8 @@ impl TradeSummary {
         trade_count: i64,
         volume: f64,
         dollar_volume: f64,
-        median_trade_size: f64,
-        ninetieth_percentile_trade_size: f64,
+        median_trade_size: Option<f64>,
+        ninetieth_percentile_trade_size: Option<f64>,
         signed_volume: f64,
         exclusions: TradeExclusions,
     ) -> Result<Self, InconsistentRecordError> {
@@ -1545,16 +1576,27 @@ impl TradeSummary {
                 ninetieth_percentile_trade_size,
             ),
         ] {
+            let Some(value) = value else { continue };
             if !value.is_finite() || value < 0.0 {
                 return Err(reject(format!(
                     "{name} {value} is not a non-negative number"
                 )));
             }
         }
-        if median_trade_size > ninetieth_percentile_trade_size {
-            return Err(reject(format!(
-                "median trade size {median_trade_size} exceeds the ninetieth percentile {ninetieth_percentile_trade_size}"
-            )));
+        // Both are drawn from the same eligible prints, so a bar that could measure one could
+        // measure the other; a disagreement means the two were folded over different populations.
+        match (median_trade_size, ninetieth_percentile_trade_size) {
+            (Some(median), Some(ninetieth)) if median > ninetieth => {
+                return Err(reject(format!(
+                    "median trade size {median} exceeds the ninetieth percentile {ninetieth}"
+                )));
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(reject(
+                    "one trade size percentile is measured and the other is not".to_string(),
+                ));
+            }
+            (Some(_), Some(_)) | (None, None) => {}
         }
         if trade_count < 0 {
             return Err(reject(format!("trade count {trade_count} is negative")));
@@ -1617,11 +1659,11 @@ impl TradeSummary {
         self.volume_weighted_average_price
     }
 
-    pub fn median_trade_size(&self) -> f64 {
+    pub fn median_trade_size(&self) -> Option<f64> {
         self.median_trade_size
     }
 
-    pub fn ninetieth_percentile_trade_size(&self) -> f64 {
+    pub fn ninetieth_percentile_trade_size(&self) -> Option<f64> {
         self.ninetieth_percentile_trade_size
     }
 
@@ -2031,23 +2073,74 @@ mod tests {
     fn test_a_floor_admits_a_name_sitting_exactly_on_it() {
         let floor = LiquidityFloor::new(10.0, 50_000_000.0).unwrap();
 
-        assert!(floor.admits(10.0, 50_000_000.0));
-        assert!(!floor.admits(9.99, 50_000_000.0));
-        assert!(!floor.admits(10.0, 49_999_999.0));
+        assert_eq!(floor.admits(10.0, 50_000_000.0), Ok(()));
+        assert_eq!(
+            floor.admits(9.99, 50_000_000.0),
+            Err(LiquidityRefusal::ClosePrice {
+                observed: 9.99,
+                minimum: 10.0,
+            })
+        );
+        assert_eq!(
+            floor.admits(10.0, 49_999_999.0),
+            Err(LiquidityRefusal::DollarVolume {
+                observed: 49_999_999.0,
+                minimum: 50_000_000.0,
+            })
+        );
     }
 
     /// The two bounds are independent, which is what makes an expensive thin name and a cheap heavy
-    /// one each excluded for their own reason.
+    /// one each excluded for their own reason — and the refusal is what says which.
     #[test]
-    fn test_each_bound_rejects_on_its_own() {
+    fn test_each_bound_rejects_on_its_own_and_names_itself() {
         let floor = LiquidityFloor::new(10.0, 50_000_000.0).unwrap();
 
-        assert!(!floor.admits(500.0, 30_000_000.0), "expensive but untraded");
-        assert!(
-            !floor.admits(2.0, 900_000_000.0),
-            "heavily traded but cheap"
+        assert_eq!(
+            floor
+                .admits(500.0, 30_000_000.0)
+                .expect_err("expensive but untraded")
+                .as_str(),
+            "dollar_volume"
         );
-        assert!(floor.admits(290.0, 261_000_000.0));
+        assert_eq!(
+            floor
+                .admits(2.0, 900_000_000.0)
+                .expect_err("heavily traded but cheap")
+                .as_str(),
+            "close_price"
+        );
+        assert_eq!(floor.admits(290.0, 261_000_000.0), Ok(()));
+
+        // The whole string: the detail is aggregated out of the journal, so the format is contract.
+        assert_eq!(
+            floor
+                .admits(2.0, 900_000_000.0)
+                .expect_err("a cheap name reports its price")
+                .detail(),
+            "close_price=2.0000 minimum=10.0000"
+        );
+    }
+
+    /// A reading that is not a number fails every comparison, so a bare `<` would admit it.
+    #[test]
+    fn test_a_floor_refuses_a_reading_that_is_not_a_number() {
+        let floor = LiquidityFloor::new(10.0, 50_000_000.0).unwrap();
+
+        assert_eq!(
+            floor
+                .admits(f64::NAN, 900_000_000.0)
+                .expect_err("an unpriceable name must be refused")
+                .as_str(),
+            "close_price"
+        );
+        assert_eq!(
+            floor
+                .admits(290.0, f64::NAN)
+                .expect_err("an unmeasurable notional must be refused")
+                .as_str(),
+            "dollar_volume"
+        );
     }
 
     #[test]
@@ -2367,9 +2460,8 @@ mod tests {
         }
     }
 
-    /// Neither Alpaca's timeframe spelling nor either pre-rename stored form is accepted. The last
-    /// two matter most: `1day` was the stored value before this vocabulary changed, and silently
-    /// parsing it would let a stale writer put unreadable rows in the table.
+    /// Neither Alpaca's timeframe spelling nor any near-miss of the stored form is accepted;
+    /// silently parsing one would let a stale writer put unreadable rows in the table.
     #[test]
     fn test_bar_interval_parse_rejects_foreign_spellings() {
         assert!(BarInterval::parse("1Day").is_none());

@@ -388,9 +388,9 @@ impl QuoteAction {
 
 /// What a trade pass does with the sessions it is given.
 ///
-/// `repair` exists now that Alpaca serves prints per name. The whole-market actions still read a
-/// flat file, which is the only affordable route to five years; a repair reaches one name, and is
-/// also the only route that reaches past Massive's five-year window at all.
+/// The whole-market actions read a flat file, which is the only affordable route to five years;
+/// `repair` reaches one name through Alpaca's per-name prints, and is also the only route that
+/// reaches past Massive's five-year window at all.
 #[derive(Debug, Subcommand)]
 enum TradeAction {
     /// Fold every name the daily archive holds into the sampled sessions that have no partition yet.

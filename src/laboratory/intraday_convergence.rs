@@ -117,7 +117,7 @@ pub fn entries_in_session(
             ];
             for (long, long_window, long_prices, short, short_window, short_prices) in orientations
             {
-                let Some(model) = SpreadModel::fit(long_window, short_window) else {
+                let Ok(model) = SpreadModel::fit(long_window, short_window) else {
                     continue;
                 };
                 let Some(entry) = follow(&model, session, long, long_prices, short, short_prices)
@@ -202,10 +202,24 @@ fn follow(
     })
 }
 
-/// The average z-score entries were opened at, which is what a convergence would be worth.
+/// Mean over sessions of each session's own mean entry z-score, which is what a convergence is worth.
+///
+/// Weighted per session rather than per entry so it multiplies against the session-weighted shares
+/// in [`crate::laboratory::convergence::Curve`]; the two weightings describe different populations
+/// and their product is not an expected value under either.
 pub fn mean_entry_z_score(entries: &[IntradayEntry]) -> Option<f64> {
-    (!entries.is_empty()).then(|| {
-        entries.iter().map(|entry| entry.entry_z_score).sum::<f64>() / entries.len() as f64
+    let mut by_session: BTreeMap<SessionDate, Vec<f64>> = BTreeMap::new();
+    for entry in entries {
+        by_session
+            .entry(entry.session)
+            .or_default()
+            .push(entry.entry_z_score);
+    }
+    (!by_session.is_empty()).then(|| {
+        let session_means = by_session
+            .values()
+            .map(|scores| scores.iter().sum::<f64>() / scores.len() as f64);
+        session_means.sum::<f64>() / by_session.len() as f64
     })
 }
 
@@ -279,6 +293,38 @@ mod tests {
 
     fn session_of(year: i32, month: u32, day: u32) -> SessionDate {
         SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(year, month, day).unwrap())
+    }
+
+    fn entry_on(session: SessionDate, entry_z_score: f64) -> IntradayEntry {
+        IntradayEntry {
+            session,
+            entry_bar: 0,
+            long: "LONG".to_string(),
+            short: "SHORT".to_string(),
+            entry_z_score,
+            final_z_score: None,
+            resolution: Resolution::Unresolved,
+            observed: Observed::default(),
+        }
+    }
+
+    /// The mean is over sessions, matching the shares it is multiplied by.
+    ///
+    /// A busy session would otherwise carry the average, so the product of an entry-weighted mean
+    /// and a session-weighted share describes no population at all.
+    #[test]
+    fn test_the_mean_entry_score_weights_sessions_not_entries() {
+        let first = session_of(2026, 6, 1);
+        let second = session_of(2026, 6, 2);
+        let entries = vec![
+            entry_on(first, 2.0),
+            entry_on(second, 3.0),
+            entry_on(second, 3.0),
+            entry_on(second, 3.0),
+        ];
+
+        // Session means are 2.0 and 3.0, so the answer is 2.5; over entries it would be 2.75.
+        assert_eq!(mean_entry_z_score(&entries), Some(2.5));
     }
 
     /// A pair whose spread sits at `dislocation` standard deviations at `at_bar`, and returns to

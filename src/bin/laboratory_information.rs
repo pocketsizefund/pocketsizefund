@@ -226,11 +226,11 @@ async fn run(
         triaged.push(triage(column, &paired, parameters.seed));
     }
 
-    // Ranked, because the question is which input carries the most and a table in column order
-    // makes that a search rather than a reading.
+    // Ranked by the share rather than the raw bits: bits are capped by the target's own entropy, so
+    // ranking on them ranks the ceilings wherever two runs cut the target differently.
     triaged.sort_by(|left, right| {
-        bits_of(right)
-            .partial_cmp(&bits_of(left))
+        share_of(right)
+            .partial_cmp(&share_of(left))
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
@@ -238,7 +238,9 @@ async fn run(
         info!(
             feature = record.feature,
             sessions = record.sessions,
+            excess_share = record.excess_share.map(|value| value.mean),
             excess_bits = record.excess_bits.map(|value| value.mean),
+            target_entropy_bits = record.target_entropy_bits.map(|value| value.mean),
             "Triaged a feature"
         );
         if let Some(journal) = journal.as_ref() {
@@ -280,27 +282,39 @@ fn triage(feature: &str, paired: &Paired, seed: u64) -> laboratory::FeatureTriag
                 .iter()
                 .map(|value| value.map(|value| value.excess())),
         ),
+        target_entropy_bits: metrics::summarize(
+            measured
+                .iter()
+                .map(|value| value.map(|value| value.target_entropy)),
+        ),
+        excess_share: metrics::summarize(
+            measured
+                .iter()
+                .map(|value| value.and_then(|value| value.excess_share())),
+        ),
     }
 }
 
-fn bits_of(record: &laboratory::FeatureTriaged) -> f64 {
+/// What the ranking is by: excess bits as a share of what the target itself can carry.
+fn share_of(record: &laboratory::FeatureTriaged) -> f64 {
     record
-        .excess_bits
+        .excess_share
         .map_or(f64::NEG_INFINITY, |value| value.mean)
 }
 
 fn render(triaged: &[laboratory::FeatureTriaged]) -> String {
     let mut rendered = format!(
-        "{:<32}{:>10}{:>28}{:>28}{:>28}\n",
-        "feature", "sessions", "excess_bits", "bits", "null_bits"
+        "{:<32}{:>10}{:>28}{:>28}{:>28}{:>28}\n",
+        "feature", "sessions", "excess_share", "excess_bits", "target_entropy_bits", "null_bits"
     );
     for record in triaged {
         rendered.push_str(&format!(
-            "{:<32}{:>10}{:>28}{:>28}{:>28}\n",
+            "{:<32}{:>10}{:>28}{:>28}{:>28}{:>28}\n",
             record.feature,
             record.sessions,
+            distribution(record.excess_share),
             distribution(record.excess_bits),
-            distribution(record.bits),
+            distribution(record.target_entropy_bits),
             distribution(record.null_bits),
         ));
     }
@@ -359,6 +373,46 @@ mod tests {
         assert!(Parameters::parse(&arguments(&["365", "0"])).is_err());
         assert!(Parameters::parse(&arguments(&["365", "3", "extra"])).is_err());
         assert!(Parameters::parse(&arguments(&["365", "3", "signed", "more"])).is_err());
+    }
+
+    fn distribution_of(mean: f64) -> Distribution {
+        Distribution {
+            mean,
+            standard_error: 0.001,
+            sessions: 499,
+        }
+    }
+
+    /// The reported figure is the share of the target's own entropy, because raw bits are capped by
+    /// that entropy and comparing them compares the caps.
+    #[test]
+    fn test_the_share_of_the_target_entropy_is_what_is_ranked_and_rendered() {
+        let record = laboratory::FeatureTriaged {
+            feature: "daily_return".to_string(),
+            sessions: 499,
+            bits: Some(distribution_of(3.1000)),
+            null_bits: Some(distribution_of(3.0000)),
+            excess_bits: Some(distribution_of(0.1000)),
+            target_entropy_bits: Some(distribution_of(3.3000)),
+            excess_share: Some(distribution_of(0.0301)),
+        };
+
+        assert!((share_of(&record) - 0.0301).abs() < 1e-12);
+
+        let rendered = render(std::slice::from_ref(&record));
+        assert!(rendered.contains("excess_share"), "{rendered}");
+        assert!(rendered.contains("target_entropy_bits"), "{rendered}");
+        assert!(rendered.contains("+0.030100"), "{rendered}");
+
+        let unmeasured = laboratory::FeatureTriaged {
+            excess_share: None,
+            ..record
+        };
+        assert_eq!(
+            share_of(&unmeasured),
+            f64::NEG_INFINITY,
+            "a feature with no share ranks last rather than at zero"
+        );
     }
 
     /// The calendar columns are excluded because they hold one value for every name in a session,

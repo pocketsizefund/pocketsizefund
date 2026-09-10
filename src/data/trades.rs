@@ -105,9 +105,8 @@ impl TradeAccumulator {
             self.trade_count,
             self.volume,
             self.dollar_volume,
-            // Zero on an exclusion-only bar, where no eligible print has a size to report.
-            quantile(&self.sizes, 0.5).unwrap_or(0.0),
-            quantile(&self.sizes, UPPER_QUANTILE).unwrap_or(0.0),
+            quantile(&self.sizes, 0.5),
+            quantile(&self.sizes, UPPER_QUANTILE),
             self.signed_volume,
             self.exclusions,
         );
@@ -532,19 +531,19 @@ pub fn summaries_to_dataframe(summaries: &[TradeSummary]) -> Result<DataFrame, P
                 .map(TradeSummary::volume_weighted_average_price)
                 .collect::<Vec<Option<f64>>>(),
         ),
-        column(
-            "median_trade_size",
+        Column::new(
+            "median_trade_size".into(),
             summaries
                 .iter()
                 .map(TradeSummary::median_trade_size)
-                .collect(),
+                .collect::<Vec<Option<f64>>>(),
         ),
-        column(
-            "ninetieth_percentile_trade_size",
+        Column::new(
+            "ninetieth_percentile_trade_size".into(),
             summaries
                 .iter()
                 .map(TradeSummary::ninetieth_percentile_trade_size)
-                .collect(),
+                .collect::<Vec<Option<f64>>>(),
         ),
         column(
             "signed_volume",

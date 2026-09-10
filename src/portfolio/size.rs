@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use std::num::NonZeroU32;
 use tracing::{debug, warn};
 
-use crate::common::types::Dollars;
+use crate::common::types::{Dollars, PairID};
 use crate::portfolio::screen::PairCandidate;
 
 /// Pairs the book will hold at once when full.
@@ -153,36 +153,122 @@ impl SizedPair {
     }
 }
 
+/// Why a selected candidate could not be sized.
+///
+/// Each variant carries the number that produced it, on the same terms as
+/// [`crate::portfolio::risk::RiskBlock`]: a candidate dropped without a cause is indistinguishable
+/// from one the ranking never reached.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SizingRefusal {
+    /// The account cannot support a per-leg budget at all.
+    NoPerLegBudget { equity: Decimal },
+    /// The short leg has no usable price to divide the budget by.
+    ShortPriceUnusable { short_price: f64 },
+    /// A whole share of the short leg costs more than the budget, and Alpaca has no fractional
+    /// short — so opening the long alone would be a naked directional position.
+    ShortRoundsToZeroShares { budget: f64, short_price: f64 },
+    /// More shares than an order can carry.
+    ShortQuantityUnrepresentable { whole_shares: f64 },
+    /// The realized short notional is not a representable amount.
+    ShortNotionalUnrepresentable { short_price: f64, short_shares: u32 },
+}
+
+impl SizingRefusal {
+    /// A stable short name for the event payload and the logs.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SizingRefusal::NoPerLegBudget { .. } => "no_per_leg_budget",
+            SizingRefusal::ShortPriceUnusable { .. } => "short_price_unusable",
+            SizingRefusal::ShortRoundsToZeroShares { .. } => "short_rounds_to_zero_shares",
+            SizingRefusal::ShortQuantityUnrepresentable { .. } => "short_quantity_unrepresentable",
+            SizingRefusal::ShortNotionalUnrepresentable { .. } => "short_notional_unrepresentable",
+        }
+    }
+}
+
+impl std::fmt::Display for SizingRefusal {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SizingRefusal::NoPerLegBudget { equity } => {
+                write!(formatter, "equity of {equity} supports no per-leg budget")
+            }
+            SizingRefusal::ShortPriceUnusable { short_price } => {
+                write!(formatter, "short price {short_price} is not usable")
+            }
+            SizingRefusal::ShortRoundsToZeroShares {
+                budget,
+                short_price,
+            } => write!(
+                formatter,
+                "a budget of {budget:.2} buys no whole share at {short_price:.4}"
+            ),
+            SizingRefusal::ShortQuantityUnrepresentable { whole_shares } => {
+                write!(
+                    formatter,
+                    "{whole_shares} shares is not an orderable quantity"
+                )
+            }
+            SizingRefusal::ShortNotionalUnrepresentable {
+                short_price,
+                short_shares,
+            } => write!(
+                formatter,
+                "{short_shares} shares at {short_price:.4} is not a representable amount"
+            ),
+        }
+    }
+}
+
+/// One candidate the sizer turned down, and why.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefusedCandidate {
+    pub pair_id: PairID,
+    pub refusal: SizingRefusal,
+}
+
 /// Sizes one candidate against a per-leg budget.
 ///
-/// **Both legs get equal notional, not hedge-ratio-weighted notional**, which makes the book
-/// dollar-neutral rather than hedge-ratio-neutral. `None` when the short leg would round to zero
-/// shares, since opening the long alone would be a directional position rather than a spread.
-pub fn size_pair(candidate: &PairCandidate, notional_per_leg: Dollars) -> Option<SizedPair> {
+/// Both legs get equal notional, not hedge-ratio-weighted notional, which makes the book
+/// dollar-neutral rather than hedge-ratio-neutral.
+pub fn size_pair(
+    candidate: &PairCandidate,
+    notional_per_leg: Dollars,
+) -> Result<SizedPair, SizingRefusal> {
     let budget = notional_per_leg.value().as_f64();
     let short_price = candidate.short_price();
     if !short_price.is_finite() || short_price <= 0.0 {
-        return None;
+        return Err(SizingRefusal::ShortPriceUnusable { short_price });
     }
 
     let whole_shares = (budget / short_price).floor();
-    if !whole_shares.is_finite() || whole_shares < 1.0 || whole_shares > u32::MAX as f64 {
+    if !whole_shares.is_finite() || whole_shares > u32::MAX as f64 {
+        return Err(SizingRefusal::ShortQuantityUnrepresentable { whole_shares });
+    }
+    if whole_shares < 1.0 {
         debug!(
             pair_id = %candidate.pair_id(),
             short_price,
             budget,
             "Short leg does not round to a usable whole-share quantity"
         );
-        return None;
+        return Err(SizingRefusal::ShortRoundsToZeroShares {
+            budget,
+            short_price,
+        });
     }
-    let short_shares = NonZeroU32::new(whole_shares as u32)?;
+    let short_shares = NonZeroU32::new(whole_shares as u32)
+        .ok_or(SizingRefusal::ShortQuantityUnrepresentable { whole_shares })?;
 
-    let short_notional = Dollars::new(
-        (Decimal::from(short_shares.get()) * Decimal::from_f64_retain(short_price)?).round_dp(2),
-    )
-    .ok()?;
+    let unrepresentable = SizingRefusal::ShortNotionalUnrepresentable {
+        short_price,
+        short_shares: short_shares.get(),
+    };
+    let short_price_decimal = Decimal::from_f64_retain(short_price).ok_or(unrepresentable)?;
+    let short_notional =
+        Dollars::new((Decimal::from(short_shares.get()) * short_price_decimal).round_dp(2))
+            .map_err(|_| unrepresentable)?;
 
-    Some(SizedPair {
+    Ok(SizedPair {
         candidate: candidate.clone(),
         long_notional: notional_per_leg,
         short_shares,
@@ -190,29 +276,55 @@ pub fn size_pair(candidate: &PairCandidate, notional_per_leg: Dollars) -> Option
     })
 }
 
-/// Sizes a selection of candidates, dropping those that cannot be sized.
+/// Sizes a selection of candidates, returning what sized and what each refusal was.
+///
+/// Refusals carry the pair they refused, so a candidate the sizer turned down is recorded as
+/// precisely as one the risk gate did.
 pub fn size_pairs(
     candidates: &[PairCandidate],
     equity: Decimal,
     parameters: &SizingParameters,
-) -> Vec<SizedPair> {
+) -> (Vec<SizedPair>, Vec<RefusedCandidate>) {
     let Some(notional_per_leg) = parameters.notional_per_leg(equity) else {
         warn!(%equity, "Account equity does not support a position; nothing sized");
-        return Vec::new();
+        let refusals = candidates
+            .iter()
+            .map(|candidate| RefusedCandidate {
+                pair_id: candidate.pair_id().clone(),
+                refusal: SizingRefusal::NoPerLegBudget { equity },
+            })
+            .collect();
+        return (Vec::new(), refusals);
     };
 
-    let sized: Vec<SizedPair> = candidates
-        .iter()
-        .filter_map(|candidate| size_pair(candidate, notional_per_leg))
-        .collect();
+    let mut sized = Vec::with_capacity(candidates.len());
+    let mut refusals = Vec::new();
+    for candidate in candidates {
+        match size_pair(candidate, notional_per_leg) {
+            Ok(pair) => sized.push(pair),
+            Err(refusal) => {
+                warn!(
+                    pair_id = %candidate.pair_id(),
+                    refusal = refusal.as_str(),
+                    reason = %refusal,
+                    "Candidate refused by the sizer"
+                );
+                refusals.push(RefusedCandidate {
+                    pair_id: candidate.pair_id().clone(),
+                    refusal,
+                });
+            }
+        }
+    }
 
     debug!(
         supplied = candidates.len(),
         sized = sized.len(),
+        refused = refusals.len(),
         notional_per_leg = %notional_per_leg.value(),
         "Candidates sized"
     );
-    sized
+    (sized, refusals)
 }
 
 #[cfg(test)]
@@ -273,8 +385,8 @@ mod tests {
     }
 
     /// A multiple past `Decimal`'s range is finite and positive, so the two other checks admit it.
-    /// It used to reach `gross_exposure_cap`, whose conversion failed and answered zero — a cap of
-    /// zero refuses every entry, and nothing said why. Rejecting it here is what makes the cap
+    /// Reaching `gross_exposure_cap` with one fails the conversion and answers zero — a cap of zero
+    /// refuses every entry, and nothing says why. Rejecting it here is what makes the cap
     /// infallible.
     #[test]
     fn test_parameters_reject_a_multiple_no_decimal_can_hold() {
@@ -326,13 +438,54 @@ mod tests {
     /// of a market-neutral pair.
     #[test]
     fn test_a_short_leg_priced_above_the_budget_is_not_sized() {
+        // The cause and its two numbers, not merely the refusal: a budget that buys no share and a
+        // price that is not a number are different problems with different fixes.
         assert_eq!(
             size_pair(
                 &candidate(50.0, 6_000.0),
                 Dollars::new(Decimal::new(5_000, 0)).unwrap()
-            ),
-            None
+            )
+            .expect_err("a short priced above the budget must be refused"),
+            SizingRefusal::ShortRoundsToZeroShares {
+                budget: 5_000.0,
+                short_price: 6_000.0,
+            }
         );
+    }
+
+    #[test]
+    fn test_every_sizing_refusal_has_a_stable_name_and_renders() {
+        let refusals = [
+            SizingRefusal::NoPerLegBudget {
+                equity: Decimal::ZERO,
+            },
+            SizingRefusal::ShortPriceUnusable { short_price: 0.0 },
+            SizingRefusal::ShortRoundsToZeroShares {
+                budget: 100.0,
+                short_price: 500.0,
+            },
+            SizingRefusal::ShortQuantityUnrepresentable {
+                whole_shares: f64::INFINITY,
+            },
+            SizingRefusal::ShortNotionalUnrepresentable {
+                short_price: 1.0,
+                short_shares: 1,
+            },
+        ];
+        let names: Vec<&str> = refusals.iter().map(SizingRefusal::as_str).collect();
+        assert_eq!(
+            names,
+            vec![
+                "no_per_leg_budget",
+                "short_price_unusable",
+                "short_rounds_to_zero_shares",
+                "short_quantity_unrepresentable",
+                "short_notional_unrepresentable"
+            ]
+        );
+        for refusal in refusals {
+            assert!(!refusal.to_string().is_empty());
+        }
     }
 
     #[test]
@@ -345,24 +498,39 @@ mod tests {
         assert_eq!(sized.gross_exposure(), Decimal::new(10_000, 0));
     }
 
+    /// What the sizer drops it also names, so a candidate missing from the plan says which stage
+    /// removed it rather than leaving the ranking and the sizer indistinguishable.
     #[test]
-    fn test_size_pairs_drops_only_what_cannot_be_sized() {
+    fn test_size_pairs_names_what_it_cannot_size() {
         let candidates = vec![candidate(50.0, 250.0), candidate(50.0, 99_999.0)];
-        let sized = size_pairs(
+        let (sized, refusals) = size_pairs(
             &candidates,
             Decimal::new(100_000, 0),
             &SizingParameters::default(),
         );
         assert_eq!(sized.len(), 1);
+        assert_eq!(refusals.len(), 1);
+        assert_eq!(refusals[0].pair_id.as_str(), "AAAA-BBBB");
+        assert_eq!(
+            refusals[0].refusal.as_str(),
+            "short_rounds_to_zero_shares",
+            "a 99,999-dollar short against a 5,000-dollar budget buys no whole share"
+        );
     }
 
     #[test]
-    fn test_size_pairs_returns_nothing_for_an_empty_account() {
-        assert!(size_pairs(
+    fn test_size_pairs_refuses_every_candidate_for_an_empty_account() {
+        let (sized, refusals) = size_pairs(
             &[candidate(50.0, 250.0)],
             Decimal::ZERO,
-            &SizingParameters::default()
-        )
-        .is_empty());
+            &SizingParameters::default(),
+        );
+        assert!(sized.is_empty());
+        assert_eq!(
+            refusals[0].refusal,
+            SizingRefusal::NoPerLegBudget {
+                equity: Decimal::ZERO
+            }
+        );
     }
 }

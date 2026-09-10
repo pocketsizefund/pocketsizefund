@@ -28,6 +28,10 @@ pub struct Panel {
     tickers: Vec<String>,
     /// `returns[session][ticker]`, absent where that name did not trade that session.
     returns: Vec<Vec<Option<f64>>>,
+    /// `scored[session][ticker]`, or `None` to score the whole cross-section.
+    ///
+    /// Read only when grading; the history a predictor sees is always the full grid.
+    scored: Option<Vec<Vec<bool>>>,
 }
 
 impl Panel {
@@ -104,7 +108,35 @@ impl Panel {
             sessions: session_axis,
             tickers: ticker_axis,
             returns: grid,
+            scored: None,
         })
+    }
+
+    /// Restricts what [`evaluate`] scores to the given `(session, ticker)` pairs.
+    ///
+    /// The mask governs the cross-section a predictor is graded on and never
+    /// [`Panel::history_before`], so a name held out of one session still supplies the past that
+    /// `Momentum` reads. A pair naming a session or name outside the panel is ignored.
+    pub fn scoring_restricted_to(mut self, pairs: &BTreeSet<(i64, String)>) -> Self {
+        let mut scored = vec![vec![false; self.tickers.len()]; self.sessions.len()];
+        for (session, ticker) in pairs {
+            let (Some(index), Some(name)) = (
+                self.sessions.iter().position(|it| it == session),
+                self.tickers.iter().position(|it| it == ticker),
+            ) else {
+                continue;
+            };
+            scored[index][name] = true;
+        }
+        self.scored = Some(scored);
+        self
+    }
+
+    /// Whether the name at `ticker` is part of the cross-section scored in the session at `index`.
+    fn is_scored(&self, index: usize, ticker: usize) -> bool {
+        self.scored
+            .as_ref()
+            .is_none_or(|scored| scored[index][ticker])
     }
 
     pub fn sessions(&self) -> usize {
@@ -340,7 +372,9 @@ pub fn evaluate(predictor: &dyn Predictor, panel: &Panel) -> Evaluation {
         let (scores, outcomes): (Vec<f64>, Vec<f64>) = scored
             .iter()
             .zip(realized)
-            .filter_map(|(score, outcome)| score.zip(*outcome))
+            .enumerate()
+            .filter(|(ticker, _)| panel.is_scored(index, *ticker))
+            .filter_map(|(_, (score, outcome))| score.zip(*outcome))
             .unzip();
         let mut measured = metrics::measure_session(&scores, &outcomes);
         if !predictor.scores_are_returns() {
@@ -391,6 +425,46 @@ mod tests {
 
     fn panel() -> Panel {
         Panel::from_frame(&panel_frame()).unwrap()
+    }
+
+    /// A masked cell leaves the scored cross-section and stays in the history.
+    ///
+    /// Both halves matter: dropping it from the grading is the point, and dropping it from the past
+    /// as well would starve `Momentum` of the sessions it needs and change the very scores the mask
+    /// exists to make comparable.
+    #[test]
+    fn test_a_masked_cell_is_not_scored_but_is_still_history() {
+        let every_pair: BTreeSet<(i64, String)> = (0..4)
+            .flat_map(|session| {
+                ["AAA", "BBB", "CCC"]
+                    .iter()
+                    .map(move |ticker| (session * DAY, (*ticker).to_string()))
+            })
+            .collect();
+        let mut held_out = every_pair.clone();
+        held_out.remove(&(3 * DAY, "BBB".to_string()));
+
+        let whole = panel().scoring_restricted_to(&every_pair);
+        let masked = panel().scoring_restricted_to(&held_out);
+
+        // Session 3 has three names; holding one out leaves two to grade.
+        assert!(whole.is_scored(3, 1));
+        assert!(!masked.is_scored(3, 1));
+
+        // The held-out name is unchanged as an observation, and the sessions before it are intact,
+        // so a predictor reading history sees exactly what it saw before.
+        assert_eq!(masked.return_of(3, 1), Some(3.1));
+        assert_eq!(masked.history_before(3).sessions(), 3);
+        assert_eq!(masked.returns_at(3), whole.returns_at(3));
+    }
+
+    /// An unmasked panel scores its whole cross-section, so the mask is opt-in.
+    #[test]
+    fn test_a_panel_without_a_mask_scores_every_name() {
+        let panel = panel();
+        for ticker in 0..panel.tickers() {
+            assert!(panel.is_scored(2, ticker));
+        }
     }
 
     #[test]
@@ -699,6 +773,39 @@ mod tests {
                 .directional_accuracy
                 .is_some(),
             "a score in return units does have a sign to be right about"
+        );
+    }
+
+    /// Masking a name out of a session changes what that session scores.
+    ///
+    /// `CCC` has no session-2 return, so persistence already declines to score it in session 3 and
+    /// masking it would prove nothing; `BBB` is scored, and holding it out leaves one name, which is
+    /// too few to correlate. That the reading disappears is the mask reaching `evaluate` rather than
+    /// merely being stored on the panel.
+    #[test]
+    fn test_the_mask_changes_the_cross_section_evaluate_scores() {
+        let panel = panel();
+        let unmasked = evaluate(&Persistence, &panel);
+        assert_eq!(
+            unmasked.sessions[3].information_coefficient,
+            Some(1.0),
+            "AAA and BBB both carry a prior, so the session has two names to rank"
+        );
+
+        let held_out: BTreeSet<(i64, String)> = (0..4)
+            .flat_map(|session| {
+                ["AAA", "BBB", "CCC"]
+                    .iter()
+                    .map(move |ticker| (session * DAY, (*ticker).to_string()))
+            })
+            .filter(|(session, ticker)| !(*session == 3 * DAY && ticker == "BBB"))
+            .collect();
+        let masked = evaluate(&Persistence, &panel.scoring_restricted_to(&held_out));
+
+        assert_eq!(masked.sessions[3].information_coefficient, None);
+        assert_eq!(
+            masked.sessions[1], unmasked.sessions[1],
+            "a session the mask does not touch is scored exactly as before"
         );
     }
 

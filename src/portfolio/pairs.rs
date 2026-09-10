@@ -1,7 +1,6 @@
 //! `equity_pairs` persistence: which long belongs with which short, and why.
 //!
-//! Alpaca holds the authoritative position, quantity, and fill; this stores only what it cannot
-//! answer. Not a position ledger, and never to be trusted over Alpaca.
+//! Alpaca holds the authoritative position, quantity, and fill; this is not a position ledger.
 
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;

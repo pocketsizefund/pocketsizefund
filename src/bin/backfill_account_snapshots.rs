@@ -1,12 +1,6 @@
-//! Rebuilds missing `account_snapshots` rows from Alpaca's portfolio history.
-//!
-//! Recovery tooling, and the only import path this table has: a session the post-close sync missed
-//! is otherwise unrecoverable.
-//!
-//! Usage: `backfill_account_snapshots [--dry-run] <start YYYY-MM-DD> [end YYYY-MM-DD]`
-//! The end date defaults to today (Eastern) when omitted; `--dry-run` reports without writing.
-//!
-//! Reconstructed rows carry equity and no balances, which is all portfolio history reports.
+//! Rebuilds missing `account_snapshots` rows from Alpaca's portfolio history, the only import path
+//! this table has: `backfill_account_snapshots [--dry-run] <start YYYY-MM-DD> [end YYYY-MM-DD]`,
+//! the end date defaulting to today (Eastern). Reconstructed rows carry equity and no balances.
 
 use std::collections::BTreeMap;
 

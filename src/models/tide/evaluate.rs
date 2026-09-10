@@ -1,7 +1,6 @@
-//! Evaluation metrics for a trained TiDE model, computed on the validation set in scaled space.
-//!
-//! CRPS here sums pinball loss with a non-strict split where [`crate::models::tide::loss`]
-//! averages with a strict one — deliberately different, not a bug to reconcile.
+//! Evaluation metrics for a trained TiDE model, on the validation set in scaled space. CRPS here
+//! sums pinball loss with a non-strict split where [`crate::models::tide::loss`] averages with a
+//! strict one — deliberately different, not a bug to reconcile.
 
 use burn::backend::NdArray;
 
@@ -13,17 +12,23 @@ use crate::models::tide::TideError;
 
 const EVALUATION_BATCH_SIZE: usize = 4096;
 
+/// The trivial forecast every score here is read against: the scaler's own mean at every quantile.
+///
+/// Zero in scaled space, so it is the constant forecast that has learned the training distribution
+/// and nothing else. Named wherever the scores are reported, because a raw CRPS quotes no skill.
+pub const BASELINE_NAME: &str = "scaler_mean";
+
 #[derive(Debug, Clone, Copy, serde::Serialize)]
 pub struct EvaluationMetrics {
     /// Serialized as `crps`, deliberately, even though the field is spelled out.
     ///
-    /// This value is written into each run's `run_metadata.json` in S3 and read back out of
-    /// *previous* runs' metadata by the trainer's drift check. Every artifact already published
-    /// spells the key `crps`, so renaming it would make the drift baseline read `None` for every
-    /// historical run — and with `DRIFT_MINIMUM_RUNS` at three, that suppresses drift reporting
-    /// entirely until three new runs accumulate, silently.
+    /// Every artifact already published spells the key that way and the trainer's drift check reads
+    /// it back out of them, so renaming it would make the baseline read `None` for every historical
+    /// run and suppress drift reporting rather than fail.
     #[serde(rename = "crps")]
     pub continuous_ranked_probability_score: f64,
+    /// Measured in scaled space, so it counts the target landing on the same side of the scaler's
+    /// mean as the median quantile — not the same side of zero return.
     pub directional_accuracy: f64,
     pub quantile_coverage: f64,
 }
@@ -35,6 +40,39 @@ impl EvaluationMetrics {
             directional_accuracy: 0.0,
             quantile_coverage: 0.0,
         }
+    }
+}
+
+/// What one model scored, beside what the same metrics say about a forecast that knows nothing.
+///
+/// `baseline.directional_accuracy` is the base rate — the share of targets at or above the scaler
+/// mean — which is exactly what a model whose median never turns negative scores, so the model's own
+/// figure means nothing read apart from it.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+pub struct EvaluationReport {
+    pub metrics: EvaluationMetrics,
+    pub baseline: EvaluationMetrics,
+    pub baseline_name: &'static str,
+    /// The span between the outermost quantiles, which is the coverage a calibrated model reaches.
+    /// `None` where the artifact emits no quantiles, because then there is no interval to calibrate.
+    pub nominal_coverage: Option<f64>,
+}
+
+impl EvaluationReport {
+    /// A report over a dataset that yielded no rows to score.
+    fn empty() -> Self {
+        Self {
+            metrics: EvaluationMetrics::zero(),
+            baseline: EvaluationMetrics::zero(),
+            baseline_name: BASELINE_NAME,
+            nominal_coverage: None,
+        }
+    }
+
+    /// How far the model beat [`BASELINE_NAME`]; CRPS is a loss, so positive is the model winning.
+    pub fn continuous_ranked_probability_score_skill(&self) -> f64 {
+        self.baseline.continuous_ranked_probability_score
+            - self.metrics.continuous_ranked_probability_score
     }
 }
 
@@ -61,10 +99,9 @@ impl QuantileIndices {
 
 /// Running totals behind the three metrics.
 ///
-/// This exists so the tests can reach the arithmetic without running the network. They used to
-/// assert against their own copy of the loop below, which meant a change to the pinball split, the
-/// median selection, or the coverage bounds left every one of them green — a suite that named the
-/// thing it could not detect a regression in. One implementation, two callers.
+/// Exists so the tests can reach the arithmetic without running the network: one implementation and
+/// two callers, so a change to the pinball split, the median selection, or the coverage bounds
+/// cannot leave a test green by asserting against its own copy of the loop.
 #[derive(Debug, Default, Clone, Copy)]
 struct MetricAccumulator {
     pinball_sum: f64,
@@ -87,6 +124,8 @@ impl MetricAccumulator {
             };
         }
 
+        // Scaled space: this asks whether the target sits above the scaler's mean, not above zero
+        // return, so it is only readable beside the same count for the constant-mean forecast.
         if (row[indices.median] >= 0.0) == (target >= 0.0) {
             self.directional_matches += 1;
         }
@@ -112,24 +151,27 @@ impl MetricAccumulator {
     }
 }
 
-/// Run the (inner, non-autodiff) model over the validation dataset and compute
-/// the metrics. Returns zeros for an empty or target-less dataset.
+/// Runs the (inner, non-autodiff) model over the validation dataset and scores it against
+/// [`BASELINE_NAME`] over the same rows.
+///
+/// Returns zeros for an empty or target-less dataset, which is why the trainer refuses an empty
+/// validation split before it gets here: zeroed metrics are the best score achievable.
 pub fn evaluate(
     model: &TiDEModel<NdArray>,
     dataset: &TrainingDataset,
     parameters: &ModelParameters,
-) -> Result<EvaluationMetrics, TideError> {
+) -> Result<EvaluationReport, TideError> {
     let sample_count = dataset.len();
     let targets = match dataset.targets() {
         Some(targets) if sample_count > 0 => targets,
-        _ => return Ok(EvaluationMetrics::zero()),
+        _ => return Ok(EvaluationReport::empty()),
     };
 
     let output_length = parameters.output_length();
     let quantiles = parameters.quantiles();
     let quantile_count = quantiles.len();
     if quantile_count == 0 {
-        return Ok(EvaluationMetrics::zero());
+        return Ok(EvaluationReport::empty());
     }
 
     crate::models::tide::batch::validate_input_shape(dataset, parameters)
@@ -175,6 +217,9 @@ pub fn evaluate(
     }
 
     let mut accumulator = MetricAccumulator::default();
+    let mut baseline_accumulator = MetricAccumulator::default();
+    // The trivial forecast, through the same arithmetic: every quantile at the scaler's own mean.
+    let baseline_row = vec![0.0; quantile_count];
     // Reused across rows: the model emits `f32` and the metrics are computed in `f64`, so each row
     // is widened once into this buffer rather than allocating one per horizon step.
     let mut row = Vec::with_capacity(quantile_count);
@@ -188,11 +233,18 @@ pub fn evaluate(
                     .iter()
                     .map(|&prediction| prediction as f64),
             );
-            accumulator.add_row(&row, targets[[sample, step, 0]] as f64, quantiles, indices);
+            let target = targets[[sample, step, 0]] as f64;
+            accumulator.add_row(&row, target, quantiles, indices);
+            baseline_accumulator.add_row(&baseline_row, target, quantiles, indices);
         }
     }
 
-    Ok(accumulator.finish())
+    Ok(EvaluationReport {
+        metrics: accumulator.finish(),
+        baseline: baseline_accumulator.finish(),
+        baseline_name: BASELINE_NAME,
+        nominal_coverage: Some(quantiles[indices.upper] - quantiles[indices.lower]),
+    })
 }
 
 fn argmin(values: &[f64]) -> usize {
@@ -234,11 +286,9 @@ mod tests {
     use crate::models::tide::data::TrainingDataset;
     use crate::models::tide::model::TiDEModel;
 
-    /// The serialized key is the contract with every artifact already in the bucket, and the Rust
-    /// field name no longer matches it. Nothing else would notice if the `serde(rename)` were
-    /// dropped: the trainer would keep writing metadata, the drift check would keep reading
-    /// `metrics.crps`, and it would find nothing there — reporting `InsufficientHistory` rather
-    /// than an error, which is indistinguishable from a genuinely young bucket.
+    /// The serialized key is the contract with every artifact already in the bucket, and nothing
+    /// else would notice the `serde(rename)` being dropped: the drift check would read
+    /// `metrics.crps`, find nothing, and report `InsufficientHistory` rather than an error.
     #[test]
     fn test_metrics_serialize_under_the_published_crps_key() {
         let metrics = EvaluationMetrics {
@@ -326,15 +376,10 @@ mod tests {
 
     /// Runs `predictions` and `targets` through `MetricAccumulator`, the same type `evaluate` uses.
     ///
-    /// This deliberately reimplements nothing: it lays out the fixture and hands each row to the
-    /// production accumulator. Every assertion below therefore fails if the pinball split, the
-    /// median selection, or the coverage bounds change in the shipped code.
-    ///
-    /// The two length assertions are the point of the helper as much as the accumulator call is.
-    /// Every metric here is a mean, so a fixture with more prediction rows than targets would zip
-    /// short, divide by a smaller row count, and produce a plausible number for a table nobody
-    /// wrote — the failure this whole change exists to remove, reintroduced in the fixture instead
-    /// of the code.
+    /// Reimplements nothing, so every assertion below fails if the pinball split, the median
+    /// selection, or the coverage bounds change. The two length assertions matter as much as the
+    /// accumulator call: every metric is a mean, and a fixture that zipped short would divide by a
+    /// smaller row count and produce a plausible number for a table nobody wrote.
     fn metrics_from(
         predictions: &[[f64; 3]],
         targets: &[f64],
@@ -361,9 +406,8 @@ mod tests {
     }
 
     /// The quantile list is whatever training wrote, so the three positions are found rather than
-    /// assumed. The old test helper hardcoded 0, 1, and 2, which is why it could not have caught
-    /// this: an artifact listing its quantiles in any other order would have had its coverage
-    /// measured between the wrong two bounds.
+    /// assumed: an artifact listing its quantiles in any other order would otherwise have its
+    /// coverage measured between the wrong two bounds.
     #[test]
     fn test_quantile_indices_are_located_not_assumed() {
         let indices = QuantileIndices::locate(&[0.9, 0.1, 0.5]);
@@ -500,6 +544,28 @@ mod tests {
         .unwrap()
     }
 
+    /// `make_tiny_dataset` with the targets set, because every metric here is a mean and a fixture
+    /// whose targets never vary makes each one structurally `count / rows` — true of any
+    /// implementation, so nothing asserted over it can fail. Inputs stay zero, so the forward pass
+    /// returns the same row for every sample and only the targets move.
+    fn dataset_with_targets(values: &[f32]) -> TrainingDataset {
+        let mut dataset = make_tiny_dataset(values.len(), true);
+        let mut targets = ndarray::Array3::<f32>::zeros((values.len(), 1, 1));
+        for (sample, value) in values.iter().enumerate() {
+            targets[[sample, 0, 0]] = *value;
+        }
+        dataset = TrainingDataset::new(
+            dataset.past_continuous().clone(),
+            dataset.past_categorical().clone(),
+            dataset.future_categorical().clone(),
+            dataset.static_categorical().clone(),
+            Some(targets),
+            dataset.forecast_sessions().to_vec(),
+        )
+        .unwrap();
+        dataset
+    }
+
     /// Build a TiDEModel that matches `make_tiny_dataset`: input_size=32,
     /// output_length=1, quantile_count=3.
     fn make_tiny_model() -> TiDEModel<NdArray> {
@@ -518,10 +584,14 @@ mod tests {
         let model = make_tiny_model();
         let dataset = make_tiny_dataset(0, true);
         let parameters = make_tiny_parameters();
-        let metrics = evaluate(&model, &dataset, &parameters).unwrap();
-        assert_eq!(metrics.continuous_ranked_probability_score, 0.0);
-        assert_eq!(metrics.directional_accuracy, 0.0);
-        assert_eq!(metrics.quantile_coverage, 0.0);
+        let report = evaluate(&model, &dataset, &parameters).unwrap();
+        assert_eq!(report.metrics.continuous_ranked_probability_score, 0.0);
+        assert_eq!(report.metrics.directional_accuracy, 0.0);
+        assert_eq!(report.metrics.quantile_coverage, 0.0);
+        assert_eq!(
+            report.nominal_coverage, None,
+            "no rows scored means no interval was calibrated, which is not a coverage of zero"
+        );
     }
 
     #[test]
@@ -530,10 +600,10 @@ mod tests {
         let model = make_tiny_model();
         let dataset = make_tiny_dataset(4, false);
         let parameters = make_tiny_parameters();
-        let metrics = evaluate(&model, &dataset, &parameters).unwrap();
-        assert_eq!(metrics.continuous_ranked_probability_score, 0.0);
-        assert_eq!(metrics.directional_accuracy, 0.0);
-        assert_eq!(metrics.quantile_coverage, 0.0);
+        let report = evaluate(&model, &dataset, &parameters).unwrap();
+        assert_eq!(report.metrics.continuous_ranked_probability_score, 0.0);
+        assert_eq!(report.metrics.directional_accuracy, 0.0);
+        assert_eq!(report.metrics.quantile_coverage, 0.0);
     }
 
     #[test]
@@ -543,37 +613,134 @@ mod tests {
         let dataset = make_tiny_dataset(4, true);
         // Use a model whose quantile list is empty.
         let parameters = ModelParameters::for_tests(32, 8, 1, 1, 1, 2, 0.0, vec![], 0.5);
-        let metrics = evaluate(&model, &dataset, &parameters).unwrap();
-        assert_eq!(metrics.continuous_ranked_probability_score, 0.0);
-        assert_eq!(metrics.directional_accuracy, 0.0);
-        assert_eq!(metrics.quantile_coverage, 0.0);
+        let report = evaluate(&model, &dataset, &parameters).unwrap();
+        assert_eq!(report.metrics.continuous_ranked_probability_score, 0.0);
+        assert_eq!(report.metrics.directional_accuracy, 0.0);
+        assert_eq!(report.metrics.quantile_coverage, 0.0);
     }
 
+    /// The trivial forecast is the constant zero, so its CRPS is `1.5 * mean|target|` — 1.5 being
+    /// 0.1 + 0.5 + 0.9 — which is zero exactly where the forecast is right and rises with the error.
+    ///
+    /// Every number below is a literal worked from that identity rather than from the quantile list
+    /// the code reads, and each one moves with the fixture, which the all-zeros dataset this replaced
+    /// could not: over constant targets every metric is `count / rows` for any implementation at all.
     #[test]
-    fn test_evaluate_with_samples_returns_valid_metrics() {
-        // Run the full inference path: sample_count > 0, targets present, quantiles non-empty.
-        // The model is randomly initialized so we only assert the metric ranges, not values.
+    fn test_the_reported_baseline_is_zero_when_right_and_monotone_in_its_error() {
         let model = make_tiny_model();
-        let dataset = make_tiny_dataset(3, true);
         let parameters = make_tiny_parameters();
-        let metrics = evaluate(&model, &dataset, &parameters).unwrap();
-        // continuous_ranked_probability_score is a sum of non-negative pinball losses so it must be >= 0.
-        assert!(
-            metrics.continuous_ranked_probability_score >= 0.0,
-            "crps={}",
-            metrics.continuous_ranked_probability_score
+
+        let exact = evaluate(&model, &dataset_with_targets(&[0.0, 0.0, 0.0]), &parameters).unwrap();
+        assert_eq!(
+            exact.baseline.continuous_ranked_probability_score, 0.0,
+            "a forecast that is the outcome must cost nothing"
         );
-        // directional_accuracy is a fraction in [0,1].
+
+        let near = evaluate(
+            &model,
+            &dataset_with_targets(&[0.0, 1.0, -1.0]),
+            &parameters,
+        )
+        .unwrap();
+        let far = evaluate(
+            &model,
+            &dataset_with_targets(&[0.0, 2.0, -2.0]),
+            &parameters,
+        )
+        .unwrap();
         assert!(
-            (0.0..=1.0).contains(&metrics.directional_accuracy),
-            "directional_accuracy={}",
-            metrics.directional_accuracy
+            (near.baseline.continuous_ranked_probability_score - 1.0).abs() < 1e-9,
+            "1.5 * (0 + 1 + 1) / 3, got {}",
+            near.baseline.continuous_ranked_probability_score
         );
-        // quantile_coverage is a fraction in [0,1].
         assert!(
-            (0.0..=1.0).contains(&metrics.quantile_coverage),
-            "quantile_coverage={}",
-            metrics.quantile_coverage
+            (far.baseline.continuous_ranked_probability_score - 2.0).abs() < 1e-9,
+            "1.5 * (0 + 2 + 2) / 3, got {}",
+            far.baseline.continuous_ranked_probability_score
+        );
+
+        assert_eq!(near.baseline_name, "scaler_mean");
+        assert!(
+            (near.nominal_coverage.unwrap() - 0.8).abs() < 1e-9,
+            "the outermost quantiles span 0.9 - 0.1, got {:?}",
+            near.nominal_coverage
+        );
+    }
+
+    /// The base rate is what a median that never turns negative scores, so directional accuracy
+    /// cannot be read without it — and it is a fact about the targets, not about the model.
+    #[test]
+    fn test_the_base_rate_is_reported_beside_directional_accuracy() {
+        let model = make_tiny_model();
+        let parameters = make_tiny_parameters();
+
+        let report = evaluate(
+            &model,
+            &dataset_with_targets(&[0.0, 1.0, -1.0]),
+            &parameters,
+        )
+        .unwrap();
+        assert!(
+            (report.baseline.directional_accuracy - 2.0 / 3.0).abs() < 1e-9,
+            "two of the three targets sit at or above the scaler mean, got {}",
+            report.baseline.directional_accuracy
+        );
+
+        let every_target_below = evaluate(
+            &model,
+            &dataset_with_targets(&[-1.0, -2.0, -3.0]),
+            &parameters,
+        )
+        .unwrap();
+        assert_eq!(
+            every_target_below.baseline.directional_accuracy, 0.0,
+            "no target above the mean is a base rate of zero, whatever the model scored"
+        );
+        // Pins the figure to the constant forecast rather than to whatever the network emitted: the
+        // model's own accuracy over these targets is 0.0 too whenever its median happens to be
+        // non-negative, and only the loss separates the two.
+        assert!(
+            (every_target_below
+                .baseline
+                .continuous_ranked_probability_score
+                - 3.0)
+                .abs()
+                < 1e-9,
+            "1.5 * (1 + 2 + 3) / 3, got {}",
+            every_target_below
+                .baseline
+                .continuous_ranked_probability_score
+        );
+    }
+
+    /// The same inputs give the same forward pass, so moving the targets away from it is the only
+    /// thing that can change the model's own CRPS — and it must cost more, not less.
+    #[test]
+    fn test_the_model_score_rises_as_the_targets_move_away_from_it() {
+        let model = make_tiny_model();
+        let parameters = make_tiny_parameters();
+
+        let near = evaluate(&model, &dataset_with_targets(&[0.0, 0.0, 0.0]), &parameters).unwrap();
+        let far = evaluate(
+            &model,
+            &dataset_with_targets(&[100.0, 100.0, 100.0]),
+            &parameters,
+        )
+        .unwrap();
+
+        assert!(
+            far.metrics.continuous_ranked_probability_score
+                > near.metrics.continuous_ranked_probability_score,
+            "{} against {}",
+            far.metrics.continuous_ranked_probability_score,
+            near.metrics.continuous_ranked_probability_score
+        );
+        // Targets all zero, so the trivial forecast is exactly right and nothing can beat it: a
+        // skill reported above zero there would mean the difference is signed the wrong way round.
+        assert!(
+            near.continuous_ranked_probability_score_skill() <= 0.0,
+            "skill against a baseline that scored 0.0 was {}",
+            near.continuous_ranked_probability_score_skill()
         );
     }
 

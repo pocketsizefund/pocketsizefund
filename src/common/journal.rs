@@ -1,7 +1,6 @@
-//! Append-only record of what the application observed before it acted.
-//!
-//! One JSONL file per session on local disk, and the only original this application owns — every
-//! other store is a fold over it. Sealing and shipping it is [`crate::data::export`]'s.
+//! Append-only record of what the application observed before it acted: one JSONL file per session
+//! on local disk, and the only original this application owns — every other store is a fold over
+//! it. Sealing and shipping it is [`crate::data::export`]'s.
 
 use std::path::{Path, PathBuf};
 
@@ -20,7 +19,7 @@ use crate::common::types::{CloseReason, Dataset, PairID, SessionDate, Ticker};
 ///
 /// Readers map old versions forward rather than rewriting files, so this only ever goes up. What
 /// each version held is documented beside the DuckDB view in `tools/duckdb_initialization.sql`.
-pub const SCHEMA_VERSION: u32 = 5;
+pub const SCHEMA_VERSION: u32 = 6;
 
 /// Anything that stops a record reaching the disk.
 #[derive(Debug, thiserror::Error)]
@@ -101,20 +100,20 @@ impl Observation {
 }
 
 /// Why a scheduled command did no work.
+///
+/// The calendar is the only thing that stops a pass today; nothing in the tree detects a halt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SkipReason {
     NotATradingDay,
-    MarketHalted,
 }
 
 impl SkipReason {
-    pub const ALL: [SkipReason; 2] = [SkipReason::NotATradingDay, SkipReason::MarketHalted];
+    pub const ALL: [SkipReason; 1] = [SkipReason::NotATradingDay];
 
     pub fn as_str(self) -> &'static str {
         match self {
             SkipReason::NotATradingDay => "not_a_trading_day",
-            SkipReason::MarketHalted => "market_halted",
         }
     }
 
@@ -431,7 +430,8 @@ impl From<CloseReason> for PairDecision {
 /// An open pair as this pass measured it, whether or not it closed.
 ///
 /// Carries every input to the z-score, which on its own cannot distinguish a price move from a
-/// refit.
+/// refit. The stop is not among them: it is [`crate::portfolio::screen::stop_at`] of
+/// `entry_z_score`, so storing it beside its own input is a second thing that can be wrong.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OpenPairReading {
     pub pair_id: PairID,
@@ -443,7 +443,8 @@ pub struct OpenPairReading {
     pub spread_standard_deviation: Option<f64>,
     pub z_score: Option<f64>,
     pub entry_z_score: f64,
-    pub stop_at: f64,
+    /// Why the spread model was unavailable, when `decision` is `no_spread_model`.
+    pub spread_model_failure: Option<String>,
     pub entry_session: SessionDate,
     pub minutes_held: i64,
     pub decision: PairDecision,
@@ -456,7 +457,10 @@ pub enum CandidateDecision {
     Opened,
     /// Selected and written into the plan, but the pass ended before it was attempted.
     Planned,
+    /// The ranking never reached it, so nothing was asked of it.
     NotSelected,
+    /// Selected and then refused by the sizer, which is a different fact from not being selected.
+    SizingRefused,
     RiskRefused,
     Unfilled,
     AbandonedAtShutdown,
@@ -482,7 +486,10 @@ pub struct CandidateReading {
     #[serde(with = "crate::common::types::decimal_number_option")]
     pub gross_exposure: Option<Decimal>,
     pub decision: CandidateDecision,
-    /// The risk gate's rendered reason, when `decision` is `risk_refused`.
+    /// The rendered reason the candidate was turned down, and by which stage.
+    ///
+    /// Set for `sizing_refused`, `risk_refused`, and `unfilled`. A `not_selected` candidate has no
+    /// refusal because nothing refused it — the ranking simply did not reach it.
     pub refusal: Option<String>,
 }
 
@@ -643,8 +650,8 @@ pub struct PositionCloseRequested {
 /// The pre-close flattening.
 ///
 /// Written whether or not the flattening succeeded. This is the last fail-safe before positions
-/// carry overnight, and a run that failed at the broker used to leave no trace of having been
-/// attempted at all.
+/// carry overnight, and a run that failed at the broker would otherwise leave no trace of having
+/// been attempted.
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct LiquidationAttempted {
     pub pairs_closed: usize,
@@ -1325,7 +1332,7 @@ mod tests {
         );
         let value: Value = serde_json::to_value(&record).expect("record must serialize");
 
-        assert_eq!(value["schema_version"], Value::Number(5.into()));
+        assert_eq!(value["schema_version"], Value::Number(6.into()));
         assert_eq!(value["event_type"], "account_observed");
         assert_eq!(value["session_date"], "2026-08-11");
         assert_eq!(value["timestamp"], "2026-08-11T20:15:00Z");

@@ -1,7 +1,6 @@
 //! Shared in-memory state for the dashboard, and the two tasks that keep it current.
 //!
-//! A failed poll leaves the previous state and records the error rather than blanking the page —
-//! stale numbers with a visible "last updated" beat no numbers.
+//! A failed poll leaves the previous state and records the error rather than blanking the page.
 
 use std::collections::VecDeque;
 use std::sync::Arc;

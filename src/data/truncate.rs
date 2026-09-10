@@ -465,8 +465,8 @@ mod tests {
     }
 
     /// Each step moves the date floor strictly forward over a finite table, so the walk terminates
-    /// on its own and needs no length bound. Nine links is past the fixed limit this used to carry,
-    /// which stopped one short and returned a symbol the company had already left.
+    /// on its own and needs no length bound. Nine links is longer than any fixed bound would allow,
+    /// and a walk that stopped one short would return a symbol the company had already left.
     #[test]
     fn test_a_chain_longer_than_the_old_bound_reaches_its_end() {
         let rows = [

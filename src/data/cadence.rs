@@ -1,7 +1,6 @@
 //! Cross-cadence agreement over the summaries the archive already holds.
 //!
-//! Verifies rather than re-emits: the cadences are folded separately, so sum-back is a cross-pass
-//! claim that re-deriving both sides would hide.
+//! Verifies rather than re-emits: re-deriving both sides would hide the cross-pass claim.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -563,13 +562,9 @@ impl CadenceAgreement {
 
     /// Whether every reconstructed column agreed on every row both cadences hold.
     ///
-    /// Says nothing about the rows only one of them holds, which `one_sided` reports separately and
-    /// which no comparison can speak for.
-    ///
-    /// **A comparison that matched nothing has not agreed** — it failed to run. The join key is
-    /// `(ticker, bucket)`, so a fold that bucketed to the wrong stamp shares no row with the stored
-    /// partition and every column then agrees over an empty population. Requiring a population is
-    /// what keeps that from reading as a pass.
+    /// Says nothing about the rows only one of them holds, which `one_sided` reports separately.
+    /// **A comparison that matched nothing has not agreed** — the join key is `(ticker, bucket)`,
+    /// so a fold bucketed to the wrong stamp agrees over an empty population.
     pub fn agrees(&self) -> bool {
         self.compared > 0 && self.disagreements() == 0
     }
@@ -737,8 +732,25 @@ mod tests {
         SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 8, day).expect("a real date"))
     }
 
-    /// The instant the archive stamps a session row at, which no intraday bucket lands on.
-    const SESSION_STAMP: i64 = 1_755_720_000_000;
+    /// 2026-08-20T20:00Z, the 16:00 Eastern close of [`session`] and where the archive stamps a
+    /// session row -- an instant no intraday bucket of that session lands on.
+    const SESSION_STAMP: i64 = 1_787_256_000_000;
+
+    /// The session fixtures are stamped inside the session they name.
+    ///
+    /// The join key is taken off the stored row, so a stamp from the wrong year compares green
+    /// while describing a partition that could not exist. Nothing else here would catch it.
+    #[test]
+    fn test_the_session_stamp_falls_within_the_session_it_names() {
+        let (start, end) = session().bounds();
+        let stamp = chrono::DateTime::from_timestamp_millis(SESSION_STAMP).expect("a real instant");
+        assert!(
+            stamp >= start && stamp < end,
+            "{stamp} is outside {}",
+            session()
+        );
+        assert_eq!(stamp.to_rfc3339(), "2026-08-20T20:00:00+00:00");
+    }
 
     /// A quote frame carrying only what a comparison reads.
     ///

@@ -38,14 +38,10 @@ pub struct ModelState {
 impl ModelState {
     /// Constructs a `ModelState` from a fully loaded artifact.
     ///
-    /// The column lists the artifact was fitted with are not carried here. They are checked against
-    /// this build's constants inside [`crate::models::tide::data::Scaler::load`] and then dropped:
-    /// verifying them is what they were for, nothing read them afterwards, and keeping a copy that
-    /// is provably equal to the constants invited a future caller to trust the copy.
-    ///
-    /// The artifact key and load instant are not carried either, on the same reasoning. The
-    /// pre-open handler resolves the key itself and derives staleness from `run_id` against the
-    /// trading calendar, and both reach the journal through `predictions_generated`.
+    /// The artifact's own column lists are checked against this build's constants inside
+    /// [`crate::models::tide::data::Scaler::load`] and then dropped, because a copy provably equal to
+    /// the constants only invites a caller to trust the copy. The artifact key and the load instant
+    /// are dropped on the same reasoning: the pre-open handler resolves both for itself.
     pub fn new(
         model: TiDEModel<NdArray>,
         parameters: ModelParameters,
@@ -91,9 +87,8 @@ impl ModelState {
 }
 
 /// `ModelState` must stay `Send + Sync` — the prediction handler holds a `&ModelState` across an
-/// await inside a future that `JoinSet::spawn` requires to be `Send`. That used to be asserted with
-/// `unsafe impl`; it is now a property the compiler derives from the `Mutex` around the model, and
-/// this is what makes the difference visible. Removing the mutex fails here rather than in
+/// await inside a future that `JoinSet::spawn` requires to be `Send`. The compiler derives that
+/// from the `Mutex` around the model, so removing the mutex fails here rather than in
 /// `bin/fund.rs`, several call layers from the cause.
 #[allow(dead_code)]
 fn model_state_is_send_and_sync() {
@@ -352,16 +347,20 @@ fn extract_tar_gz(tar_path: &Path, destination: &Path) -> Result<(), ArtifactErr
     Ok(())
 }
 
-fn load_model_from_directory(dir: &Path, artifact_key: &str) -> Result<ModelState, ArtifactError> {
-    let parameters_path = dir.join("tide_parameters.json");
+/// Loads the four files an extracted artifact holds into one servable model.
+fn load_model_from_directory(
+    directory: &Path,
+    artifact_key: &str,
+) -> Result<ModelState, ArtifactError> {
+    let parameters_path = directory.join("tide_parameters.json");
     let parameters = crate::models::tide::configuration::ModelParameters::load(&parameters_path)
         .map_err(|error| ArtifactError::ModelLoad(error.to_string()))?;
 
-    let scaler_path = dir.join("tide_data_scaler.json");
+    let scaler_path = directory.join("tide_data_scaler.json");
     let scaler = crate::models::tide::data::Scaler::load(&scaler_path)
         .map_err(|error| ArtifactError::ModelLoad(error.to_string()))?;
 
-    let mappings_path = dir.join("tide_data_mappings.json");
+    let mappings_path = directory.join("tide_data_mappings.json");
     let mappings_content = std::fs::read_to_string(&mappings_path)
         .map_err(|error| ArtifactError::ModelLoad(error.to_string()))?;
     let mappings: crate::models::tide::data::FeatureMappings =
@@ -370,7 +369,7 @@ fn load_model_from_directory(dir: &Path, artifact_key: &str) -> Result<ModelStat
 
     let quantile_count = parameters.quantiles().len();
     let model = crate::models::tide::model::TiDEModel::load(
-        dir,
+        directory,
         parameters.input_size(),
         parameters.hidden_size(),
         parameters.encoder_layer_count(),

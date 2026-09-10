@@ -90,9 +90,9 @@ fn measure(
         let (scores, realized) = by_session
             .entry(dataset.forecast_sessions()[sample])
             .or_default();
-        scores.push(scaler.inverse_transform_value(TARGET_COLUMN, scaled));
+        scores.push(scaler.inverse_transform_value(TARGET_COLUMN, scaled)?);
         realized
-            .push(scaler.inverse_transform_value(TARGET_COLUMN, targets[[sample, 0, 0]] as f64));
+            .push(scaler.inverse_transform_value(TARGET_COLUMN, targets[[sample, 0, 0]] as f64)?);
     }
 
     let sessions: Vec<metrics::SessionMetrics> = by_session

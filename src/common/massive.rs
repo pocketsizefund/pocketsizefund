@@ -230,21 +230,11 @@ struct GroupedResponse {
 
 /// Whether a raw symbol is common stock rather than a preferred, warrant, unit, or right.
 ///
-/// Massive encodes share class in the *case* of the symbol: `GSpD` is Goldman Sachs preferred
-/// series D, `BCpC` a preferred, `TpC` another. `Ticker::new` uppercases before validating — which
-/// is right for user input and wrong here, because it collapses `BCpC` onto `BCPC`, the common
-/// stock of an entirely different company. The two then share a primary key of
-/// `(ticker, bar_interval, timestamp)` and the upsert silently keeps whichever arrived last, so a
-/// real mid-cap's bar can be replaced by a thinly traded preferred's.
-///
-/// Measured on one live session: 12,445 symbols, of which 2 collided this way. Small, silent, and
-/// corrupting to exactly the names the strategy would trade — the preferred's volume is a rounding
-/// error against the common's, so the liquidity screen, the correlation, and the model input all
-/// take the wrong number.
-///
-/// Requiring the raw form to already be uppercase drops every one of them. That is not a
-/// workaround: this strategy trades common stock, and a preferred share is not something it should
-/// have been offered in the first place.
+/// Massive encodes share class in the *case* of the symbol — `GSpD` is Goldman Sachs preferred
+/// series D — and `Ticker::new` uppercases, which collapses `BCpC` onto `BCPC`, the common stock of
+/// an entirely different company; they then share the `(ticker, bar_interval, timestamp)` key and
+/// the upsert keeps whichever arrived last. Requiring the raw form to already be uppercase drops
+/// every such symbol, which is what a strategy trading common stock wants.
 fn is_common_stock_symbol(raw: &str) -> bool {
     let trimmed = raw.trim();
     !trimmed.is_empty() && trimmed == trimmed.to_ascii_uppercase()
@@ -336,9 +326,6 @@ impl MassiveClient {
     ///
     /// Prices are raw (`adjusted=false`), so a stored bar means the same thing forever and
     /// [`crate::data::adjust`] restates it at read time.
-    ///
-    /// Asking for the adjustment made every stored bar mean whatever the feed knew the night it was
-    /// written, and nothing revisits an old one.
     pub async fn fetch_grouped_daily(
         &self,
         date: NaiveDate,
@@ -390,11 +377,6 @@ impl MassiveClient {
         Ok(bars)
     }
 
-    /// Fetches every stock split Massive knows about, following the cursor to the last page.
-    ///
-    /// The response covers announced-but-unexecuted splits as well as historical ones, so a caller
-    /// holding the result has the feed's whole current opinion rather than a window of it — which is
-    /// what makes replacing the stored table safe when a split is cancelled and disappears.
     /// Fetches one symbol's bars at an intraday cadence over an inclusive date range.
     ///
     /// **Refuses [`BarInterval::OneDay`].** This route stamps a daily bar at midnight Eastern where
@@ -470,6 +452,11 @@ impl MassiveClient {
         )))
     }
 
+    /// Fetches every stock split Massive knows about, following the cursor to the last page.
+    ///
+    /// The response covers announced-but-unexecuted splits as well as historical ones, so a caller
+    /// holding the result has the feed's whole current opinion rather than a window of it, which is
+    /// what makes replacing the stored table safe when a split is cancelled and disappears.
     pub async fn fetch_splits(&self) -> Result<Vec<EquitySplit>, MassiveError> {
         let mut url = splits_url(&self.credentials.base_url);
         let mut splits: Vec<EquitySplit> = Vec::new();

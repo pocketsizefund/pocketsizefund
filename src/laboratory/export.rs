@@ -1,4 +1,4 @@
-//! Ships sealed laboratory journal days to S3, one object per experiment type per UTC date.
+//! Ships sealed laboratory journal days to S3, one object per experiment type per session.
 //!
 //! Triggered explicitly: the laboratory has no scheduled pass to hang this off.
 
@@ -7,13 +7,14 @@ use std::path::Path;
 
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client as S3Client;
-use chrono::{DateTime, NaiveDate};
+use chrono::DateTime;
 use polars::prelude::*;
 use serde_json::Value;
 use tracing::{info, warn};
 
 use crate::common::aws::date_partitioned_key;
-use crate::laboratory::journal::{date_from_file_name, file_name, Journal};
+use crate::common::types::SessionDate;
+use crate::laboratory::journal::{file_name, session_from_file_name, Journal};
 
 /// S3 prefix the laboratory writes under.
 ///
@@ -29,8 +30,8 @@ pub const RETENTION_DAYS: i64 = 7;
 /// What one export run shipped, and what it could not.
 #[derive(Debug, Default, PartialEq)]
 pub struct ExportSummary {
-    /// `(experiment_type, date, rows)` for each object written.
-    pub written: Vec<(String, NaiveDate, usize)>,
+    /// `(experiment_type, session, rows)` for each object written.
+    pub written: Vec<(String, SessionDate, usize)>,
     pub failed: Vec<String>,
     pub files_deleted: usize,
     /// Lines the Parquet does not hold, which keep their file from being deleted.
@@ -39,18 +40,18 @@ pub struct ExportSummary {
 
 /// Writes every sealed day to S3, then deletes the local files that have aged out.
 ///
-/// A day is sealed once `today` has moved past it. The key is derived from the record, so a repeat
-/// run overwrites byte-identically and a failed run repairs itself.
+/// A session is sealed once `today` has moved past it. The key is derived from the record, so a
+/// repeat run overwrites byte-identically and a failed run repairs itself.
 pub async fn export_journals(
     journal: &Journal,
     s3_client: &S3Client,
     bucket: &str,
-    today: NaiveDate,
+    today: SessionDate,
 ) -> ExportSummary {
     let mut summary = ExportSummary::default();
 
-    let dates = match sealed_dates(journal.directory(), today) {
-        Ok(dates) => dates,
+    let sessions = match sealed_sessions(journal.directory(), today) {
+        Ok(sessions) => sessions,
         Err(error) => {
             summary.failed.push(format!(
                 "could not list {}: {error}",
@@ -60,12 +61,12 @@ pub async fn export_journals(
         }
     };
 
-    let mut shipped: Vec<NaiveDate> = Vec::new();
-    for date in dates {
+    let mut shipped: Vec<SessionDate> = Vec::new();
+    for session in sessions {
         // Held only for the read, so a long upload does not block an experiment mid-run.
         let frames = {
             let _sealed = journal.seal().await;
-            read_day(&journal.directory().join(file_name(date)))
+            read_day(&journal.directory().join(file_name(session)))
         };
         let (frames, unparsable) = match frames {
             Ok(read) => read,
@@ -85,11 +86,11 @@ pub async fn export_journals(
                 continue;
             }
             let prefix = format!("{EXPERIMENT_PREFIX}/experiment_type={experiment_type}");
-            let key = date_partitioned_key(&prefix, date);
+            let key = date_partitioned_key(&prefix, session.date());
             match write_frame(s3_client, bucket, &key, &mut frame).await {
                 Ok(()) => summary
                     .written
-                    .push((experiment_type, date, frame.height())),
+                    .push((experiment_type, session, frame.height())),
                 Err(error) => {
                     summary.failed.push(error);
                     day_written = false;
@@ -99,7 +100,7 @@ pub async fn export_journals(
         // A file with unparsable lines is kept whole: those lines reach no object, and deleting the
         // file would destroy the only copy of them.
         if day_written && unparsable == 0 {
-            shipped.push(date);
+            shipped.push(session);
         }
     }
 
@@ -107,23 +108,26 @@ pub async fn export_journals(
     summary
 }
 
-/// Every UTC date in the directory that `today` has moved past.
-fn sealed_dates(directory: &Path, today: NaiveDate) -> Result<Vec<NaiveDate>, std::io::Error> {
-    let mut dates = Vec::new();
+/// Every session in the directory that `today` has moved past.
+fn sealed_sessions(
+    directory: &Path,
+    today: SessionDate,
+) -> Result<Vec<SessionDate>, std::io::Error> {
+    let mut sessions = Vec::new();
     for entry in std::fs::read_dir(directory)? {
         let Some(name) = entry?.file_name().to_str().map(str::to_string) else {
             continue;
         };
-        let Some(date) = date_from_file_name(&name) else {
+        let Some(session) = session_from_file_name(&name) else {
             continue;
         };
-        if date >= today {
+        if session >= today {
             continue;
         }
-        dates.push(date);
+        sessions.push(session);
     }
-    dates.sort_unstable();
-    Ok(dates)
+    sessions.sort_unstable();
+    Ok(sessions)
 }
 
 /// One day's records as a frame per experiment type, keyed by that type.
@@ -237,14 +241,14 @@ async fn write_frame(
 }
 
 /// Deletes shipped files older than the retention window.
-fn delete_aged_out(directory: &Path, shipped: &[NaiveDate], today: NaiveDate) -> usize {
-    let oldest_kept = today - chrono::Duration::days(RETENTION_DAYS);
+fn delete_aged_out(directory: &Path, shipped: &[SessionDate], today: SessionDate) -> usize {
+    let oldest_kept = today.plus_calendar_days(-RETENTION_DAYS);
     let mut deleted = 0usize;
-    for date in shipped {
-        if *date >= oldest_kept {
+    for session in shipped {
+        if *session >= oldest_kept {
             continue;
         }
-        let path = directory.join(file_name(*date));
+        let path = directory.join(file_name(*session));
         match std::fs::remove_file(&path) {
             Ok(()) => deleted += 1,
             Err(error) => warn!(path = %path.display(), %error, "Could not delete a shipped file"),
@@ -267,7 +271,7 @@ mod tests {
             DateTime::from_timestamp_millis(milliseconds).unwrap(),
             Observation::DatasetBuilt(DatasetBuilt {
                 fingerprint: DatasetFingerprint {
-                    session: SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 8, 17).unwrap()),
+                    session: session(2026, 8, 17),
                     lookback_days: 365,
                     rows: 10,
                     tickers: 2,
@@ -281,20 +285,24 @@ mod tests {
         )
     }
 
-    fn write_day(directory: &Path, date: NaiveDate, lines: &[String]) {
-        std::fs::write(directory.join(file_name(date)), lines.join("\n") + "\n").unwrap();
+    fn session(year: i32, month: u32, day: u32) -> SessionDate {
+        SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(year, month, day).unwrap())
+    }
+
+    fn write_day(directory: &Path, session: SessionDate, lines: &[String]) {
+        std::fs::write(directory.join(file_name(session)), lines.join("\n") + "\n").unwrap();
     }
 
     #[test]
     fn test_today_is_not_yet_sealed() {
         let directory = tempfile::tempdir().unwrap();
-        let today = NaiveDate::from_ymd_opt(2026, 8, 18).unwrap();
-        let yesterday = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
+        let today = session(2026, 8, 18);
+        let yesterday = session(2026, 8, 17);
         for date in [today, yesterday] {
             write_day(directory.path(), date, &[]);
         }
 
-        let sealed = sealed_dates(directory.path(), today).unwrap();
+        let sealed = sealed_sessions(directory.path(), today).unwrap();
 
         assert_eq!(
             sealed,
@@ -308,7 +316,7 @@ mod tests {
     #[test]
     fn test_a_day_groups_into_one_frame_per_experiment_type() {
         let directory = tempfile::tempdir().unwrap();
-        let date = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
+        let date = session(2026, 8, 17);
         let run_id = Uuid::new_v4();
 
         let mut lines: Vec<String> = (0..2)
@@ -349,10 +357,10 @@ mod tests {
     #[test]
     fn test_only_files_older_than_the_retention_window_are_deleted() {
         let directory = tempfile::tempdir().unwrap();
-        let today = NaiveDate::from_ymd_opt(2026, 8, 18).unwrap();
-        let too_old = NaiveDate::from_ymd_opt(2026, 8, 10).unwrap();
-        let exactly_at_the_edge = NaiveDate::from_ymd_opt(2026, 8, 11).unwrap();
-        let recent = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
+        let today = session(2026, 8, 18);
+        let too_old = session(2026, 8, 10);
+        let exactly_at_the_edge = session(2026, 8, 11);
+        let recent = session(2026, 8, 17);
         for date in [too_old, exactly_at_the_edge, recent] {
             write_day(directory.path(), date, &[]);
         }
@@ -377,7 +385,7 @@ mod tests {
     #[test]
     fn test_a_type_whose_records_were_all_rejected_yields_an_empty_frame() {
         let directory = tempfile::tempdir().unwrap();
-        let date = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
+        let date = session(2026, 8, 17);
         // A well-formed experiment_type over an envelope missing run_id: grouped, then rejected.
         let mut broken: serde_json::Value =
             serde_json::from_str(&serde_json::to_string(&record(Uuid::new_v4(), 1)).unwrap())
@@ -394,7 +402,7 @@ mod tests {
     #[test]
     fn test_a_line_without_an_experiment_type_is_counted_not_filed() {
         let directory = tempfile::tempdir().unwrap();
-        let date = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
+        let date = session(2026, 8, 17);
         write_day(
             directory.path(),
             date,
@@ -415,7 +423,7 @@ mod tests {
     /// not be the one this produces.
     #[test]
     fn test_the_key_does_not_collide_with_the_application_journal() {
-        let date = NaiveDate::from_ymd_opt(2026, 8, 17).unwrap();
+        let date = session(2026, 8, 17).date();
         let laboratory = date_partitioned_key(
             &format!("{EXPERIMENT_PREFIX}/experiment_type=dataset_built"),
             date,

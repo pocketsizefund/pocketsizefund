@@ -56,13 +56,10 @@ pub struct TradingCalendar {
 impl TradingCalendar {
     /// Builds a calendar from published days.
     ///
-    /// This is the boundary where a date Alpaca sent over the wire becomes a [`SessionDate`].
-    /// [`CalendarDay`] stays on `NaiveDate` because it is what the transport parsed; everything
-    /// above this line deals in sessions.
-    ///
-    /// The result answers `false` to [`TradingCalendar::covers`] for every range: what it was
-    /// fetched for cannot be recovered from what came back. Use [`TradingCalendar::covering`] where
-    /// a caller needs to prove the horizon spans a window.
+    /// This is the boundary where a date Alpaca sent over the wire becomes a [`SessionDate`];
+    /// [`CalendarDay`] stays on `NaiveDate` because it is what the transport parsed. The result
+    /// answers `false` to [`TradingCalendar::covers`] for every range, so use
+    /// [`TradingCalendar::covering`] where a caller needs to prove the horizon spans a window.
     pub fn from_days(days: Vec<CalendarDay>) -> Self {
         Self {
             days: Self::index(days),
@@ -152,10 +149,9 @@ impl TradingCalendar {
     /// Minutes remaining until today's close, or `None` when today does not trade or has already
     /// closed.
     ///
-    /// The entry path uses this to refuse opening a pair it cannot plausibly exit before the bell,
-    /// which is the one piece of the old end-of-day feasibility check worth keeping. Reading the
-    /// close from the published calendar rather than assuming 16:00 is what makes it correct on a
-    /// half-day.
+    /// The entry path uses this to refuse opening a pair it cannot plausibly exit before the bell.
+    /// Reading the close from the published calendar rather than assuming 16:00 is what makes it
+    /// correct on a half-day.
     pub fn minutes_until_close(&self, instant: DateTime<Utc>) -> Option<i64> {
         let session = self.session(SessionDate::at(instant))?;
         let now = eastern_time(instant);

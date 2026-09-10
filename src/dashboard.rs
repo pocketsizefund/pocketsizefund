@@ -1,7 +1,6 @@
 //! The dashboard: a read-only page describing what the fund is doing.
 //!
-//! Its own process, connecting as `dashboard_reader` — SELECT on six tables and nothing else. A
-//! poller refreshes state on a fixed interval, a listener appends events, and handlers never query.
+//! Its own process, connecting as `dashboard_reader`: SELECT on six tables, and handlers never query.
 
 pub mod cache;
 pub mod database;

@@ -257,14 +257,14 @@ fn render(measured: &[laboratory::ConvergenceMeasured]) -> String {
 
         rendered.push_str(&format!("{:>8}", "horizon"));
         for arm in &arms {
-            rendered.push_str(&format!("{:>34}", arm.selection));
+            rendered.push_str(&format!("{:>43}", arm.selection));
         }
         rendered.push('\n');
         rendered.push_str(&format!("{:>8}", ""));
         for _ in &arms {
             rendered.push_str(&format!(
-                "{:>9}{:>9}{:>9}{:>7}",
-                "converged", "stopped", "open", "n"
+                "{:>9}{:>9}{:>9}{:>9}{:>7}",
+                "converged", "error", "stopped", "open", "n"
             ));
         }
         rendered.push('\n');
@@ -276,10 +276,17 @@ fn render(measured: &[laboratory::ConvergenceMeasured]) -> String {
                 // which would read as a cohort that was followed and did nothing.
                 match arm.curves.iter().find(|curve| curve.horizon == horizon) {
                     Some(curve) if curve.entries > 0 => rendered.push_str(&format!(
-                        "{:>9.4}{:>9.4}{:>9.4}{:>7}",
-                        curve.converged, curve.stopped, curve.open, curve.entries
+                        "{:>9.4}{:>9}{:>9.4}{:>9.4}{:>7}",
+                        curve.converged,
+                        // A share with no error beside it reads as a result rather than an estimate.
+                        curve
+                            .converged_standard_error
+                            .map_or_else(|| "--".to_string(), |error| format!("{error:.4}")),
+                        curve.stopped,
+                        curve.open,
+                        curve.entries
                     )),
-                    Some(_) | None => rendered.push_str(&format!("{:>34}", "unmeasured")),
+                    Some(_) | None => rendered.push_str(&format!("{:>43}", "unmeasured")),
                 }
             }
             rendered.push('\n');
@@ -344,6 +351,8 @@ mod tests {
                     stopped: 0.1,
                     open: 0.9 - converged,
                     entries: 1_284,
+                    sessions: 499,
+                    converged_standard_error: Some(0.02),
                 })
                 .collect(),
         }
