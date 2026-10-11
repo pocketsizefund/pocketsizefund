@@ -80,7 +80,7 @@ fn test_each_private_file_fails_and_is_named() {
         "data/capital_flows.toml",
         "journal/README.md",
         "studies/src/bin/null_check.rs",
-        ".scratchpad/plan_pivot.md",
+        ".scratchpad/plan.md",
         "journal/échange.md",
         "data/équité.parquet",
     ] {

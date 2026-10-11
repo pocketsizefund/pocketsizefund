@@ -14,9 +14,8 @@ This is a collection of guidelines and references.
 - `src/common/` holds the crate's shared pure code as `module.rs` beside `module/`; its modules and the pure
   `decide`/`solve` take no clients, are not `async`, read no clock or randomness, and import no `tokio`, `reqwest`, `aws_sdk_*`,
   `std::fs` or `std::net`, and name only allowlisted crates, which `tests/test_purity.rs` enforces
-- The live plans are `.scratchpad/plan_pivot.md`, `.scratchpad/plan_launch.md` and `.scratchpad/plan_archive.md`,
-  local and deliberately untracked (`.scratchpad/` is gitignored because they carry private strategy and capital
-  details); cite them as "pivot task N", "launch task N" and "archive task N"
+- Plans live in `.scratchpad/`, local and deliberately untracked (it is gitignored because plans carry private strategy
+  and capital details); the user names the plan a conversation works from
 - Machinery is public and state is private: playbooks, journals, vendor data, fitted weights, capital and plans stay
   out of git, and fixtures are synthetic because vendor licences forbid redistributing their data;
   `check-private-files` refuses only the patterns it names, so a new private format needs adding there
