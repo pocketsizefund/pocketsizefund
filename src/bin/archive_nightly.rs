@@ -1,7 +1,6 @@
-//! Heals the market-data archive over the last trading days, journals how each owed session ended, every series' gaps
-//! and how its views read, and ships the journal and logs to the records bucket. Exits 0 when every owed session was
-//! written and every file shipped, 1 when anything was not, and 2 when the run could not start; gaps and views only
-//! warn.
+//! Heals the archive over the last trading days, journals each owed session, every series' gaps and how its views
+//! read, and ships the journal and logs to the records bucket. Exits 0 when every owed session was written and every
+//! file shipped, 1 when anything was not, and 2 when the run could not start; gaps and views only warn.
 
 use std::process::{Command, ExitCode};
 

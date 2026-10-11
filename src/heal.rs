@@ -1,7 +1,7 @@
 //! The nightly heal: each leg's owed sessions fetched and written to the archive, oldest first, until done or out of
 //! time, with each partition journaled once it has been read back.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::future::Future;
 use std::num::{NonZeroU16, NonZeroU64, NonZeroUsize};
 use std::path::Path;
@@ -22,8 +22,8 @@ use crate::archive::reference::{
 use crate::archive::{self, Archive, ArchiveError};
 use crate::archive::{bars, quote_bars, trade_bars};
 use crate::common::heal::{
-    Coverage, CoverageRefusal, Held, KeepsRefusal, Leg, PartitionFailureKind, SessionOutcome,
-    WindowRefusal, alpaca_five_minute_bars, alpaca_minute_bars, alpaca_quotes,
+    Coverage, CoverageRefusal, Held, KeepsRefusal, Leg, PartitionFailureKind, SeriesListing,
+    SessionOutcome, WindowRefusal, alpaca_five_minute_bars, alpaca_minute_bars, alpaca_quotes,
     alpaca_series_boundaries, alpaca_trades, fetched_range, massive_daily_bars,
     massive_security_details, massive_splits, owed, window,
 };
@@ -329,48 +329,30 @@ pub async fn survey(clients: &Clients, today: SessionDate) -> Result<ArchiveSurv
         .list(&SeriesPrefix::market_data())
         .await
         .map_err(HealError::List)?;
-    let mut series: BTreeMap<String, BTreeSet<SessionDate>> = BTreeMap::new();
-    let mut unrecognized = 0_u64;
-    for path in &paths {
-        match path.parse::<Key>() {
-            Ok(Key::Reference(_)) => {}
-            Ok(
-                key @ (Key::Bars(_)
-                | Key::Quotes(_)
-                | Key::Trades(_)
-                | Key::RawBars { .. }
-                | Key::RawQuotes { .. }
-                | Key::RawTrades { .. }
-                | Key::Journal(_)
-                | Key::Logs(_)),
-            ) => {
-                series
-                    .entry(key.series().to_string())
-                    .or_default()
-                    .insert(key.session());
-            }
-            Err(_) => unrecognized += 1,
-        }
-    }
-    let Some(first) = series.values().filter_map(BTreeSet::first).min() else {
-        return Ok(ArchiveSurveyed::new(BTreeMap::new(), unrecognized));
+    let listing = SeriesListing::of(paths.iter().map(String::as_str));
+    let Some(reach) = listing.reach(today) else {
+        return Ok(ArchiveSurveyed::new(
+            BTreeMap::new(),
+            listing.unrecognized(),
+        ));
     };
-    // A session dated after today is left for `Coverage::of` to refuse, as the calendar will not reach it.
-    let reach = SessionRange::new(*first, (*first).max(today))
-        .expect("the reach ends no earlier than it starts");
     let calendar = clients
         .alpaca
         .calendar(reach)
         .await
         .map_err(HealError::Calendar)?;
-    let coverage = series
-        .into_iter()
-        .map(|(series, held)| match Coverage::of(&held, &calendar) {
-            Ok(coverage) => Ok((series, coverage)),
-            Err(refusal) => Err(HealError::Coverage { series, refusal }),
+    let coverage = listing
+        .series()
+        .iter()
+        .map(|(series, held)| match Coverage::of(held, &calendar) {
+            Ok(coverage) => Ok((series.clone(), coverage)),
+            Err(refusal) => Err(HealError::Coverage {
+                series: series.clone(),
+                refusal,
+            }),
         })
         .collect::<Result<_, _>>()?;
-    Ok(ArchiveSurveyed::new(coverage, unrecognized))
+    Ok(ArchiveSurveyed::new(coverage, listing.unrecognized()))
 }
 
 /// Writes each of `leg`'s owed sessions with `write` until `deadline`, journaling each outcome as it lands; a journal
@@ -584,21 +566,29 @@ async fn write_five_minute_bars(
     session: SessionDate,
     clients: &Clients,
 ) -> Result<PartitionWritten, PartitionFailure> {
+    let minutes = clients
+        .archive
+        .get(&Key::from(alpaca_minute_bars(session)))
+        .await?;
+    roll_up_minutes(session, minutes, clients.put()).await
+}
+
+/// Writes the five-minute bars of `session`'s Alpaca minute file, which is `None` when the archive holds none.
+async fn roll_up_minutes(
+    session: SessionDate,
+    minutes: Option<Vec<u8>>,
+    put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), ArchiveError>,
+) -> Result<PartitionWritten, PartitionFailure> {
     let minute_key = alpaca_minute_bars(session);
-    let body =
-        clients
-            .archive
-            .get(&Key::from(minute_key))
-            .await?
-            .ok_or(PartitionFailure::NoMinutes {
-                key: minute_key.into(),
-            })?;
+    let body = minutes.ok_or(PartitionFailure::NoMinutes {
+        key: minute_key.into(),
+    })?;
     let (minutes, provenance) =
         bars::decode(&minute_key, body).map_err(archive::DecodeRefusal::from)?;
     let five_minutes = aggregate::roll_up(minutes.bars(), BarInterval::FiveMinute)
         .expect("minutes roll up to five minutes");
     let bars = publish_bars(
-        clients.put(),
+        put,
         alpaca_five_minute_bars(session),
         five_minutes,
         &provenance,
@@ -1416,6 +1406,93 @@ mod tests {
         .await;
         assert!(matches!(refused, Err(PartitionFailure::NoRows)));
         assert_eq!(*written.lock().unwrap(), Vec::<String>::new());
+    }
+
+    /// The stored minutes land as five-minute bars under the derived key, carrying the minutes' provenance; a session
+    /// with no minute file is refused before anything is written.
+    #[tokio::test]
+    async fn test_minutes_roll_up_to_five_minutes_under_their_own_provenance() {
+        use crate::common::market::record::BarPrices;
+        use crate::common::market::{Price, Shares, TradeCount};
+        let [session, _] = sessions();
+        let provenance = Provenance::new(
+            Subscription::AlgoTraderPlus,
+            "2026-09-30T07:00:00Z".parse().unwrap(),
+            RunId::new(uuid::Uuid::from_u128(1)),
+            None,
+        );
+        let bar = |interval, at: &str, [open, high, low, close]: [f64; 4], shares, trades| {
+            let price = |dollars| Price::from_dollars(dollars).unwrap();
+            Bar::new(
+                Symbol::new("AAPL").unwrap(),
+                interval,
+                at.parse().unwrap(),
+                BarPrices::new(price(open), price(high), price(low), price(close)).unwrap(),
+                Shares::whole(shares).unwrap(),
+                Some(TradeCount::new(trades)),
+                None,
+            )
+            .unwrap()
+        };
+        let minutes = [
+            ("2026-09-29T13:30:00Z", [10.0, 11.0, 9.0, 10.5], 100, 2),
+            ("2026-09-29T13:31:00Z", [10.5, 12.0, 10.0, 11.5], 50, 1),
+            ("2026-09-29T13:35:00Z", [11.5, 11.5, 11.0, 11.25], 30, 4),
+        ]
+        .map(|(at, prices, shares, trades)| {
+            bar(BarInterval::OneMinute, at, prices, shares, trades)
+        });
+        let body = bars::encode(
+            &alpaca_minute_bars(session),
+            &BarPartition::try_from(minutes.to_vec()).unwrap(),
+            &provenance,
+        )
+        .unwrap();
+        let written = std::sync::Mutex::new(Vec::new());
+        let put = async |key: &Key, body| {
+            written.lock().unwrap().push((key.path(), body));
+            Ok(())
+        };
+
+        let outcome = roll_up_minutes(session, Some(body), &put).await.unwrap();
+        assert_eq!(outcome.leg(), Leg::AlpacaFiveMinuteBars);
+        assert_eq!(outcome.rows(), 2);
+        let [(path, body)]: [(String, Vec<u8>); 1] = std::mem::take(&mut *written.lock().unwrap())
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            path,
+            "data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/year=2026/month=09/day=29/data.parquet"
+        );
+        let (five_minutes, read_provenance) =
+            bars::decode(&alpaca_five_minute_bars(session), body).unwrap();
+        assert_eq!(read_provenance, provenance);
+        assert_eq!(
+            five_minutes.bars(),
+            [
+                bar(
+                    BarInterval::FiveMinute,
+                    "2026-09-29T13:30:00Z",
+                    [10.0, 12.0, 9.0, 11.5],
+                    150,
+                    3
+                ),
+                bar(
+                    BarInterval::FiveMinute,
+                    "2026-09-29T13:35:00Z",
+                    [11.5, 11.5, 11.0, 11.25],
+                    30,
+                    4
+                ),
+            ]
+        );
+
+        let refused = roll_up_minutes(session, None, &put).await;
+        assert!(
+            matches!(&refused, Err(PartitionFailure::NoMinutes { key }) if *key == Key::from(alpaca_minute_bars(session))),
+            "{refused:?}"
+        );
+        assert!(written.lock().unwrap().is_empty());
     }
 
     /// An empty bars answer is refused before anything is written, so the session is not marked held.

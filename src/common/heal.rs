@@ -398,6 +398,64 @@ pub enum CoverageRefusal {
     CalendarShort { range: SessionRange },
 }
 
+/// The market-data archive's paths grouped by dated series, reference snapshots set aside and anything not a key
+/// counted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeriesListing {
+    series: BTreeMap<String, BTreeSet<SessionDate>>,
+    unrecognized: u64,
+}
+
+impl SeriesListing {
+    pub fn of<'a>(paths: impl IntoIterator<Item = &'a str>) -> Self {
+        let mut series: BTreeMap<String, BTreeSet<SessionDate>> = BTreeMap::new();
+        let mut unrecognized = 0_u64;
+        for path in paths {
+            match path.parse::<Key>() {
+                Ok(Key::Reference(_)) => {}
+                Ok(
+                    key @ (Key::Bars(_)
+                    | Key::Quotes(_)
+                    | Key::Trades(_)
+                    | Key::RawBars { .. }
+                    | Key::RawQuotes { .. }
+                    | Key::RawTrades { .. }
+                    | Key::Journal(_)
+                    | Key::Logs(_)),
+                ) => {
+                    series
+                        .entry(key.series().to_string())
+                        .or_default()
+                        .insert(key.session());
+                }
+                Err(_) => unrecognized += 1,
+            }
+        }
+        Self {
+            series,
+            unrecognized,
+        }
+    }
+
+    pub fn series(&self) -> &BTreeMap<String, BTreeSet<SessionDate>> {
+        &self.series
+    }
+
+    pub fn unrecognized(&self) -> u64 {
+        self.unrecognized
+    }
+
+    /// The sessions a calendar must cover, from the earliest held to `today`; `None` when nothing is held. A session
+    /// held after `today` lies outside it, for `Coverage::of` to refuse.
+    pub fn reach(&self, today: SessionDate) -> Option<SessionRange> {
+        let first = *self.series.values().filter_map(BTreeSet::first).min()?;
+        Some(
+            SessionRange::new(first, first.max(today))
+                .expect("the reach ends no earlier than it starts"),
+        )
+    }
+}
+
 /// Why a path under a leg's series was not taken as one of its sessions.
 #[derive(
     Debug,
@@ -500,6 +558,49 @@ mod tests {
 
     fn sessions(count: usize) -> NonZeroUsize {
         NonZeroUsize::new(count).unwrap()
+    }
+
+    /// Parsed and raw paths group under their series, a reference snapshot is set aside and a stray path is counted,
+    /// and the calendar must reach from the earliest held session to today.
+    #[test]
+    fn test_a_listing_groups_dated_series_and_reaches_from_the_earliest() {
+        let minutes =
+            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/";
+        let raw_quotes = "data/equity/stage=raw/quotes/provider=massive/";
+        let listing = SeriesListing::of([
+            &format!("{minutes}year=2026/month=10/day=08/data.parquet") as &str,
+            &format!("{minutes}year=2026/month=10/day=06/data.parquet"),
+            &format!("{raw_quotes}year=2026/month=10/day=05/data.csv.gz"),
+            "data/equity/stage=parsed/reference/provider=massive/table=splits/as_of=2026-10-01/data.parquet",
+            "data/equity/stage=parsed/bars/notes.txt",
+        ]);
+        assert_eq!(
+            listing.series().keys().collect::<Vec<_>>(),
+            [minutes, raw_quotes]
+        );
+        assert_eq!(
+            listing.series()[minutes],
+            BTreeSet::from([date("2026-10-06"), date("2026-10-08")])
+        );
+        assert_eq!(
+            listing.series()[raw_quotes],
+            BTreeSet::from([date("2026-10-05")])
+        );
+        assert_eq!(listing.unrecognized(), 1);
+        let reach = |today| {
+            listing
+                .reach(date(today))
+                .map(|range| (range.first(), range.last()))
+        };
+        assert_eq!(
+            reach("2026-10-09"),
+            Some((date("2026-10-05"), date("2026-10-09")))
+        );
+        assert_eq!(
+            reach("2026-10-01"),
+            Some((date("2026-10-05"), date("2026-10-05")))
+        );
+        assert_eq!(SeriesListing::of([]).reach(date("2026-10-09")), None);
     }
 
     /// Over 2026-11-23 to 11-30 with Thanksgiving off: a held span missing the 24th has that one gap, a Saturday held

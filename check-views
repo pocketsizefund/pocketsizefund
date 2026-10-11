@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Creates each view of views.sql alone against the real buckets and counts its rows; an empty view or one that does not
-# create fails, while an optional view, whose producer may not run in this profile, may be empty but must create.
+# Creates each view of views.sql alone against the real buckets and counts its rows, or probes for one row in a view over
+# `preferred`, which cannot count from file metadata; an empty view or one that does not create fails, while an
+# optional view, whose producer may not run in this profile, may be empty but must create.
 # Exits 0 if every view is as expected, 3 if any is not, 1 if the check could not be made; `DUCKDB` sets the binary.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -40,8 +41,15 @@ unreachable=0
 for view in "${views[@]}"; do
   statement="$(awk -v start="CREATE OR REPLACE VIEW ${view} AS" \
     '$0 == start {inside = 1} inside {print} inside && /;[[:space:]]*$/ {exit}' views.sql)"
+  probed=false
+  [[ "${statement}" == *"preferred("* ]] && probed=true
+  if "${probed}"; then
+    count="SELECT count(*) FROM (SELECT 1 FROM ${view} LIMIT 1);"
+  else
+    count="SELECT count(*) FROM ${view};"
+  fi
   # Bailing on the first error keeps a failed creation from adding a second error of its own.
-  if output="$(printf '%s\n.bail on\n%s\nSELECT count(*) FROM %s;\n' "${preamble}" "${statement}" "${view}" \
+  if output="$(printf '%s\n.bail on\n%s\n%s\n' "${preamble}" "${statement}" "${count}" \
     | "${duckdb}" -csv -noheader 2>&1)"; then
     rows="$(grep -E '^[0-9]+$' <<<"${output}" | tail -n 1 || true)"
   else
@@ -70,6 +78,8 @@ for view in "${views[@]}"; do
   elif [[ "${rows}" -eq 0 ]]; then
     echo "${view}: reads no rows"
     broken=$((broken + 1))
+  elif "${probed}"; then
+    echo "${view}: reads rows"
   else
     echo "${view}: ${rows} rows"
   fi
