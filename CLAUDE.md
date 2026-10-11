@@ -6,13 +6,11 @@
 
 This is a collection of guidelines and references.
 
-- Every host runs on AWS EC2; the running archiver builds from the `legacy` branch, not from `master`
+- Every host runs on AWS EC2 and builds from `master` when it boots
 - Secrets are managed via [secretspec](https://secretspec.dev/) with the `awssm` provider, stored in AWS
   Secrets Manager as `secretspec/{project}/{profile}/{key}`
 - Use `devenv tasks run checks:rust` for comprehensive Rust checks; `devenv tasks run` supports prefix group
   execution, so `checks:rust` runs every `checks:rust:*` subtask, and `checks:all` is the full check
-- `src_old/` is frozen legacy code that no check builds: edit it only for a fix the `legacy` branch needs,
-  and port by copying the minimum into `src/`, never by importing from it
 - `src/common/` holds the crate's shared pure code as `module.rs` beside `module/`; its modules and the pure
   `decide`/`solve` take no clients, are not `async`, read no clock or randomness, and import no `tokio`, `reqwest`, `aws_sdk_*`,
   `std::fs` or `std::net`, and name only allowlisted crates, which `tests/test_purity.rs` enforces
