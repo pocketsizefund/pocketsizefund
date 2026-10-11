@@ -20,7 +20,7 @@ python3 .claude/skills/summarize-changes/production_lines.py origin/<baseRefName
 git diff --merge-base origin/<base> HEAD --stat
 ```
 
-The script prints each file's added production lines (Rust outside `src_old/`, `tests/` and `#[cfg(test)]`)
+The script prints each file's added production lines (Rust outside `tests/` and `#[cfg(test)]`)
 and the budget: a quarter of the production lines added, capped at 250. Highlight at most that many lines.
 Highlight nothing if nothing qualifies, and say so.
 

@@ -3,10 +3,8 @@ name = "fund"
 version = "0.0.1"
 edition = "2024"
 
-# The legacy crate keeps its own manifest and lockfile and is never built from here.
 [workspace]
 members = ["studies"]
-exclude = ["src_old"]
 
 [workspace.lints.clippy]
 match_wildcard_for_single_variants = "deny"

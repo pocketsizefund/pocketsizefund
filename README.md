@@ -25,8 +25,6 @@ devenv shell
 devenv tasks run checks:all
 ```
 
-The legacy system is parked in `src_old/` for porting; see its README.
-
 ### Principles
 
 An unordered and non-exhaustive list we work towards:

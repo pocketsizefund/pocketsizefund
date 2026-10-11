@@ -26,8 +26,8 @@ jobs:
         uses: dorny/paths-filter@v3
         id: changes
         with:
-          # Rooted so `src_old/` never triggers the Rust checks; the toolchain
-          # file and devenv define what both halves share, so they trigger both.
+          # The toolchain file and devenv define what both halves share, so they
+          # trigger both.
           filters: |
             rust:
               - 'src/**'

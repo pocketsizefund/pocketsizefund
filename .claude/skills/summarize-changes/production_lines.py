@@ -15,7 +15,7 @@ path = None
 for line in diff.splitlines():
     if line.startswith("+++ "):
         name = line[6:] if line.startswith("+++ b/") else None
-        path = name if name and not name.startswith(("src_old/", "tests/")) else None
+        path = name if name and not name.startswith("tests/") else None
     elif path and line.startswith("@@"):
         start, _, count = re.match(r"@@ -\S+ \+(\d+)(,(\d+))? @@", line).groups()
         lines = range(int(start), int(start) + int(count if count is not None else 1))
