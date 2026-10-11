@@ -1,6 +1,6 @@
--- Views over the archive layout of `src/common/storage.rs`, one series per view so no glob unions two cadences or
--- two providers. Reads the buckets named by AWS_S3_ARCHIVE_BUCKET_NAME and AWS_S3_RECORDS_BUCKET_NAME with the local
--- AWS credential chain.
+-- Views over the archive layout of `src/common/storage.rs`: one series per provider view, and provider-neutral views
+-- that take one provider per session, so no session mixes two cadences or two providers. Reads the buckets named by
+-- AWS_S3_ARCHIVE_BUCKET_NAME and AWS_S3_RECORDS_BUCKET_NAME with the local AWS credential chain.
 
 -- The setup must hold before any view is defined; a view that fails afterwards leaves the others usable.
 .bail on
@@ -39,6 +39,21 @@ FROM read_parquet(
     hive_types = {'as_of': DATE}
 );
 
+-- The sessions a market-data series holds, read from its file listing rather than its rows.
+CREATE OR REPLACE MACRO held_sessions(series) AS TABLE
+SELECT make_date(parts.year::BIGINT, parts.month::BIGINT, parts.day::BIGINT) AS session
+FROM (
+    SELECT regexp_extract(file, 'year=(\d+)/month=(\d+)/day=(\d+)/', ['year', 'month', 'day']) AS parts
+    FROM glob('s3://' || getvariable('market_data_bucket') || '/' || series || 'year=*/month=*/day=*/data.parquet')
+);
+
+-- One series both providers carry, Massive's where it holds the session and Alpaca's otherwise; `provider` says which.
+CREATE OR REPLACE MACRO preferred(massive, alpaca) AS TABLE
+SELECT * FROM sessions('market_data_bucket', massive)
+UNION ALL
+SELECT * FROM sessions('market_data_bucket', alpaca)
+WHERE session NOT IN (SELECT session FROM held_sessions(massive));
+
 -- A journaled count of millionths, a `Price` or `Shares`, in units.
 CREATE OR REPLACE MACRO millionths(value) AS CAST(value AS DECIMAL(38, 0)) * 0.000001;
 
@@ -49,6 +64,10 @@ CREATE OR REPLACE MACRO trillionths(value) AS CAST(value AS DECIMAL(38, 0)) * 0.
 -- Alpaca's SIP one-minute bars over the whole Eastern day, extended hours included.
 CREATE OR REPLACE VIEW alpaca_minute_bars AS
 SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/');
+
+-- Five-minute bars the nightly rolls up from Alpaca's one-minute bars.
+CREATE OR REPLACE VIEW alpaca_five_minute_bars AS
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/');
 
 -- One-minute quote bars the nightly folds from Alpaca's SIP quotes.
 CREATE OR REPLACE VIEW alpaca_minute_quote_bars AS
@@ -109,6 +128,66 @@ SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/pr
 -- Daily trade bars rolled up from Massive's one-minute trade bars.
 CREATE OR REPLACE VIEW massive_daily_trade_bars AS
 SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_day/');
+
+-- One-minute bars from either provider, one provider per session.
+CREATE OR REPLACE VIEW minute_bars AS
+SELECT * FROM preferred(
+    'data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_minute/',
+    'data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/'
+);
+
+-- Five-minute bars from either provider, one provider per session.
+CREATE OR REPLACE VIEW five_minute_bars AS
+SELECT * FROM preferred(
+    'data/equity/stage=parsed/bars/provider=massive/origin=derived/interval=five_minute/',
+    'data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/'
+);
+
+-- Daily bars, which only Massive carries.
+CREATE OR REPLACE VIEW daily_bars AS
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/');
+
+-- One-minute quote bars from either provider, one provider per session.
+CREATE OR REPLACE VIEW minute_quote_bars AS
+SELECT * FROM preferred(
+    'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=one_minute/',
+    'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_minute/'
+);
+
+-- Five-minute quote bars from either provider, one provider per session.
+CREATE OR REPLACE VIEW five_minute_quote_bars AS
+SELECT * FROM preferred(
+    'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=five_minute/',
+    'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=five_minute/'
+);
+
+-- Daily quote bars from either provider, one provider per session.
+CREATE OR REPLACE VIEW daily_quote_bars AS
+SELECT * FROM preferred(
+    'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=one_day/',
+    'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/'
+);
+
+-- One-minute trade bars from either provider, one provider per session.
+CREATE OR REPLACE VIEW minute_trade_bars AS
+SELECT * FROM preferred(
+    'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_minute/',
+    'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/'
+);
+
+-- Five-minute trade bars from either provider, one provider per session.
+CREATE OR REPLACE VIEW five_minute_trade_bars AS
+SELECT * FROM preferred(
+    'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=five_minute/',
+    'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=five_minute/'
+);
+
+-- Daily trade bars from either provider, one provider per session.
+CREATE OR REPLACE VIEW daily_trade_bars AS
+SELECT * FROM preferred(
+    'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_day/',
+    'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_day/'
+);
 
 -- Each snapshot of the trade conditions table, one row per condition code.
 CREATE OR REPLACE VIEW trade_conditions AS

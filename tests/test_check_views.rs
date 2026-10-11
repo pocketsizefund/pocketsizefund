@@ -50,7 +50,11 @@ fn check(script: &Path, answers: &[(&str, Answer)], profile: &str) -> (i32, Stri
     std::fs::write(
         &answers_file,
         format!(
-            "view=\"$(sed -nE 's/^CREATE OR REPLACE VIEW ([a-z0-9_]+) AS$/\\1/p')\"\n\
+            "input=\"$(cat)\"\n\
+             view=\"$(sed -nE 's/^CREATE OR REPLACE VIEW ([a-z0-9_]+) AS$/\\1/p' <<<\"$input\")\"\n\
+             if [[ \"$input\" == *'FROM preferred('* && \"$input\" != *'LIMIT 1);'* ]]; then\n\
+               echo 'a view over preferred was counted whole' >&2; exit 1\n\
+             fi\n\
              case \"$view\" in\n{cases}  *) echo '{NOTHING_WRITTEN}' >&2; exit 1 ;;\nesac\n"
         ),
     )
@@ -79,6 +83,7 @@ fn real(answers: &[(&str, Answer)], profile: &str) -> (i32, String) {
 fn bars(daily: Answer, minute: Answer) -> Vec<(&'static str, Answer)> {
     vec![
         ("alpaca_minute_bars", minute),
+        ("alpaca_five_minute_bars", minute),
         ("alpaca_minute_quote_bars", minute),
         ("alpaca_five_minute_quote_bars", minute),
         ("alpaca_daily_quote_bars", daily),
@@ -94,6 +99,15 @@ fn bars(daily: Answer, minute: Answer) -> Vec<(&'static str, Answer)> {
         ("massive_minute_trade_bars", minute),
         ("massive_five_minute_trade_bars", minute),
         ("massive_daily_trade_bars", daily),
+        ("minute_bars", minute),
+        ("five_minute_bars", minute),
+        ("daily_bars", daily),
+        ("minute_quote_bars", minute),
+        ("five_minute_quote_bars", minute),
+        ("daily_quote_bars", daily),
+        ("minute_trade_bars", minute),
+        ("five_minute_trade_bars", minute),
+        ("daily_trade_bars", daily),
         ("trade_conditions", daily),
         ("security_details", daily),
         ("splits", daily),
@@ -123,6 +137,7 @@ fn test_every_view_in_views_sql_is_checked() {
         reported(&output),
         [
             "alpaca_minute_bars",
+            "alpaca_five_minute_bars",
             "alpaca_minute_quote_bars",
             "alpaca_five_minute_quote_bars",
             "alpaca_daily_quote_bars",
@@ -138,6 +153,15 @@ fn test_every_view_in_views_sql_is_checked() {
             "massive_minute_trade_bars",
             "massive_five_minute_trade_bars",
             "massive_daily_trade_bars",
+            "minute_bars",
+            "five_minute_bars",
+            "daily_bars",
+            "minute_quote_bars",
+            "five_minute_quote_bars",
+            "daily_quote_bars",
+            "minute_trade_bars",
+            "five_minute_trade_bars",
+            "daily_trade_bars",
             "trade_conditions",
             "security_details",
             "splits",
@@ -148,6 +172,8 @@ fn test_every_view_in_views_sql_is_checked() {
             "bar_seam"
         ]
     );
+    assert!(output.contains("\nminute_bars: reads rows\n"), "{output}");
+    assert!(output.contains("\ndaily_bars: 5 rows\n"), "{output}");
     assert_eq!(status, 0, "{output}");
 }
 
@@ -339,23 +365,33 @@ fn test_every_view_ends_on_its_first_line_ending_in_a_semicolon() {
         );
         ended.push(view);
     }
-    assert_eq!(ended.len(), 24, "{ended:?}");
+    assert_eq!(ended.len(), 34, "{ended:?}");
 }
 
-/// Each `(bucket, series)` passed to the `sessions` and `snapshots` macros in `views.sql`, in file order.
+/// Each `(bucket, series)` the views of `views.sql` pass to the `sessions`, `snapshots` and `preferred` macros, in file
+/// order; the macros' own bodies pass parameters, not series.
 fn macro_series() -> Vec<(String, String)> {
-    let views = std::fs::read_to_string(root().join("views.sql")).unwrap();
+    let file = std::fs::read_to_string(root().join("views.sql")).unwrap();
+    let views = &file[file.find("\n.bail off\n").unwrap()..];
     let mut calls = Vec::new();
     for (name, bucket) in [
         ("sessions('", None),
         ("snapshots('", Some("market_data_bucket")),
+        ("preferred(\n    '", Some("market_data_bucket")),
     ] {
         for (start, _) in views.match_indices(name) {
             let arguments = &views[start + name.len() - 1..];
             let arguments = &arguments[..arguments.find(')').unwrap()];
             let quoted: Vec<&str> = arguments.split('\'').skip(1).step_by(2).collect();
-            let bucket = bucket.unwrap_or(quoted[0]).to_string();
-            calls.push((start, bucket, quoted[quoted.len() - 1].to_string()));
+            // `preferred` reads both its series, while the others read their last argument.
+            let (bucket, series) = match bucket {
+                Some(bucket) if name.starts_with("preferred") => (bucket, &quoted[..]),
+                Some(bucket) => (bucket, &quoted[quoted.len() - 1..]),
+                None => (quoted[0], &quoted[quoted.len() - 1..]),
+            };
+            for series in series {
+                calls.push((start, bucket.to_string(), series.to_string()));
+            }
         }
     }
     calls.sort();
@@ -372,6 +408,7 @@ fn archive_keys() -> Vec<Key> {
         |provider, origin, interval| Key::from(BarsKey::new(provider, origin, interval, session));
     let mut keys = vec![
         bars(Provider::Alpaca, Origin::Vendor, BarInterval::OneMinute),
+        bars(Provider::Alpaca, Origin::Derived, BarInterval::FiveMinute),
         bars(Provider::Massive, Origin::Vendor, BarInterval::OneMinute),
         bars(Provider::Massive, Origin::Derived, BarInterval::FiveMinute),
         bars(Provider::Massive, Origin::Vendor, BarInterval::OneDay),
@@ -418,8 +455,9 @@ fn test_every_series_views_sql_reads_is_a_key_series() {
         keys.push(LogsKey::new(host, Service::new("archive_nightly").unwrap(), session).into());
     }
     let called = macro_series();
-    // 20 archive views, `journal`, `logs`, `experiments`, and `bar_seam`'s two reads.
-    assert_eq!(called.len(), 25, "{called:?}");
+    // 21 series views, `daily_bars`, the eight other neutral views' two reads each, `journal`, `logs`,
+    // `experiments`, and `bar_seam`'s two reads.
+    assert_eq!(called.len(), 43, "{called:?}");
     for (bucket, series) in &called {
         let expected_bucket = if series.starts_with("records/") {
             "records_bucket"

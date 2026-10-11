@@ -41,6 +41,8 @@ pub enum Leg {
     MassiveSplits,
     AlpacaSeriesBoundaries,
     AlpacaMinuteBars,
+    /// Rolled up from the session's written minute bars, so it follows `AlpacaMinuteBars` in the order legs run.
+    AlpacaFiveMinuteBars,
     AlpacaQuotes,
     AlpacaTrades,
 }
@@ -51,6 +53,7 @@ impl Leg {
         match self {
             Self::MassiveDailyBars => massive_daily_bars(session).into(),
             Self::AlpacaMinuteBars => alpaca_minute_bars(session).into(),
+            Self::AlpacaFiveMinuteBars => alpaca_five_minute_bars(session).into(),
             Self::AlpacaQuotes => alpaca_quotes(session).into(),
             Self::AlpacaTrades => alpaca_trades(session).into(),
             Self::MassiveSecurityDetails => massive_security_details(session).into(),
@@ -71,6 +74,7 @@ impl Leg {
         match self {
             Self::MassiveDailyBars
             | Self::AlpacaMinuteBars
+            | Self::AlpacaFiveMinuteBars
             | Self::AlpacaQuotes
             | Self::AlpacaTrades => Ok(window.sessions().to_vec()),
             Self::MassiveSplits | Self::AlpacaSeriesBoundaries => Ok(vec![window.last()]),
@@ -96,6 +100,16 @@ pub fn alpaca_minute_bars(session: SessionDate) -> BarsKey {
         Provider::Alpaca,
         Origin::Vendor,
         BarInterval::OneMinute,
+        session,
+    )
+}
+
+/// Alpaca's minute bars rolled up to five minutes.
+pub fn alpaca_five_minute_bars(session: SessionDate) -> BarsKey {
+    BarsKey::new(
+        Provider::Alpaca,
+        Origin::Derived,
+        BarInterval::FiveMinute,
         session,
     )
 }
@@ -197,6 +211,7 @@ pub enum PartitionFailureKind {
     Archive,
     Vanished,
     NoSymbols,
+    NoMinutes,
     Fold,
     /// A write the partition needed went unrecorded, which stops the run.
     Journal,
@@ -326,6 +341,121 @@ pub fn owed(window: &[SessionDate], held: &BTreeSet<SessionDate>) -> Vec<Session
         .collect()
 }
 
+/// One archive series' sessions against the trading calendar: the span it holds, how many sessions, and every
+/// trading session inside the span it lacks or held session the calendar does not trade.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Coverage {
+    first: SessionDate,
+    last: SessionDate,
+    held: usize,
+    gaps: Vec<SessionDate>,
+    off_calendar: Vec<SessionDate>,
+}
+
+impl Coverage {
+    /// Refused when nothing is held or `calendar` does not reach across what is.
+    pub fn of(
+        held: &BTreeSet<SessionDate>,
+        calendar: &TradingCalendar,
+    ) -> Result<Self, CoverageRefusal> {
+        let (Some(first), Some(last)) = (held.first(), held.last()) else {
+            return Err(CoverageRefusal::Empty);
+        };
+        let range = SessionRange::new(*first, *last).expect("a set's first is not after its last");
+        if !calendar.covers(range) {
+            return Err(CoverageRefusal::CalendarShort { range });
+        }
+        let trading = calendar.trading_days_in_range(range);
+        Ok(Self {
+            first: *first,
+            last: *last,
+            held: held.len(),
+            gaps: owed(&trading, held),
+            off_calendar: held
+                .iter()
+                .filter(|session| !calendar.is_trading_day(**session))
+                .copied()
+                .collect(),
+        })
+    }
+
+    pub fn last(&self) -> SessionDate {
+        self.last
+    }
+
+    /// Whether every trading session in the span is held and nothing else is.
+    pub fn is_whole(&self) -> bool {
+        self.gaps.is_empty() && self.off_calendar.is_empty()
+    }
+}
+
+/// Why a series' coverage was not measured.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum CoverageRefusal {
+    #[error("the series holds nothing")]
+    Empty,
+    #[error("the calendar does not cover {} to {}", .range.first(), .range.last())]
+    CalendarShort { range: SessionRange },
+}
+
+/// The market-data archive's paths grouped by dated series, reference snapshots set aside and anything not a key
+/// counted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeriesListing {
+    series: BTreeMap<String, BTreeSet<SessionDate>>,
+    unrecognized: u64,
+}
+
+impl SeriesListing {
+    pub fn of<'a>(paths: impl IntoIterator<Item = &'a str>) -> Self {
+        let mut series: BTreeMap<String, BTreeSet<SessionDate>> = BTreeMap::new();
+        let mut unrecognized = 0_u64;
+        for path in paths {
+            match path.parse::<Key>() {
+                Ok(Key::Reference(_)) => {}
+                Ok(
+                    key @ (Key::Bars(_)
+                    | Key::Quotes(_)
+                    | Key::Trades(_)
+                    | Key::RawBars { .. }
+                    | Key::RawQuotes { .. }
+                    | Key::RawTrades { .. }
+                    | Key::Journal(_)
+                    | Key::Logs(_)),
+                ) => {
+                    series
+                        .entry(key.series().to_string())
+                        .or_default()
+                        .insert(key.session());
+                }
+                Err(_) => unrecognized += 1,
+            }
+        }
+        Self {
+            series,
+            unrecognized,
+        }
+    }
+
+    pub fn series(&self) -> &BTreeMap<String, BTreeSet<SessionDate>> {
+        &self.series
+    }
+
+    pub fn unrecognized(&self) -> u64 {
+        self.unrecognized
+    }
+
+    /// The sessions a calendar must cover, from the earliest held to `today`; `None` when nothing is held. A session
+    /// held after `today` lies outside it, for `Coverage::of` to refuse.
+    pub fn reach(&self, today: SessionDate) -> Option<SessionRange> {
+        let first = *self.series.values().filter_map(BTreeSet::first).min()?;
+        Some(
+            SessionRange::new(first, first.max(today))
+                .expect("the reach ends no earlier than it starts"),
+        )
+    }
+}
+
 /// Why a path under a leg's series was not taken as one of its sessions.
 #[derive(
     Debug,
@@ -428,6 +558,87 @@ mod tests {
 
     fn sessions(count: usize) -> NonZeroUsize {
         NonZeroUsize::new(count).unwrap()
+    }
+
+    /// Parsed and raw paths group under their series, a reference snapshot is set aside and a stray path is counted,
+    /// and the calendar must reach from the earliest held session to today.
+    #[test]
+    fn test_a_listing_groups_dated_series_and_reaches_from_the_earliest() {
+        let minutes =
+            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/";
+        let raw_quotes = "data/equity/stage=raw/quotes/provider=massive/";
+        let listing = SeriesListing::of([
+            &format!("{minutes}year=2026/month=10/day=08/data.parquet") as &str,
+            &format!("{minutes}year=2026/month=10/day=06/data.parquet"),
+            &format!("{raw_quotes}year=2026/month=10/day=05/data.csv.gz"),
+            "data/equity/stage=parsed/reference/provider=massive/table=splits/as_of=2026-10-01/data.parquet",
+            "data/equity/stage=parsed/bars/notes.txt",
+        ]);
+        assert_eq!(
+            listing.series().keys().collect::<Vec<_>>(),
+            [minutes, raw_quotes]
+        );
+        assert_eq!(
+            listing.series()[minutes],
+            BTreeSet::from([date("2026-10-06"), date("2026-10-08")])
+        );
+        assert_eq!(
+            listing.series()[raw_quotes],
+            BTreeSet::from([date("2026-10-05")])
+        );
+        assert_eq!(listing.unrecognized(), 1);
+        let reach = |today| {
+            listing
+                .reach(date(today))
+                .map(|range| (range.first(), range.last()))
+        };
+        assert_eq!(
+            reach("2026-10-09"),
+            Some((date("2026-10-05"), date("2026-10-09")))
+        );
+        assert_eq!(
+            reach("2026-10-01"),
+            Some((date("2026-10-05"), date("2026-10-05")))
+        );
+        assert_eq!(SeriesListing::of([]).reach(date("2026-10-09")), None);
+    }
+
+    /// Over 2026-11-23 to 11-30 with Thanksgiving off: a held span missing the 24th has that one gap, a Saturday held
+    /// is off the calendar, and a span the calendar does not reach is refused.
+    #[test]
+    fn test_coverage_names_each_gap_inside_the_held_span() {
+        let calendar = calendar("2026-11-23", "2026-11-30", &["2026-11-26"]);
+        let held = |dates: &[&str]| dates.iter().map(|text| date(text)).collect::<BTreeSet<_>>();
+        let coverage = Coverage::of(
+            &held(&["2026-11-23", "2026-11-25", "2026-11-27", "2026-11-28"]),
+            &calendar,
+        )
+        .unwrap();
+        assert_eq!(
+            coverage,
+            Coverage {
+                first: date("2026-11-23"),
+                last: date("2026-11-28"),
+                held: 4,
+                gaps: vec![date("2026-11-24")],
+                off_calendar: vec![date("2026-11-28")],
+            }
+        );
+        assert!(!coverage.is_whole());
+        let whole = Coverage::of(
+            &held(&["2026-11-24", "2026-11-25", "2026-11-27"]),
+            &calendar,
+        )
+        .unwrap();
+        assert!(whole.is_whole());
+        assert_eq!(
+            Coverage::of(&BTreeSet::new(), &calendar),
+            Err(CoverageRefusal::Empty)
+        );
+        assert!(matches!(
+            Coverage::of(&held(&["2026-11-27", "2026-12-01"]), &calendar),
+            Err(CoverageRefusal::CalendarShort { .. })
+        ));
     }
 
     #[test]
@@ -558,6 +769,7 @@ mod tests {
                 r#""archive""#,
                 r#""vanished""#,
                 r#""no_symbols""#,
+                r#""no_minutes""#,
                 r#""fold""#,
                 r#""journal""#,
             ]
@@ -591,6 +803,7 @@ mod tests {
                 "data/equity/stage=parsed/reference/provider=massive/table=splits/",
                 "data/equity/stage=parsed/reference/provider=alpaca/table=series_boundaries/",
                 "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/",
+                "data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/",
                 "data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/",
                 "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_day/",
             ]
