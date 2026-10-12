@@ -303,16 +303,9 @@ fn test_a_new_archiver_is_granted_its_prefixes_and_scheduled_once_bootstrapped()
         ]
     );
 
-    let secrets =
-        "arn:aws:secretsmanager:us-east-1:123456789012:secret:secretspec/fund/production/*";
-    assert!(
-        allows(&grant, "secretsmanager:GetSecretValue", secrets),
-        "{grant}"
-    );
-    assert!(
-        allows(&grant, "secretsmanager:BatchGetSecretValue", "*"),
-        "{grant}"
-    );
+    let secrets = "arn:aws:ssm:us-east-1:123456789012:parameter/secretspec/fund/production/*";
+    assert!(allows(&grant, "ssm:GetParameter", secrets), "{grant}");
+    assert!(allows(&grant, "ssm:GetParameters", secrets), "{grant}");
 
     let scheduler = provisioned.json("policy-start-and-stop.json");
     let instance = "arn:aws:ec2:us-east-1:123456789012:instance/i-0new";
