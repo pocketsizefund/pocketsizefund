@@ -220,7 +220,7 @@ pub fn encode(
         Arc::new(dollar_volumes.finish().with_data_type(DOLLAR_VOLUME_TYPE)),
     ];
     parquet::write(schema(), columns, LAYOUT_VERSION, provenance.metadata())
-        .map_err(|reason| parquet::EncodeRefusal::Parquet { reason })
+        .map_err(parquet::EncodeRefusal::Parquet)
 }
 
 /// Why a file was not read as vendor bars: the refusal every bar layout shares, or a file holding no bars.

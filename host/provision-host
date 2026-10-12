@@ -5,7 +5,8 @@ set -euo pipefail
 
 REGION="${AWS_REGION:-us-east-1}"
 ARCHIVE_BUCKET="oscm-fund-archive"
-# The devenv release a box installs; it then supplies the toolchain pinned in devenv.lock.
+# The Determinate Nix and devenv releases a box installs; devenv then supplies the toolchain pinned in devenv.lock.
+NIX_VERSION="3.20.0"
 DEVENV_VERSION="2.1.2"
 # How long a new box's cold bootstrap (Nix, devenv, the toolchain and a release build) may take: 90 minutes.
 BOOTSTRAP_POLLS="${BOOTSTRAP_POLLS:-180}"
@@ -304,7 +305,7 @@ set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y git curl xz-utils
-curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix/tag/v${NIX_VERSION} | sh -s -- install --no-confirm
 echo "trusted-users = root ubuntu" >> /etc/nix/nix.custom.conf
 systemctl restart nix-daemon
 mkdir -p /var/log/fund /var/journal/fund

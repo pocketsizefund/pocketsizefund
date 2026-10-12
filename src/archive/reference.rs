@@ -52,9 +52,7 @@ pub enum ReferenceRefusal {
         key: Provider,
     },
     /// The file was not written.
-    Parquet {
-        reason: String,
-    },
+    Parquet(parquet::WriteRefusal),
     File(ReadRefusal),
     Duplicate {
         code: u16,
@@ -150,7 +148,7 @@ pub fn encode_conditions(
         CONDITIONS_LAYOUT_VERSION,
         provenance.metadata(),
     )
-    .map_err(|reason| ReferenceRefusal::Parquet { reason })
+    .map_err(ReferenceRefusal::Parquet)
 }
 
 /// The conditions table a file written by `encode_conditions` under `key` holds, with its provenance.
@@ -340,7 +338,7 @@ pub fn encode_security_details(
         LAYOUT_VERSION,
         provenance.metadata(),
     )
-    .map_err(|reason| ReferenceRefusal::Parquet { reason })
+    .map_err(ReferenceRefusal::Parquet)
 }
 
 /// The snapshot a file written by `encode_security_details` under `key` holds, every value rebuilt through its type.
@@ -512,7 +510,7 @@ pub fn encode_splits(
         LAYOUT_VERSION,
         provenance.metadata(),
     )
-    .map_err(|reason| ReferenceRefusal::Parquet { reason })
+    .map_err(ReferenceRefusal::Parquet)
 }
 
 /// The snapshot a file written by `encode_splits` under `key` holds, every value rebuilt through its type.
@@ -609,7 +607,7 @@ pub fn encode_series_boundaries(
         LAYOUT_VERSION,
         provenance.metadata(),
     )
-    .map_err(|reason| ReferenceRefusal::Parquet { reason })
+    .map_err(ReferenceRefusal::Parquet)
 }
 
 /// The snapshot a file written by `encode_series_boundaries` under `key` holds, every value rebuilt through its type.

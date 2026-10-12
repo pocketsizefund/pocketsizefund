@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use parquet::arrow::ArrowWriter;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet::basic::Compression;
+use parquet::errors::ParquetError;
 use parquet::file::metadata::KeyValue;
 use parquet::file::properties::WriterProperties;
 
@@ -45,15 +46,31 @@ pub enum ReadRefusal {
     Layout { version: String },
 }
 
+/// Why a file was not written.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum WriteRefusal {
+    /// Columns that do not fit the schema: a count, type or length mismatch, or a null in a non-null column.
+    #[error("the columns do not fit the schema: {reason}")]
+    Batch { reason: String },
+    #[error("the Parquet writer refused: {reason}")]
+    Writer { reason: String },
+}
+
 /// One file of `columns` under `schema`, compressed with Snappy and carrying `metadata` beside the layout version.
 pub(crate) fn write(
     schema: Schema,
     columns: Vec<ArrayRef>,
     layout_version: &str,
     metadata: Vec<KeyValue>,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, WriteRefusal> {
     let schema = Arc::new(schema);
-    let batch = RecordBatch::try_new(schema.clone(), columns).map_err(|error| error.to_string())?;
+    let batch =
+        RecordBatch::try_new(schema.clone(), columns).map_err(|error| WriteRefusal::Batch {
+            reason: error.to_string(),
+        })?;
+    let writer_refusal = |error: ParquetError| WriteRefusal::Writer {
+        reason: error.to_string(),
+    };
     let mut entries = vec![KeyValue::new(
         LAYOUT_VERSION_KEY.to_string(),
         layout_version.to_string(),
@@ -64,10 +81,10 @@ pub(crate) fn write(
         .set_key_value_metadata(Some(entries))
         .build();
     let mut bytes = Vec::new();
-    let mut writer = ArrowWriter::try_new(&mut bytes, schema, Some(properties))
-        .map_err(|error| error.to_string())?;
-    writer.write(&batch).map_err(|error| error.to_string())?;
-    writer.close().map_err(|error| error.to_string())?;
+    let mut writer =
+        ArrowWriter::try_new(&mut bytes, schema, Some(properties)).map_err(writer_refusal)?;
+    writer.write(&batch).map_err(writer_refusal)?;
+    writer.close().map_err(writer_refusal)?;
     Ok(bytes)
 }
 
@@ -310,9 +327,7 @@ pub enum EncodeRefusal {
         symbol: Symbol,
         timestamp: DateTime<Utc>,
     },
-    Parquet {
-        reason: String,
-    },
+    Parquet(WriteRefusal),
 }
 
 /// Why a file was not read as bars of any layout.
@@ -373,6 +388,16 @@ pub(crate) fn place<B>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arrow_array::UInt64Array;
+    use arrow_schema::{DataType, Field};
+
+    #[test]
+    fn test_columns_that_do_not_fit_the_schema_are_refused_as_a_batch() {
+        let schema = Schema::new(vec![Field::new("count", DataType::UInt64, false)]);
+        let columns: Vec<ArrayRef> = vec![Arc::new(UInt64Array::from(vec![Some(1), None]))];
+        let refusal = write(schema, columns, "1", Vec::new()).unwrap_err();
+        assert!(matches!(refusal, WriteRefusal::Batch { .. }), "{refusal:?}");
+    }
 
     #[test]
     fn test_a_row_cause_reads_as_the_refusal_it_carries() {

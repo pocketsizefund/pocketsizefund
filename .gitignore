@@ -4,6 +4,8 @@
 *.csv
 **/target/
 **/*.json
+!/tests/**/*.csv
+!/tests/**/*.json
 .claude/tasks/
 .claude/settings.local.json*
 .scratchpad/

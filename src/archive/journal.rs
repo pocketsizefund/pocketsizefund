@@ -27,9 +27,7 @@ pub enum EncodeRefusal {
     Unrepresentable {
         line: usize,
     },
-    Parquet {
-        reason: String,
-    },
+    Parquet(parquet::WriteRefusal),
 }
 
 /// Why a file was not read as a journal.
@@ -131,8 +129,7 @@ pub fn encode(key: &JournalKey, lines: &[ReadLine]) -> Result<Vec<u8>, EncodeRef
         Arc::new(payloads.finish()),
         Arc::new(unreadables.finish()),
     ];
-    parquet::write(schema(), columns, LAYOUT_VERSION, Vec::new())
-        .map_err(|reason| EncodeRefusal::Parquet { reason })
+    parquet::write(schema(), columns, LAYOUT_VERSION, Vec::new()).map_err(EncodeRefusal::Parquet)
 }
 
 /// The lines a file written by `encode` under `key` holds, each read again through the journal's own reader, so a
