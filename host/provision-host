@@ -5,9 +5,8 @@ set -euo pipefail
 
 REGION="${AWS_REGION:-us-east-1}"
 ARCHIVE_BUCKET="oscm-fund-archive"
-# The Determinate Nix and devenv releases a box installs; devenv then supplies the toolchain pinned in devenv.lock.
-NIX_VERSION="3.20.0"
-DEVENV_VERSION="2.1.2"
+# shellcheck source=host/versions
+source "$(dirname "${BASH_SOURCE[0]}")/versions"
 # How long a new box's cold bootstrap (Nix, devenv, the toolchain and a release build) may take: 90 minutes.
 BOOTSTRAP_POLLS="${BOOTSTRAP_POLLS:-180}"
 BOOTSTRAP_POLL_SECONDS="${BOOTSTRAP_POLL_SECONDS:-30}"

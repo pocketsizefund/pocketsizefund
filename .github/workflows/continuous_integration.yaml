@@ -63,16 +63,15 @@ jobs:
       # uploaded every substituted path one at a time, costing many minutes in
       # the post-job step while duplicating what the two public caches provide.
       - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@v3.20.0
-      - name: Check Nix matches the host release
+        uses: DeterminateSystems/determinate-nix-action@v3.23.1
+      - name: Check Nix matches the pinned release
         run: |
-          expected="$(sed -n 's/^NIX_VERSION="\(.*\)"$/\1/p' host/provision-host)"
-          nix --version | grep -F "Determinate Nix ${expected})" || { echo "CI Nix is not ${expected}"; exit 1; }
+          source host/versions
+          nix --version | grep -F "Determinate Nix ${NIX_VERSION})" || { echo "CI Nix is not ${NIX_VERSION}"; exit 1; }
       - name: Install devenv
-        # The release a host box installs, read from the one place it is set.
         run: |
-          version="$(sed -n 's/^DEVENV_VERSION="\(.*\)"$/\1/p' host/provision-host)"
-          nix profile install --accept-flake-config "github:cachix/devenv/v${version}"
+          source host/versions
+          nix profile install --accept-flake-config "github:cachix/devenv/v${DEVENV_VERSION}"
       - name: Cache Rust dependencies
         if: steps.changes.outputs.rust == 'true'
         uses: Swatinem/rust-cache@v2
