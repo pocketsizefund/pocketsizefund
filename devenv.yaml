@@ -16,5 +16,5 @@ inputs:
 
 secretspec:
   enable: true
-  provider: awsps://us-east-1?tier=standard
+  provider: awssm
   profile: development
