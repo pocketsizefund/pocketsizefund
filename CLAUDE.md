@@ -7,8 +7,8 @@
 This is a collection of guidelines and references.
 
 - Every host runs on AWS EC2 and builds from `master` when it boots
-- Secrets are managed via [secretspec](https://secretspec.dev/) with the `awsps` provider, stored in AWS
-  Systems Manager Parameter Store as standard-tier `SecureString` parameters at `/secretspec/{project}/{profile}/{key}`
+- Secrets are managed via [secretspec](https://secretspec.dev/) with the `awssm` provider, stored in AWS
+  Secrets Manager as `secretspec/{project}/{profile}/{key}`
 - Use `devenv tasks run checks:rust` for comprehensive Rust checks; `devenv tasks run` supports prefix group
   execution, so `checks:rust` runs every `checks:rust:*` subtask, and `checks:all` is the full check
 - `src/common/` holds the crate's shared pure code as `module.rs` beside `module/`; its modules and the pure
@@ -49,7 +49,7 @@ This is a collection of guidelines and references.
 - Keep only universally-understood acronyms as-is: formats, protocols, and identity (`csv`, `json`, `sql`,
   `http`, `url`, `uri`, `io`, `id`, `uuid`, `api`) and established domain or proper-noun terms (`aws`,
   `utc`, `etf`, `ohlcv`); case acronyms as ordinary words per language convention
-- Never rename fixed external identifiers: the `awsps` secretspec provider, environment variables and
+- Never rename fixed external identifiers: the `awssm` secretspec provider, environment variables and
   secret keys, library import aliases, linter directives, and external library fields and parameters
 - Three EC2 hosts do the work and each has one name, used for the instance, its tags, its scripts, and the
   `producer=` partition its journals and logs are written under: `archiver` collects data, `trader`

@@ -1,3 +1,8 @@
 # The Determinate Nix and devenv releases every host, CI run and laptop uses; devenv then pins the toolchain in devenv.lock.
 NIX_VERSION="3.23.1"
 DEVENV_VERSION="2.1.2"
+
+# The installed devenv's release, without the `+commit` a build from a tag appends (`devenv 2.1.2+ea3d94a`).
+installed_devenv_version() {
+  devenv version | awk '{print $2}' | cut -d+ -f1
+}

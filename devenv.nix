@@ -40,7 +40,7 @@ in {
     AWS_DEFAULT_REGION = awsRegion;
 
     # Secretspec CLI configuration
-    SECRETSPEC_PROVIDER = "awsps://${awsRegion}?tier=standard";
+    SECRETSPEC_PROVIDER = "awssm";
 
     # Disable AWS CLI pager so secrets output is not paged
     AWS_PAGER = "";
@@ -185,7 +185,7 @@ in {
     export SECRETSPEC_PROFILE="''${FUND_PROFILE:-development}"
     (
       source "$DEVENV_ROOT/host/versions"
-      nix --version | grep -qF "Determinate Nix $NIX_VERSION)" && [[ "$(devenv version | awk '{print $2}')" == "$DEVENV_VERSION" ]] ||
+      nix --version | grep -qF "Determinate Nix $NIX_VERSION)" && [[ "$(installed_devenv_version)" == "$DEVENV_VERSION" ]] ||
         echo "Warning: Nix or devenv differs from host/versions (Nix $NIX_VERSION, devenv $DEVENV_VERSION)" >&2
     )
     {

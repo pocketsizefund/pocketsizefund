@@ -14,7 +14,7 @@ converge() {
     sudo determinate-nixd upgrade --version "${NIX_VERSION}" || echo "Error: Nix upgrade failed; running on $(nix --version)"
   fi
   local installed
-  installed="$(devenv version | awk '{print $2}')"
+  installed="$(installed_devenv_version)"
   if [[ "$installed" != "$DEVENV_VERSION" ]]; then
     echo "Replacing devenv ${installed} with ${DEVENV_VERSION}"
     nix profile remove devenv
