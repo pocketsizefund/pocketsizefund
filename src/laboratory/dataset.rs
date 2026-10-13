@@ -80,8 +80,8 @@ pub enum DatasetError {
     },
 }
 
-/// Daily vendor bars for every trading session in `range`, journaled to `study` before it is returned; a session with
-/// no partition is recorded missing in the fingerprint rather than refused.
+/// Massive's daily vendor bars for every trading session in `range`, journaled to `study` before it is returned; a
+/// session with no partition is recorded missing in the fingerprint rather than refused.
 pub async fn daily_vendor_bars(
     archive: &Archive,
     calendar: &TradingCalendar,

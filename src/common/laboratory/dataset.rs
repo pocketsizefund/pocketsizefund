@@ -28,7 +28,7 @@ use crate::common::time::{SessionDate, SessionRange, SessionRangeRefusal};
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum DatasetLeg {
-    /// Daily bars the vendor aggregated from trades, read from Massive's partitions.
+    /// Daily bars the vendor aggregated from trades.
     DailyVendorBars,
     /// Trade bars folded from ticks, Massive's where it holds the session and Alpaca's otherwise; the three cadences
     /// are three series.
