@@ -24,16 +24,19 @@ fn statement(views: &str, opening: &str) -> String {
     panic!("{opening} never ends a line in `;`")
 }
 
-/// The macros `bar_seam` calls and the view itself, reading `records` and `archive` in place of the two buckets.
+/// The macros `bar_seam` calls, its one-session form and the view itself, reading `records` and `archive` in place of
+/// the two buckets.
 fn pointed(records: &Path, archive: &Path) -> String {
     let views = std::fs::read_to_string(root().join("views.sql")).unwrap();
     let script = format!(
-        "SET VARIABLE records_bucket = '{}';\nSET VARIABLE market_data_bucket = '{}';\n{}\n{}\n{}\n{}\n",
+        "SET VARIABLE records_bucket = '{}';\nSET VARIABLE market_data_bucket = '{}';\n{}\n{}\n{}\n{}\n{}\n{}\n",
         records.display(),
         archive.display(),
-        statement(&views, "CREATE OR REPLACE MACRO sessions("),
+        statement(&views, "CREATE OR REPLACE MACRO partitions("),
         statement(&views, "CREATE OR REPLACE MACRO millionths("),
         statement(&views, "CREATE OR REPLACE MACRO trillionths("),
+        statement(&views, "CREATE OR REPLACE MACRO bar_seam_over("),
+        statement(&views, "CREATE OR REPLACE MACRO bar_seam_on("),
         statement(&views, "CREATE OR REPLACE VIEW bar_seam AS\n"),
     )
     .replace("'s3://' || ", "");
@@ -115,19 +118,39 @@ fn test_the_seam_matches_minutes_in_the_run_and_differs_only_where_the_bars_do()
          COPY ({}) TO '{}/data.parquet';\n\
          COPY ({}) TO '{}/data.parquet';\n\
          {}\n\
-         SELECT run_id, session, symbol, strftime(timestamp, '%H:%M'), presence, trade_count_difference, \
-         volume_difference, dollar_volume_difference, opened_at_difference, open_difference, closed_at_difference, \
-         close_difference, high_difference, low_difference FROM bar_seam ORDER BY symbol, timestamp;\n",
+         SELECT {columns} FROM bar_seam ORDER BY symbol, timestamp;\n\
+         SELECT {columns} FROM bar_seam_on(DATE '2026-10-08') ORDER BY symbol, timestamp;\n",
         journal_lines.join(" UNION ALL "),
         journal.display(),
         archive_rows.join(" UNION ALL "),
         bars.display(),
         pointed(&records, &archive),
+        columns = "run_id, session, symbol, strftime(timestamp, '%H:%M'), presence, trade_count_difference, \
+                   volume_difference, dollar_volume_difference, opened_at_difference, open_difference, \
+                   closed_at_difference, close_difference, high_difference, low_difference",
     );
     let output = Command::new("duckdb")
         .args(["-csv", "-noheader", "-c", &script])
         .output();
+    // A session with neither partition written reads nothing of the one that is, and fails rather than reading empty.
+    let absent = Command::new("duckdb")
+        .args([
+            "-csv",
+            "-noheader",
+            "-c",
+            &format!(
+                "{}SELECT count(*) FROM bar_seam_on(DATE '2026-10-09');\n",
+                pointed(&records, &archive)
+            ),
+        ])
+        .output();
     std::fs::remove_dir_all(&directory).unwrap();
+    let absent = absent.expect("duckdb is on the path, as devenv provides it");
+    assert!(!absent.status.success(), "{absent:?}");
+    assert!(
+        String::from_utf8_lossy(&absent.stderr).contains("No files found that match the pattern"),
+        "{absent:?}"
+    );
     let output = output.expect("duckdb is on the path, as devenv provides it");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -135,8 +158,12 @@ fn test_the_seam_matches_minutes_in_the_run_and_differs_only_where_the_bars_do()
         "{stdout}{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    // The view over every session, then the one-session form, which must read the same rows.
+    let lines: Vec<_> = stdout.lines().collect();
+    assert_eq!(lines.len(), 8, "{stdout}");
+    assert_eq!(lines[..4], lines[4..], "{stdout}");
     assert_eq!(
-        stdout.lines().collect::<Vec<_>>(),
+        lines[..4],
         [
             "fixture,2026-10-08,QQQ,14:00,archive_only,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL",
             "fixture,2026-10-08,QQQ,14:01,trader_only,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL",

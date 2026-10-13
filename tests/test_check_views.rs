@@ -52,8 +52,8 @@ fn check(script: &Path, answers: &[(&str, Answer)], profile: &str) -> (i32, Stri
         format!(
             "input=\"$(cat)\"\n\
              view=\"$(sed -nE 's/^CREATE OR REPLACE VIEW ([a-z0-9_]+) AS$/\\1/p' <<<\"$input\")\"\n\
-             if [[ \"$input\" == *'FROM preferred('* && \"$input\" != *'LIMIT 1);'* ]]; then\n\
-               echo 'a view over preferred was counted whole' >&2; exit 1\n\
+             if [[ \"$input\" != *'LIMIT 1);'* ]]; then\n\
+               echo 'a view was counted whole' >&2; exit 1\n\
              fi\n\
              case \"$view\" in\n{cases}  *) echo '{NOTHING_WRITTEN}' >&2; exit 1 ;;\nesac\n"
         ),
@@ -173,7 +173,7 @@ fn test_every_view_in_views_sql_is_checked() {
         ]
     );
     assert!(output.contains("\nminute_bars: reads rows\n"), "{output}");
-    assert!(output.contains("\ndaily_bars: 5 rows\n"), "{output}");
+    assert!(output.contains("\ndaily_bars: reads rows\n"), "{output}");
     assert_eq!(status, 0, "{output}");
 }
 
@@ -219,11 +219,11 @@ fn test_trader_records_are_optional_in_every_development_profile() {
         let (status, output) = real(&answers, profile);
         assert_eq!(status, 0, "{profile}: {output}");
         assert!(
-            output.contains("logs: optional, 4 rows\n"),
+            output.contains("logs: optional, reads rows\n"),
             "{profile}: {output}"
         );
         assert!(
-            output.contains("bar_seam: optional, 9 rows\n"),
+            output.contains("bar_seam: optional, reads rows\n"),
             "{profile}: {output}"
         );
     }
@@ -249,9 +249,12 @@ fn test_an_optional_view_passes_empty_or_read_but_fails_when_broken() {
     ]);
     let (status, output) = real(&answers, "development/john.forstmeier");
     assert_eq!(status, 0, "{output}");
-    assert!(output.contains("journal: optional, 4 rows\n"), "{output}");
     assert!(
-        output.contains("experiments: optional, 0 rows\n"),
+        output.contains("journal: optional, reads rows\n"),
+        "{output}"
+    );
+    assert!(
+        output.contains("experiments: optional, reads no rows\n"),
         "{output}"
     );
     let mut answers = bars(Answer::Rows(5), Answer::Rows(7));
@@ -275,7 +278,7 @@ fn test_production_records_are_live() {
     answers.extend([("journal", Answer::Rows(2)), ("logs", Answer::Rows(3))]);
     let (status, output) = real(&answers, "production");
     assert_eq!(status, 0, "{output}");
-    assert!(output.contains("journal: 2 rows\n"), "{output}");
+    assert!(output.contains("journal: reads rows\n"), "{output}");
     let (status, output) = real(&bars(Answer::Rows(5), Answer::Rows(7)), "production");
     assert_eq!(status, 3, "{output}");
     assert!(output.contains("journal: did not create"), "{output}");
@@ -327,7 +330,7 @@ fn test_a_declaration_the_parser_misses_fails_the_check() {
     );
     assert_eq!(
         (status, output.as_str()),
-        (0, "bars_1m: 9 rows\nAll 1 live views read rows\n")
+        (0, "bars_1m: reads rows\nAll 1 live views read rows\n")
     );
     let missed = format!("{read_one}CREATE VIEW unparsed AS\nSELECT 1\n);\n");
     std::fs::write(directory.join("views.sql"), missed).unwrap();
@@ -376,6 +379,7 @@ fn macro_series() -> Vec<(String, String)> {
     let mut calls = Vec::new();
     for (name, bucket) in [
         ("sessions('", None),
+        ("partitions('", None),
         ("snapshots('", Some("market_data_bucket")),
         ("preferred(\n    '", Some("market_data_bucket")),
     ] {

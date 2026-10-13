@@ -21,14 +21,18 @@ SET VARIABLE records_bucket = CASE
     ELSE getenv('AWS_S3_RECORDS_BUCKET_NAME')
 END;
 
--- A session-partitioned series under the bucket the variable names, `year`/`month`/`day` folded into `session`.
-CREATE OR REPLACE MACRO sessions(bucket, series) AS TABLE
+-- The partitions of a session-partitioned series that `days` globs, `year`/`month`/`day` folded into `session`.
+CREATE OR REPLACE MACRO partitions(bucket, series, days) AS TABLE
 SELECT * EXCLUDE (year, month, day), make_date(year, month, day) AS session
 FROM read_parquet(
-    's3://' || getvariable(bucket) || '/' || series || 'year=*/month=*/day=*/data.parquet',
+    's3://' || getvariable(bucket) || '/' || series || days || '/data.parquet',
     hive_partitioning = true,
     hive_types = {'year': BIGINT, 'month': BIGINT, 'day': BIGINT}
 );
+
+-- Every session of a series; filter on a `session` range, which prunes files, never on `year(session)`, which reads all.
+CREATE OR REPLACE MACRO sessions(bucket, series) AS TABLE
+SELECT * FROM partitions(bucket, series, 'year=*/month=*/day=*');
 
 -- A reference table's snapshots, dated by `as_of`.
 CREATE OR REPLACE MACRO snapshots(series) AS TABLE
@@ -60,6 +64,77 @@ CREATE OR REPLACE MACRO millionths(value) AS CAST(value AS DECIMAL(38, 0)) * 0.0
 -- A journaled count of trillionths, a `DollarVolume`, in dollars.
 CREATE OR REPLACE MACRO trillionths(value) AS CAST(value AS DECIMAL(38, 0)) * 0.000000000001;
 .bail off
+
+-- Each one-minute bar a trader run built live against the archive's for the same symbol and minute, in the partitions
+-- `days` globs, over the names the run watched from its first journaled bar to its last: `presence` says which side
+-- holds the bar and each `*_difference` is trader minus archive in the archive's units, `NULL` where either side lacks
+-- the value.
+CREATE OR REPLACE MACRO bar_seam_over(days) AS TABLE
+WITH trader_journal AS (
+    SELECT * FROM partitions('records_bucket', 'records/journal/producer=trader/', days)
+),
+trader AS (
+    SELECT
+        session,
+        run_id,
+        payload ->> '$.symbol' AS symbol,
+        CAST(payload ->> '$.timestamp' AS TIMESTAMPTZ) AS timestamp,
+        CAST(payload ->> '$.trade_count' AS UBIGINT) AS trade_count,
+        millionths(payload ->> '$.volume') AS volume,
+        trillionths(payload ->> '$.dollar_volume') AS dollar_volume,
+        CAST(payload ->> '$.opened_at' AS TIMESTAMPTZ) AS opened_at,
+        millionths(payload ->> '$.open') AS open,
+        CAST(payload ->> '$.closed_at' AS TIMESTAMPTZ) AS closed_at,
+        millionths(payload ->> '$.close') AS close,
+        millionths(payload ->> '$.high') AS high,
+        millionths(payload ->> '$.low') AS low
+    FROM trader_journal
+    WHERE event_type = 'bar_built' AND (payload ->> '$.interval') = 'one_minute'
+),
+runs AS (
+    SELECT run_id, session, min(timestamp) AS first, max(timestamp) AS last FROM trader GROUP BY run_id, session
+),
+-- The configured universe plus any held name the run built a bar for.
+watched AS (
+    SELECT run_id, unnest(string_split(payload ->> '$.parameters.universe.value', ',')) AS symbol
+    FROM trader_journal
+    WHERE event_type = 'configuration_resolved'
+    UNION
+    SELECT run_id, symbol FROM trader
+),
+archive AS (
+    SELECT runs.run_id, bars.*
+    FROM partitions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/', days) AS bars
+    JOIN runs ON runs.session = bars.session
+    JOIN watched ON watched.run_id = runs.run_id AND watched.symbol = bars.symbol
+    WHERE bars.timestamp BETWEEN runs.first AND runs.last
+)
+SELECT
+    coalesce(trader.run_id, archive.run_id) AS run_id,
+    coalesce(trader.session, archive.session) AS session,
+    coalesce(trader.symbol, archive.symbol) AS symbol,
+    coalesce(trader.timestamp, archive.timestamp) AS timestamp,
+    CASE
+        WHEN archive.symbol IS NULL THEN 'trader_only'
+        WHEN trader.symbol IS NULL THEN 'archive_only'
+        ELSE 'both'
+    END AS presence,
+    CAST(trader.trade_count AS BIGINT) - CAST(archive.trade_count AS BIGINT) AS trade_count_difference,
+    trader.volume - archive.volume AS volume_difference,
+    trader.dollar_volume - archive.dollar_volume AS dollar_volume_difference,
+    trader.opened_at - archive.opened_at AS opened_at_difference,
+    trader.open - archive.open AS open_difference,
+    trader.closed_at - archive.closed_at AS closed_at_difference,
+    trader.close - archive.close AS close_difference,
+    trader.high - archive.high AS high_difference,
+    trader.low - archive.low AS low_difference
+FROM trader
+FULL OUTER JOIN archive
+    ON archive.run_id = trader.run_id AND archive.symbol = trader.symbol AND archive.timestamp = trader.timestamp;
+
+-- The seam for one session, reading only that day's journal and trade bars; it fails until both partitions exist.
+CREATE OR REPLACE MACRO bar_seam_on(day) AS TABLE
+SELECT * FROM bar_seam_over(strftime(day, 'year=%Y/month=%m/day=%d'));
 
 -- Alpaca's SIP one-minute bars over the whole Eastern day, extended hours included.
 CREATE OR REPLACE VIEW alpaca_minute_bars AS
@@ -235,68 +310,6 @@ SELECT
 FROM sessions('records_bucket', 'records/journal/producer=researcher/')
 WHERE event_type = 'experiment_ran';
 
--- Each one-minute bar a trader run built live against the archive's for the same symbol and minute, over the names the
--- run watched from its first journaled bar to its last: `presence` says which side holds the bar and each
--- `*_difference` is trader minus archive in the archive's units, `NULL` where either side lacks the value.
+-- The seam over every session, which reads every partition of both series; `bar_seam_on` reads one.
 CREATE OR REPLACE VIEW bar_seam AS
-WITH trader_journal AS (
-    SELECT * FROM sessions('records_bucket', 'records/journal/producer=trader/')
-),
-trader AS (
-    SELECT
-        session,
-        run_id,
-        payload ->> '$.symbol' AS symbol,
-        CAST(payload ->> '$.timestamp' AS TIMESTAMPTZ) AS timestamp,
-        CAST(payload ->> '$.trade_count' AS UBIGINT) AS trade_count,
-        millionths(payload ->> '$.volume') AS volume,
-        trillionths(payload ->> '$.dollar_volume') AS dollar_volume,
-        CAST(payload ->> '$.opened_at' AS TIMESTAMPTZ) AS opened_at,
-        millionths(payload ->> '$.open') AS open,
-        CAST(payload ->> '$.closed_at' AS TIMESTAMPTZ) AS closed_at,
-        millionths(payload ->> '$.close') AS close,
-        millionths(payload ->> '$.high') AS high,
-        millionths(payload ->> '$.low') AS low
-    FROM trader_journal
-    WHERE event_type = 'bar_built' AND (payload ->> '$.interval') = 'one_minute'
-),
-runs AS (
-    SELECT run_id, session, min(timestamp) AS first, max(timestamp) AS last FROM trader GROUP BY run_id, session
-),
--- The configured universe plus any held name the run built a bar for.
-watched AS (
-    SELECT run_id, unnest(string_split(payload ->> '$.parameters.universe.value', ',')) AS symbol
-    FROM trader_journal
-    WHERE event_type = 'configuration_resolved'
-    UNION
-    SELECT run_id, symbol FROM trader
-),
-archive AS (
-    SELECT runs.run_id, bars.*
-    FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/') AS bars
-    JOIN runs ON runs.session = bars.session
-    JOIN watched ON watched.run_id = runs.run_id AND watched.symbol = bars.symbol
-    WHERE bars.timestamp BETWEEN runs.first AND runs.last
-)
-SELECT
-    coalesce(trader.run_id, archive.run_id) AS run_id,
-    coalesce(trader.session, archive.session) AS session,
-    coalesce(trader.symbol, archive.symbol) AS symbol,
-    coalesce(trader.timestamp, archive.timestamp) AS timestamp,
-    CASE
-        WHEN archive.symbol IS NULL THEN 'trader_only'
-        WHEN trader.symbol IS NULL THEN 'archive_only'
-        ELSE 'both'
-    END AS presence,
-    CAST(trader.trade_count AS BIGINT) - CAST(archive.trade_count AS BIGINT) AS trade_count_difference,
-    trader.volume - archive.volume AS volume_difference,
-    trader.dollar_volume - archive.dollar_volume AS dollar_volume_difference,
-    trader.opened_at - archive.opened_at AS opened_at_difference,
-    trader.open - archive.open AS open_difference,
-    trader.closed_at - archive.closed_at AS closed_at_difference,
-    trader.close - archive.close AS close_difference,
-    trader.high - archive.high AS high_difference,
-    trader.low - archive.low AS low_difference
-FROM trader
-FULL OUTER JOIN archive
-    ON archive.run_id = trader.run_id AND archive.symbol = trader.symbol AND archive.timestamp = trader.timestamp;
+SELECT * FROM bar_seam_over('year=*/month=*/day=*');
