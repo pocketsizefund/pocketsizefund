@@ -259,6 +259,26 @@ fn allows(policy: &serde_json::Value, action: &str, resource: &str) -> bool {
         })
 }
 
+/// Whether a `Deny` statement listing `action` refuses `resource` because it falls outside the statement's `NotResource`.
+/// Models only a single `NotResource` string ending in `*`, matched as a prefix; any other shape refuses nothing.
+fn denies_outside(policy: &serde_json::Value, action: &str, resource: &str) -> bool {
+    policy["Statement"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|statement| statement["Effect"] == "Deny")
+        .any(|statement| {
+            let listed = statement["Action"]
+                .as_array()
+                .is_some_and(|actions| actions.iter().any(|value| value == action));
+            let outside = statement["NotResource"]
+                .as_str()
+                .and_then(|pattern| pattern.strip_suffix('*'))
+                .is_some_and(|prefix| !resource.starts_with(prefix));
+            listed && outside
+        })
+}
+
 #[test]
 fn test_a_new_archiver_is_granted_its_prefixes_and_scheduled_once_bootstrapped() {
     let provisioned = Provisioned::run("production", &[]);
@@ -303,16 +323,33 @@ fn test_a_new_archiver_is_granted_its_prefixes_and_scheduled_once_bootstrapped()
         ]
     );
 
-    let secrets =
-        "arn:aws:secretsmanager:us-east-1:123456789012:secret:secretspec/fund/production/*";
-    assert!(
-        allows(&grant, "secretsmanager:GetSecretValue", secrets),
-        "{grant}"
-    );
-    assert!(
-        allows(&grant, "secretsmanager:BatchGetSecretValue", "*"),
-        "{grant}"
-    );
+    let secrets = "arn:aws:ssm:us-east-1:123456789012:parameter/secretspec/fund/production/*";
+    assert!(allows(&grant, "ssm:GetParameter", secrets), "{grant}");
+    assert!(allows(&grant, "ssm:GetParameters", secrets), "{grant}");
+    let parameters = "arn:aws:ssm:us-east-1:123456789012:parameter/secretspec/fund/";
+    for action in [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath",
+        "ssm:GetParameterHistory",
+    ] {
+        assert!(
+            !denies_outside(
+                &grant,
+                action,
+                &format!("{parameters}production/ALPACA_API_SECRET")
+            ),
+            "{grant}"
+        );
+        assert!(
+            denies_outside(
+                &grant,
+                action,
+                &format!("{parameters}development/john.forstmeier/ALPACA_API_SECRET")
+            ),
+            "{grant}"
+        );
+    }
 
     let scheduler = provisioned.json("policy-start-and-stop.json");
     let instance = "arn:aws:ec2:us-east-1:123456789012:instance/i-0new";

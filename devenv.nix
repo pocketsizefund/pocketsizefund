@@ -40,7 +40,7 @@ in {
     AWS_DEFAULT_REGION = awsRegion;
 
     # Secretspec CLI configuration
-    SECRETSPEC_PROVIDER = "awssm";
+    SECRETSPEC_PROVIDER = "awsps://${awsRegion}?tier=standard";
 
     # Disable AWS CLI pager so secrets output is not paged
     AWS_PAGER = "";
