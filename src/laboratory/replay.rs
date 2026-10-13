@@ -126,7 +126,7 @@ pub fn replay<S: Strategy, B: Tape>(
         })
         .map_err(ReplayStudyError::Experiment)?;
     study
-        .experiment(parameters, &[dataset], outputs)
+        .experiment(parameters, &[dataset.lineage()], outputs)
         .map_err(ReplayStudyError::Study)?;
     Ok(replay)
 }

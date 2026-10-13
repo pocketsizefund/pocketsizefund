@@ -121,7 +121,7 @@ pub fn compare<C: Strategy, B: Strategy>(
         difference,
     )?;
     study
-        .experiment(parameters, &[dataset], outputs)
+        .experiment(parameters, &[dataset.lineage()], outputs)
         .map_err(ReplayStudyError::Study)?;
     Ok(Comparison {
         candidate,
