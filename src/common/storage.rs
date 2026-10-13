@@ -22,11 +22,14 @@ const CONFIGURATION_ROOT: &str = "configuration";
     PartialOrd,
     Ord,
     Hash,
+    Serialize,
+    Deserialize,
     strum::Display,
     strum::EnumString,
     strum::IntoStaticStr,
     strum::EnumIter,
 )]
+#[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum Provider {
     Alpaca,
@@ -751,6 +754,29 @@ pub(crate) mod tests {
     use strum::IntoEnumIterator;
 
     use super::*;
+
+    #[test]
+    fn test_a_provider_serializes_under_its_display_name() {
+        let names: Vec<(String, String)> = Provider::iter()
+            .map(|provider| {
+                (
+                    provider.to_string(),
+                    serde_json::to_string(&provider).unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            names,
+            [
+                ("alpaca".to_string(), "\"alpaca\"".to_string()),
+                ("massive".to_string(), "\"massive\"".to_string()),
+            ]
+        );
+        for provider in Provider::iter() {
+            let json = serde_json::to_string(&provider).unwrap();
+            assert_eq!(serde_json::from_str::<Provider>(&json).unwrap(), provider);
+        }
+    }
 
     fn session() -> SessionDate {
         SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 8, 3).unwrap())
