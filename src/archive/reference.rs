@@ -12,8 +12,8 @@ use arrow_array::{
 };
 use arrow_schema::{DataType, Field, Schema};
 
-use super::bars::{Provenance, provenance_from};
 use super::parquet::{ReadRefusal, RowCause};
+use super::vendor_bars::{Provenance, provenance_from};
 use super::{Archive, ArchiveError, parquet};
 use crate::common::market::corporate_actions::{
     ActionId, BoundaryChange, BoundaryKind, SeriesBoundary, Split, SplitRatio,
@@ -663,7 +663,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::archive::bars::Subscription;
+    use crate::archive::vendor_bars::Subscription;
     use crate::common::journal::RunId;
     use crate::common::time::SessionDate;
 

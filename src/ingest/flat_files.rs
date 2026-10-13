@@ -13,7 +13,7 @@ use serde::Deserialize;
 
 use super::massive::{alpaca_symbol, is_exchange_test_ticker};
 use super::{Accepted, RefusedRow, RowRefusal, SessionBars, VariableRefusal, one_sided, variable};
-use crate::common::market::record::{Bar, BarInterval, BarPrices, Quote};
+use crate::common::market::record::{BarInterval, Quote, VendorBar, VendorBarPrices};
 use crate::common::market::trade_bars::{ConditionCode, Correction, Print};
 use crate::common::market::{Price, Shares, Symbol, TradeCount};
 use crate::common::storage::{EntityTag, Key, Provider};
@@ -324,7 +324,7 @@ fn flat_file_bar(
     row: &BarRow,
     interval: BarInterval,
     session: SessionDate,
-) -> Result<Bar, RowRefusal> {
+) -> Result<VendorBar, RowRefusal> {
     let symbol = alpaca_symbol(&row.ticker).map_err(RowRefusal::Symbol)?;
     let start = DateTime::from_timestamp_nanos(row.window_start);
     if SessionDate::at(start) != session {
@@ -338,7 +338,7 @@ fn flat_file_bar(
         BarInterval::OneMinute | BarInterval::FiveMinute => start,
     };
     let price = |dollars: f64| Price::from_dollars(dollars).map_err(RowRefusal::Price);
-    let prices = BarPrices::new(
+    let prices = VendorBarPrices::new(
         price(row.open)?,
         price(row.high)?,
         price(row.low)?,
@@ -346,7 +346,7 @@ fn flat_file_bar(
     )
     .map_err(RowRefusal::Prices)?;
     let volume = Shares::from_float(row.volume).map_err(RowRefusal::Shares)?;
-    Bar::new(
+    VendorBar::new(
         symbol,
         interval,
         timestamp,

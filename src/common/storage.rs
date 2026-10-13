@@ -201,7 +201,7 @@ pub enum ParsedKind {
 mod sealed {
     pub trait Sealed {}
 
-    impl Sealed for super::Bars {}
+    impl Sealed for super::VendorBars {}
     impl Sealed for super::Quotes {}
     impl Sealed for super::Trades {}
 }
@@ -214,7 +214,7 @@ pub trait Family: sealed::Sealed + Copy + Default {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Bars;
+pub struct VendorBars;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Quotes;
@@ -222,11 +222,11 @@ pub struct Quotes;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Trades;
 
-impl Family for Bars {
+impl Family for VendorBars {
     const KIND: ParsedKind = ParsedKind::Bars;
 
     fn wrap(key: ParsedKey<Self>) -> Key {
-        Key::Bars(key)
+        Key::VendorBars(key)
     }
 }
 
@@ -256,7 +256,7 @@ pub struct ParsedKey<F> {
     family: F,
 }
 
-pub type BarsKey = ParsedKey<Bars>;
+pub type VendorBarsKey = ParsedKey<VendorBars>;
 pub type QuotesKey = ParsedKey<Quotes>;
 pub type TradesKey = ParsedKey<Trades>;
 
@@ -342,7 +342,7 @@ impl TryFrom<Key> for ReferenceKey {
     fn try_from(key: Key) -> Result<Self, Key> {
         match key {
             Key::Reference(key) => Ok(key),
-            Key::Bars(..)
+            Key::VendorBars(..)
             | Key::Quotes(..)
             | Key::Trades(..)
             | Key::RawBars { .. }
@@ -405,7 +405,7 @@ impl From<LogsKey> for Key {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub enum Key {
-    Bars(BarsKey),
+    VendorBars(VendorBarsKey),
     Quotes(QuotesKey),
     Trades(TradesKey),
     Reference(ReferenceKey),
@@ -513,7 +513,7 @@ impl Key {
         let series = self.series();
         match self {
             Self::Reference(key) => format!("{series}as_of={}/data.parquet", key.as_of),
-            Self::Bars(..)
+            Self::VendorBars(..)
             | Self::Quotes(..)
             | Self::Trades(..)
             | Self::Journal(..)
@@ -528,7 +528,7 @@ impl Key {
 
     pub fn series(&self) -> SeriesPrefix {
         SeriesPrefix(match self {
-            Self::Bars(key) => parsed_series(key),
+            Self::VendorBars(key) => parsed_series(key),
             Self::Quotes(key) => parsed_series(key),
             Self::Trades(key) => parsed_series(key),
             Self::Reference(key) => reference_series(key.provider, key.table),
@@ -553,7 +553,7 @@ impl Key {
     /// The session a key is for.
     pub fn session(&self) -> SessionDate {
         match self {
-            Self::Bars(key) => key.session,
+            Self::VendorBars(key) => key.session,
             Self::Quotes(key) => key.session,
             Self::Trades(key) => key.session,
             Self::Reference(key) => key.as_of,
@@ -568,7 +568,7 @@ impl Key {
     /// The one host that may write this object: the archiver for data, the producer for a record.
     pub fn writer(&self) -> Host {
         match self {
-            Self::Bars(..)
+            Self::VendorBars(..)
             | Self::Quotes(..)
             | Self::Trades(..)
             | Self::Reference(..)
@@ -584,7 +584,7 @@ impl Key {
     pub fn storage_class(&self) -> StorageClass {
         match self {
             Self::RawQuotes { .. } | Self::RawTrades { .. } => StorageClass::DeepArchive,
-            Self::Bars(..)
+            Self::VendorBars(..)
             | Self::Quotes(..)
             | Self::Trades(..)
             | Self::Reference(..)
@@ -640,7 +640,7 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
                 session(year, month, day)?,
             );
             Some(match kind.parse::<ParsedKind>().ok()? {
-                ParsedKind::Bars => BarsKey::new(provider, origin, interval, session).into(),
+                ParsedKind::Bars => VendorBarsKey::new(provider, origin, interval, session).into(),
                 ParsedKind::Quotes => QuotesKey::new(provider, origin, interval, session).into(),
                 ParsedKind::Trades => TradesKey::new(provider, origin, interval, session).into(),
             })
@@ -794,7 +794,7 @@ pub(crate) mod tests {
     fn test_each_key_has_its_path() {
         let cases = [
             (
-                BarsKey::new(
+                VendorBarsKey::new(
                     Provider::Alpaca,
                     Origin::Vendor,
                     BarInterval::OneMinute,
@@ -950,7 +950,7 @@ pub(crate) mod tests {
     fn moved(key: &Key, to: &Key) -> Key {
         let session = to.session();
         match key.clone() {
-            Key::Bars(key) => Key::Bars(ParsedKey { session, ..key }),
+            Key::VendorBars(key) => Key::VendorBars(ParsedKey { session, ..key }),
             Key::Quotes(key) => Key::Quotes(ParsedKey { session, ..key }),
             Key::Trades(key) => Key::Trades(ParsedKey { session, ..key }),
             Key::Reference(key) => Key::Reference(ReferenceKey {
@@ -993,7 +993,8 @@ pub(crate) mod tests {
                 session.clone()
             )
                 .prop_map(|(kind, provider, origin, interval, session)| match kind {
-                    ParsedKind::Bars => BarsKey::new(provider, origin, interval, session).into(),
+                    ParsedKind::Bars =>
+                        VendorBarsKey::new(provider, origin, interval, session).into(),
                     ParsedKind::Quotes => {
                         QuotesKey::new(provider, origin, interval, session).into()
                     }

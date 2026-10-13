@@ -1,7 +1,7 @@
 //! Why a vendor row did not become a record, and the kind of that cause, which the journal counts refusals by.
 
 use super::corporate_actions::{ActionIdRefusal, SeriesBoundaryRefusal, SplitRatioRefusal};
-use super::record::{BarPricesRefusal, BarRefusal, QuoteRefusal};
+use super::record::{QuoteRefusal, VendorBarPricesRefusal, VendorBarRefusal};
 use super::security_details::{IndustryCodeRefusal, MarketIdentifierCodeRefusal};
 use super::{DollarVolumeRefusal, DollarsRefusal, PriceRefusal, SharesRefusal, SymbolRefusal};
 
@@ -29,10 +29,10 @@ pub enum RowRefusal {
         timestamp: String,
     },
     Price(PriceRefusal),
-    Prices(BarPricesRefusal),
+    Prices(VendorBarPricesRefusal),
     Shares(SharesRefusal),
     DollarVolume(DollarVolumeRefusal),
-    Bar(BarRefusal),
+    Bar(VendorBarRefusal),
     Quote(QuoteRefusal),
     /// A tape letter other than A, B or C.
     Tape {
@@ -111,6 +111,7 @@ mod tests {
         }
         assert_eq!(&names[..4], ["symbol", "session", "price", "prices"]);
         assert_eq!(RowRefusalKind::DollarVolume.to_string(), "dollar_volume");
+        assert_eq!(RowRefusalKind::Bar.to_string(), "bar");
         assert_eq!(
             RowRefusalKind::CentralIndexKey.to_string(),
             "central_index_key"

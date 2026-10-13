@@ -55,7 +55,7 @@ impl BarInterval {
 
 /// Open, high, low and close, with the open and close inside `[low, high]`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BarPrices {
+pub struct VendorBarPrices {
     open: Price,
     high: Price,
     low: Price,
@@ -64,7 +64,7 @@ pub struct BarPrices {
 
 /// Why a set of bar prices was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum BarPricesRefusal {
+pub enum VendorBarPricesRefusal {
     #[error("open {open} and close {close} do not lie within low {low} and high {high}")]
     OutsideRange {
         open: Price,
@@ -74,13 +74,13 @@ pub enum BarPricesRefusal {
     },
 }
 
-impl BarPrices {
+impl VendorBarPrices {
     pub fn new(
         open: Price,
         high: Price,
         low: Price,
         close: Price,
-    ) -> Result<Self, BarPricesRefusal> {
+    ) -> Result<Self, VendorBarPricesRefusal> {
         let range = low..=high;
         if range.contains(&open) && range.contains(&close) {
             Ok(Self {
@@ -90,7 +90,7 @@ impl BarPrices {
                 close,
             })
         } else {
-            Err(BarPricesRefusal::OutsideRange {
+            Err(VendorBarPricesRefusal::OutsideRange {
                 open,
                 high,
                 low,
@@ -116,13 +116,13 @@ impl BarPrices {
     }
 }
 
-/// A bar stamped at its period's open, or for a daily bar at the 16:00 Eastern close of its session.
+/// A bar as its vendor aggregated it, stamped at its period's open, or for a daily bar at the 16:00 Eastern close.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Bar {
+pub struct VendorBar {
     symbol: Symbol,
     interval: BarInterval,
     timestamp: DateTime<Utc>,
-    prices: BarPrices,
+    prices: VendorBarPrices,
     volume: Shares,
     /// `None` when the vendor did not report it.
     trade_count: Option<TradeCount>,
@@ -132,7 +132,7 @@ pub struct Bar {
 
 /// Why a bar was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum BarRefusal {
+pub enum VendorBarRefusal {
     #[error("{timestamp} does not end a {interval} bar")]
     Misaligned {
         interval: BarInterval,
@@ -140,19 +140,19 @@ pub enum BarRefusal {
     },
 }
 
-impl Bar {
+impl VendorBar {
     /// A bar whose timestamp sits on its interval's grid.
     pub fn new(
         symbol: Symbol,
         interval: BarInterval,
         timestamp: DateTime<Utc>,
-        prices: BarPrices,
+        prices: VendorBarPrices,
         volume: Shares,
         trade_count: Option<TradeCount>,
         dollar_volume: Option<DollarVolume>,
-    ) -> Result<Self, BarRefusal> {
+    ) -> Result<Self, VendorBarRefusal> {
         if interval.bucket(timestamp) != timestamp {
-            return Err(BarRefusal::Misaligned {
+            return Err(VendorBarRefusal::Misaligned {
                 interval,
                 timestamp,
             });
@@ -189,7 +189,7 @@ impl Bar {
     /// and trade count: the input a replay control runs on, where no price moves.
     pub fn at_price(&self, price: Price) -> Self {
         Self {
-            prices: BarPrices {
+            prices: VendorBarPrices {
                 open: price,
                 high: price,
                 low: price,
@@ -202,7 +202,7 @@ impl Bar {
         }
     }
 
-    pub fn prices(&self) -> BarPrices {
+    pub fn prices(&self) -> VendorBarPrices {
         self.prices
     }
 
@@ -388,12 +388,12 @@ mod tests {
         text.parse().unwrap()
     }
 
-    fn prices() -> BarPrices {
-        BarPrices::new(price(10.0), price(11.0), price(9.0), price(10.5)).unwrap()
+    fn prices() -> VendorBarPrices {
+        VendorBarPrices::new(price(10.0), price(11.0), price(9.0), price(10.5)).unwrap()
     }
 
-    fn bar(interval: BarInterval, timestamp: &str) -> Result<Bar, BarRefusal> {
-        Bar::new(
+    fn bar(interval: BarInterval, timestamp: &str) -> Result<VendorBar, VendorBarRefusal> {
+        VendorBar::new(
             Symbol::new("AAPL").unwrap(),
             interval,
             instant(timestamp),
@@ -422,16 +422,16 @@ mod tests {
     #[test]
     fn test_an_open_or_close_outside_the_range_is_refused() {
         assert_eq!(
-            BarPrices::new(price(12.0), price(11.0), price(9.0), price(10.0)),
-            Err(BarPricesRefusal::OutsideRange {
+            VendorBarPrices::new(price(12.0), price(11.0), price(9.0), price(10.0)),
+            Err(VendorBarPricesRefusal::OutsideRange {
                 open: price(12.0),
                 high: price(11.0),
                 low: price(9.0),
                 close: price(10.0),
             })
         );
-        assert!(BarPrices::new(price(9.0), price(9.0), price(9.0), price(9.0)).is_ok());
-        assert!(BarPrices::new(price(10.0), price(11.0), price(9.0), price(8.0)).is_err());
+        assert!(VendorBarPrices::new(price(9.0), price(9.0), price(9.0), price(9.0)).is_ok());
+        assert!(VendorBarPrices::new(price(10.0), price(11.0), price(9.0), price(8.0)).is_err());
     }
 
     #[test]
@@ -449,7 +449,7 @@ mod tests {
         ] {
             assert_eq!(
                 bar(interval, timestamp),
-                Err(BarRefusal::Misaligned {
+                Err(VendorBarRefusal::Misaligned {
                     interval,
                     timestamp: instant(timestamp)
                 }),
@@ -488,7 +488,7 @@ mod tests {
     /// Repricing keeps everything but the prices, and repricing twice is repricing once to the last price.
     #[test]
     fn test_a_repriced_bar_keeps_its_series_and_volume() {
-        let original = Bar::new(
+        let original = VendorBar::new(
             Symbol::new("AAPL").unwrap(),
             BarInterval::OneMinute,
             instant("2026-07-31T14:31:00Z"),
@@ -501,7 +501,7 @@ mod tests {
         let repriced = original.at_price(price(2.0));
         assert_eq!(
             repriced.prices(),
-            BarPrices::new(price(2.0), price(2.0), price(2.0), price(2.0)).unwrap()
+            VendorBarPrices::new(price(2.0), price(2.0), price(2.0), price(2.0)).unwrap()
         );
         assert_eq!(repriced.volume_weighted_average_price(), Some(2.0));
         assert_eq!(
@@ -533,7 +533,7 @@ mod tests {
     #[test]
     fn test_a_bar_derives_its_average_from_its_dollar_volume() {
         let volume = Shares::whole(200).unwrap();
-        let bar = Bar::new(
+        let bar = VendorBar::new(
             Symbol::new("AAPL").unwrap(),
             BarInterval::OneMinute,
             instant("2026-07-31T14:31:00Z"),
@@ -545,7 +545,7 @@ mod tests {
         .unwrap();
         assert_eq!(bar.volume_weighted_average_price(), Some(10.25));
         assert_eq!(bar.trade_count(), Some(TradeCount::new(3)));
-        let quiet = Bar::new(
+        let quiet = VendorBar::new(
             Symbol::new("AAPL").unwrap(),
             BarInterval::OneMinute,
             instant("2026-07-31T14:31:00Z"),
@@ -601,7 +601,7 @@ mod tests {
     #[test]
     fn test_an_empty_partition_is_refused() {
         assert_eq!(
-            Partition::<Bar>::try_from(Vec::new()),
+            Partition::<VendorBar>::try_from(Vec::new()),
             Err(PartitionRefusal::Empty)
         );
     }
@@ -641,11 +641,11 @@ mod tests {
             let high = *ticks.iter().max().unwrap();
             let open = instant("2026-07-31T13:30:00Z") + TimeDelta::minutes(minute - minute % 5);
             let volume = Shares::from_units(volume);
-            let bar = Bar::new(
+            let bar = VendorBar::new(
                 Symbol::new("AAPL").unwrap(),
                 interval,
                 open,
-                BarPrices::new(price(ticks[0]), price(high), price(low), price(ticks[1])).unwrap(),
+                VendorBarPrices::new(price(ticks[0]), price(high), price(low), price(ticks[1])).unwrap(),
                 volume,
                 trade_count.map(TradeCount::new),
                 reported.then(|| DollarVolume::of(price(ticks[2]), volume)),
@@ -654,7 +654,7 @@ mod tests {
             let repriced = bar.at_price(price(second));
             prop_assert_eq!(bar.at_price(price(first)).at_price(price(second)), repriced.clone());
             let flat = price(second);
-            prop_assert_eq!(repriced.prices(), BarPrices::new(flat, flat, flat, flat).unwrap());
+            prop_assert_eq!(repriced.prices(), VendorBarPrices::new(flat, flat, flat, flat).unwrap());
             prop_assert_eq!(repriced.dollar_volume(), reported.then(|| DollarVolume::of(flat, volume)));
             prop_assert_eq!(
                 (repriced.symbol(), repriced.interval(), repriced.timestamp(), repriced.volume(), repriced.trade_count()),

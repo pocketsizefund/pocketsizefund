@@ -11,7 +11,7 @@ use crate::common::book::{Book, Cash, Fill, Side, ValuationRefusal};
 use crate::common::guard::{OrderGuarded, Tradability, guard};
 use crate::common::laboratory::cost::{BasisPoints, CostModel, CostRefusal, FillStyle};
 use crate::common::laboratory::series::{Series, SeriesRefusal};
-use crate::common::market::record::{Bar, BarInterval};
+use crate::common::market::record::{BarInterval, VendorBar};
 use crate::common::market::state::{MarketEvent, MarketState};
 use crate::common::market::trade_bars::TradeBar;
 use crate::common::market::{DollarVolume, Price, Symbol};
@@ -24,7 +24,7 @@ use crate::common::time::calendar::TradingCalendar;
 mod sealed {
     pub trait Sealed {}
 
-    impl Sealed for super::Bar {}
+    impl Sealed for super::VendorBar {}
     impl Sealed for super::TradeBar {}
 }
 
@@ -65,17 +65,17 @@ pub trait Tape: sealed::Sealed + Clone + PartialEq {
     }
 }
 
-impl Tape for Bar {
+impl Tape for VendorBar {
     fn symbol(&self) -> &Symbol {
-        Bar::symbol(self)
+        VendorBar::symbol(self)
     }
 
     fn interval(&self) -> BarInterval {
-        Bar::interval(self)
+        VendorBar::interval(self)
     }
 
     fn timestamp(&self) -> DateTime<Utc> {
-        Bar::timestamp(self)
+        VendorBar::timestamp(self)
     }
 
     fn opening_price(&self) -> Option<Price> {
@@ -83,7 +83,7 @@ impl Tape for Bar {
     }
 
     fn event(self) -> MarketEvent {
-        MarketEvent::Bar(self)
+        MarketEvent::VendorBar(self)
     }
 }
 
@@ -282,7 +282,7 @@ pub enum ControlsRefusal {
 /// A replay so far over bars of kind `B`: the state and book it has reached, the orders awaiting the next bar, and what
 /// happened.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Replay<B = Bar> {
+pub struct Replay<B = VendorBar> {
     state: MarketState,
     book: Book,
     pending: Vec<Order>,
@@ -632,7 +632,7 @@ mod tests {
 
     use super::*;
     use crate::common::market::aggregate::TradeTotals;
-    use crate::common::market::record::BarPrices;
+    use crate::common::market::record::VendorBarPrices;
     use crate::common::market::trade_bars::{HighLow, OpenClose, TradeSums};
     use crate::common::market::{Price, Shares, StampedPrice, TradeCount};
     use crate::common::strategy::Strategy;
@@ -692,16 +692,16 @@ mod tests {
         timestamp: DateTime<Utc>,
         open: i64,
         close: i64,
-    ) -> Bar {
+    ) -> VendorBar {
         let (open, close) = (
             Price::from_ticks(open).unwrap(),
             Price::from_ticks(close).unwrap(),
         );
-        Bar::new(
+        VendorBar::new(
             symbol(raw),
             interval,
             timestamp,
-            BarPrices::new(open, open.max(close), open.min(close), close).unwrap(),
+            VendorBarPrices::new(open, open.max(close), open.min(close), close).unwrap(),
             Shares::whole(100).unwrap(),
             None,
             None,
@@ -744,7 +744,7 @@ mod tests {
         .unwrap()
     }
 
-    fn daily(raw: &str, index: i64, open: i64, close: i64) -> Bar {
+    fn daily(raw: &str, index: i64, open: i64, close: i64) -> VendorBar {
         bar(raw, BarInterval::OneDay, day(index), open, close)
     }
 
@@ -1250,7 +1250,7 @@ mod tests {
     }
 
     /// Daily AAPL and MSFT bars over `days` days with arbitrary opens and closes.
-    fn arbitrary_stream(days: usize) -> impl prop::strategy::Strategy<Value = Vec<Bar>> {
+    fn arbitrary_stream(days: usize) -> impl prop::strategy::Strategy<Value = Vec<VendorBar>> {
         prop::collection::vec((1..50_000_000i64, 1..50_000_000i64, prop::bool::ANY), days).prop_map(
             |sessions| {
                 sessions
@@ -1291,7 +1291,7 @@ mod tests {
             prop_assert_eq!(&replayer.act(opening.clone(), repeated).unwrap(), &stretched);
             let whole = replayer.act(opening.clone(), bars).unwrap();
             prop_assert_eq!(&stretched, &whole);
-            prop_assert_eq!(replayer.act(whole.clone(), Vec::<Bar>::new()).unwrap(), whole);
+            prop_assert_eq!(replayer.act(whole.clone(), Vec::<VendorBar>::new()).unwrap(), whole);
         }
 
         /// The book a replay reaches is its opening combined with each fill, so no cash appears outside a fill.

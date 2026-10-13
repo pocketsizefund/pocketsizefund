@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::common::market::record::BarInterval;
 use crate::common::storage::{
-    BarsKey, Key, KeyRefusal, Origin, Provider, QuotesKey, ReferenceKey, ReferenceTable, TradesKey,
+    Key, KeyRefusal, Origin, Provider, QuotesKey, ReferenceKey, ReferenceTable, TradesKey,
+    VendorBarsKey,
 };
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
@@ -86,8 +87,8 @@ impl Leg {
 }
 
 /// Massive's daily bars, the session's symbol list.
-pub fn massive_daily_bars(session: SessionDate) -> BarsKey {
-    BarsKey::new(
+pub fn massive_daily_bars(session: SessionDate) -> VendorBarsKey {
+    VendorBarsKey::new(
         Provider::Massive,
         Origin::Vendor,
         BarInterval::OneDay,
@@ -95,8 +96,8 @@ pub fn massive_daily_bars(session: SessionDate) -> BarsKey {
     )
 }
 
-pub fn alpaca_minute_bars(session: SessionDate) -> BarsKey {
-    BarsKey::new(
+pub fn alpaca_minute_bars(session: SessionDate) -> VendorBarsKey {
+    VendorBarsKey::new(
         Provider::Alpaca,
         Origin::Vendor,
         BarInterval::OneMinute,
@@ -105,8 +106,8 @@ pub fn alpaca_minute_bars(session: SessionDate) -> BarsKey {
 }
 
 /// Alpaca's minute bars rolled up to five minutes.
-pub fn alpaca_five_minute_bars(session: SessionDate) -> BarsKey {
-    BarsKey::new(
+pub fn alpaca_five_minute_bars(session: SessionDate) -> VendorBarsKey {
+    VendorBarsKey::new(
         Provider::Alpaca,
         Origin::Derived,
         BarInterval::FiveMinute,
@@ -414,7 +415,7 @@ impl SeriesListing {
             match path.parse::<Key>() {
                 Ok(Key::Reference(_)) => {}
                 Ok(
-                    key @ (Key::Bars(_)
+                    key @ (Key::VendorBars(_)
                     | Key::Quotes(_)
                     | Key::Trades(_)
                     | Key::RawBars { .. }

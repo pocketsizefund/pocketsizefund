@@ -13,13 +13,15 @@ use parquet::errors::ParquetError;
 use parquet::file::metadata::KeyValue;
 use parquet::file::properties::WriterProperties;
 
-use super::bars::Provenance;
+use super::vendor_bars::Provenance;
 
 use crate::common::market::corporate_actions::{
     ActionIdRefusal, BoundaryChangeRefusal, SeriesBoundaryRefusal, SplitRatioRefusal,
 };
 use crate::common::market::quote_bars::{QuoteBarRefusal, QuoteSumsRefusal};
-use crate::common::market::record::{BarInterval, BarPricesRefusal, BarRefusal, PartitionRefusal};
+use crate::common::market::record::{
+    BarInterval, PartitionRefusal, VendorBarPricesRefusal, VendorBarRefusal,
+};
 use crate::common::market::security_details::{
     CentralIndexKeyRefusal, IndustryCodeRefusal, MarketIdentifierCodeRefusal,
 };
@@ -182,9 +184,9 @@ pub enum RowCause {
     #[error("{0}")]
     Price(PriceRefusal),
     #[error("{0}")]
-    BarPrices(BarPricesRefusal),
+    VendorBarPrices(VendorBarPricesRefusal),
     #[error("{0}")]
-    Bar(BarRefusal),
+    VendorBar(VendorBarRefusal),
     #[error("{0}")]
     QuoteSums(QuoteSumsRefusal),
     #[error("{0}")]

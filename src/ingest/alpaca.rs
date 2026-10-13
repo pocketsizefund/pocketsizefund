@@ -13,7 +13,7 @@ use tokio::sync::mpsc::Sender;
 
 use super::retry::{FetchError, send, with_retries};
 use super::{Accepted, RefusedRow, RowRefusal, Secret, VariableRefusal, one_sided, variable};
-use crate::common::market::record::{Bar, BarInterval, BarPrices, Quote};
+use crate::common::market::record::{BarInterval, Quote, VendorBar, VendorBarPrices};
 use crate::common::market::trade_bars::{ConditionLetter, Correction, Print, Tape};
 use crate::common::market::{DollarVolume, Price, Shares, Symbol, TradeCount};
 use crate::common::monoid::Monoid;
@@ -74,7 +74,7 @@ impl Credentials {
 /// missing or invalid, and every row is a bar or a refusal.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MinuteBars {
-    bars: Vec<Bar>,
+    bars: Vec<VendorBar>,
     missing: Vec<Symbol>,
     invalid: Vec<Symbol>,
     refused: Vec<RefusedRow>,
@@ -132,11 +132,11 @@ impl MinuteBars {
     }
 
     /// In symbol, then timestamp, order.
-    pub fn bars(&self) -> &[Bar] {
+    pub fn bars(&self) -> &[VendorBar] {
         &self.bars
     }
 
-    pub fn into_bars(self) -> Vec<Bar> {
+    pub fn into_bars(self) -> Vec<VendorBar> {
         self.bars
     }
 
@@ -739,7 +739,11 @@ pub(crate) fn invalid_symbol(body: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn minute_bar(ticker: &str, row: &AlpacaBar, session: SessionDate) -> Result<Bar, RowRefusal> {
+fn minute_bar(
+    ticker: &str,
+    row: &AlpacaBar,
+    session: SessionDate,
+) -> Result<VendorBar, RowRefusal> {
     let symbol = Symbol::new(ticker).map_err(RowRefusal::Symbol)?;
     if SessionDate::at(row.timestamp) != session {
         return Err(RowRefusal::Session {
@@ -747,7 +751,7 @@ fn minute_bar(ticker: &str, row: &AlpacaBar, session: SessionDate) -> Result<Bar
         });
     }
     let price = |dollars: f64| Price::from_dollars(dollars).map_err(RowRefusal::Price);
-    let prices = BarPrices::new(
+    let prices = VendorBarPrices::new(
         price(row.open)?,
         price(row.high)?,
         price(row.low)?,
@@ -760,7 +764,7 @@ fn minute_bar(ticker: &str, row: &AlpacaBar, session: SessionDate) -> Result<Bar
         .map(|average| DollarVolume::from_average(average, volume))
         .transpose()
         .map_err(RowRefusal::DollarVolume)?;
-    Bar::new(
+    VendorBar::new(
         symbol,
         BarInterval::OneMinute,
         row.timestamp,

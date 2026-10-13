@@ -542,7 +542,7 @@ impl TradeBar {
         self.interval
     }
 
-    /// The bar's start for an intraday bar, and the 16:00 Eastern close for a daily one, as for `Bar`.
+    /// The bar's start for an intraday bar, and the 16:00 Eastern close for a daily one, as for `VendorBar`.
     pub fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }

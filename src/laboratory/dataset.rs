@@ -2,15 +2,15 @@
 
 use std::collections::BTreeMap;
 
-use crate::archive::bars::Provenance;
-use crate::archive::{Archive, ArchiveError, bars, parquet, trade_bars};
+use crate::archive::vendor_bars::Provenance;
+use crate::archive::{Archive, ArchiveError, parquet, trade_bars, vendor_bars};
 use crate::common::heal::massive_daily_bars;
 use crate::common::journal::RunId;
 use crate::common::laboratory::dataset::{
     Contamination, DatasetLeg, Fingerprint, FingerprintRefusal, PartitionRead,
 };
 use crate::common::laboratory::series::{Series, SeriesRefusal};
-use crate::common::market::record::{Bar, BarInterval, Partition};
+use crate::common::market::record::{BarInterval, Partition, VendorBar};
 use crate::common::market::trade_bars::TradeBar;
 use crate::common::storage::{Key, Origin, Provider, TradesKey};
 use crate::common::time::calendar::TradingCalendar;
@@ -19,7 +19,7 @@ use crate::laboratory::Study;
 
 /// Bars of one kind by session and the lineage of the partitions they came from.
 #[derive(Debug)]
-pub struct Dataset<B = Bar> {
+pub struct Dataset<B = VendorBar> {
     bars: BTreeMap<SessionDate, Partition<B>>,
     lineage: Lineage,
 }
@@ -95,7 +95,14 @@ pub async fn daily_vendor_bars(
         study,
         async |session| {
             let key = massive_daily_bars(session);
-            read(archive, Provider::Massive, key, session, bars::decode).await
+            read(
+                archive,
+                Provider::Massive,
+                key,
+                session,
+                vendor_bars::decode,
+            )
+            .await
         },
     )
     .await
@@ -239,7 +246,7 @@ pub(crate) mod tests {
     use crate::common::journal::{Observation, ReadLine, read};
     use crate::common::laboratory::estimate::{Estimate, summarize};
     use crate::common::laboratory::experiment::{Label, Outputs, Parameters};
-    use crate::common::market::record::{BarInterval, BarPrices};
+    use crate::common::market::record::{BarInterval, VendorBarPrices};
     use crate::common::market::{Price, Shares, Symbol};
     use crate::common::storage::{EntityTag, Host, JournalKey};
     use crate::common::time::calendar::TradingSession;
@@ -273,11 +280,12 @@ pub(crate) mod tests {
             .into_keys()
             .map(|day| {
                 let minutes = [60, 59].map(|before| {
-                    Bar::new(
+                    VendorBar::new(
                         Symbol::new("AAPL").unwrap(),
                         BarInterval::OneMinute,
                         day.regular_close() - chrono::TimeDelta::minutes(before),
-                        BarPrices::new(price(10.0), price(10.0), price(10.0), price(10.0)).unwrap(),
+                        VendorBarPrices::new(price(10.0), price(10.0), price(10.0), price(10.0))
+                            .unwrap(),
                         Shares::from_float(100.0).unwrap(),
                         None,
                         None,
@@ -295,11 +303,11 @@ pub(crate) mod tests {
         let calendar = calendar();
         let price = |dollars: f64| Price::from_dollars(dollars).unwrap();
         let bars = |day: i64, count: usize| {
-            let bar = Bar::new(
+            let bar = VendorBar::new(
                 Symbol::new("AAPL").unwrap(),
                 BarInterval::OneDay,
                 session(day).regular_close(),
-                BarPrices::new(price(10.0), price(12.0), price(9.5), price(11.0)).unwrap(),
+                VendorBarPrices::new(price(10.0), price(12.0), price(9.5), price(11.0)).unwrap(),
                 Shares::from_float(100.0).unwrap(),
                 None,
                 None,

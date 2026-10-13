@@ -1,5 +1,5 @@
-//! Bars as Parquet: our integers stored unchanged as exact decimals, so a reader sees dollars and shares, and the
-//! fetch's provenance in the file's own key-value metadata, so the record cannot drift from its rows.
+//! Vendor bars as Parquet: our integers stored unchanged as exact decimals, so a reader sees dollars and shares,
+//! and the fetch's provenance in the file's own key-value metadata, so the record cannot drift from its rows.
 
 use std::sync::Arc;
 
@@ -16,9 +16,9 @@ use chrono::{DateTime, Utc};
 use super::parquet::{self, ReadRefusal, RowCause};
 
 use crate::common::journal::{Commit, RunId};
-use crate::common::market::record::{Bar, BarPrices, Partition};
+use crate::common::market::record::{Partition, VendorBar, VendorBarPrices};
 use crate::common::market::{DollarVolume, Shares, Symbol, TradeCount};
-use crate::common::storage::{BarsKey, Provider};
+use crate::common::storage::{Provider, VendorBarsKey};
 
 /// The names a file's provenance is written under, in Parquet's key-value metadata and S3's object metadata alike.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
@@ -157,8 +157,8 @@ fn schema() -> Schema {
 
 /// The file for `key`, rows ordered by symbol and then timestamp so the same bars always make the same bytes.
 pub fn encode(
-    key: &BarsKey,
-    bars: &Partition<Bar>,
+    key: &VendorBarsKey,
+    bars: &Partition<VendorBar>,
     provenance: &Provenance,
 ) -> Result<Vec<u8>, parquet::EncodeRefusal> {
     let (provider, interval, session) = (key.provider(), key.interval(), key.session());
@@ -226,9 +226,9 @@ pub fn encode(
 /// The bars and provenance a file written by `encode` under `key` holds, each row rebuilt through the domain's own
 /// constructors so a file edited out of band cannot hand back an invalid bar.
 pub fn decode(
-    key: &BarsKey,
+    key: &VendorBarsKey,
     bytes: Vec<u8>,
-) -> Result<(Partition<Bar>, Provenance), parquet::DecodeRefusal> {
+) -> Result<(Partition<VendorBar>, Provenance), parquet::DecodeRefusal> {
     let (provider, interval, session) = (key.provider(), key.interval(), key.session());
     let (batches, entries) = parquet::read(bytes, &schema(), LAYOUT_VERSION)?;
     let provenance = provenance_from(&entries).map_err(|name| ReadRefusal::Metadata { name })?;
@@ -251,19 +251,19 @@ pub fn decode(
         let volumes = parquet::column::<Decimal128Array>(&batch, 6)?;
         let trade_counts = parquet::column::<UInt64Array>(&batch, 7)?;
         let dollar_volumes = parquet::column::<Decimal128Array>(&batch, 8)?;
-        let read = |row: usize| -> Result<Bar, RowCause> {
-            let prices = BarPrices::new(
+        let read = |row: usize| -> Result<VendorBar, RowCause> {
+            let prices = VendorBarPrices::new(
                 open.price(row)?,
                 high.price(row)?,
                 low.price(row)?,
                 close.price(row)?,
             )
-            .map_err(RowCause::BarPrices)?;
+            .map_err(RowCause::VendorBarPrices)?;
             let dollar_volume = match dollar_volumes.is_valid(row) {
                 true => Some(DollarVolume::from_units(dollar_volumes.integer(row)?)),
                 false => None,
             };
-            Bar::new(
+            VendorBar::new(
                 Symbol::new(symbols.value(row)).map_err(RowCause::Symbol)?,
                 interval,
                 timestamps.instant_in(row, session)?,
@@ -274,7 +274,7 @@ pub fn decode(
                     .then(|| TradeCount::new(trade_counts.value(row))),
                 dollar_volume,
             )
-            .map_err(RowCause::Bar)
+            .map_err(RowCause::VendorBar)
         };
         for row in 0..batch.num_rows() {
             let index = bars.len();
@@ -329,8 +329,8 @@ mod tests {
         SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 9, 25).unwrap())
     }
 
-    fn minute_key() -> BarsKey {
-        BarsKey::new(
+    fn minute_key() -> VendorBarsKey {
+        VendorBarsKey::new(
             Provider::Alpaca,
             Origin::Vendor,
             BarInterval::OneMinute,
@@ -386,13 +386,18 @@ mod tests {
         );
     }
 
-    fn bar(symbol: &str, timestamp: &str, close: f64, dollar_volume: Option<DollarVolume>) -> Bar {
+    fn bar(
+        symbol: &str,
+        timestamp: &str,
+        close: f64,
+        dollar_volume: Option<DollarVolume>,
+    ) -> VendorBar {
         let price = |dollars: f64| Price::from_dollars(dollars).unwrap();
-        Bar::new(
+        VendorBar::new(
             Symbol::new(symbol).unwrap(),
             BarInterval::OneMinute,
             timestamp.parse().unwrap(),
-            BarPrices::new(price(10.0), price(12.0), price(9.5), price(close)).unwrap(),
+            VendorBarPrices::new(price(10.0), price(12.0), price(9.5), price(close)).unwrap(),
             Shares::from_float(213_849.305_802).unwrap(),
             Some(TradeCount::new(3)),
             dollar_volume,
@@ -400,12 +405,12 @@ mod tests {
         .unwrap()
     }
 
-    fn partition(bars: &[Bar]) -> Partition<Bar> {
+    fn partition(bars: &[VendorBar]) -> Partition<VendorBar> {
         Partition::try_from(bars.to_vec()).unwrap()
     }
 
     /// One bar inside the minute key, for a test about the file rather than its rows.
-    fn one_bar() -> Partition<Bar> {
+    fn one_bar() -> Partition<VendorBar> {
         partition(&[bar("AAPL", "2026-09-25T14:30:00Z", 10.0, None)])
     }
 
@@ -648,7 +653,7 @@ mod tests {
             &provenance(Subscription::AlgoTraderPlus),
         )
         .unwrap();
-        let next_day = BarsKey::new(
+        let next_day = VendorBarsKey::new(
             Provider::Alpaca,
             Origin::Vendor,
             BarInterval::OneMinute,
@@ -664,7 +669,7 @@ mod tests {
                 },
             })
         );
-        let massive = BarsKey::new(
+        let massive = VendorBarsKey::new(
             Provider::Massive,
             Origin::Vendor,
             BarInterval::OneMinute,
@@ -679,7 +684,7 @@ mod tests {
         );
     }
 
-    fn any_bar() -> impl Strategy<Value = Bar> {
+    fn any_bar() -> impl Strategy<Value = VendorBar> {
         (
             prop::sample::select(vec!["AAPL", "BRK.B", "BC.PRC"]),
             0_i64..1440,
@@ -693,11 +698,11 @@ mod tests {
                     ticks.sort();
                     let [low, first, second, high] =
                         ticks.map(|tick| Price::from_ticks(tick).unwrap());
-                    Bar::new(
+                    VendorBar::new(
                         Symbol::new(symbol).unwrap(),
                         BarInterval::OneMinute,
                         session().bounds().0 + TimeDelta::minutes(minute),
-                        BarPrices::new(first, high, low, second).unwrap(),
+                        VendorBarPrices::new(first, high, low, second).unwrap(),
                         Shares::from_units(volume),
                         trades.map(TradeCount::new),
                         dollar_units.map(DollarVolume::from_units),
@@ -723,7 +728,7 @@ mod tests {
             bars in prop::collection::vec(any_bar(), 1..40),
             written in any_provenance(Subscription::AlgoTraderPlus),
         ) {
-            let mut unique: Vec<Bar> = Vec::new();
+            let mut unique: Vec<VendorBar> = Vec::new();
             for bar in bars {
                 if !unique.iter().any(|kept| (kept.symbol(), kept.timestamp()) == (bar.symbol(), bar.timestamp())) {
                     unique.push(bar);

@@ -408,7 +408,9 @@ pub(crate) mod tests {
             ]
         );
         let names: Vec<&str> = metrics(
-            &Replay::<crate::common::market::record::Bar>::open(Book::funded(Cash::from_units(1))),
+            &Replay::<crate::common::market::record::VendorBar>::open(Book::funded(
+                Cash::from_units(1),
+            )),
             &controls,
             opening,
         )

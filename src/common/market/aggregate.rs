@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 
-use super::record::{Bar, BarInterval, BarPrices, Partition, Trade};
+use super::record::{BarInterval, Partition, Trade, VendorBar, VendorBarPrices};
 use super::{DollarVolume, Price, Shares, StampedPrice, Symbol, TradeCount};
 use crate::common::monoid::{Monoid, Semigroup};
 
@@ -215,7 +215,7 @@ impl Semigroup for BarSums {
     }
 }
 
-impl RollsUp for Bar {
+impl RollsUp for VendorBar {
     type Sums = BarSums;
 
     /// The open and close are stamped at the bar's own timestamp, so the earliest fragment opens a coarser bar.
@@ -239,9 +239,10 @@ impl RollsUp for Bar {
     }
 
     fn from_parts(key: BarKey, sums: BarSums) -> Self {
-        let prices = BarPrices::new(sums.first.price(), sums.high, sums.low, sums.last.price())
-            .expect("every combined open and close lies within the combined range");
-        Bar::new(
+        let prices =
+            VendorBarPrices::new(sums.first.price(), sums.high, sums.low, sums.last.price())
+                .expect("every combined open and close lies within the combined range");
+        VendorBar::new(
             key.symbol,
             key.interval,
             key.timestamp,
@@ -318,12 +319,19 @@ mod tests {
         .unwrap()
     }
 
-    fn minute_bar(timestamp: &str, open: f64, high: f64, low: f64, close: f64, volume: u64) -> Bar {
-        Bar::new(
+    fn minute_bar(
+        timestamp: &str,
+        open: f64,
+        high: f64,
+        low: f64,
+        close: f64,
+        volume: u64,
+    ) -> VendorBar {
+        VendorBar::new(
             symbol(),
             BarInterval::OneMinute,
             instant(timestamp),
-            BarPrices::new(price(open), price(high), price(low), price(close)).unwrap(),
+            VendorBarPrices::new(price(open), price(high), price(low), price(close)).unwrap(),
             Shares::whole(volume).unwrap(),
             Some(TradeCount::new(volume / 10)),
             Some(DollarVolume::of(
@@ -348,17 +356,17 @@ mod tests {
         assert_eq!(TradeTotals::empty().volume_weighted_average_price(), None);
     }
 
-    fn roll(bars: &[Bar], interval: BarInterval) -> Vec<Bar> {
+    fn roll(bars: &[VendorBar], interval: BarInterval) -> Vec<VendorBar> {
         roll_up(bars, interval).unwrap()
     }
 
     #[test]
     fn test_minute_bars_roll_into_their_own_symbol_and_window() {
-        let other = Bar::new(
+        let other = VendorBar::new(
             Symbol::new("MSFT").unwrap(),
             BarInterval::OneMinute,
             instant("2026-07-31T14:31:00Z"),
-            BarPrices::new(price(400.0), price(401.0), price(399.0), price(400.5)).unwrap(),
+            VendorBarPrices::new(price(400.0), price(401.0), price(399.0), price(400.5)).unwrap(),
             Shares::whole(10).unwrap(),
             None,
             None,
@@ -414,11 +422,11 @@ mod tests {
     #[test]
     fn test_one_unreported_fragment_leaves_the_bucket_unreported() {
         let reported = minute_bar("2026-07-31T14:30:00Z", 10.0, 10.5, 9.8, 10.2, 100);
-        let unreported = Bar::new(
+        let unreported = VendorBar::new(
             symbol(),
             BarInterval::OneMinute,
             instant("2026-07-31T14:31:00Z"),
-            BarPrices::new(price(10.2), price(10.4), price(9.5), price(10.3)).unwrap(),
+            VendorBarPrices::new(price(10.2), price(10.4), price(9.5), price(10.3)).unwrap(),
             Shares::whole(70).unwrap(),
             None,
             None,
@@ -439,7 +447,7 @@ mod tests {
         ];
         let stamps: Vec<DateTime<Utc>> = roll(&bars, BarInterval::OneDay)
             .iter()
-            .map(Bar::timestamp)
+            .map(VendorBar::timestamp)
             .collect();
         // 16:00 Eastern is 21:00 UTC in winter and 20:00 UTC in summer.
         assert_eq!(
@@ -471,7 +479,7 @@ mod tests {
                 to: BarInterval::OneMinute
             })
         );
-        assert_eq!(Rollup::<Bar>::empty().into_bars(), Vec::new());
+        assert_eq!(Rollup::<VendorBar>::empty().into_bars(), Vec::new());
     }
 
     /// Prices under $10,000 and sizes under a billion shares, so a few hundred sums stay far from overflow.
@@ -491,7 +499,7 @@ mod tests {
 
     /// One-minute bars for two symbols over a dozen minutes on two sessions, so buckets are shared and
     /// timestamps tie.
-    fn any_minute_bar() -> impl Strategy<Value = Bar> {
+    fn any_minute_bar() -> impl Strategy<Value = VendorBar> {
         (
             prop::sample::select(vec!["AAPL", "MSFT"]),
             0_i64..2,
@@ -506,13 +514,13 @@ mod tests {
                     ticks.sort();
                     let [low, first, second, high] =
                         ticks.map(|tick| Price::from_ticks(tick).unwrap());
-                    Bar::new(
+                    VendorBar::new(
                         Symbol::new(symbol).unwrap(),
                         BarInterval::OneMinute,
                         instant("2026-07-30T14:30:00Z")
                             + TimeDelta::days(day)
                             + TimeDelta::minutes(minute),
-                        BarPrices::new(first, high, low, second).unwrap(),
+                        VendorBarPrices::new(first, high, low, second).unwrap(),
                         Shares::whole(volume).unwrap(),
                         trades.map(TradeCount::new),
                         dollar_units.map(DollarVolume::from_units),
@@ -522,7 +530,7 @@ mod tests {
             )
     }
 
-    fn any_bar() -> impl Strategy<Value = Rollup<Bar>> {
+    fn any_bar() -> impl Strategy<Value = Rollup<VendorBar>> {
         (
             any_minute_bar(),
             prop::sample::select(vec![
@@ -534,7 +542,7 @@ mod tests {
             .prop_map(|(bar, interval)| Rollup::of(&bar, interval).unwrap())
     }
 
-    fn any_rollup() -> impl Strategy<Value = Rollup<Bar>> {
+    fn any_rollup() -> impl Strategy<Value = Rollup<VendorBar>> {
         prop_oneof![1 => Just(Rollup::empty()), 9 => any_bar()]
     }
 
@@ -570,7 +578,7 @@ mod tests {
         #[test]
         fn property_a_bar_is_rebuilt_from_its_parts(bar in any_minute_bar()) {
             let (key, sums) = bar.parts();
-            prop_assert_eq!(Bar::from_parts(key, sums), bar);
+            prop_assert_eq!(VendorBar::from_parts(key, sums), bar);
         }
 
         #[test]

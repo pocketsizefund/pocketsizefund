@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub use crate::common::market::refusal::{RowRefusal, RowRefusalKind};
 
-use crate::common::market::record::Bar;
+use crate::common::market::record::VendorBar;
 use crate::common::monoid::Tally;
 
 /// Why an environment variable a client needs was not used.
@@ -99,7 +99,7 @@ pub fn refused_by_cause(rows: &[RefusedRow]) -> Tally<RowRefusalKind> {
 /// a test ticker or a refusal.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionBars {
-    bars: Vec<Bar>,
+    bars: Vec<VendorBar>,
     test_tickers: Vec<String>,
     refused: Vec<RefusedRow>,
 }
@@ -115,11 +115,11 @@ impl SessionBars {
     }
 
     /// In symbol, then timestamp, order.
-    pub fn bars(&self) -> &[Bar] {
+    pub fn bars(&self) -> &[VendorBar] {
         &self.bars
     }
 
-    pub fn into_bars(self) -> Vec<Bar> {
+    pub fn into_bars(self) -> Vec<VendorBar> {
         self.bars
     }
 
@@ -134,7 +134,7 @@ impl SessionBars {
 
 /// Collects a report's bars by the record each claims to be, so a key claimed twice keeps neither row.
 struct Accepted<Key> {
-    rows: BTreeMap<Key, (String, Bar)>,
+    rows: BTreeMap<Key, (String, VendorBar)>,
     duplicated: BTreeSet<Key>,
     refused: Vec<RefusedRow>,
 }
@@ -148,7 +148,7 @@ impl<Key: Ord + Clone> Accepted<Key> {
         }
     }
 
-    fn offer(&mut self, key: Key, ticker: String, bar: Bar) {
+    fn offer(&mut self, key: Key, ticker: String, bar: VendorBar) {
         if self.duplicated.contains(&key) {
             self.refuse(ticker, RowRefusal::Duplicate);
         } else if let Some((first, _)) = self.rows.remove(&key) {
@@ -165,7 +165,7 @@ impl<Key: Ord + Clone> Accepted<Key> {
     }
 
     /// The bars in key order, and every refusal in the order it was made.
-    fn finish(self) -> (Vec<Bar>, Vec<RefusedRow>) {
+    fn finish(self) -> (Vec<VendorBar>, Vec<RefusedRow>) {
         let bars = self.rows.into_values().map(|(_, bar)| bar).collect();
         (bars, self.refused)
     }

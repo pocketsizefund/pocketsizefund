@@ -9,7 +9,7 @@ use serde::Deserialize;
 use super::retry::{FetchError, send, with_retries};
 use super::{Accepted, RefusedRow, RowRefusal, Secret, SessionBars, VariableRefusal, variable};
 use crate::common::market::corporate_actions::{ActionId, Split, SplitRatio};
-use crate::common::market::record::{Bar, BarInterval, BarPrices};
+use crate::common::market::record::{BarInterval, VendorBar, VendorBarPrices};
 use crate::common::market::security_details::{
     CentralIndexKey, IndustryCode, MarketIdentifierCode, SecurityDetails, SecurityType,
 };
@@ -434,7 +434,7 @@ fn parse_grouped_daily(body: &[u8], session: SessionDate) -> Result<SessionBars,
     Ok(SessionBars::new(accepted, test_tickers))
 }
 
-fn daily_bar(row: &GroupedRow, session: SessionDate) -> Result<Bar, RowRefusal> {
+fn daily_bar(row: &GroupedRow, session: SessionDate) -> Result<VendorBar, RowRefusal> {
     let symbol = alpaca_symbol(&row.ticker).map_err(RowRefusal::Symbol)?;
     let stamped = DateTime::from_timestamp_millis(row.timestamp)
         .filter(|instant| SessionDate::at(*instant) == session);
@@ -444,7 +444,7 @@ fn daily_bar(row: &GroupedRow, session: SessionDate) -> Result<Bar, RowRefusal> 
         });
     }
     let price = |dollars: f64| Price::from_dollars(dollars).map_err(RowRefusal::Price);
-    let prices = BarPrices::new(
+    let prices = VendorBarPrices::new(
         price(row.open)?,
         price(row.high)?,
         price(row.low)?,
@@ -457,7 +457,7 @@ fn daily_bar(row: &GroupedRow, session: SessionDate) -> Result<Bar, RowRefusal> 
         .map(|average| DollarVolume::from_average(average, volume))
         .transpose()
         .map_err(RowRefusal::DollarVolume)?;
-    Bar::new(
+    VendorBar::new(
         symbol,
         BarInterval::OneDay,
         session.regular_close(),

@@ -377,24 +377,24 @@ mod tests {
 
     #[test]
     fn test_a_bars_file_is_refused_by_its_schema() {
-        use crate::common::market::record::{Bar, BarInterval, BarPrices, Partition};
+        use crate::common::market::record::{BarInterval, Partition, VendorBar, VendorBarPrices};
         use crate::common::market::{Price, Shares, Symbol};
         let price = Price::from_dollars(10.0).unwrap();
-        let bar = Bar::new(
+        let bar = VendorBar::new(
             Symbol::new("AAPL").unwrap(),
             BarInterval::OneDay,
             session().regular_close(),
-            BarPrices::new(price, price, price, price).unwrap(),
+            VendorBarPrices::new(price, price, price, price).unwrap(),
             Shares::whole(1).unwrap(),
             None,
             None,
         )
         .unwrap();
-        let bars = crate::archive::bars::encode(
+        let bars = crate::archive::vendor_bars::encode(
             &crate::common::heal::massive_daily_bars(session()),
             &Partition::try_from(vec![bar]).unwrap(),
-            &crate::archive::bars::Provenance::new(
-                crate::archive::bars::Subscription::StocksStarter,
+            &crate::archive::vendor_bars::Provenance::new(
+                crate::archive::vendor_bars::Subscription::StocksStarter,
                 Utc::now(),
                 RunId::new(Uuid::from_u128(7)),
                 None,

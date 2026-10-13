@@ -14,8 +14,8 @@ use arrow_array::{
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
 use chrono::{DateTime, Utc};
 
-use super::bars::{Provenance, provenance_from};
 use super::parquet::{self, ReadRefusal, RowCause};
+use super::vendor_bars::{Provenance, provenance_from};
 use crate::common::market::aggregate::TradeTotals;
 use crate::common::market::record::Partition;
 use crate::common::market::trade_bars::{HighLow, OpenClose, TradeBar, TradeSums};
@@ -224,7 +224,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::archive::bars::Subscription;
+    use crate::archive::vendor_bars::Subscription;
     use crate::common::journal::RunId;
     use crate::common::market::record::BarInterval;
     use crate::common::market::record::{PartitionRefusal, Trade};

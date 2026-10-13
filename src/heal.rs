@@ -14,13 +14,13 @@ use tokio::sync::mpsc::{self, Sender};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use crate::archive::bars::{Provenance, Subscription};
 use crate::archive::reference::{
     conditions_key, decode_series_boundaries, encode_conditions, encode_security_details,
     encode_series_boundaries, encode_splits, latest_conditions, latest_snapshot,
 };
+use crate::archive::vendor_bars::{Provenance, Subscription};
 use crate::archive::{self, Archive, ArchiveError};
-use crate::archive::{bars, quote_bars, trade_bars};
+use crate::archive::{quote_bars, trade_bars, vendor_bars};
 use crate::common::heal::{
     Coverage, CoverageRefusal, Held, KeepsRefusal, Leg, PartitionFailureKind, SeriesListing,
     SessionOutcome, WindowRefusal, alpaca_five_minute_bars, alpaca_minute_bars, alpaca_quotes,
@@ -35,7 +35,7 @@ use crate::common::market::Symbol;
 use crate::common::market::aggregate::{self, RollsUp, session_bars};
 use crate::common::market::corporate_actions::refresh_boundaries;
 use crate::common::market::quote_bars::{QuoteFold, QuoteFoldRefusal};
-use crate::common::market::record::{Bar, BarInterval, Partition, PartitionRefusal};
+use crate::common::market::record::{BarInterval, Partition, PartitionRefusal, VendorBar};
 use crate::common::market::security_details::SecurityDetails;
 use crate::common::market::trade_bars::{TradeConditions, TradeFold};
 use crate::common::monoid::{Monoid, concatenate};
@@ -505,7 +505,7 @@ async fn write_daily_bars(
         massive_daily_bars(session),
         &partition(daily.into_bars())?,
         &provenance,
-        bars::encode,
+        vendor_bars::encode,
     )
     .await?;
     Ok(PartitionWritten::new(
@@ -554,7 +554,7 @@ async fn write_minute_bars(
         alpaca_minute_bars(session),
         &partition(minute.into_bars())?,
         &provenance,
-        bars::encode,
+        vendor_bars::encode,
     )
     .await?;
     Ok(PartitionWritten::new(
@@ -590,7 +590,7 @@ async fn roll_up_minutes(
         key: minute_key.into(),
     })?;
     let (minutes, provenance) =
-        bars::decode(&minute_key, body).map_err(archive::DecodeRefusal::from)?;
+        vendor_bars::decode(&minute_key, body).map_err(archive::DecodeRefusal::from)?;
     let five_minutes = aggregate::roll_up(minutes.rows(), BarInterval::FiveMinute)
         .expect("minutes roll up to five minutes");
     let five_minutes = Partition::try_from(five_minutes)
@@ -600,7 +600,7 @@ async fn roll_up_minutes(
         alpaca_five_minute_bars(session),
         &five_minutes,
         &provenance,
-        bars::encode,
+        vendor_bars::encode,
     )
     .await?;
     Ok(PartitionWritten::new(
@@ -990,8 +990,8 @@ async fn symbol_list(
         .get(&Key::from(key))
         .await?
         .ok_or(PartitionFailure::NoSymbols { key: key.into() })?;
-    let (bars, _) = bars::decode(&key, body).map_err(archive::DecodeRefusal::from)?;
-    Ok(bars.rows().iter().map(Bar::symbol).cloned().collect())
+    let (bars, _) = vendor_bars::decode(&key, body).map_err(archive::DecodeRefusal::from)?;
+    Ok(bars.rows().iter().map(VendorBar::symbol).cloned().collect())
 }
 
 /// Fetches `symbols` in batches with at most `concurrency` in flight, concatenating the answers in the order the
@@ -1421,7 +1421,7 @@ mod tests {
     /// with no minute file is refused before anything is written.
     #[tokio::test]
     async fn test_minutes_roll_up_to_five_minutes_under_their_own_provenance() {
-        use crate::common::market::record::BarPrices;
+        use crate::common::market::record::VendorBarPrices;
         use crate::common::market::{Price, Shares, TradeCount};
         let [session, _] = sessions();
         let provenance = Provenance::new(
@@ -1432,11 +1432,11 @@ mod tests {
         );
         let bar = |interval, at: &str, [open, high, low, close]: [f64; 4], shares, trades| {
             let price = |dollars| Price::from_dollars(dollars).unwrap();
-            Bar::new(
+            VendorBar::new(
                 Symbol::new("AAPL").unwrap(),
                 interval,
                 at.parse().unwrap(),
-                BarPrices::new(price(open), price(high), price(low), price(close)).unwrap(),
+                VendorBarPrices::new(price(open), price(high), price(low), price(close)).unwrap(),
                 Shares::whole(shares).unwrap(),
                 Some(TradeCount::new(trades)),
                 None,
@@ -1451,7 +1451,7 @@ mod tests {
         .map(|(at, prices, shares, trades)| {
             bar(BarInterval::OneMinute, at, prices, shares, trades)
         });
-        let body = bars::encode(
+        let body = vendor_bars::encode(
             &alpaca_minute_bars(session),
             &Partition::try_from(minutes.to_vec()).unwrap(),
             &provenance,
@@ -1474,7 +1474,7 @@ mod tests {
             "data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/year=2026/month=09/day=29/data.parquet"
         );
         let (five_minutes, read_provenance) =
-            bars::decode(&alpaca_five_minute_bars(session), body).unwrap();
+            vendor_bars::decode(&alpaca_five_minute_bars(session), body).unwrap();
         assert_eq!(read_provenance, provenance);
         assert_eq!(
             five_minutes.rows(),

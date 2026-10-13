@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 
-use super::record::{Bar, BarInterval};
+use super::record::{BarInterval, VendorBar};
 use super::trade_bars::TradeBar;
 use super::{Price, StampedPrice, Symbol};
 use crate::common::monoid::Monoid;
@@ -17,7 +17,7 @@ pub const RETAINED_BARS: usize = 100;
 /// One input to the fold: time arrives as an event like any other, never from a clock the fold reads.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MarketEvent {
-    Bar(Bar),
+    VendorBar(VendorBar),
     /// A bar built from the tape's prints, as the archive derives them and the trader builds them live.
     Trades(TradeBar),
     Clock(DateTime<Utc>),
@@ -47,7 +47,7 @@ impl MarketState {
                 clock: Some(instant),
                 series: BTreeMap::new(),
             },
-            MarketEvent::Bar(bar) => Self::retaining(
+            MarketEvent::VendorBar(bar) => Self::retaining(
                 bar.symbol(),
                 bar.interval(),
                 bar.timestamp(),
@@ -142,7 +142,7 @@ mod tests {
 
     use super::*;
     use crate::common::market::aggregate::TradeTotals;
-    use crate::common::market::record::BarPrices;
+    use crate::common::market::record::VendorBarPrices;
     use crate::common::market::trade_bars::{OpenClose, TradeSums};
     use crate::common::market::{DollarVolume, Shares, TradeCount};
     use crate::common::monoid::{concatenate, laws};
@@ -158,13 +158,13 @@ mod tests {
     }
 
     /// A one-minute bar `minute` minutes after the session's 13:30 UTC open.
-    fn minute_bar(raw: &str, minute: i64, close: i64, volume: u64) -> Bar {
+    fn minute_bar(raw: &str, minute: i64, close: i64, volume: u64) -> VendorBar {
         let price = Price::from_ticks(close).unwrap();
-        Bar::new(
+        VendorBar::new(
             symbol(raw),
             BarInterval::OneMinute,
             "2026-09-25T13:30:00Z".parse::<DateTime<Utc>>().unwrap() + TimeDelta::minutes(minute),
-            BarPrices::new(price, price, price, price).unwrap(),
+            VendorBarPrices::new(price, price, price, price).unwrap(),
             Shares::whole(volume).unwrap(),
             None,
             None,
@@ -194,13 +194,13 @@ mod tests {
         .unwrap()
     }
 
-    fn daily_bar(raw: &str, day: i64, close: i64, volume: u64) -> Bar {
+    fn daily_bar(raw: &str, day: i64, close: i64, volume: u64) -> VendorBar {
         let price = Price::from_ticks(close).unwrap();
-        Bar::new(
+        VendorBar::new(
             symbol(raw),
             BarInterval::OneDay,
             session().plus_calendar_days(day).regular_close(),
-            BarPrices::new(price, price, price, price).unwrap(),
+            VendorBarPrices::new(price, price, price, price).unwrap(),
             Shares::whole(volume).unwrap(),
             None,
             None,
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn test_a_series_keeps_its_latest_bars() {
         let state = fold((0..150).map(|minute| {
-            MarketEvent::Bar(minute_bar(
+            MarketEvent::VendorBar(minute_bar(
                 "AAPL",
                 minute,
                 1_000_000 + minute,
@@ -229,7 +229,7 @@ mod tests {
             Some(Price::from_ticks(1_000_149).unwrap())
         );
         let latest = fold((50..150).map(|minute| {
-            MarketEvent::Bar(minute_bar(
+            MarketEvent::VendorBar(minute_bar(
                 "AAPL",
                 minute,
                 1_000_000 + minute,
@@ -259,8 +259,8 @@ mod tests {
     #[test]
     fn test_each_interval_is_its_own_series() {
         let state = fold([
-            MarketEvent::Bar(minute_bar("AAPL", 0, 2_000_000, 5)),
-            MarketEvent::Bar(daily_bar("AAPL", 0, 3_000_000, 700)),
+            MarketEvent::VendorBar(minute_bar("AAPL", 0, 2_000_000, 5)),
+            MarketEvent::VendorBar(daily_bar("AAPL", 0, 3_000_000, 700)),
         ]);
         let aapl = symbol("AAPL");
         assert_eq!(
@@ -276,8 +276,8 @@ mod tests {
     /// Two bars claiming one timestamp keep the greater, whichever arrives first.
     #[test]
     fn test_a_repeated_bar_keeps_the_greater_in_either_order() {
-        let low = MarketEvent::Bar(minute_bar("AAPL", 0, 1_000_000, 5));
-        let high = MarketEvent::Bar(minute_bar("AAPL", 0, 2_000_000, 1));
+        let low = MarketEvent::VendorBar(minute_bar("AAPL", 0, 1_000_000, 5));
+        let high = MarketEvent::VendorBar(minute_bar("AAPL", 0, 2_000_000, 1));
         let aapl = symbol("AAPL");
         for events in [[low.clone(), high.clone()], [high, low]] {
             let state = fold(events);
@@ -323,11 +323,11 @@ mod tests {
     fn any_event() -> impl Strategy<Value = MarketEvent> {
         prop_oneof![
             6 => (prop::sample::select(vec!["AAPL", "MSFT"]), 0_i64..130, 1_i64..4, 0_u64..1_000)
-                .prop_map(|(raw, minute, close, volume)| MarketEvent::Bar(minute_bar(raw, minute, close, volume))),
+                .prop_map(|(raw, minute, close, volume)| MarketEvent::VendorBar(minute_bar(raw, minute, close, volume))),
             3 => (prop::sample::select(vec!["AAPL", "MSFT"]), 0_i64..130, prop::option::of(1_i64..4), 0_u64..1_000)
                 .prop_map(|(raw, minute, close, volume)| MarketEvent::Trades(minute_trade_bar(raw, minute, close, volume))),
             2 => (prop::sample::select(vec!["AAPL", "MSFT"]), 0_i64..5, 1_i64..4, 0_u64..1_000)
-                .prop_map(|(raw, day, close, volume)| MarketEvent::Bar(daily_bar(raw, day, close, volume))),
+                .prop_map(|(raw, day, close, volume)| MarketEvent::VendorBar(daily_bar(raw, day, close, volume))),
             1 => (0_i64..1_000).prop_map(|minute| MarketEvent::Clock(session().regular_close() + TimeDelta::minutes(minute))),
         ]
     }
@@ -346,7 +346,7 @@ mod tests {
                             .into_iter()
                             .zip(values)
                             .map(|(minute, (close, volume))| {
-                                MarketEvent::Bar(minute_bar("AAPL", minute, close, volume))
+                                MarketEvent::VendorBar(minute_bar("AAPL", minute, close, volume))
                             })
                             .collect()
                     })
@@ -389,7 +389,7 @@ mod tests {
                 .iter()
                 .chain(&tail)
                 .map(|event| match event {
-                    MarketEvent::Bar(bar) => bar.timestamp(),
+                    MarketEvent::VendorBar(bar) => bar.timestamp(),
                     MarketEvent::Trades(bar) => bar.timestamp(),
                     MarketEvent::Clock(instant) => *instant,
                 })

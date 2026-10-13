@@ -13,10 +13,10 @@ use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tracing::Instrument;
 
-use fund::archive::bars::{Provenance, Subscription};
 use fund::archive::raw::CopyError;
+use fund::archive::vendor_bars::{Provenance, Subscription};
 use fund::archive::{self, Archive, ArchiveError};
-use fund::archive::{bars, parquet, quote_bars, reference, trade_bars};
+use fund::archive::{parquet, quote_bars, reference, trade_bars, vendor_bars};
 use fund::common::journal::{ObjectDeleted, ObjectWritten, Observation};
 use fund::common::market::aggregate::{self, session_bars};
 use fund::common::market::quote_bars::QuoteFold;
@@ -24,7 +24,7 @@ use fund::common::market::record::{BarInterval, Partition, PartitionRefusal};
 use fund::common::market::trade_bars::{TradeConditions, TradeFold};
 use fund::common::monoid::{Monoid, Tally};
 use fund::common::storage::{
-    BarsKey, Family, Host, Key, Origin, ParsedKey, Provider, QuotesKey, Service, TradesKey,
+    Family, Host, Key, Origin, ParsedKey, Provider, QuotesKey, Service, TradesKey, VendorBarsKey,
 };
 use fund::common::time::calendar::TradingCalendar;
 use fund::common::time::{SessionDate, SessionRange};
@@ -537,7 +537,7 @@ async fn parse_bars(
         BarFile::Daily | BarFile::Minute => {}
     }
     let bars_key =
-        move |session| BarsKey::new(Provider::Massive, Origin::Vendor, interval, session);
+        move |session| VendorBarsKey::new(Provider::Massive, Origin::Vendor, interval, session);
     let series = Key::from(bars_key(range.first())).series();
     let (raw, parsed) = match (held(&archive, dataset).await, archive.list(&series).await) {
         (Ok(raw), Ok(parsed)) => (
@@ -664,7 +664,7 @@ fn listed(sessions: &[SessionDate]) -> String {
 async fn parse_one(
     archive: &Archive,
     file: BarFile,
-    key: BarsKey,
+    key: VendorBarsKey,
     journal: &Mutex<Journal>,
 ) -> Result<(), ParseFailure> {
     let session = key.session();
@@ -695,7 +695,7 @@ async fn parse_one(
                 refused,
             },
         })?;
-        let body = bars::encode(&key, &bars, &provenance).map_err(ParseFailure::Encode)?;
+        let body = vendor_bars::encode(&key, &bars, &provenance).map_err(ParseFailure::Encode)?;
         Ok((bars.rows().len(), test_tickers, refused, by_cause, body))
     })
     .await
@@ -1188,8 +1188,8 @@ async fn fold_trades_one(
 }
 
 /// Massive's bars at `interval` and `origin` for a session.
-fn massive_bars_key(origin: Origin, interval: BarInterval, session: SessionDate) -> BarsKey {
-    BarsKey::new(Provider::Massive, origin, interval, session)
+fn massive_bars_key(origin: Origin, interval: BarInterval, session: SessionDate) -> VendorBarsKey {
+    VendorBarsKey::new(Provider::Massive, origin, interval, session)
 }
 
 /// Why a session's minutes were not rolled up.
@@ -1317,12 +1317,13 @@ async fn roll_up_one(
     let key = massive_bars_key(Origin::Derived, BarInterval::FiveMinute, session);
     let (count, body) = tokio::task::spawn_blocking(move || {
         let (minutes, provenance) =
-            bars::decode(&minute_key, bytes).map_err(RollUpFailure::Decode)?;
+            vendor_bars::decode(&minute_key, bytes).map_err(RollUpFailure::Decode)?;
         let five_minutes = aggregate::roll_up(minutes.rows(), BarInterval::FiveMinute)
             .expect("minutes roll up to five minutes");
         let five_minutes = Partition::try_from(five_minutes)
             .expect("a minute or more rolls up to a five-minute bar or more");
-        let body = bars::encode(&key, &five_minutes, &provenance).map_err(RollUpFailure::Encode)?;
+        let body =
+            vendor_bars::encode(&key, &five_minutes, &provenance).map_err(RollUpFailure::Encode)?;
         Ok::<_, RollUpFailure>((five_minutes.rows().len(), body))
     })
     .await

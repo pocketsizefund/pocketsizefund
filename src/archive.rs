@@ -1,7 +1,6 @@
 //! The fund's S3 buckets: the shared market-data archive and each profile's records, with objects written under their
 //! `Key`, checked by S3 against a SHA-256 on upload and read back byte for byte before a write counts as done.
 
-pub mod bars;
 pub mod journal;
 pub mod logs;
 pub mod parquet;
@@ -9,6 +8,7 @@ pub mod quote_bars;
 pub mod raw;
 pub mod reference;
 pub mod trade_bars;
+pub mod vendor_bars;
 
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{ChecksumAlgorithm, ChecksumMode};
@@ -370,7 +370,7 @@ mod tests {
     use chrono::{NaiveDate, Utc};
     use uuid::Uuid;
 
-    use super::bars::{Provenance, Subscription};
+    use super::vendor_bars::{Provenance, Subscription};
     use super::*;
     use crate::common::journal::RunId;
     use crate::common::storage::{Key, Provider};
@@ -440,12 +440,13 @@ mod tests {
         );
         let written =
             crate::common::market::record::Partition::try_from(daily.bars().to_vec()).unwrap();
-        let body = bars::encode(&key, &written, &provenance).unwrap();
+        let body = vendor_bars::encode(&key, &written, &provenance).unwrap();
         let configuration = aws_config::load_from_env().await;
         let archive = Archive::market_data(&configuration).unwrap();
         archive.put(&Key::from(key), body.clone()).await.unwrap();
         let (bars, read) =
-            bars::decode(&key, archive.get(&Key::from(key)).await.unwrap().unwrap()).unwrap();
+            vendor_bars::decode(&key, archive.get(&Key::from(key)).await.unwrap().unwrap())
+                .unwrap();
         println!(
             "{} bars, {} bytes, {}",
             bars.rows().len(),
