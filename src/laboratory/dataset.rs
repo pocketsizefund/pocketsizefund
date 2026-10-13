@@ -15,20 +15,21 @@ use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::laboratory::Study;
 
-/// Bars by session and the fingerprint of the partitions they came from.
+/// Bars of one kind by session and the lineage of the partitions they came from.
 #[derive(Debug)]
-pub struct Dataset {
-    bars: BTreeMap<SessionDate, Partition<Bar>>,
+pub struct Dataset<B = Bar> {
+    bars: BTreeMap<SessionDate, Partition<B>>,
+    lineage: Lineage,
+}
+
+/// What a dataset read, whatever its kind: the fingerprint of its partitions and the run whose journal holds the read.
+#[derive(Debug)]
+pub struct Lineage {
     fingerprint: Fingerprint,
-    /// The run whose journal holds this read.
     run: RunId,
 }
 
-impl Dataset {
-    pub fn bars(&self) -> &BTreeMap<SessionDate, Partition<Bar>> {
-        &self.bars
-    }
-
+impl Lineage {
     pub fn fingerprint(&self) -> &Fingerprint {
         &self.fingerprint
     }
@@ -36,9 +37,23 @@ impl Dataset {
     pub fn run(&self) -> RunId {
         self.run
     }
+}
+
+impl<B> Dataset<B> {
+    pub fn bars(&self) -> &BTreeMap<SessionDate, Partition<B>> {
+        &self.bars
+    }
+
+    pub fn lineage(&self) -> &Lineage {
+        &self.lineage
+    }
+
+    pub fn fingerprint(&self) -> &Fingerprint {
+        self.lineage.fingerprint()
+    }
 
     /// One reading per session read, `read` folding that session's bars; a missing session stays out of the series.
-    pub fn series(&self, read: impl Fn(&[Bar]) -> Option<f64>) -> Result<Series, SeriesRefusal> {
+    pub fn series(&self, read: impl Fn(&[B]) -> Option<f64>) -> Result<Series, SeriesRefusal> {
         Series::new(
             self.bars
                 .iter()
@@ -104,8 +119,10 @@ async fn load(
     study.read(&fingerprint).map_err(DatasetError::Journal)?;
     Ok(Dataset {
         bars,
-        fingerprint,
-        run: study.run_id(),
+        lineage: Lineage {
+            fingerprint,
+            run: study.run_id(),
+        },
     })
 }
 
@@ -234,14 +251,16 @@ pub(crate) mod tests {
             .into();
         Dataset {
             bars: [bars(0, 1), bars(1, 2), bars(3, 3)].into(),
-            fingerprint: Fingerprint::new(
-                DatasetLeg::MassiveDailyBars,
-                SessionRange::new(session(0), session(3)).unwrap(),
-                &calendar,
-                read,
-            )
-            .unwrap(),
-            run,
+            lineage: Lineage {
+                fingerprint: Fingerprint::new(
+                    DatasetLeg::MassiveDailyBars,
+                    SessionRange::new(session(0), session(3)).unwrap(),
+                    &calendar,
+                    read,
+                )
+                .unwrap(),
+                run,
+            },
         }
     }
 
@@ -277,7 +296,7 @@ pub(crate) mod tests {
             study
                 .experiment(
                     Parameters::new([("variant", variant)]).unwrap(),
-                    &[&dataset],
+                    &[dataset.lineage()],
                     Outputs::default()
                         .estimate("bars per session", estimate)
                         .unwrap()
@@ -348,7 +367,7 @@ pub(crate) mod tests {
         let mut study = Study::open(Label::new("bar counts").unwrap(), &directory).unwrap();
         let elsewhere = RunId::new(uuid::Uuid::new_v4());
         assert!(matches!(
-            study.experiment(Parameters::default(), &[&dataset(elsewhere)], Outputs::default()),
+            study.experiment(Parameters::default(), &[dataset(elsewhere).lineage()], Outputs::default()),
             Err(crate::laboratory::StudyError::ReadByAnotherRun { run }) if run == elsewhere
         ));
         assert!(!directory.read_dir().unwrap().any(|entry| {

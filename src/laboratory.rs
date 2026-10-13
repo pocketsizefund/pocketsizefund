@@ -22,7 +22,7 @@ use crate::common::laboratory::experiment::{
 use crate::common::storage::{Host, JournalKey, Key};
 use crate::common::time::SessionDate;
 use crate::journal::{Journal, file_name};
-use crate::laboratory::dataset::Dataset;
+use crate::laboratory::dataset::Lineage;
 use crate::records::{RESHIPPED_DAYS, ShipFailure, contents};
 
 /// Attempts at merging into a session's object before giving up to whoever keeps rewriting it.
@@ -86,27 +86,27 @@ impl Study {
             .append(Utc::now(), Observation::DatasetRead(Box::new(read)))
     }
 
-    /// Journals one experiment over `datasets`, whose fingerprints are taken from the datasets themselves so the
-    /// record names exactly what was read; refused for a dataset another run read.
+    /// Journals one experiment over the datasets `lineages` came from, which only the loader builds, so the record
+    /// names exactly what was read; refused for a dataset another run read.
     pub fn experiment(
         &mut self,
         parameters: Parameters,
-        datasets: &[&Dataset],
+        lineages: &[&Lineage],
         outputs: Outputs,
     ) -> Result<(), StudyError> {
-        if let Some(dataset) = datasets
+        if let Some(lineage) = lineages
             .iter()
-            .find(|dataset| dataset.run() != self.run_id())
+            .find(|lineage| lineage.run() != self.run_id())
         {
-            return Err(StudyError::ReadByAnotherRun { run: dataset.run() });
+            return Err(StudyError::ReadByAnotherRun { run: lineage.run() });
         }
         let ran = ExperimentRan::new(
             self.label.clone(),
             self.machine.clone(),
             parameters,
-            datasets
+            lineages
                 .iter()
-                .map(|dataset| dataset.fingerprint().clone())
+                .map(|lineage| lineage.fingerprint().clone())
                 .collect(),
             outputs,
             Elapsed::from_milliseconds(
