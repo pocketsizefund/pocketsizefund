@@ -445,13 +445,15 @@ mod tests {
         ) {
             let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap());
             let open: DateTime<Utc> = "2026-10-02T13:30:00Z".parse().unwrap();
+            // A daily bar is one per symbol, so each symbol keeps its first row and the partition is never empty.
+            let mut daily = std::collections::BTreeSet::new();
             let bars: Vec<TradeBar> = rows
                 .iter()
                 .filter_map(|((symbol, slot), ((count, volume, dollars), open_close, high_low))| {
                     let timestamp = match interval {
                         BarInterval::OneMinute => open + chrono::TimeDelta::minutes(*slot),
                         BarInterval::FiveMinute => open + chrono::TimeDelta::minutes(5 * slot),
-                        BarInterval::OneDay if *slot == 0 => session.regular_close(),
+                        BarInterval::OneDay if daily.insert(symbol) => session.regular_close(),
                         BarInterval::OneDay => return None,
                     };
                     let price = |ticks| Price::from_ticks(ticks).unwrap();
@@ -479,10 +481,7 @@ mod tests {
                 RunId::new(Uuid::from_u128(5)),
                 None,
             );
-            let bars = match Partition::try_from(bars) {
-                Ok(bars) => bars,
-                Err(PartitionRefusal::Empty) => return Ok(()),
-            };
+            let bars = Partition::try_from(bars).unwrap();
             let (read, read_provenance) = decode(&key, encode(&key, &bars, &provenance).unwrap()).unwrap();
             proptest::prop_assert_eq!(read, bars);
             proptest::prop_assert_eq!(read_provenance, provenance);
