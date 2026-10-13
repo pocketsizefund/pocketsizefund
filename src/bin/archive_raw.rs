@@ -20,7 +20,7 @@ use fund::archive::{bars, parquet, quote_bars, reference, trade_bars};
 use fund::common::journal::{ObjectDeleted, ObjectWritten, Observation};
 use fund::common::market::aggregate::{self, session_bars};
 use fund::common::market::quote_bars::QuoteFold;
-use fund::common::market::record::{BarInterval, BarPartition, BarPartitionRefusal};
+use fund::common::market::record::{BarInterval, Partition, PartitionRefusal};
 use fund::common::market::trade_bars::{TradeConditions, TradeFold};
 use fund::common::monoid::{Monoid, Tally};
 use fund::common::storage::{
@@ -689,14 +689,14 @@ async fn parse_one(
             .map_err(ParseFailure::Parse)?;
         let (test_tickers, refused) = (parsed.test_tickers().len(), parsed.refused().len());
         let by_cause = refused_by_cause(parsed.refused());
-        let bars = BarPartition::try_from(parsed.into_bars()).map_err(|refusal| match refusal {
-            BarPartitionRefusal::Empty => ParseFailure::Empty {
+        let bars = Partition::try_from(parsed.into_bars()).map_err(|refusal| match refusal {
+            PartitionRefusal::Empty => ParseFailure::Empty {
                 test_tickers,
                 refused,
             },
         })?;
         let body = bars::encode(&key, &bars, &provenance).map_err(ParseFailure::Encode)?;
-        Ok((bars.bars().len(), test_tickers, refused, by_cause, body))
+        Ok((bars.rows().len(), test_tickers, refused, by_cause, body))
     })
     .await
     .map_err(|error| ParseFailure::Interrupted(error.to_string()))??;
@@ -950,12 +950,12 @@ async fn fold_quotes_one(
     .await
     .map_err(|error| FoldFailure::Interrupted(error.to_string()))??;
     let (minutes, counts, rows) = folded;
-    if minutes.is_empty() {
-        return Err(FoldFailure::Empty);
-    }
-    let minute_bars = minutes.len();
+    let minutes = Partition::try_from(minutes).map_err(|refusal| match refusal {
+        PartitionRefusal::Empty => FoldFailure::Empty,
+    })?;
+    let minute_bars = minutes.rows().len();
     let files = session_bars(minutes);
-    let symbols = files[2].1.len();
+    let symbols = files[2].1.rows().len();
     for (interval, bars) in files {
         let key = massive_derived(interval, session);
         let body = quote_bars::encode(&key, &bars, provenance)
@@ -1153,12 +1153,12 @@ async fn fold_trades_one(
     .await
     .map_err(|error| FoldFailure::Interrupted(error.to_string()))??;
     let (minutes, counts, test_tickers, refused) = folded;
-    if minutes.is_empty() {
-        return Err(FoldFailure::Empty);
-    }
-    let minute_bars = minutes.len();
+    let minutes = Partition::try_from(minutes).map_err(|refusal| match refusal {
+        PartitionRefusal::Empty => FoldFailure::Empty,
+    })?;
+    let minute_bars = minutes.rows().len();
     let files = session_bars(minutes);
-    let symbols = files[2].1.len();
+    let symbols = files[2].1.rows().len();
     for (interval, bars) in files {
         let key = massive_derived(interval, session);
         let body = trade_bars::encode(&key, &bars, provenance)
@@ -1200,7 +1200,7 @@ enum RollUpFailure {
     #[error("the minute bars are gone")]
     Missing,
     #[error("minute bars not read: {0:?}")]
-    Decode(bars::DecodeRefusal),
+    Decode(parquet::DecodeRefusal),
     #[error("five-minute bars not encoded: {0:?}")]
     Encode(parquet::EncodeRefusal),
     /// The roll-up's task panicked or was canceled before it finished.
@@ -1318,12 +1318,12 @@ async fn roll_up_one(
     let (count, body) = tokio::task::spawn_blocking(move || {
         let (minutes, provenance) =
             bars::decode(&minute_key, bytes).map_err(RollUpFailure::Decode)?;
-        let five_minutes = aggregate::roll_up(minutes.bars(), BarInterval::FiveMinute)
+        let five_minutes = aggregate::roll_up(minutes.rows(), BarInterval::FiveMinute)
             .expect("minutes roll up to five minutes");
-        let five_minutes = BarPartition::try_from(five_minutes)
+        let five_minutes = Partition::try_from(five_minutes)
             .expect("a minute or more rolls up to a five-minute bar or more");
         let body = bars::encode(&key, &five_minutes, &provenance).map_err(RollUpFailure::Encode)?;
-        Ok::<_, RollUpFailure>((five_minutes.bars().len(), body))
+        Ok::<_, RollUpFailure>((five_minutes.rows().len(), body))
     })
     .await
     .map_err(|error| RollUpFailure::Interrupted(error.to_string()))??;

@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn test_a_bars_file_is_refused_by_its_schema() {
-        use crate::common::market::record::{Bar, BarInterval, BarPartition, BarPrices};
+        use crate::common::market::record::{Bar, BarInterval, BarPrices, Partition};
         use crate::common::market::{Price, Shares, Symbol};
         let price = Price::from_dollars(10.0).unwrap();
         let bar = Bar::new(
@@ -392,7 +392,7 @@ mod tests {
         .unwrap();
         let bars = crate::archive::bars::encode(
             &crate::common::heal::massive_daily_bars(session()),
-            &BarPartition::try_from(vec![bar]).unwrap(),
+            &Partition::try_from(vec![bar]).unwrap(),
             &crate::archive::bars::Provenance::new(
                 crate::archive::bars::Subscription::StocksStarter,
                 Utc::now(),

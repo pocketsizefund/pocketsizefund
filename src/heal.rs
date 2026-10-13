@@ -35,12 +35,12 @@ use crate::common::market::Symbol;
 use crate::common::market::aggregate::{self, RollsUp, session_bars};
 use crate::common::market::corporate_actions::refresh_boundaries;
 use crate::common::market::quote_bars::{QuoteFold, QuoteFoldRefusal};
-use crate::common::market::record::{Bar, BarInterval, BarPartition, BarPartitionRefusal};
+use crate::common::market::record::{Bar, BarInterval, Partition, PartitionRefusal};
 use crate::common::market::security_details::SecurityDetails;
 use crate::common::market::trade_bars::{TradeConditions, TradeFold};
 use crate::common::monoid::{Monoid, concatenate};
 use crate::common::parameter::{Parameter, ParameterRefusal, at_most, record};
-use crate::common::storage::{BarsKey, Key, Provider, ReferenceTable, SeriesPrefix};
+use crate::common::storage::{Key, Provider, ReferenceTable, SeriesPrefix};
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::ingest::alpaca::corporate_actions::SeriesBoundaries;
@@ -451,20 +451,24 @@ async fn publish<K: Into<Key>, Row, Refusal: Into<archive::EncodeRefusal>>(
     Ok(u64::try_from(rows.len()).expect("a partition holds fewer than u64::MAX rows"))
 }
 
-/// Encodes `bars` under `key` and writes them with `put`, returning how many were written; an empty answer is refused
-/// as `publish` refuses one.
-async fn publish_bars(
+/// `rows` as a partition, an empty answer refused as `publish` refuses one.
+fn partition<Row>(rows: Vec<Row>) -> Result<Partition<Row>, PartitionFailure> {
+    Partition::try_from(rows).map_err(|refusal| match refusal {
+        PartitionRefusal::Empty => PartitionFailure::NoRows,
+    })
+}
+
+/// Encodes `rows` under `key` and writes them with `put`, returning how many were written.
+async fn publish_partition<K: Into<Key>, Row, Refusal: Into<archive::EncodeRefusal>>(
     put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), ArchiveError>,
-    key: BarsKey,
-    bars: Vec<Bar>,
+    key: K,
+    rows: &Partition<Row>,
     provenance: &Provenance,
+    encode: impl FnOnce(&K, &Partition<Row>, &Provenance) -> Result<Vec<u8>, Refusal>,
 ) -> Result<u64, PartitionFailure> {
-    let bars = BarPartition::try_from(bars).map_err(|refusal| match refusal {
-        BarPartitionRefusal::Empty => PartitionFailure::NoRows,
-    })?;
-    let body = bars::encode(&key, &bars, provenance).map_err(archive::EncodeRefusal::from)?;
+    let body = encode(&key, rows, provenance).map_err(Into::into)?;
     put(&key.into(), body).await?;
-    Ok(u64::try_from(bars.bars().len()).expect("a partition holds fewer than u64::MAX rows"))
+    Ok(u64::try_from(rows.rows().len()).expect("a partition holds fewer than u64::MAX rows"))
 }
 
 /// Publishes a fold's minute bars and their rollups under `key` at each interval, the daily last so a session reads as
@@ -474,12 +478,12 @@ async fn publish_ticks<K: Into<Key>, B: RollsUp, Refusal: Into<archive::EncodeRe
     minutes: Vec<B>,
     key: impl Fn(BarInterval) -> K,
     provenance: &Provenance,
-    encode: impl Fn(&K, &[B], &Provenance) -> Result<Vec<u8>, Refusal>,
+    encode: impl Fn(&K, &Partition<B>, &Provenance) -> Result<Vec<u8>, Refusal>,
 ) -> Result<u64, PartitionFailure> {
-    let [(interval, minute_bars), five_minute, daily] = session_bars(minutes);
-    let written = publish(&put, key(interval), &minute_bars, provenance, &encode).await?;
+    let [(interval, minute_bars), five_minute, daily] = session_bars(partition(minutes)?);
+    let written = publish_partition(&put, key(interval), &minute_bars, provenance, &encode).await?;
     for (interval, bars) in [five_minute, daily] {
-        publish(&put, key(interval), &bars, provenance, &encode).await?;
+        publish_partition(&put, key(interval), &bars, provenance, &encode).await?;
     }
     Ok(written)
 }
@@ -496,11 +500,12 @@ async fn write_daily_bars(
     }
     let provenance = fetched_now(Subscription::StocksStarter, journal);
     let refused = refused_by_cause(daily.refused());
-    let bars = publish_bars(
+    let bars = publish_partition(
         clients.put(),
         massive_daily_bars(session),
-        daily.into_bars(),
+        &partition(daily.into_bars())?,
         &provenance,
+        bars::encode,
     )
     .await?;
     Ok(PartitionWritten::new(
@@ -544,11 +549,12 @@ async fn write_minute_bars(
         .collect();
     let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
     let refused = refused_by_cause(minute.refused());
-    let bars = publish_bars(
+    let bars = publish_partition(
         clients.put(),
         alpaca_minute_bars(session),
-        minute.into_bars(),
+        &partition(minute.into_bars())?,
         &provenance,
+        bars::encode,
     )
     .await?;
     Ok(PartitionWritten::new(
@@ -585,13 +591,16 @@ async fn roll_up_minutes(
     })?;
     let (minutes, provenance) =
         bars::decode(&minute_key, body).map_err(archive::DecodeRefusal::from)?;
-    let five_minutes = aggregate::roll_up(minutes.bars(), BarInterval::FiveMinute)
+    let five_minutes = aggregate::roll_up(minutes.rows(), BarInterval::FiveMinute)
         .expect("minutes roll up to five minutes");
-    let bars = publish_bars(
+    let five_minutes = Partition::try_from(five_minutes)
+        .expect("a minute or more rolls up to a five-minute bar or more");
+    let bars = publish_partition(
         put,
         alpaca_five_minute_bars(session),
-        five_minutes,
+        &five_minutes,
         &provenance,
+        bars::encode,
     )
     .await?;
     Ok(PartitionWritten::new(
@@ -982,7 +991,7 @@ async fn symbol_list(
         .await?
         .ok_or(PartitionFailure::NoSymbols { key: key.into() })?;
     let (bars, _) = bars::decode(&key, body).map_err(archive::DecodeRefusal::from)?;
-    Ok(bars.bars().iter().map(Bar::symbol).cloned().collect())
+    Ok(bars.rows().iter().map(Bar::symbol).cloned().collect())
 }
 
 /// Fetches `symbols` in batches with at most `concurrency` in flight, concatenating the answers in the order the
@@ -1444,7 +1453,7 @@ mod tests {
         });
         let body = bars::encode(
             &alpaca_minute_bars(session),
-            &BarPartition::try_from(minutes.to_vec()).unwrap(),
+            &Partition::try_from(minutes.to_vec()).unwrap(),
             &provenance,
         )
         .unwrap();
@@ -1468,7 +1477,7 @@ mod tests {
             bars::decode(&alpaca_five_minute_bars(session), body).unwrap();
         assert_eq!(read_provenance, provenance);
         assert_eq!(
-            five_minutes.bars(),
+            five_minutes.rows(),
             [
                 bar(
                     BarInterval::FiveMinute,
@@ -1495,7 +1504,7 @@ mod tests {
         assert!(written.lock().unwrap().is_empty());
     }
 
-    /// An empty bars answer is refused before anything is written, so the session is not marked held.
+    /// An empty fold is refused before anything is written, so the session is not marked held.
     #[tokio::test]
     async fn test_no_bars_are_refused_unwritten() {
         let [session, _] = sessions();
@@ -1510,8 +1519,14 @@ mod tests {
             written.lock().unwrap().push(key.path());
             Ok(())
         };
-        let refused =
-            publish_bars(&put, massive_daily_bars(session), Vec::new(), &provenance).await;
+        let refused = publish_ticks(
+            &put,
+            Vec::<crate::common::market::trade_bars::TradeBar>::new(),
+            |interval| alpaca_trades(session).at_interval(interval),
+            &provenance,
+            trade_bars::encode,
+        )
+        .await;
         assert!(matches!(refused, Err(PartitionFailure::NoRows)));
         assert_eq!(*written.lock().unwrap(), Vec::<String>::new());
     }

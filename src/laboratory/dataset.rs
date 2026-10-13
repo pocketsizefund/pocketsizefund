@@ -2,14 +2,14 @@
 
 use std::collections::BTreeMap;
 
-use crate::archive::{Archive, ArchiveError, bars};
+use crate::archive::{Archive, ArchiveError, bars, parquet};
 use crate::common::heal::massive_daily_bars;
 use crate::common::journal::RunId;
 use crate::common::laboratory::dataset::{
     Contamination, DatasetLeg, Fingerprint, FingerprintRefusal,
 };
 use crate::common::laboratory::series::{Series, SeriesRefusal};
-use crate::common::market::record::{Bar, BarPartition};
+use crate::common::market::record::{Bar, Partition};
 use crate::common::storage::{EntityTag, Key};
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
@@ -18,14 +18,14 @@ use crate::laboratory::Study;
 /// Bars by session and the fingerprint of the partitions they came from.
 #[derive(Debug)]
 pub struct Dataset {
-    bars: BTreeMap<SessionDate, BarPartition>,
+    bars: BTreeMap<SessionDate, Partition<Bar>>,
     fingerprint: Fingerprint,
     /// The run whose journal holds this read.
     run: RunId,
 }
 
 impl Dataset {
-    pub fn bars(&self) -> &BTreeMap<SessionDate, BarPartition> {
+    pub fn bars(&self) -> &BTreeMap<SessionDate, Partition<Bar>> {
         &self.bars
     }
 
@@ -42,7 +42,7 @@ impl Dataset {
         Series::new(
             self.bars
                 .iter()
-                .map(|(session, bars)| (*session, read(bars.bars()))),
+                .map(|(session, bars)| (*session, read(bars.rows()))),
         )
     }
 }
@@ -59,7 +59,7 @@ pub enum DatasetError {
     #[error("the partition for {session} did not decode: {refusal:?}")]
     Decode {
         session: SessionDate,
-        refusal: bars::DecodeRefusal,
+        refusal: parquet::DecodeRefusal,
     },
 }
 
@@ -114,7 +114,7 @@ async fn partition(
     archive: &Archive,
     leg: DatasetLeg,
     session: SessionDate,
-) -> Result<Option<(BarPartition, EntityTag)>, DatasetError> {
+) -> Result<Option<(Partition<Bar>, EntityTag)>, DatasetError> {
     match leg {
         DatasetLeg::MassiveDailyBars => {
             let key = massive_daily_bars(session);
@@ -206,7 +206,7 @@ pub(crate) mod tests {
                     )
                     .unwrap()
                 });
-                (day, BarPartition::try_from(minutes.to_vec()).unwrap())
+                (day, Partition::try_from(minutes.to_vec()).unwrap())
             })
             .collect();
         dataset
@@ -227,10 +227,7 @@ pub(crate) mod tests {
                 None,
             )
             .unwrap();
-            (
-                session(day),
-                BarPartition::try_from(vec![bar; count]).unwrap(),
-            )
+            (session(day), Partition::try_from(vec![bar; count]).unwrap())
         };
         let read = [0, 1, 3]
             .map(|day| (session(day), EntityTag::new(&format!("\"tag-{day}\""))))
@@ -396,9 +393,9 @@ pub(crate) mod tests {
         );
         for (session, bars) in dataset.bars() {
             assert!(
-                bars.bars().len() > 1000,
+                bars.rows().len() > 1000,
                 "{session}: {} bars",
-                bars.bars().len()
+                bars.rows().len()
             );
         }
         let counts = dataset.series(|bars| Some(bars.len() as f64)).unwrap();
@@ -424,7 +421,7 @@ pub(crate) mod tests {
             dataset
                 .bars()
                 .values()
-                .map(|bars| bars.bars().len())
+                .map(|bars| bars.rows().len())
                 .sum::<usize>(),
             fingerprint.partitions()
         );

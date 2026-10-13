@@ -19,7 +19,7 @@ use crate::common::market::corporate_actions::{
     ActionIdRefusal, BoundaryChangeRefusal, SeriesBoundaryRefusal, SplitRatioRefusal,
 };
 use crate::common::market::quote_bars::{QuoteBarRefusal, QuoteSumsRefusal};
-use crate::common::market::record::{BarInterval, BarPricesRefusal, BarRefusal};
+use crate::common::market::record::{BarInterval, BarPricesRefusal, BarRefusal, PartitionRefusal};
 use crate::common::market::security_details::{
     CentralIndexKeyRefusal, IndustryCodeRefusal, MarketIdentifierCodeRefusal,
 };
@@ -344,6 +344,8 @@ pub enum DecodeRefusal {
         provenance: Provenance,
         key: Provider,
     },
+    #[error("{0}")]
+    Partition(PartitionRefusal),
 }
 
 impl From<ReadRefusal> for DecodeRefusal {

@@ -16,7 +16,7 @@ use chrono::{DateTime, Utc};
 use super::parquet::{self, ReadRefusal, RowCause};
 
 use crate::common::journal::{Commit, RunId};
-use crate::common::market::record::{Bar, BarPartition, BarPartitionRefusal, BarPrices};
+use crate::common::market::record::{Bar, BarPrices, Partition};
 use crate::common::market::{DollarVolume, Shares, Symbol, TradeCount};
 use crate::common::storage::{BarsKey, Provider};
 
@@ -158,7 +158,7 @@ fn schema() -> Schema {
 /// The file for `key`, rows ordered by symbol and then timestamp so the same bars always make the same bytes.
 pub fn encode(
     key: &BarsKey,
-    bars: &BarPartition,
+    bars: &Partition<Bar>,
     provenance: &Provenance,
 ) -> Result<Vec<u8>, parquet::EncodeRefusal> {
     let (provider, interval, session) = (key.provider(), key.interval(), key.session());
@@ -168,7 +168,7 @@ pub fn encode(
             key: provider,
         });
     }
-    let ordered = parquet::place(bars.bars(), interval, session, |bar| {
+    let ordered = parquet::place(bars.rows(), interval, session, |bar| {
         (bar.symbol(), bar.interval(), bar.timestamp())
     })
     .map_err(parquet::EncodeRefusal::Placement)?;
@@ -223,30 +223,12 @@ pub fn encode(
         .map_err(parquet::EncodeRefusal::Parquet)
 }
 
-/// Why a file was not read as vendor bars: the refusal every bar layout shares, or a file holding no bars.
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
-pub enum DecodeRefusal {
-    #[error("{0}")]
-    Bars(parquet::DecodeRefusal),
-    #[error("{0}")]
-    Partition(BarPartitionRefusal),
-}
-
-impl From<parquet::DecodeRefusal> for DecodeRefusal {
-    fn from(refusal: parquet::DecodeRefusal) -> Self {
-        Self::Bars(refusal)
-    }
-}
-
-impl From<ReadRefusal> for DecodeRefusal {
-    fn from(refusal: ReadRefusal) -> Self {
-        Self::Bars(refusal.into())
-    }
-}
-
 /// The bars and provenance a file written by `encode` under `key` holds, each row rebuilt through the domain's own
 /// constructors so a file edited out of band cannot hand back an invalid bar.
-pub fn decode(key: &BarsKey, bytes: Vec<u8>) -> Result<(BarPartition, Provenance), DecodeRefusal> {
+pub fn decode(
+    key: &BarsKey,
+    bytes: Vec<u8>,
+) -> Result<(Partition<Bar>, Provenance), parquet::DecodeRefusal> {
     let (provider, interval, session) = (key.provider(), key.interval(), key.session());
     let (batches, entries) = parquet::read(bytes, &schema(), LAYOUT_VERSION)?;
     let provenance = provenance_from(&entries).map_err(|name| ReadRefusal::Metadata { name })?;
@@ -254,8 +236,7 @@ pub fn decode(key: &BarsKey, bytes: Vec<u8>) -> Result<(BarPartition, Provenance
         return Err(parquet::DecodeRefusal::Provider {
             provenance,
             key: provider,
-        }
-        .into());
+        });
     }
     let mut bars = Vec::new();
     for batch in batches {
@@ -300,7 +281,7 @@ pub fn decode(key: &BarsKey, bytes: Vec<u8>) -> Result<(BarPartition, Provenance
             bars.push(read(row).map_err(|cause| parquet::DecodeRefusal::Row { index, cause })?);
         }
     }
-    let bars = BarPartition::try_from(bars).map_err(DecodeRefusal::Partition)?;
+    let bars = Partition::try_from(bars).map_err(parquet::DecodeRefusal::Partition)?;
     Ok((bars, provenance))
 }
 
@@ -340,7 +321,7 @@ mod tests {
     use super::*;
     use crate::archive::parquet::PlacementRefusal;
     use crate::common::market::Price;
-    use crate::common::market::record::{BarInterval, BarPartitionRefusal};
+    use crate::common::market::record::{BarInterval, PartitionRefusal};
     use crate::common::storage::Origin;
     use crate::common::time::SessionDate;
 
@@ -419,12 +400,12 @@ mod tests {
         .unwrap()
     }
 
-    fn partition(bars: &[Bar]) -> BarPartition {
-        BarPartition::try_from(bars.to_vec()).unwrap()
+    fn partition(bars: &[Bar]) -> Partition<Bar> {
+        Partition::try_from(bars.to_vec()).unwrap()
     }
 
     /// One bar inside the minute key, for a test about the file rather than its rows.
-    fn one_bar() -> BarPartition {
+    fn one_bar() -> Partition<Bar> {
         partition(&[bar("AAPL", "2026-09-25T14:30:00Z", 10.0, None)])
     }
 
@@ -445,7 +426,7 @@ mod tests {
         let (read, provenance) = decode(&minute_key(), bytes.clone()).unwrap();
         assert_eq!(provenance, written);
         assert_eq!(
-            read.bars(),
+            read.rows(),
             [bars[2].clone(), bars[1].clone(), bars[0].clone()]
         );
         // The same bars in any order make the same bytes, so a rerun overwrites with an identical object.
@@ -546,11 +527,9 @@ mod tests {
         let unnamed = replace(&bytes, b"fund.layout_version", b"fund.layout_versioX");
         assert_eq!(
             decode(&minute_key(), unnamed).map(|_| ()),
-            Err(DecodeRefusal::Bars(parquet::DecodeRefusal::File(
-                ReadRefusal::Metadata {
-                    name: "fund.layout_version"
-                }
-            )))
+            Err(parquet::DecodeRefusal::File(ReadRefusal::Metadata {
+                name: "fund.layout_version"
+            }))
         );
         let mut entries = written.metadata();
         entries.push(KeyValue::new(
@@ -566,11 +545,9 @@ mod tests {
         writer.close().unwrap();
         assert_eq!(
             decode(&minute_key(), later).map(|_| ()),
-            Err(DecodeRefusal::Bars(parquet::DecodeRefusal::File(
-                ReadRefusal::Layout {
-                    version: "2".to_string()
-                }
-            )))
+            Err(parquet::DecodeRefusal::File(ReadRefusal::Layout {
+                version: "2".to_string()
+            }))
         );
     }
 
@@ -593,11 +570,9 @@ mod tests {
             .unwrap();
         assert_eq!(
             decode(&minute_key(), bytes).map(|_| ()),
-            Err(DecodeRefusal::Bars(parquet::DecodeRefusal::File(
-                ReadRefusal::Metadata {
-                    name: "fund.layout_version"
-                }
-            )))
+            Err(parquet::DecodeRefusal::File(ReadRefusal::Metadata {
+                name: "fund.layout_version"
+            }))
         );
     }
 
@@ -649,9 +624,7 @@ mod tests {
             assert!(
                 matches!(
                     decode(&minute_key(), file_with(schema)),
-                    Err(DecodeRefusal::Bars(parquet::DecodeRefusal::File(
-                        ReadRefusal::Schema { .. }
-                    )))
+                    Err(parquet::DecodeRefusal::File(ReadRefusal::Schema { .. }))
                 ),
                 "{name}"
             );
@@ -662,7 +635,7 @@ mod tests {
     fn test_a_file_with_no_rows_is_refused() {
         assert_eq!(
             decode(&minute_key(), file_with(schema())).map(|_| ()),
-            Err(DecodeRefusal::Partition(BarPartitionRefusal::Empty))
+            Err(parquet::DecodeRefusal::Partition(PartitionRefusal::Empty))
         );
     }
 
@@ -683,13 +656,13 @@ mod tests {
         );
         assert_eq!(
             decode(&next_day, bytes.clone()).map(|_| ()),
-            Err(DecodeRefusal::Bars(parquet::DecodeRefusal::Row {
+            Err(parquet::DecodeRefusal::Row {
                 index: 0,
                 cause: RowCause::OutsideSession {
                     timestamp: "2026-09-25T14:30:00Z".parse().unwrap(),
                     session: SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 9, 26).unwrap()),
                 },
-            }))
+            })
         );
         let massive = BarsKey::new(
             Provider::Massive,
@@ -699,10 +672,10 @@ mod tests {
         );
         assert_eq!(
             decode(&massive, bytes).map(|_| ()),
-            Err(DecodeRefusal::Bars(parquet::DecodeRefusal::Provider {
+            Err(parquet::DecodeRefusal::Provider {
                 provenance: provenance(Subscription::AlgoTraderPlus),
                 key: Provider::Massive
-            }))
+            })
         );
     }
 
@@ -757,8 +730,8 @@ mod tests {
                 }
             }
             unique.sort_by(|left, right| (left.symbol(), left.timestamp()).cmp(&(right.symbol(), right.timestamp())));
-            let partition = BarPartition::try_from(unique.clone()).unwrap();
-            prop_assert_eq!(partition.clone().into_bars(), unique);
+            let partition = Partition::try_from(unique.clone()).unwrap();
+            prop_assert_eq!(partition.clone().into_rows(), unique);
             let bytes = encode(&minute_key(), &partition, &written).unwrap();
             prop_assert_eq!(decode(&minute_key(), bytes).unwrap(), (partition, written));
         }
