@@ -116,17 +116,27 @@ pub async fn trade_bars(
         range,
         study,
         async |session| {
-            for (provider, key) in trade_keys(interval, session) {
-                if let Some(found) =
-                    read(archive, provider, key, session, trade_bars::decode).await?
-                {
-                    return Ok(Some(found));
-                }
-            }
-            Ok(None)
+            preferred(trade_keys(interval, session), async |provider, key| {
+                read(archive, provider, key, session, trade_bars::decode).await
+            })
+            .await
         },
     )
     .await
+}
+
+/// What `held` finds for the first of `candidates` it finds anything for, consulting none after that one; `None`
+/// when it finds nothing for any.
+async fn preferred<K, Found, Error>(
+    candidates: impl IntoIterator<Item = (Provider, K)>,
+    held: impl AsyncFn(Provider, K) -> Result<Option<Found>, Error>,
+) -> Result<Option<Found>, Error> {
+    for (provider, key) in candidates {
+        if let Some(found) = held(provider, key).await? {
+            return Ok(Some(found));
+        }
+    }
+    Ok(None)
 }
 
 /// Each provider's trade-bar key at `interval` for `session`, in the order a session is preferred from.
@@ -205,11 +215,17 @@ pub async fn lineage(
                 .map(|(provider, key)| (provider, key.into()))
                 .into(),
         };
-        for (provider, key) in candidates {
-            if let Some(tag) = archive.tag(&key).await? {
-                current.insert(*session, PartitionRead::new(provider, tag));
-                break;
-            }
+        let found = preferred(candidates, async |provider, key| {
+            Ok::<_, ArchiveError>(
+                archive
+                    .tag(&key)
+                    .await?
+                    .map(|tag| PartitionRead::new(provider, tag)),
+            )
+        })
+        .await?;
+        if let Some(partition_read) = found {
+            current.insert(*session, partition_read);
         }
     }
     Ok(fingerprint.contaminated(&current))
@@ -314,6 +330,36 @@ pub(crate) mod tests {
                 .unwrap(),
                 run,
             },
+        }
+    }
+
+    /// A session reads from Massive when both hold it, falls back to Alpaca when only Alpaca does, and is missing when
+    /// neither does; no provider after the one found is consulted.
+    #[tokio::test]
+    async fn test_a_session_reads_from_the_first_provider_holding_it() {
+        let candidates = [(Provider::Massive, "massive"), (Provider::Alpaca, "alpaca")];
+        for (held, expected, consulted) in [
+            (
+                &["massive", "alpaca"][..],
+                Some((Provider::Massive, "massive")),
+                &["massive"][..],
+            ),
+            (
+                &["alpaca"][..],
+                Some((Provider::Alpaca, "alpaca")),
+                &["massive", "alpaca"][..],
+            ),
+            (&[][..], None, &["massive", "alpaca"][..]),
+        ] {
+            let asked = std::sync::Mutex::new(Vec::new());
+            let found = preferred(candidates, async |provider, key| {
+                asked.lock().unwrap().push(key);
+                Ok::<_, ()>(held.contains(&key).then_some((provider, key)))
+            })
+            .await
+            .unwrap();
+            assert_eq!(found, expected, "{held:?}");
+            assert_eq!(*asked.lock().unwrap(), consulted, "{held:?}");
         }
     }
 
@@ -481,6 +527,12 @@ pub(crate) mod tests {
             let rows = dataset.bars()[session].rows().len();
             assert!(rows > 100_000, "{session}: {rows} minute trade bars");
             eprintln!("{session} {} {rows}", read.provider());
+        }
+        for session in fingerprint.missing() {
+            for (provider, key) in trade_keys(BarInterval::OneMinute, *session) {
+                let tag = archive.tag(&Key::from(key)).await.unwrap();
+                assert_eq!(tag, None, "{session} is missing but {provider} holds it");
+            }
         }
         eprintln!("missing {:?}", fingerprint.missing());
         assert_eq!(lineage(&archive, fingerprint).await.unwrap(), []);
