@@ -15,17 +15,17 @@ use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::laboratory::Study;
 
-/// Bars by session and the fingerprint of the partitions they came from.
+/// Bars of one kind by session and the fingerprint of the partitions they came from.
 #[derive(Debug)]
-pub struct Dataset {
-    bars: BTreeMap<SessionDate, Partition<Bar>>,
+pub struct Dataset<B = Bar> {
+    bars: BTreeMap<SessionDate, Partition<B>>,
     fingerprint: Fingerprint,
     /// The run whose journal holds this read.
     run: RunId,
 }
 
-impl Dataset {
-    pub fn bars(&self) -> &BTreeMap<SessionDate, Partition<Bar>> {
+impl<B> Dataset<B> {
+    pub fn bars(&self) -> &BTreeMap<SessionDate, Partition<B>> {
         &self.bars
     }
 
@@ -38,7 +38,7 @@ impl Dataset {
     }
 
     /// One reading per session read, `read` folding that session's bars; a missing session stays out of the series.
-    pub fn series(&self, read: impl Fn(&[Bar]) -> Option<f64>) -> Result<Series, SeriesRefusal> {
+    pub fn series(&self, read: impl Fn(&[B]) -> Option<f64>) -> Result<Series, SeriesRefusal> {
         Series::new(
             self.bars
                 .iter()

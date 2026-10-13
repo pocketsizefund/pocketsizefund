@@ -8,7 +8,7 @@ use crate::common::laboratory::series::SeriesRefusal;
 use crate::common::market::record::{BarInterval, Partition};
 use crate::common::monoid::concatenate;
 use crate::common::replay::{
-    Controls, ControlsRefusal, FillModel, Replay, ReplayRefusal, Replayer,
+    Controls, ControlsRefusal, FillModel, Replay, ReplayRefusal, Replayer, Tape,
 };
 use crate::common::risk::Limit;
 use crate::common::strategy::Strategy;
@@ -98,13 +98,13 @@ impl Opening {
 }
 
 /// Replays `dataset` from a book funded with `opening` and journals it beside the strategy's own `parameters`.
-pub fn replay<S: Strategy>(
+pub fn replay<S: Strategy, B: Tape>(
     study: &mut Study,
-    dataset: &Dataset,
+    dataset: &Dataset<B>,
     replayer: &Replayer<S>,
     opening: Opening,
     parameters: &Parameters,
-) -> Result<Replay, ReplayStudyError> {
+) -> Result<Replay<B>, ReplayStudyError> {
     let own = settings(
         replayer.fill_model(),
         replayer.decision(),
@@ -192,11 +192,11 @@ pub(crate) fn beside<'a>(
 }
 
 /// Replays the whole of `dataset` from a book funded with `opening`, refused where it could only misreport.
-pub(crate) fn run<S: Strategy>(
-    dataset: &Dataset,
+pub(crate) fn run<S: Strategy, B: Tape>(
+    dataset: &Dataset<B>,
     replayer: &Replayer<S>,
     opening: Opening,
-) -> Result<Replay, ReplayStudyError> {
+) -> Result<Replay<B>, ReplayStudyError> {
     let decision = replayer.decision();
     let bars = dataset.bars().values().flat_map(Partition::rows);
     if !bars.clone().any(|bar| bar.interval() == decision) {
@@ -210,8 +210,8 @@ pub(crate) fn run<S: Strategy>(
 
 /// Counts, dollars traded and paid, and turnover; the final mark's return net and gross of costs only when that mark
 /// was priced, every fill having landed before it.
-pub(crate) fn metrics(
-    replay: &Replay,
+pub(crate) fn metrics<B>(
+    replay: &Replay<B>,
     controls: &Controls,
     opening: Opening,
 ) -> Vec<(ReplayMetric, f64)> {
@@ -408,7 +408,7 @@ pub(crate) mod tests {
             ]
         );
         let names: Vec<&str> = metrics(
-            &Replay::open(Book::funded(Cash::from_units(1))),
+            &Replay::<crate::common::market::record::Bar>::open(Book::funded(Cash::from_units(1))),
             &controls,
             opening,
         )

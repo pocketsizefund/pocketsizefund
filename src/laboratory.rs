@@ -88,10 +88,10 @@ impl Study {
 
     /// Journals one experiment over `datasets`, whose fingerprints are taken from the datasets themselves so the
     /// record names exactly what was read; refused for a dataset another run read.
-    pub fn experiment(
+    pub fn experiment<B>(
         &mut self,
         parameters: Parameters,
-        datasets: &[&Dataset],
+        datasets: &[&Dataset<B>],
         outputs: Outputs,
     ) -> Result<(), StudyError> {
         if let Some(dataset) = datasets
@@ -193,7 +193,11 @@ mod tests {
             let mut study =
                 Study::open(Label::new("live merge check").unwrap(), &directory).unwrap();
             study
-                .experiment(Parameters::default(), &[], Outputs::default())
+                .experiment(
+                    Parameters::default(),
+                    &[] as &[&Dataset],
+                    Outputs::default(),
+                )
                 .unwrap();
             runs.push(study.run_id());
             for (key, outcome) in study.finish(&records).await {

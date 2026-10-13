@@ -13,12 +13,103 @@ use crate::common::laboratory::cost::{BasisPoints, CostModel, CostRefusal, FillS
 use crate::common::laboratory::series::{Series, SeriesRefusal};
 use crate::common::market::record::{Bar, BarInterval};
 use crate::common::market::state::{MarketEvent, MarketState};
-use crate::common::market::{DollarVolume, Symbol};
+use crate::common::market::trade_bars::TradeBar;
+use crate::common::market::{DollarVolume, Price, Symbol};
 use crate::common::monoid::{Monoid, concatenate};
 use crate::common::risk::{Cut, Limits, risk};
 use crate::common::strategy::{Order, Strategy, orders};
 use crate::common::time::SessionDate;
 use crate::common::time::calendar::TradingCalendar;
+
+mod sealed {
+    pub trait Sealed {}
+
+    impl Sealed for super::Bar {}
+    impl Sealed for super::TradeBar {}
+}
+
+/// A bar a replay steps over and fills against, sealed to vendor and derived trade bars; a `Replay` is typed by the kind
+/// it steps over, so one replay never mixes the two.
+///
+/// ```
+/// # use fund::common::market::trade_bars::TradeBar;
+/// # use fund::common::replay::{Replay, Replayer};
+/// # use fund::common::strategy::Strategy;
+/// fn trades<S: Strategy>(replayer: &Replayer<S>, replay: Replay<TradeBar>, bars: Vec<TradeBar>) {
+///     let _ = replayer.act(replay, bars);
+/// }
+/// ```
+///
+/// ```compile_fail
+/// # use fund::common::market::trade_bars::TradeBar;
+/// # use fund::common::replay::{Replay, Replayer};
+/// # use fund::common::strategy::Strategy;
+/// fn mixed<S: Strategy>(replayer: &Replayer<S>, replay: Replay, bars: Vec<TradeBar>) {
+///     let _ = replayer.act(replay, bars);
+/// }
+/// ```
+pub trait Tape: sealed::Sealed + Clone + PartialEq {
+    fn symbol(&self) -> &Symbol;
+
+    fn interval(&self) -> BarInterval;
+
+    fn timestamp(&self) -> DateTime<Utc>;
+
+    /// The price an order reaching this bar fills at, absent when the bar holds no priced print.
+    fn opening_price(&self) -> Option<Price>;
+
+    fn event(self) -> MarketEvent;
+
+    fn ends(&self) -> DateTime<Utc> {
+        self.interval().ends(self.timestamp())
+    }
+}
+
+impl Tape for Bar {
+    fn symbol(&self) -> &Symbol {
+        Bar::symbol(self)
+    }
+
+    fn interval(&self) -> BarInterval {
+        Bar::interval(self)
+    }
+
+    fn timestamp(&self) -> DateTime<Utc> {
+        Bar::timestamp(self)
+    }
+
+    fn opening_price(&self) -> Option<Price> {
+        Some(self.prices().open())
+    }
+
+    fn event(self) -> MarketEvent {
+        MarketEvent::Bar(self)
+    }
+}
+
+impl Tape for TradeBar {
+    fn symbol(&self) -> &Symbol {
+        TradeBar::symbol(self)
+    }
+
+    fn interval(&self) -> BarInterval {
+        TradeBar::interval(self)
+    }
+
+    fn timestamp(&self) -> DateTime<Utc> {
+        TradeBar::timestamp(self)
+    }
+
+    fn opening_price(&self) -> Option<Price> {
+        self.sums()
+            .open_close()
+            .map(|open_close| open_close.open().price())
+    }
+
+    fn event(self) -> MarketEvent {
+        MarketEvent::Trades(self)
+    }
+}
 
 /// The grid a crossing's charge is rounded to: hundred-millionths of the notional, so a basis point is 10,000.
 const RATE_SCALE: u128 = 100_000_000;
@@ -75,6 +166,8 @@ impl FillModel {
 pub enum UnfilledCause {
     /// The next instant to close a decision bar held none of the symbol to fill against.
     NoBar,
+    /// The symbol's bar there held no priced print to fill at.
+    NoPrice,
     /// A buy needed `needed` with its charge and the book held `held`.
     InsufficientCash { needed: DollarVolume, held: Cash },
     /// The stream ended before another bar arrived.
@@ -186,9 +279,10 @@ pub enum ControlsRefusal {
     },
 }
 
-/// A replay so far: the state and book it has reached, the orders awaiting the next bar, and what happened.
+/// A replay so far over bars of kind `B`: the state and book it has reached, the orders awaiting the next bar, and what
+/// happened.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Replay {
+pub struct Replay<B = Bar> {
     state: MarketState,
     book: Book,
     pending: Vec<Order>,
@@ -200,6 +294,7 @@ pub struct Replay {
     /// Under restraint, what risk cut at each decision, or why it could not judge and nothing was sent.
     restraints: BTreeMap<DateTime<Utc>, Result<Vec<Cut>, ValuationRefusal>>,
     held: Vec<(DateTime<Utc>, OrderGuarded)>,
+    kind: std::marker::PhantomData<fn() -> B>,
 }
 
 /// Why a stretch of bars was refused.
@@ -218,7 +313,7 @@ pub enum ReplayRefusal {
     },
 }
 
-impl Replay {
+impl<B> Replay<B> {
     /// A replay that has seen nothing, holding `book`.
     pub fn open(book: Book) -> Self {
         Self {
@@ -231,6 +326,7 @@ impl Replay {
             marks: BTreeMap::new(),
             restraints: BTreeMap::new(),
             held: Vec::new(),
+            kind: std::marker::PhantomData,
         }
     }
 
@@ -370,13 +466,13 @@ impl<S: Strategy> Replayer<S> {
 
     /// Replays `bars` from where `replay` stopped, grouped by the instant each ends; refused, unchanged, when a bar
     /// ends no later than what was already replayed.
-    pub fn act(
+    pub fn act<B: Tape>(
         &self,
-        replay: Replay,
-        bars: impl IntoIterator<Item = Bar>,
-    ) -> Result<Replay, ReplayRefusal> {
+        replay: Replay<B>,
+        bars: impl IntoIterator<Item = B>,
+    ) -> Result<Replay<B>, ReplayRefusal> {
         // Keyed per series and instant, so a repeated bar counts once and a conflicting one cannot pick the fill.
-        let mut distinct: BTreeMap<(DateTime<Utc>, Symbol, BarInterval), Bar> = BTreeMap::new();
+        let mut distinct: BTreeMap<(DateTime<Utc>, Symbol, BarInterval), B> = BTreeMap::new();
         for bar in bars {
             let key = (bar.ends(), bar.symbol().clone(), bar.interval());
             match distinct.get(&key) {
@@ -393,7 +489,7 @@ impl<S: Strategy> Replayer<S> {
                 }
             }
         }
-        let mut stretch: BTreeMap<DateTime<Utc>, Vec<Bar>> = BTreeMap::new();
+        let mut stretch: BTreeMap<DateTime<Utc>, Vec<B>> = BTreeMap::new();
         for ((ends, _, _), bar) in distinct {
             stretch.entry(ends).or_default().push(bar);
         }
@@ -408,7 +504,7 @@ impl<S: Strategy> Replayer<S> {
     }
 
     /// When a decision bar closes here, fills the pending orders at these bars' opens, folds the bars in and decides.
-    fn step(&self, mut replay: Replay, ends: DateTime<Utc>, bars: Vec<Bar>) -> Replay {
+    fn step<B: Tape>(&self, mut replay: Replay<B>, ends: DateTime<Utc>, bars: Vec<B>) -> Replay<B> {
         let decides = bars.iter().any(|bar| bar.interval() == self.decision);
         let pending = if decides {
             std::mem::take(&mut replay.pending)
@@ -429,7 +525,7 @@ impl<S: Strategy> Replayer<S> {
         }
         replay.state = replay.state.combine(concatenate(
             bars.into_iter()
-                .map(MarketEvent::Bar)
+                .map(Tape::event)
                 .chain([MarketEvent::Clock(ends)])
                 .map(MarketState::of),
         ));
@@ -479,11 +575,11 @@ impl<S: Strategy> Replayer<S> {
         replay
     }
 
-    fn fill(
+    fn fill<B: Tape>(
         &self,
         book: &Book,
         order: Order,
-        opening: Option<&Bar>,
+        opening: Option<&B>,
         at: DateTime<Utc>,
     ) -> Result<Fill, Unfilled> {
         let Some(bar) = opening else {
@@ -493,7 +589,13 @@ impl<S: Strategy> Replayer<S> {
                 cause: UnfilledCause::NoBar,
             });
         };
-        let price = bar.prices().open();
+        let Some(price) = bar.opening_price() else {
+            return Err(Unfilled {
+                order,
+                at,
+                cause: UnfilledCause::NoPrice,
+            });
+        };
         let notional = DollarVolume::of(price, order.shares());
         let cost = self.fill_model.charge(notional);
         match order.side() {
@@ -529,8 +631,10 @@ mod tests {
     use proptest::strategy::Strategy as _;
 
     use super::*;
+    use crate::common::market::aggregate::TradeTotals;
     use crate::common::market::record::BarPrices;
-    use crate::common::market::{Price, Shares};
+    use crate::common::market::trade_bars::{HighLow, OpenClose, TradeSums};
+    use crate::common::market::{Price, Shares, StampedPrice, TradeCount};
     use crate::common::strategy::Strategy;
     use crate::common::strategy::Target;
     use crate::common::time::SessionDate;
@@ -601,6 +705,41 @@ mod tests {
             Shares::whole(100).unwrap(),
             None,
             None,
+        )
+        .unwrap()
+    }
+
+    /// AAPL's trade bar for the minute at `timestamp`, opening and closing at the `(open, close)` ticks, or holding
+    /// only unpriced prints.
+    fn trade_bar(timestamp: DateTime<Utc>, ticks: Option<(i64, i64)>) -> TradeBar {
+        let shares = Shares::whole(100).unwrap();
+        let priced = ticks.map(|(open, close)| {
+            let (open, close) = (
+                Price::from_ticks(open).unwrap(),
+                Price::from_ticks(close).unwrap(),
+            );
+            let stamp =
+                |price, seconds| StampedPrice::new(timestamp + TimeDelta::seconds(seconds), price);
+            (
+                OpenClose::new(stamp(open, 1), stamp(close, 59)).unwrap(),
+                HighLow::new(open.max(close), open.min(close)).unwrap(),
+                DollarVolume::of(close, shares),
+            )
+        });
+        let totals = TradeTotals::new(
+            TradeCount::new(1),
+            shares,
+            priced.map_or(DollarVolume::from_units(0), |(_, _, dollars)| dollars),
+        );
+        TradeBar::new(
+            symbol("AAPL"),
+            BarInterval::OneMinute,
+            timestamp,
+            TradeSums::new(
+                totals,
+                priced.map(|(open_close, _, _)| open_close),
+                priced.map(|(_, high_low, _)| high_low),
+            ),
         )
         .unwrap()
     }
@@ -824,6 +963,62 @@ mod tests {
                 quoted_spread: BasisPoints::new(10.0).unwrap(),
             })
         );
+    }
+
+    #[test]
+    fn test_a_position_over_trade_bars_at_one_price_marks_down_by_exactly_its_charge() {
+        let charged =
+            FillModel::new(FillStyle::Aggressive, BasisPoints::new(10.0).unwrap()).unwrap();
+        let replayer = Replayer::new(Hold(vec![("AAPL", 1)]), charged, BarInterval::OneMinute);
+        let opening = cash(1_000);
+        let bars = (0..3)
+            .map(|minute| trade_bar(before_close(30 - minute), Some((100_000_000, 100_000_000))));
+        let replay = replayer
+            .act(Replay::open(Book::funded(opening)), bars)
+            .unwrap();
+        assert_eq!(replay.fills().len(), 1);
+        let fill = &replay.fills()[0];
+        assert_eq!(fill.price(), Price::from_ticks(100_000_000).unwrap());
+        // $100.00 bought at 10bp round trip: half of it, 5bp, is $0.05 charged on the one crossing.
+        assert_eq!(fill.cost(), DollarVolume::from_units(50_000_000_000));
+        let (_, last) = replay.marks().last_key_value().unwrap();
+        assert_eq!(
+            last.as_ref().unwrap().units(),
+            opening.units() - 50_000_000_000
+        );
+    }
+
+    #[test]
+    fn test_a_decision_over_trade_bars_fills_at_the_next_bars_opening_print() {
+        let replayer = Replayer::new(Hold(vec![("AAPL", 1)]), free(), BarInterval::OneMinute);
+        let bars = [
+            trade_bar(before_close(30), Some((100_000_000, 101_000_000))),
+            trade_bar(before_close(29), Some((102_000_000, 103_000_000))),
+        ];
+        let replay = replayer
+            .act(Replay::open(Book::funded(cash(1_000))), bars)
+            .unwrap();
+        assert_eq!(replay.fills().len(), 1);
+        assert_eq!(
+            replay.fills()[0].price(),
+            Price::from_ticks(102_000_000).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_a_trade_bar_without_a_priced_print_leaves_the_order_unfilled_for_want_of_a_price() {
+        let replayer = Replayer::new(Hold(vec![("AAPL", 1)]), free(), BarInterval::OneMinute);
+        let bars = [
+            trade_bar(before_close(30), Some((100_000_000, 100_000_000))),
+            trade_bar(before_close(29), None),
+        ];
+        let replay = replayer
+            .act(Replay::open(Book::funded(cash(1_000))), bars)
+            .unwrap();
+        assert!(replay.fills().is_empty());
+        assert_eq!(replay.unfilled().len(), 1);
+        assert_eq!(replay.unfilled()[0].cause(), &UnfilledCause::NoPrice);
+        assert_eq!(replay.unfilled()[0].at(), before_close(28));
     }
 
     /// Decided on day 0's close, filled at day 1's open, and marked to each close before that close's orders fill.
@@ -1096,7 +1291,7 @@ mod tests {
             prop_assert_eq!(&replayer.act(opening.clone(), repeated).unwrap(), &stretched);
             let whole = replayer.act(opening.clone(), bars).unwrap();
             prop_assert_eq!(&stretched, &whole);
-            prop_assert_eq!(replayer.act(whole.clone(), []).unwrap(), whole);
+            prop_assert_eq!(replayer.act(whole.clone(), Vec::<Bar>::new()).unwrap(), whole);
         }
 
         /// The book a replay reaches is its opening combined with each fill, so no cash appears outside a fill.
