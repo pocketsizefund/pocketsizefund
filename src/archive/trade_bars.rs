@@ -133,7 +133,7 @@ pub fn encode(
         low,
     ];
     parquet::write(schema(), columns, LAYOUT_VERSION, provenance.metadata())
-        .map_err(|reason| parquet::EncodeRefusal::Parquet { reason })
+        .map_err(parquet::EncodeRefusal::Parquet)
 }
 
 /// The trade bars and provenance a file written by `encode` under `key` holds, each rebuilt through `TradeBar::new`.

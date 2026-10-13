@@ -152,7 +152,7 @@ pub fn encode(
         ask_size,
     ];
     parquet::write(schema(), columns, LAYOUT_VERSION, provenance.metadata())
-        .map_err(|reason| parquet::EncodeRefusal::Parquet { reason })
+        .map_err(parquet::EncodeRefusal::Parquet)
 }
 
 /// The quote bars and provenance a file written by `encode` under `key` holds, each rebuilt through `QuoteBar::new`.

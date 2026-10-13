@@ -88,9 +88,7 @@ pub enum EncodeRefusal {
     Unrepresentable {
         line: u64,
     },
-    Parquet {
-        reason: String,
-    },
+    Parquet(parquet::WriteRefusal),
 }
 
 /// Why a file was not read as a log.
@@ -287,8 +285,7 @@ pub fn encode(lines: &[LogLine]) -> Result<Vec<u8>, EncodeRefusal> {
             .iter_mut()
             .map(|builder| Arc::new(builder.finish()) as ArrayRef),
     );
-    parquet::write(schema(), columns, LAYOUT_VERSION, Vec::new())
-        .map_err(|reason| EncodeRefusal::Parquet { reason })
+    parquet::write(schema(), columns, LAYOUT_VERSION, Vec::new()).map_err(EncodeRefusal::Parquet)
 }
 
 pub fn decode(bytes: Vec<u8>) -> Result<Vec<LogLine>, DecodeRefusal> {

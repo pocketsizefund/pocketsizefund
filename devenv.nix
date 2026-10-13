@@ -183,6 +183,11 @@ in {
   # dotenv runs after Nix evaluates this file, so the profile is read at shell start.
   enterShell = ''
     export SECRETSPEC_PROFILE="''${FUND_PROFILE:-development}"
+    (
+      source "$DEVENV_ROOT/host/versions"
+      nix --version | grep -qF "Determinate Nix $NIX_VERSION)" && [[ "$(devenv version | awk '{print $2}')" == "$DEVENV_VERSION" ]] ||
+        echo "Warning: Nix or devenv differs from host/versions (Nix $NIX_VERSION, devenv $DEVENV_VERSION)" >&2
+    )
     {
       echo "Fund development environment (secretspec profile: $SECRETSPEC_PROFILE)"
       echo ""

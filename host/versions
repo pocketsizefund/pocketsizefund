@@ -1,0 +1,3 @@
+# The Determinate Nix and devenv releases every host, CI run and laptop uses; devenv then pins the toolchain in devenv.lock.
+NIX_VERSION="3.23.1"
+DEVENV_VERSION="2.1.2"

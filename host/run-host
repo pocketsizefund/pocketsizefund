@@ -5,6 +5,26 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH"
 
+# Brings Nix and devenv to the releases master pins; a failed upgrade is logged and the role runs on what is installed.
+converge() {
+  # shellcheck source=host/versions
+  source host/versions
+  if ! nix --version | grep -qF "Determinate Nix ${NIX_VERSION})"; then
+    echo "Upgrading Nix from $(nix --version) to ${NIX_VERSION}"
+    sudo determinate-nixd upgrade --version "${NIX_VERSION}" || echo "Error: Nix upgrade failed; running on $(nix --version)"
+  fi
+  local installed
+  installed="$(devenv version | awk '{print $2}')"
+  if [[ "$installed" != "$DEVENV_VERSION" ]]; then
+    echo "Replacing devenv ${installed} with ${DEVENV_VERSION}"
+    nix profile remove devenv
+    if ! nix profile install --accept-flake-config "github:cachix/devenv/v${DEVENV_VERSION}"; then
+      echo "Error: devenv ${DEVENV_VERSION} failed to install; restoring ${installed}"
+      nix profile install --accept-flake-config "github:cachix/devenv/v${installed}"
+    fi
+  fi
+}
+
 metadata() {
   local token
   token="$(curl -sf -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 60")"
@@ -36,6 +56,7 @@ echo "Running role ${role:-<none>} under profile ${profile:-<none>}"
   else
     echo "Error: git fetch failed; keeping $(git rev-parse --short HEAD)"
   fi
+  converge
   devenv shell -- host/run-role "$role"
   exit
 }
