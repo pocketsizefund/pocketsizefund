@@ -388,10 +388,10 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::common::laboratory::dataset::DatasetLeg;
+    use crate::common::laboratory::dataset::{DatasetLeg, PartitionRead};
     use crate::common::laboratory::estimate::summarize;
     use crate::common::laboratory::series::Series;
-    use crate::common::storage::EntityTag;
+    use crate::common::storage::{EntityTag, Provider};
     use crate::common::time::calendar::{TradingCalendar, TradingSession};
     use crate::common::time::{SessionDate, SessionRange};
 
@@ -412,10 +412,18 @@ mod tests {
         )
         .unwrap();
         let read = [0, 2]
-            .map(|day| (session(day), EntityTag::new(&format!("\"tag-{day}\""))))
+            .map(|day| {
+                (
+                    session(day),
+                    PartitionRead::new(
+                        Provider::Massive,
+                        EntityTag::new(&format!("\"tag-{day}\"")),
+                    ),
+                )
+            })
             .into();
         Fingerprint::new(
-            DatasetLeg::MassiveDailyBars,
+            DatasetLeg::DailyVendorBars,
             SessionRange::new(session(0), session(2)).unwrap(),
             &calendar,
             read,

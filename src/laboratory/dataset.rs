@@ -2,15 +2,17 @@
 
 use std::collections::BTreeMap;
 
-use crate::archive::{Archive, ArchiveError, bars, parquet};
+use crate::archive::bars::Provenance;
+use crate::archive::{Archive, ArchiveError, bars, parquet, trade_bars};
 use crate::common::heal::massive_daily_bars;
 use crate::common::journal::RunId;
 use crate::common::laboratory::dataset::{
-    Contamination, DatasetLeg, Fingerprint, FingerprintRefusal,
+    Contamination, DatasetLeg, Fingerprint, FingerprintRefusal, PartitionRead,
 };
 use crate::common::laboratory::series::{Series, SeriesRefusal};
-use crate::common::market::record::{Bar, Partition};
-use crate::common::storage::{EntityTag, Key};
+use crate::common::market::record::{Bar, BarInterval, Partition};
+use crate::common::market::trade_bars::TradeBar;
+use crate::common::storage::{Key, Origin, Provider, TradesKey};
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::laboratory::Study;
@@ -78,44 +80,97 @@ pub enum DatasetError {
     },
 }
 
-/// Massive daily bars for every trading session in `range`, journaled to `study` before it is returned; a session with
-/// no partition is recorded missing in the fingerprint rather than refused.
-pub async fn daily_bars(
+/// Massive's daily vendor bars for every trading session in `range`, journaled to `study` before it is returned; a
+/// session with no partition is recorded missing in the fingerprint rather than refused.
+pub async fn daily_vendor_bars(
     archive: &Archive,
     calendar: &TradingCalendar,
     range: SessionRange,
     study: &mut Study,
 ) -> Result<Dataset, DatasetError> {
     load(
-        DatasetLeg::MassiveDailyBars,
-        archive,
+        DatasetLeg::DailyVendorBars,
         calendar,
         range,
         study,
+        async |session| {
+            let key = massive_daily_bars(session);
+            read(archive, Provider::Massive, key, session, bars::decode).await
+        },
     )
     .await
 }
 
-/// `leg`'s bars for every trading session in `range`, journaled to `study` before it is returned.
-async fn load(
-    leg: DatasetLeg,
+/// Trade bars at `interval` for every trading session in `range`, each session from Massive where it holds one and
+/// Alpaca otherwise, journaled to `study` before it is returned with the provider of each session in its fingerprint.
+pub async fn trade_bars(
     archive: &Archive,
     calendar: &TradingCalendar,
     range: SessionRange,
+    interval: BarInterval,
     study: &mut Study,
-) -> Result<Dataset, DatasetError> {
+) -> Result<Dataset<TradeBar>, DatasetError> {
+    load(
+        DatasetLeg::trade_bars(interval),
+        calendar,
+        range,
+        study,
+        async |session| {
+            preferred(trade_keys(interval, session), async |provider, key| {
+                read(archive, provider, key, session, trade_bars::decode).await
+            })
+            .await
+        },
+    )
+    .await
+}
+
+/// What `held` finds for the first of `candidates` it finds anything for, consulting none after that one; `None`
+/// when it finds nothing for any.
+async fn preferred<K, Found, Error>(
+    candidates: impl IntoIterator<Item = (Provider, K)>,
+    held: impl AsyncFn(Provider, K) -> Result<Option<Found>, Error>,
+) -> Result<Option<Found>, Error> {
+    for (provider, key) in candidates {
+        if let Some(found) = held(provider, key).await? {
+            return Ok(Some(found));
+        }
+    }
+    Ok(None)
+}
+
+/// Each provider's trade-bar key at `interval` for `session`, in the order a session is preferred from.
+fn trade_keys(interval: BarInterval, session: SessionDate) -> [(Provider, TradesKey); 2] {
+    [Provider::Massive, Provider::Alpaca].map(|provider| {
+        (
+            provider,
+            TradesKey::new(provider, Origin::Derived, interval, session),
+        )
+    })
+}
+
+/// `leg`'s bars for every trading session in `range`, each read by `partition`, journaled to `study` before it is
+/// returned.
+async fn load<B>(
+    leg: DatasetLeg,
+    calendar: &TradingCalendar,
+    range: SessionRange,
+    study: &mut Study,
+    partition: impl AsyncFn(SessionDate) -> Result<Option<(Partition<B>, PartitionRead)>, DatasetError>,
+) -> Result<Dataset<B>, DatasetError> {
     // Taken empty first, so the window is checked before any read and its missing sessions are the ones to read.
     let owed =
         Fingerprint::new(leg, range, calendar, BTreeMap::new()).map_err(DatasetError::Window)?;
-    let (mut bars, mut tags) = (BTreeMap::new(), BTreeMap::new());
+    let (mut bars, mut reads) = (BTreeMap::new(), BTreeMap::new());
     for session in owed.missing() {
-        let Some((read, tag)) = partition(archive, leg, *session).await? else {
+        let Some((rows, read)) = partition(*session).await? else {
             continue;
         };
-        bars.insert(*session, read);
-        tags.insert(*session, tag);
+        bars.insert(*session, rows);
+        reads.insert(*session, read);
     }
-    let fingerprint = Fingerprint::new(leg, range, calendar, tags).map_err(DatasetError::Window)?;
+    let fingerprint =
+        Fingerprint::new(leg, range, calendar, reads).map_err(DatasetError::Window)?;
     study.read(&fingerprint).map_err(DatasetError::Journal)?;
     Ok(Dataset {
         bars,
@@ -126,45 +181,51 @@ async fn load(
     })
 }
 
-/// `leg`'s bars for `session` with the tag of the version read, or `None` when it has no partition.
-async fn partition(
+/// `provider`'s partition under `key` with the version read, or `None` when it has none.
+async fn read<K: Copy + Into<Key>, B>(
     archive: &Archive,
-    leg: DatasetLeg,
+    provider: Provider,
+    key: K,
     session: SessionDate,
-) -> Result<Option<(Partition<Bar>, EntityTag)>, DatasetError> {
-    match leg {
-        DatasetLeg::MassiveDailyBars => {
-            let key = massive_daily_bars(session);
-            let Some((body, tag)) = archive
-                .get_tagged(&Key::from(key))
-                .await
-                .map_err(DatasetError::Archive)?
-            else {
-                return Ok(None);
-            };
-            let (bars, _) = bars::decode(&key, body)
-                .map_err(|refusal| DatasetError::Decode { session, refusal })?;
-            Ok(Some((bars, tag)))
-        }
-    }
+    decode: impl FnOnce(&K, Vec<u8>) -> Result<(Partition<B>, Provenance), parquet::DecodeRefusal>,
+) -> Result<Option<(Partition<B>, PartitionRead)>, DatasetError> {
+    let Some((body, tag)) = archive
+        .get_tagged(&key.into())
+        .await
+        .map_err(DatasetError::Archive)?
+    else {
+        return Ok(None);
+    };
+    let (rows, _) =
+        decode(&key, body).map_err(|refusal| DatasetError::Decode { session, refusal })?;
+    Ok(Some((rows, PartitionRead::new(provider, tag))))
 }
 
-/// Every partition `fingerprint` read that has since been rewritten or removed, each tag looked up now.
+/// Every session `fingerprint` read that now reads as another provider or version, or not at all, each looked up as
+/// its loader would read it now.
 pub async fn lineage(
     archive: &Archive,
     fingerprint: &Fingerprint,
 ) -> Result<Vec<Contamination>, ArchiveError> {
     let mut current = BTreeMap::new();
     for session in fingerprint.partitions().keys() {
-        let tag = match fingerprint.leg() {
-            DatasetLeg::MassiveDailyBars => {
-                archive
-                    .tag(&Key::from(massive_daily_bars(*session)))
-                    .await?
-            }
+        let candidates: Vec<(Provider, Key)> = match fingerprint.leg().trades_interval() {
+            None => vec![(Provider::Massive, massive_daily_bars(*session).into())],
+            Some(interval) => trade_keys(interval, *session)
+                .map(|(provider, key)| (provider, key.into()))
+                .into(),
         };
-        if let Some(tag) = tag {
-            current.insert(*session, tag);
+        let found = preferred(candidates, async |provider, key| {
+            Ok::<_, ArchiveError>(
+                archive
+                    .tag(&key)
+                    .await?
+                    .map(|tag| PartitionRead::new(provider, tag)),
+            )
+        })
+        .await?;
+        if let Some(partition_read) = found {
+            current.insert(*session, partition_read);
         }
     }
     Ok(fingerprint.contaminated(&current))
@@ -180,7 +241,7 @@ pub(crate) mod tests {
     use crate::common::laboratory::experiment::{Label, Outputs, Parameters};
     use crate::common::market::record::{BarInterval, BarPrices};
     use crate::common::market::{Price, Shares, Symbol};
-    use crate::common::storage::{Host, JournalKey};
+    use crate::common::storage::{EntityTag, Host, JournalKey};
     use crate::common::time::calendar::TradingSession;
     use crate::ingest::alpaca::Alpaca;
 
@@ -247,13 +308,21 @@ pub(crate) mod tests {
             (session(day), Partition::try_from(vec![bar; count]).unwrap())
         };
         let read = [0, 1, 3]
-            .map(|day| (session(day), EntityTag::new(&format!("\"tag-{day}\""))))
+            .map(|day| {
+                (
+                    session(day),
+                    PartitionRead::new(
+                        Provider::Massive,
+                        EntityTag::new(&format!("\"tag-{day}\"")),
+                    ),
+                )
+            })
             .into();
         Dataset {
             bars: [bars(0, 1), bars(1, 2), bars(3, 3)].into(),
             lineage: Lineage {
                 fingerprint: Fingerprint::new(
-                    DatasetLeg::MassiveDailyBars,
+                    DatasetLeg::DailyVendorBars,
                     SessionRange::new(session(0), session(3)).unwrap(),
                     &calendar,
                     read,
@@ -261,6 +330,36 @@ pub(crate) mod tests {
                 .unwrap(),
                 run,
             },
+        }
+    }
+
+    /// A session reads from Massive when both hold it, falls back to Alpaca when only Alpaca does, and is missing when
+    /// neither does; no provider after the one found is consulted.
+    #[tokio::test]
+    async fn test_a_session_reads_from_the_first_provider_holding_it() {
+        let candidates = [(Provider::Massive, "massive"), (Provider::Alpaca, "alpaca")];
+        for (held, expected, consulted) in [
+            (
+                &["massive", "alpaca"][..],
+                Some((Provider::Massive, "massive")),
+                &["massive"][..],
+            ),
+            (
+                &["alpaca"][..],
+                Some((Provider::Alpaca, "alpaca")),
+                &["massive", "alpaca"][..],
+            ),
+            (&[][..], None, &["massive", "alpaca"][..]),
+        ] {
+            let asked = std::sync::Mutex::new(Vec::new());
+            let found = preferred(candidates, async |provider, key| {
+                asked.lock().unwrap().push(key);
+                Ok::<_, ()>(held.contains(&key).then_some((provider, key)))
+            })
+            .await
+            .unwrap();
+            assert_eq!(found, expected, "{held:?}");
+            assert_eq!(*asked.lock().unwrap(), consulted, "{held:?}");
         }
     }
 
@@ -380,11 +479,71 @@ pub(crate) mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
+    /// Read-only: minute trade bars over 2026-10-05 to 10-13 from the production archive, under secretspec. Each session
+    /// read comes from Massive exactly when Massive holds it, and every other trading session is named missing.
+    #[tokio::test]
+    #[ignore = "reads the live archive and the Alpaca calendar; run deliberately under secretspec"]
+    async fn live_trade_bars_read_each_session_from_its_preferred_provider() {
+        let configuration = aws_config::load_from_env().await;
+        let archive = Archive::market_data(&configuration).unwrap();
+        let alpaca = Alpaca::from_environment(reqwest::Client::new()).unwrap();
+        let session =
+            |month, day| SessionDate::from_date(NaiveDate::from_ymd_opt(2026, month, day).unwrap());
+        let range = SessionRange::new(session(10, 5), session(10, 13)).unwrap();
+        let calendar = alpaca.calendar(range).await.unwrap();
+        let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
+        let mut study =
+            Study::open(Label::new("live trade bar check").unwrap(), &directory).unwrap();
+        let dataset = trade_bars(
+            &archive,
+            &calendar,
+            range,
+            BarInterval::OneMinute,
+            &mut study,
+        )
+        .await
+        .unwrap();
+        let fingerprint = dataset.fingerprint();
+        assert!(!fingerprint.partitions().is_empty(), "{fingerprint:?}");
+        let mut sessions: Vec<SessionDate> = fingerprint.partitions().keys().copied().collect();
+        sessions.extend(fingerprint.missing());
+        sessions.sort();
+        assert_eq!(sessions, calendar.trading_days_in_range(range));
+        for (session, read) in fingerprint.partitions() {
+            let [(_, massive), (_, alpaca)] = trade_keys(BarInterval::OneMinute, *session);
+            let held = archive.tag(&Key::from(massive)).await.unwrap().is_some();
+            let expected = if held {
+                Provider::Massive
+            } else {
+                Provider::Alpaca
+            };
+            assert_eq!(read.provider(), expected, "{session}");
+            if !held {
+                assert!(
+                    archive.tag(&Key::from(alpaca)).await.unwrap().is_some(),
+                    "{session}"
+                );
+            }
+            let rows = dataset.bars()[session].rows().len();
+            assert!(rows > 100_000, "{session}: {rows} minute trade bars");
+            eprintln!("{session} {} {rows}", read.provider());
+        }
+        for session in fingerprint.missing() {
+            for (provider, key) in trade_keys(BarInterval::OneMinute, *session) {
+                let tag = archive.tag(&Key::from(key)).await.unwrap();
+                assert_eq!(tag, None, "{session} is missing but {provider} holds it");
+            }
+        }
+        eprintln!("missing {:?}", fingerprint.missing());
+        assert_eq!(lineage(&archive, fingerprint).await.unwrap(), []);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
     /// Read-only: one week of the production archive, read twice, under secretspec. The week holds the layout's first
     /// sessions, 2026-09-28 and 09-29, so it always reads something.
     #[tokio::test]
     #[ignore = "reads the live archive and the Alpaca calendar; run deliberately under secretspec"]
-    async fn live_a_week_of_daily_bars_is_read_whole_and_reproducibly() {
+    async fn live_a_week_of_daily_vendor_bars_is_read_whole_and_reproducibly() {
         let configuration = aws_config::load_from_env().await;
         let archive = Archive::market_data(&configuration).unwrap();
         let alpaca = Alpaca::from_environment(reqwest::Client::new()).unwrap();
@@ -394,7 +553,7 @@ pub(crate) mod tests {
         let calendar = alpaca.calendar(range).await.unwrap();
         let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
         let mut study = Study::open(Label::new("live loader check").unwrap(), &directory).unwrap();
-        let dataset = daily_bars(&archive, &calendar, range, &mut study)
+        let dataset = daily_vendor_bars(&archive, &calendar, range, &mut study)
             .await
             .unwrap();
         let fingerprint = dataset.fingerprint();
@@ -422,7 +581,7 @@ pub(crate) mod tests {
             counts.readings().keys().collect::<Vec<_>>(),
             fingerprint.partitions().keys().collect::<Vec<_>>()
         );
-        let again = daily_bars(&archive, &calendar, range, &mut study)
+        let again = daily_vendor_bars(&archive, &calendar, range, &mut study)
             .await
             .unwrap();
         let journaled: Vec<String> = std::fs::read_dir(&directory)
