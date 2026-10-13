@@ -224,35 +224,35 @@ impl Bar {
     }
 }
 
-/// Bars to write or read as one partition, at least one, since a partition written empty would mark its session
-/// held with nothing in it.
+/// Rows to write or read as one partition, at least one, since a partition written empty would mark its session held
+/// with nothing in it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BarPartition(Vec<Bar>);
+pub struct Partition<Row>(Vec<Row>);
 
-/// Why bars were refused as a partition.
+/// Why rows were refused as a partition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum BarPartitionRefusal {
-    #[error("a partition holds no bars")]
+pub enum PartitionRefusal {
+    #[error("a partition holds no rows")]
     Empty,
 }
 
-impl TryFrom<Vec<Bar>> for BarPartition {
-    type Error = BarPartitionRefusal;
+impl<Row> TryFrom<Vec<Row>> for Partition<Row> {
+    type Error = PartitionRefusal;
 
-    fn try_from(bars: Vec<Bar>) -> Result<Self, Self::Error> {
-        match bars.is_empty() {
-            true => Err(BarPartitionRefusal::Empty),
-            false => Ok(Self(bars)),
+    fn try_from(rows: Vec<Row>) -> Result<Self, Self::Error> {
+        match rows.is_empty() {
+            true => Err(PartitionRefusal::Empty),
+            false => Ok(Self(rows)),
         }
     }
 }
 
-impl BarPartition {
-    pub fn bars(&self) -> &[Bar] {
+impl<Row> Partition<Row> {
+    pub fn rows(&self) -> &[Row] {
         &self.0
     }
 
-    pub fn into_bars(self) -> Vec<Bar> {
+    pub fn into_rows(self) -> Vec<Row> {
         self.0
     }
 }
@@ -601,8 +601,8 @@ mod tests {
     #[test]
     fn test_an_empty_partition_is_refused() {
         assert_eq!(
-            BarPartition::try_from(Vec::new()),
-            Err(BarPartitionRefusal::Empty)
+            Partition::<Bar>::try_from(Vec::new()),
+            Err(PartitionRefusal::Empty)
         );
     }
 

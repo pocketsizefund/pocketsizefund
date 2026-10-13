@@ -70,12 +70,9 @@ pub enum EncodeRefusal {
 /// Why a file of any layout was not decoded, kept as the layout's own refusal.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum DecodeRefusal {
-    /// Quote and trade bars share one refusal, so the layout is named by the key the caller holds.
+    /// Vendor, quote and trade bars share one refusal, so the layout is named by the key the caller holds.
     #[error("bars not decoded: {0}")]
     Bars(parquet::DecodeRefusal),
-    /// Vendor bars, at any interval, add the refusal of a file holding none.
-    #[error("bars not decoded: {0}")]
-    VendorBars(bars::DecodeRefusal),
     #[error("reference table not decoded: {0:?}")]
     Reference(reference::ReferenceRefusal),
     #[error("journal not decoded: {0:?}")]
@@ -99,7 +96,6 @@ wrap_refusal!(
     EncodeRefusal::Journal(journal::EncodeRefusal),
     EncodeRefusal::Logs(logs::EncodeRefusal),
     DecodeRefusal::Bars(parquet::DecodeRefusal),
-    DecodeRefusal::VendorBars(bars::DecodeRefusal),
     DecodeRefusal::Reference(reference::ReferenceRefusal),
     DecodeRefusal::Journal(journal::DecodeRefusal),
 );
@@ -443,7 +439,7 @@ mod tests {
             None,
         );
         let written =
-            crate::common::market::record::BarPartition::try_from(daily.bars().to_vec()).unwrap();
+            crate::common::market::record::Partition::try_from(daily.bars().to_vec()).unwrap();
         let body = bars::encode(&key, &written, &provenance).unwrap();
         let configuration = aws_config::load_from_env().await;
         let archive = Archive::market_data(&configuration).unwrap();
@@ -452,7 +448,7 @@ mod tests {
             bars::decode(&key, archive.get(&Key::from(key)).await.unwrap().unwrap()).unwrap();
         println!(
             "{} bars, {} bytes, {}",
-            bars.bars().len(),
+            bars.rows().len(),
             body.len(),
             Key::from(key).path()
         );

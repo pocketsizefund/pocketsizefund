@@ -411,6 +411,7 @@ async fn previous_bars(
         Err(refusal) => return Err(PreviousRefusal::Decode { key, refusal }),
     };
     let bars: Vec<_> = bars
+        .into_rows()
         .into_iter()
         .filter(|bar| symbols.contains(bar.symbol()))
         .collect();

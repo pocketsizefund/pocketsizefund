@@ -17,6 +17,7 @@ use chrono::{DateTime, Utc};
 use super::bars::{Provenance, provenance_from};
 use super::parquet::{self, ReadRefusal, RowCause};
 use crate::common::market::aggregate::TradeTotals;
+use crate::common::market::record::Partition;
 use crate::common::market::trade_bars::{HighLow, OpenClose, TradeBar, TradeSums};
 use crate::common::market::{DollarVolume, Shares, StampedPrice, Symbol, TradeCount};
 use crate::common::storage::TradesKey;
@@ -59,7 +60,7 @@ fn schema() -> Schema {
 /// The file for `key`, rows ordered by symbol and then timestamp so the same bars always make the same bytes.
 pub fn encode(
     key: &TradesKey,
-    bars: &[TradeBar],
+    bars: &Partition<TradeBar>,
     provenance: &Provenance,
 ) -> Result<Vec<u8>, parquet::EncodeRefusal> {
     let (provider, interval, session) = (key.provider(), key.interval(), key.session());
@@ -69,7 +70,7 @@ pub fn encode(
             key: provider,
         });
     }
-    let ordered = parquet::place(bars, interval, session, |bar| {
+    let ordered = parquet::place(bars.rows(), interval, session, |bar| {
         (bar.symbol(), bar.interval(), bar.timestamp())
     })
     .map_err(parquet::EncodeRefusal::Placement)?;
@@ -140,7 +141,7 @@ pub fn encode(
 pub fn decode(
     key: &TradesKey,
     bytes: Vec<u8>,
-) -> Result<(Vec<TradeBar>, Provenance), parquet::DecodeRefusal> {
+) -> Result<(Partition<TradeBar>, Provenance), parquet::DecodeRefusal> {
     let (provider, interval, session) = (key.provider(), key.interval(), key.session());
     let (batches, entries) = parquet::read(bytes, &schema(), LAYOUT_VERSION)?;
     let provenance = provenance_from(&entries).map_err(|name| ReadRefusal::Metadata { name })?;
@@ -212,6 +213,7 @@ pub fn decode(
             bars.push(read(row).map_err(|cause| parquet::DecodeRefusal::Row { index, cause })?);
         }
     }
+    let bars = Partition::try_from(bars).map_err(parquet::DecodeRefusal::Partition)?;
     Ok((bars, provenance))
 }
 
@@ -225,7 +227,7 @@ mod tests {
     use crate::archive::bars::Subscription;
     use crate::common::journal::RunId;
     use crate::common::market::record::BarInterval;
-    use crate::common::market::record::Trade;
+    use crate::common::market::record::{PartitionRefusal, Trade};
     use crate::common::market::trade_bars::{
         Condition, ConditionCode, ConditionStatus, Correction, Print, TradeConditions, TradeFold,
         UpdateRules,
@@ -233,6 +235,40 @@ mod tests {
     use crate::common::market::{Price, PriceRefusal};
     use crate::common::storage::{Origin, Provider};
     use crate::common::time::SessionDate;
+
+    #[test]
+    fn test_a_file_with_no_rows_is_refused() {
+        let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap());
+        let key = TradesKey::new(
+            Provider::Massive,
+            Origin::Derived,
+            BarInterval::OneMinute,
+            session,
+        );
+        let provenance = Provenance::new(
+            Subscription::StocksAdvanced,
+            "2026-10-03T07:00:00Z".parse().unwrap(),
+            RunId::new(Uuid::from_u128(5)),
+            None,
+        );
+        let mut entries = provenance.metadata();
+        entries.push(::parquet::file::metadata::KeyValue::new(
+            "fund.layout_version".to_string(),
+            Some(LAYOUT_VERSION.to_string()),
+        ));
+        let properties = ::parquet::file::properties::WriterProperties::builder()
+            .set_key_value_metadata(Some(entries))
+            .build();
+        let mut bytes = Vec::new();
+        ::parquet::arrow::ArrowWriter::try_new(&mut bytes, Arc::new(schema()), Some(properties))
+            .unwrap()
+            .close()
+            .unwrap();
+        assert_eq!(
+            decode(&key, bytes).map(|_| ()),
+            Err(parquet::DecodeRefusal::Partition(PartitionRefusal::Empty))
+        );
+    }
 
     #[test]
     fn test_each_decode_refusal_displays_its_cause() {
@@ -314,7 +350,7 @@ mod tests {
             .unwrap();
             fold.push(&Print::Trade(trade), &codes, Correction::Stands);
         }
-        let (written, _) = fold.finish();
+        let written = Partition::try_from(fold.finish().0).unwrap();
         let provenance = Provenance::new(
             Subscription::StocksAdvanced,
             "2026-10-03T07:00:00Z".parse().unwrap(),
@@ -323,9 +359,9 @@ mod tests {
         );
         let (read, read_provenance) =
             decode(&key, encode(&key, &written, &provenance).unwrap()).unwrap();
-        assert_eq!(read.len(), 2);
+        assert_eq!(read.rows().len(), 2);
         assert_eq!(read, written);
-        assert_eq!(read[1].sums().open_close(), None);
+        assert_eq!(read.rows()[1].sums().open_close(), None);
         assert_eq!(read_provenance, provenance);
     }
 
@@ -404,18 +440,20 @@ mod tests {
                     proptest::option::of((1_i64..2_000_000, 0_i64..5_000, 0_i64..3_600_000_000_000)),
                     proptest::option::of((1_i64..2_000_000, 0_i64..5_000)),
                 ),
-                0..12,
+                1..12,
             ),
         ) {
             let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap());
             let open: DateTime<Utc> = "2026-10-02T13:30:00Z".parse().unwrap();
+            // A daily bar is one per symbol, so each symbol keeps its first row and the partition is never empty.
+            let mut daily = std::collections::BTreeSet::new();
             let bars: Vec<TradeBar> = rows
                 .iter()
                 .filter_map(|((symbol, slot), ((count, volume, dollars), open_close, high_low))| {
                     let timestamp = match interval {
                         BarInterval::OneMinute => open + chrono::TimeDelta::minutes(*slot),
                         BarInterval::FiveMinute => open + chrono::TimeDelta::minutes(5 * slot),
-                        BarInterval::OneDay if *slot == 0 => session.regular_close(),
+                        BarInterval::OneDay if daily.insert(symbol) => session.regular_close(),
                         BarInterval::OneDay => return None,
                     };
                     let price = |ticks| Price::from_ticks(ticks).unwrap();
@@ -443,6 +481,7 @@ mod tests {
                 RunId::new(Uuid::from_u128(5)),
                 None,
             );
+            let bars = Partition::try_from(bars).unwrap();
             let (read, read_provenance) = decode(&key, encode(&key, &bars, &provenance).unwrap()).unwrap();
             proptest::prop_assert_eq!(read, bars);
             proptest::prop_assert_eq!(read_provenance, provenance);

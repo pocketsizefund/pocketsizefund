@@ -17,6 +17,7 @@ use chrono::DateTime;
 use super::bars::{Provenance, provenance_from};
 use super::parquet::{self, ReadRefusal, RowCause};
 use crate::common::market::quote_bars::{QuoteBar, QuoteSums, Spread, StandingQuote, TimeWeighted};
+use crate::common::market::record::Partition;
 use crate::common::market::{QuoteCount, Shares, Symbol};
 use crate::common::storage::QuotesKey;
 
@@ -62,7 +63,7 @@ fn schema() -> Schema {
 /// The file for `key`, rows ordered by symbol and then timestamp so the same bars always make the same bytes.
 pub fn encode(
     key: &QuotesKey,
-    bars: &[QuoteBar],
+    bars: &Partition<QuoteBar>,
     provenance: &Provenance,
 ) -> Result<Vec<u8>, parquet::EncodeRefusal> {
     let (provider, interval, session) = (key.provider(), key.interval(), key.session());
@@ -72,7 +73,7 @@ pub fn encode(
             key: provider,
         });
     }
-    let ordered = parquet::place(bars, interval, session, |bar| {
+    let ordered = parquet::place(bars.rows(), interval, session, |bar| {
         (bar.symbol(), bar.interval(), bar.timestamp())
     })
     .map_err(parquet::EncodeRefusal::Placement)?;
@@ -159,7 +160,7 @@ pub fn encode(
 pub fn decode(
     key: &QuotesKey,
     bytes: Vec<u8>,
-) -> Result<(Vec<QuoteBar>, Provenance), parquet::DecodeRefusal> {
+) -> Result<(Partition<QuoteBar>, Provenance), parquet::DecodeRefusal> {
     let (provider, interval, session) = (key.provider(), key.interval(), key.session());
     let (batches, entries) = parquet::read(bytes, &schema(), LAYOUT_VERSION)?;
     let provenance = provenance_from(&entries).map_err(|name| ReadRefusal::Metadata { name })?;
@@ -217,6 +218,7 @@ pub fn decode(
             bars.push(read(row).map_err(|cause| parquet::DecodeRefusal::Row { index, cause })?);
         }
     }
+    let bars = Partition::try_from(bars).map_err(parquet::DecodeRefusal::Partition)?;
     Ok((bars, provenance))
 }
 
@@ -232,7 +234,7 @@ mod tests {
     use crate::common::market::Price;
     use crate::common::market::quote_bars::QuoteFold;
     use crate::common::market::record::BarInterval;
-    use crate::common::market::record::Quote;
+    use crate::common::market::record::{PartitionRefusal, Quote};
     use crate::common::storage::{Origin, Provider};
     use crate::common::time::SessionDate;
 
@@ -258,7 +260,7 @@ mod tests {
         )
     }
 
-    fn bars() -> Vec<QuoteBar> {
+    fn bars() -> Partition<QuoteBar> {
         let mut fold = QuoteFold::new(
             "2026-10-02T13:30:00Z".parse().unwrap(),
             "2026-10-02T20:00:00Z".parse().unwrap(),
@@ -281,7 +283,28 @@ mod tests {
                 .unwrap(),
             );
         }
-        fold.finish().0
+        Partition::try_from(fold.finish().0).unwrap()
+    }
+
+    #[test]
+    fn test_a_file_with_no_rows_is_refused() {
+        let mut entries = provenance().metadata();
+        entries.push(::parquet::file::metadata::KeyValue::new(
+            "fund.layout_version".to_string(),
+            Some(LAYOUT_VERSION.to_string()),
+        ));
+        let properties = ::parquet::file::properties::WriterProperties::builder()
+            .set_key_value_metadata(Some(entries))
+            .build();
+        let mut bytes = Vec::new();
+        ::parquet::arrow::ArrowWriter::try_new(&mut bytes, Arc::new(schema()), Some(properties))
+            .unwrap()
+            .close()
+            .unwrap();
+        assert_eq!(
+            decode(&key(), bytes).map(|_| ()),
+            Err(parquet::DecodeRefusal::Partition(PartitionRefusal::Empty))
+        );
     }
 
     #[test]
@@ -289,7 +312,7 @@ mod tests {
         let written = bars();
         let (read, provenance_read) =
             decode(&key(), encode(&key(), &written, &provenance()).unwrap()).unwrap();
-        assert_eq!(read.len(), 780);
+        assert_eq!(read.rows().len(), 780);
         assert_eq!(read, written);
         assert_eq!(provenance_read, provenance());
     }
@@ -379,7 +402,7 @@ mod tests {
         #[test]
         fn property_quote_bars_round_trip(
             interval in proptest::sample::select(vec![BarInterval::OneMinute, BarInterval::FiveMinute, BarInterval::OneDay]),
-            bars in proptest::collection::vec(any_bar(BarInterval::OneMinute), 0..12),
+            bars in proptest::collection::vec(any_bar(BarInterval::OneMinute), 1..12),
         ) {
             let bars: Vec<QuoteBar> = match interval {
                 BarInterval::OneMinute => bars,
@@ -394,9 +417,10 @@ mod tests {
                 }
             }
             let key = QuotesKey::new(Provider::Massive, Origin::Derived, interval, session());
-            let (read, read_provenance) = decode(&key, encode(&key, &unique, &provenance()).unwrap()).unwrap();
+            let written = Partition::try_from(unique.clone()).unwrap();
+            let (read, read_provenance) = decode(&key, encode(&key, &written, &provenance()).unwrap()).unwrap();
             unique.sort_by(|left, right| (left.symbol(), left.timestamp()).cmp(&(right.symbol(), right.timestamp())));
-            proptest::prop_assert_eq!(read, unique);
+            proptest::prop_assert_eq!(read.into_rows(), unique);
             proptest::prop_assert_eq!(read_provenance, provenance());
         }
     }

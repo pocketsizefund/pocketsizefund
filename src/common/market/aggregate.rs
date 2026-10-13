@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 
-use super::record::{Bar, BarInterval, BarPrices, Trade};
+use super::record::{Bar, BarInterval, BarPrices, Partition, Trade};
 use super::{DollarVolume, Price, Shares, StampedPrice, Symbol, TradeCount};
 use crate::common::monoid::{Monoid, Semigroup};
 
@@ -168,9 +168,12 @@ pub fn roll_up<B: RollsUp>(bars: &[B], interval: BarInterval) -> Result<Vec<B>, 
 
 /// A fold's one-minute bars beside their five-minute and daily rollups, each with its interval and the daily last, as a
 /// session's ticks are written; panics on a daily bar, which no fold hands out.
-pub fn session_bars<B: RollsUp>(minutes: Vec<B>) -> [(BarInterval, Vec<B>); 3] {
+pub fn session_bars<B: RollsUp>(minutes: Partition<B>) -> [(BarInterval, Partition<B>); 3] {
     let roll = |interval| {
-        let bars = roll_up(&minutes, interval).expect("a fold's minutes roll up to coarser bars");
+        let bars =
+            roll_up(minutes.rows(), interval).expect("a fold's minutes roll up to coarser bars");
+        let bars =
+            Partition::try_from(bars).expect("a partition's minutes roll up to at least one bar");
         (interval, bars)
     };
     let five_minutes = roll(BarInterval::FiveMinute);
@@ -257,8 +260,11 @@ pub(super) fn check_rollups_compose<B: RollsUp + PartialEq + std::fmt::Debug>(
     minutes: &[B],
 ) -> Result<(), proptest::test_runner::TestCaseError> {
     let roll = |bars: &[B], interval| roll_up(bars, interval).unwrap();
-    let [(minute, minute_bars), (five, five_minutes), (day, daily)] =
-        session_bars(roll(minutes, BarInterval::OneMinute));
+    let rolled = match Partition::try_from(roll(minutes, BarInterval::OneMinute)) {
+        Ok(rolled) => rolled,
+        Err(super::record::PartitionRefusal::Empty) => return Ok(()),
+    };
+    let [(minute, minute_bars), (five, five_minutes), (day, daily)] = session_bars(rolled);
     proptest::prop_assert_eq!(
         (minute, five, day),
         (
@@ -267,13 +273,18 @@ pub(super) fn check_rollups_compose<B: RollsUp + PartialEq + std::fmt::Debug>(
             BarInterval::OneDay
         )
     );
-    proptest::prop_assert_eq!(minute_bars, roll(minutes, BarInterval::OneMinute));
-    proptest::prop_assert_eq!(daily.is_empty(), minutes.is_empty());
     proptest::prop_assert_eq!(
-        roll(&five_minutes, BarInterval::OneDay),
+        minute_bars.into_rows(),
+        roll(minutes, BarInterval::OneMinute)
+    );
+    proptest::prop_assert_eq!(
+        roll(five_minutes.rows(), BarInterval::OneDay),
         roll(minutes, BarInterval::OneDay)
     );
-    proptest::prop_assert_eq!(roll(&five_minutes, BarInterval::OneDay), daily);
+    proptest::prop_assert_eq!(
+        roll(five_minutes.rows(), BarInterval::OneDay),
+        daily.into_rows()
+    );
     Ok(())
 }
 
@@ -551,7 +562,7 @@ mod tests {
         }
 
         #[test]
-        fn property_rollups_compose(bars in prop::collection::vec(any_minute_bar(), 0..50)) {
+        fn property_rollups_compose(bars in prop::collection::vec(any_minute_bar(), 1..50)) {
             check_rollups_compose(&bars)?;
         }
 
