@@ -24,16 +24,19 @@ fn statement(views: &str, opening: &str) -> String {
     panic!("{opening} never ends a line in `;`")
 }
 
-/// The macros `bar_seam` calls and the view itself, reading `records` and `archive` in place of the two buckets.
+/// The macros `bar_seam` calls, its one-session form and the view itself, reading `records` and `archive` in place of
+/// the two buckets.
 fn pointed(records: &Path, archive: &Path) -> String {
     let views = std::fs::read_to_string(root().join("views.sql")).unwrap();
     let script = format!(
-        "SET VARIABLE records_bucket = '{}';\nSET VARIABLE market_data_bucket = '{}';\n{}\n{}\n{}\n{}\n",
+        "SET VARIABLE records_bucket = '{}';\nSET VARIABLE market_data_bucket = '{}';\n{}\n{}\n{}\n{}\n{}\n{}\n",
         records.display(),
         archive.display(),
-        statement(&views, "CREATE OR REPLACE MACRO sessions("),
+        statement(&views, "CREATE OR REPLACE MACRO partitions("),
         statement(&views, "CREATE OR REPLACE MACRO millionths("),
         statement(&views, "CREATE OR REPLACE MACRO trillionths("),
+        statement(&views, "CREATE OR REPLACE MACRO bar_seam_over("),
+        statement(&views, "CREATE OR REPLACE MACRO bar_seam_on("),
         statement(&views, "CREATE OR REPLACE VIEW bar_seam AS\n"),
     )
     .replace("'s3://' || ", "");
@@ -89,8 +92,19 @@ fn test_the_seam_matches_minutes_in_the_run_and_differs_only_where_the_bars_do()
     let bars = archive.join(
         "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/year=2026/month=10/day=08",
     );
-    std::fs::create_dir_all(&journal).unwrap();
-    std::fs::create_dir_all(&bars).unwrap();
+    // A second session copies the first under another run, so a read reaching past its day shows as extra rows; two
+    // more hold only one side each.
+    let day = |path: &Path, number: &str| path.with_file_name(format!("day={number}"));
+    for directory in [
+        &journal,
+        &bars,
+        &day(&journal, "09"),
+        &day(&bars, "09"),
+        &day(&journal, "12"),
+        &day(&bars, "13"),
+    ] {
+        std::fs::create_dir_all(directory).unwrap();
+    }
     let journal_lines = [
         line(
             "configuration_resolved",
@@ -112,22 +126,55 @@ fn test_the_seam_matches_minutes_in_the_run_and_differs_only_where_the_bars_do()
     ];
     let script = format!(
         "SET TimeZone = 'UTC';\n\
-         COPY ({}) TO '{}/data.parquet';\n\
-         COPY ({}) TO '{}/data.parquet';\n\
+         COPY ({}) TO '{journal}/data.parquet';\n\
+         COPY ({}) TO '{bars}/data.parquet';\n\
+         COPY (SELECT * REPLACE ('second' AS run_id) FROM '{journal}/data.parquet') TO '{second_journal}/data.parquet';\n\
+         COPY (FROM '{bars}/data.parquet') TO '{second_bars}/data.parquet';\n\
+         COPY (FROM '{journal}/data.parquet') TO '{journal_only}/data.parquet';\n\
+         COPY (FROM '{bars}/data.parquet') TO '{bars_only}/data.parquet';\n\
          {}\n\
-         SELECT run_id, session, symbol, strftime(timestamp, '%H:%M'), presence, trade_count_difference, \
-         volume_difference, dollar_volume_difference, opened_at_difference, open_difference, closed_at_difference, \
-         close_difference, high_difference, low_difference FROM bar_seam ORDER BY symbol, timestamp;\n",
+         SELECT {columns} FROM bar_seam WHERE session < DATE '2026-10-12' ORDER BY session, symbol, timestamp;\n\
+         SELECT {columns} FROM bar_seam_on(DATE '2026-10-08') ORDER BY symbol, timestamp;\n",
         journal_lines.join(" UNION ALL "),
-        journal.display(),
         archive_rows.join(" UNION ALL "),
-        bars.display(),
         pointed(&records, &archive),
+        journal = journal.display(),
+        bars = bars.display(),
+        second_journal = day(&journal, "09").display(),
+        second_bars = day(&bars, "09").display(),
+        journal_only = day(&journal, "12").display(),
+        bars_only = day(&bars, "13").display(),
+        columns = "run_id, session, symbol, strftime(timestamp, '%H:%M'), presence, trade_count_difference, \
+                   volume_difference, dollar_volume_difference, opened_at_difference, open_difference, \
+                   closed_at_difference, close_difference, high_difference, low_difference",
     );
     let output = Command::new("duckdb")
         .args(["-csv", "-noheader", "-c", &script])
         .output();
+    // A session missing either side, or both, fails rather than reading the other side alone.
+    let one_sided = ["2026-10-12", "2026-10-13", "2026-10-14"].map(|session| {
+        Command::new("duckdb")
+            .args([
+                "-csv",
+                "-noheader",
+                "-c",
+                &format!(
+                    "{}SELECT count(*) FROM bar_seam_on(DATE '{session}');\n",
+                    pointed(&records, &archive)
+                ),
+            ])
+            .output()
+    });
     std::fs::remove_dir_all(&directory).unwrap();
+    for absent in one_sided {
+        let absent = absent.expect("duckdb is on the path, as devenv provides it");
+        assert!(!absent.status.success(), "{absent:?}");
+        assert!(
+            String::from_utf8_lossy(&absent.stderr)
+                .contains("No files found that match the pattern"),
+            "{absent:?}"
+        );
+    }
     let output = output.expect("duckdb is on the path, as devenv provides it");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -135,8 +182,17 @@ fn test_the_seam_matches_minutes_in_the_run_and_differs_only_where_the_bars_do()
         "{stdout}{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    // The view over both full sessions, then the one-session form, which must read the first session's rows alone.
+    let lines: Vec<_> = stdout.lines().collect();
+    assert_eq!(lines.len(), 12, "{stdout}");
+    assert_eq!(lines[..4], lines[8..], "{stdout}");
+    let second: Vec<_> = lines[..4]
+        .iter()
+        .map(|line| line.replacen("fixture,2026-10-08", "second,2026-10-09", 1))
+        .collect();
+    assert_eq!(lines[4..8], second, "{stdout}");
     assert_eq!(
-        stdout.lines().collect::<Vec<_>>(),
+        lines[..4],
         [
             "fixture,2026-10-08,QQQ,14:00,archive_only,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL",
             "fixture,2026-10-08,QQQ,14:01,trader_only,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL",

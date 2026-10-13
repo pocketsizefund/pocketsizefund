@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Creates each view of views.sql alone against the real buckets and counts its rows, or probes for one row in a view over
-# `preferred`, which cannot count from file metadata; an empty view or one that does not create fails, while an
-# optional view, whose producer may not run in this profile, may be empty but must create.
+# Creates each view of views.sql alone against the real buckets and probes it for one row; an empty view or one that
+# does not create fails, while an optional view, whose producer may not run in this profile, may be empty but must create.
 # Exits 0 if every view is as expected, 3 if any is not, 1 if the check could not be made; `DUCKDB` sets the binary.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -41,13 +40,7 @@ unreachable=0
 for view in "${views[@]}"; do
   statement="$(awk -v start="CREATE OR REPLACE VIEW ${view} AS" \
     '$0 == start {inside = 1} inside {print} inside && /;[[:space:]]*$/ {exit}' views.sql)"
-  probed=false
-  [[ "${statement}" == *"preferred("* ]] && probed=true
-  if "${probed}"; then
-    count="SELECT count(*) FROM (SELECT 1 FROM ${view} LIMIT 1);"
-  else
-    count="SELECT count(*) FROM ${view};"
-  fi
+  count="SELECT count(*) FROM (SELECT 1 FROM ${view} LIMIT 1);"
   # Bailing on the first error keeps a failed creation from adding a second error of its own.
   if output="$(printf '%s\n.bail on\n%s\n%s\n' "${preamble}" "${statement}" "${count}" \
     | "${duckdb}" -csv -noheader 2>&1)"; then
@@ -57,8 +50,10 @@ for view in "${views[@]}"; do
   fi
   error="$(grep -m 1 'Error' <<<"${output}" || true)"
   if [[ "${optional}" == *" ${view} "* ]]; then
-    if [[ -n "${rows}" ]]; then
-      echo "${view}: optional, ${rows} rows"
+    if [[ "${rows}" == 0 ]]; then
+      echo "${view}: optional, reads no rows"
+    elif [[ -n "${rows}" ]]; then
+      echo "${view}: optional, reads rows"
     elif [[ "${error}" == *"${unwritten}"* ]]; then
       echo "${view}: optional, nothing written"
     else
@@ -78,10 +73,8 @@ for view in "${views[@]}"; do
   elif [[ "${rows}" -eq 0 ]]; then
     echo "${view}: reads no rows"
     broken=$((broken + 1))
-  elif "${probed}"; then
-    echo "${view}: reads rows"
   else
-    echo "${view}: ${rows} rows"
+    echo "${view}: reads rows"
   fi
 done
 
