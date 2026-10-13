@@ -28,7 +28,8 @@ use crate::common::time::{SessionDate, SessionRange, SessionRangeRefusal};
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum DatasetLeg {
-    MassiveDailyBars,
+    /// Daily bars the vendor aggregated from trades, read from Massive's partitions.
+    DailyVendorBars,
     /// Trade bars folded from ticks, Massive's where it holds the session and Alpaca's otherwise; the three cadences
     /// are three series.
     MinuteTradeBars,
@@ -49,7 +50,7 @@ impl DatasetLeg {
     /// The cadence of a trade-bar leg, `None` for a leg of vendor bars.
     pub fn trades_interval(self) -> Option<BarInterval> {
         match self {
-            Self::MassiveDailyBars => None,
+            Self::DailyVendorBars => None,
             Self::MinuteTradeBars => Some(BarInterval::OneMinute),
             Self::FiveMinuteTradeBars => Some(BarInterval::FiveMinute),
             Self::DailyTradeBars => Some(BarInterval::OneDay),
@@ -284,7 +285,7 @@ mod tests {
     #[test]
     fn test_every_trading_session_is_read_or_named_missing() {
         let fingerprint = Fingerprint::new(
-            DatasetLeg::MassiveDailyBars,
+            DatasetLeg::DailyVendorBars,
             range(21, 27),
             &calendar(),
             tags(&[21, 22, 25]),
@@ -295,14 +296,14 @@ mod tests {
             [session(21), session(22), session(25)]
         );
         assert_eq!(fingerprint.missing(), [session(23), session(24)]);
-        assert_eq!(fingerprint.leg(), DatasetLeg::MassiveDailyBars);
+        assert_eq!(fingerprint.leg(), DatasetLeg::DailyVendorBars);
     }
 
     #[test]
     fn test_a_fingerprint_refuses_what_it_could_not_have_read() {
         assert_eq!(
             Fingerprint::new(
-                DatasetLeg::MassiveDailyBars,
+                DatasetLeg::DailyVendorBars,
                 range(21, 28),
                 &calendar(),
                 tags(&[])
@@ -315,7 +316,7 @@ mod tests {
         for day in [26, 25] {
             assert_eq!(
                 Fingerprint::new(
-                    DatasetLeg::MassiveDailyBars,
+                    DatasetLeg::DailyVendorBars,
                     range(21, 24),
                     &calendar(),
                     tags(&[21, day])
@@ -330,7 +331,7 @@ mod tests {
     #[test]
     fn test_a_partition_rewritten_or_gone_since_it_was_read_is_contaminated() {
         let fingerprint = Fingerprint::new(
-            DatasetLeg::MassiveDailyBars,
+            DatasetLeg::DailyVendorBars,
             range(21, 25),
             &calendar(),
             tags(&[21, 22, 24]),
@@ -368,7 +369,7 @@ mod tests {
     fn test_a_stored_fingerprint_must_agree_with_its_own_window() {
         let stored = serde_json::to_value(
             Fingerprint::new(
-                DatasetLeg::MassiveDailyBars,
+                DatasetLeg::DailyVendorBars,
                 range(21, 25),
                 &calendar(),
                 tags(&[21, 24]),
@@ -401,7 +402,7 @@ mod tests {
     #[test]
     fn test_a_fingerprint_reads_back_as_written() {
         let fingerprint = Fingerprint::new(
-            DatasetLeg::MassiveDailyBars,
+            DatasetLeg::DailyVendorBars,
             range(21, 25),
             &calendar(),
             tags(&[21, 24]),
@@ -410,7 +411,7 @@ mod tests {
         let encoded = serde_json::to_string(&fingerprint).unwrap();
         assert_eq!(
             encoded,
-            r#"{"leg":"massive_daily_bars","first":"2026-09-21","last":"2026-09-25","partitions":{"2026-09-21":{"provider":"massive","tag":"\"tag-21\""},"2026-09-24":{"provider":"massive","tag":"\"tag-24\""}},"missing":["2026-09-22","2026-09-23","2026-09-25"]}"#
+            r#"{"leg":"daily_vendor_bars","first":"2026-09-21","last":"2026-09-25","partitions":{"2026-09-21":{"provider":"massive","tag":"\"tag-21\""},"2026-09-24":{"provider":"massive","tag":"\"tag-24\""}},"missing":["2026-09-22","2026-09-23","2026-09-25"]}"#
         );
         assert_eq!(
             serde_json::from_str::<Fingerprint>(&encoded).unwrap(),
@@ -425,7 +426,7 @@ mod tests {
         assert_eq!(
             DatasetLeg::iter().map(<&str>::from).collect::<Vec<_>>(),
             [
-                "massive_daily_bars",
+                "daily_vendor_bars",
                 "minute_trade_bars",
                 "five_minute_trade_bars",
                 "daily_trade_bars"
@@ -460,6 +461,6 @@ mod tests {
                 Some(interval)
             );
         }
-        assert_eq!(DatasetLeg::MassiveDailyBars.trades_interval(), None);
+        assert_eq!(DatasetLeg::DailyVendorBars.trades_interval(), None);
     }
 }

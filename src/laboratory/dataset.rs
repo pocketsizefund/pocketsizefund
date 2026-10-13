@@ -80,16 +80,16 @@ pub enum DatasetError {
     },
 }
 
-/// Massive daily bars for every trading session in `range`, journaled to `study` before it is returned; a session with
+/// Daily vendor bars for every trading session in `range`, journaled to `study` before it is returned; a session with
 /// no partition is recorded missing in the fingerprint rather than refused.
-pub async fn daily_bars(
+pub async fn daily_vendor_bars(
     archive: &Archive,
     calendar: &TradingCalendar,
     range: SessionRange,
     study: &mut Study,
 ) -> Result<Dataset, DatasetError> {
     load(
-        DatasetLeg::MassiveDailyBars,
+        DatasetLeg::DailyVendorBars,
         calendar,
         range,
         study,
@@ -322,7 +322,7 @@ pub(crate) mod tests {
             bars: [bars(0, 1), bars(1, 2), bars(3, 3)].into(),
             lineage: Lineage {
                 fingerprint: Fingerprint::new(
-                    DatasetLeg::MassiveDailyBars,
+                    DatasetLeg::DailyVendorBars,
                     SessionRange::new(session(0), session(3)).unwrap(),
                     &calendar,
                     read,
@@ -543,7 +543,7 @@ pub(crate) mod tests {
     /// sessions, 2026-09-28 and 09-29, so it always reads something.
     #[tokio::test]
     #[ignore = "reads the live archive and the Alpaca calendar; run deliberately under secretspec"]
-    async fn live_a_week_of_daily_bars_is_read_whole_and_reproducibly() {
+    async fn live_a_week_of_daily_vendor_bars_is_read_whole_and_reproducibly() {
         let configuration = aws_config::load_from_env().await;
         let archive = Archive::market_data(&configuration).unwrap();
         let alpaca = Alpaca::from_environment(reqwest::Client::new()).unwrap();
@@ -553,7 +553,7 @@ pub(crate) mod tests {
         let calendar = alpaca.calendar(range).await.unwrap();
         let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
         let mut study = Study::open(Label::new("live loader check").unwrap(), &directory).unwrap();
-        let dataset = daily_bars(&archive, &calendar, range, &mut study)
+        let dataset = daily_vendor_bars(&archive, &calendar, range, &mut study)
             .await
             .unwrap();
         let fingerprint = dataset.fingerprint();
@@ -581,7 +581,7 @@ pub(crate) mod tests {
             counts.readings().keys().collect::<Vec<_>>(),
             fingerprint.partitions().keys().collect::<Vec<_>>()
         );
-        let again = daily_bars(&archive, &calendar, range, &mut study)
+        let again = daily_vendor_bars(&archive, &calendar, range, &mut study)
             .await
             .unwrap();
         let journaled: Vec<String> = std::fs::read_dir(&directory)
