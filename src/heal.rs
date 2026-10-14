@@ -50,7 +50,7 @@ use crate::ingest::alpaca::{
     Alpaca, AlpacaQuoteOutcome, AlpacaTradeOutcome, MinuteBars, Page, invalid_symbol,
 };
 use crate::ingest::massive::{DetailsAnswer, Massive};
-use crate::ingest::{FetchError, Fetched, RefusedRow, refused_by_cause};
+use crate::ingest::{FetchError, Fetched, RefusedRow, SessionBars, refused_by_cause};
 use crate::journal::Journal;
 use crate::parameter::{Directories, environment_variable};
 
@@ -554,11 +554,11 @@ async fn write_traded_symbols(
     journal: &Journal,
 ) -> Result<PartitionWritten, PartitionFailure> {
     let provenance = fetched_now(Subscription::StocksStarter, journal);
-    let daily = kept(
-        clients.store(),
-        massive_traded_symbols(session),
-        &provenance,
+    let daily = record_traded_symbols(
+        session,
         clients.massive.grouped_daily(session).await,
+        &provenance,
+        clients.store(),
     )
     .await?;
     Ok(PartitionWritten::new(
@@ -569,6 +569,34 @@ async fn write_traded_symbols(
         BTreeMap::new(),
         BTreeMap::new(),
     ))
+}
+
+/// Stores `fetched` with `store` only once it parses and lists a symbol: the stored object alone marks the session held,
+/// so a body stored on failure would never be fetched again.
+async fn record_traded_symbols(
+    session: SessionDate,
+    fetched: Fetched<SessionBars>,
+    provenance: &Provenance,
+    store: impl AsyncFnOnce(ReferenceKey, &Provenance, Vec<Vec<u8>>) -> Result<(), PartitionFailure>,
+) -> Result<SessionBars, PartitionFailure> {
+    let (daily, bodies) = fetched.into_parts();
+    let daily = listed(session, daily)?;
+    store(massive_traded_symbols(session), provenance, bodies).await?;
+    Ok(daily)
+}
+
+/// A session's grouped daily as the symbols that traded, refused when it lists none.
+fn listed(
+    session: SessionDate,
+    daily: Result<SessionBars, FetchError>,
+) -> Result<SessionBars, PartitionFailure> {
+    let daily = daily?;
+    match daily.bars().is_empty() {
+        true => Err(PartitionFailure::NoSymbols {
+            key: Key::RawReference(massive_traded_symbols(session)),
+        }),
+        false => Ok(daily),
+    }
 }
 
 /// Writes Alpaca's one-minute bars for every symbol of the session, fetched in concurrent batches.
@@ -1180,18 +1208,11 @@ async fn symbol_list(
     clients: &Clients,
     session: SessionDate,
 ) -> Result<Vec<Symbol>, PartitionFailure> {
-    let daily = clients
-        .massive
-        .grouped_daily(session)
-        .await
-        .into_parts()
-        .0?;
-    match daily.bars().is_empty() {
-        true => Err(PartitionFailure::NoSymbols {
-            key: Key::RawReference(massive_traded_symbols(session)),
-        }),
-        false => Ok(daily.bars().iter().map(Bar::symbol).cloned().collect()),
-    }
+    let daily = listed(
+        session,
+        clients.massive.grouped_daily(session).await.into_parts().0,
+    )?;
+    Ok(daily.bars().iter().map(Bar::symbol).cloned().collect())
 }
 
 /// Fetches `symbols` in batches with at most `concurrency` in flight, concatenating the answers in the order the
@@ -1586,6 +1607,65 @@ mod tests {
         assert_eq!(event_types(&journal), Vec::<&str>::new());
         std::fs::remove_dir_all(&directory).unwrap();
         std::fs::remove_dir_all(&unfetched_directory).unwrap();
+    }
+
+    /// A grouped daily is stored only once it parses and lists a symbol, since the stored object alone marks the
+    /// traded-symbols session held; a failed or empty one is left for the next heal to fetch again.
+    #[tokio::test]
+    async fn test_traded_symbols_are_stored_only_when_they_list_a_symbol() {
+        let [session, _] = sessions();
+        let provenance = Provenance::new(
+            Subscription::StocksStarter,
+            "2026-09-30T07:00:00Z".parse().unwrap(),
+            RunId::new(uuid::Uuid::from_u128(1)),
+            None,
+        );
+        let fetched = |body: &[u8]| {
+            Fetched::new(
+                crate::ingest::massive::parse_grouped_daily(body, session),
+                vec![body.to_vec()],
+            )
+        };
+        let record = async |fetched: Fetched<SessionBars>| {
+            let mut stored = Vec::new();
+            let recorded = record_traded_symbols(
+                session,
+                fetched,
+                &provenance,
+                async |key: ReferenceKey, _: &Provenance, bodies: Vec<Vec<u8>>| {
+                    stored.push((Key::RawReference(key).path(), bodies.len()));
+                    Ok(())
+                },
+            )
+            .await;
+            (recorded.map(|daily| daily.bars().len()), stored)
+        };
+
+        let (malformed, stored) = record(fetched(b"{\"results\":")).await;
+        assert!(matches!(
+            malformed,
+            Err(PartitionFailure::Fetch(FetchError::Malformed { .. }))
+        ));
+        assert_eq!(stored, []);
+
+        let (empty, stored) = record(fetched(br#"{"results":[]}"#)).await;
+        assert!(matches!(empty, Err(PartitionFailure::NoSymbols { .. })));
+        assert_eq!(stored, []);
+
+        let (listed, stored) = record(fetched(
+            br#"{"results":[{"T":"AAPL","o":1,"h":1,"l":1,"c":1,"v":1,"t":1790712000000}]}"#,
+        ))
+        .await;
+        assert_eq!(listed.unwrap(), 1);
+        assert_eq!(
+            stored,
+            [(
+                format!(
+                    "data/equity/stage=raw/reference/provider=massive/table=traded_symbols/as_of={session}/data.jsonl.gz"
+                ),
+                1
+            )]
+        );
     }
 
     /// A conditions response that fails to parse is still stored as served, and nothing parsed is written.
@@ -2058,11 +2138,11 @@ mod tests {
             None,
         );
         let key = massive_traded_symbols(session);
-        let daily = kept(
-            clients.store(),
-            key,
-            &provenance,
+        let daily = record_traded_symbols(
+            session,
             clients.massive.grouped_daily(session).await,
+            &provenance,
+            clients.store(),
         )
         .await
         .unwrap();

@@ -432,7 +432,10 @@ pub(crate) fn capitalization_to_the_cent(dollars: f64) -> Result<Dollars, Dollar
     Dollars::from_float((dollars * 100.0).round() / 100.0)
 }
 
-fn parse_grouped_daily(body: &[u8], session: SessionDate) -> Result<SessionBars, FetchError> {
+pub(crate) fn parse_grouped_daily(
+    body: &[u8],
+    session: SessionDate,
+) -> Result<SessionBars, FetchError> {
     let response: GroupedResponse =
         serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
             reason: error.to_string(),
