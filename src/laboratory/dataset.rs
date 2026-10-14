@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use crate::archive::bars::Provenance;
-use crate::archive::{Archive, ArchiveError, bars, parquet, trade_bars};
+use crate::archive::{Archive, ArchiveError, parquet, trade_bars};
 use crate::common::heal::massive_daily_bars;
 use crate::common::journal::RunId;
 use crate::common::laboratory::dataset::{
@@ -78,27 +78,6 @@ pub enum DatasetError {
         session: SessionDate,
         refusal: parquet::DecodeRefusal,
     },
-}
-
-/// Massive's daily vendor bars for every trading session in `range`, journaled to `study` before it is returned; a
-/// session with no partition is recorded missing in the fingerprint rather than refused.
-pub async fn daily_vendor_bars(
-    archive: &Archive,
-    calendar: &TradingCalendar,
-    range: SessionRange,
-    study: &mut Study,
-) -> Result<Dataset, DatasetError> {
-    load(
-        DatasetLeg::DailyVendorBars,
-        calendar,
-        range,
-        study,
-        async |session| {
-            let key = massive_daily_bars(session);
-            read(archive, Provider::Massive, key, session, bars::decode).await
-        },
-    )
-    .await
 }
 
 /// Trade bars at `interval` for every trading session in `range`, each session from Massive where it holds one and
@@ -537,71 +516,5 @@ pub(crate) mod tests {
         eprintln!("missing {:?}", fingerprint.missing());
         assert_eq!(lineage(&archive, fingerprint).await.unwrap(), []);
         std::fs::remove_dir_all(&directory).unwrap();
-    }
-
-    /// Read-only: one week of the production archive, read twice, under secretspec. The week holds the layout's first
-    /// sessions, 2026-09-28 and 09-29, so it always reads something.
-    #[tokio::test]
-    #[ignore = "reads the live archive and the Alpaca calendar; run deliberately under secretspec"]
-    async fn live_a_week_of_daily_vendor_bars_is_read_whole_and_reproducibly() {
-        let configuration = aws_config::load_from_env().await;
-        let archive = Archive::market_data(&configuration).unwrap();
-        let alpaca = Alpaca::from_environment(reqwest::Client::new()).unwrap();
-        let session =
-            |month, day| SessionDate::from_date(NaiveDate::from_ymd_opt(2026, month, day).unwrap());
-        let range = SessionRange::new(session(9, 28), session(10, 2)).unwrap();
-        let calendar = alpaca.calendar(range).await.unwrap();
-        let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("live loader check").unwrap(), &directory).unwrap();
-        let dataset = daily_vendor_bars(&archive, &calendar, range, &mut study)
-            .await
-            .unwrap();
-        let fingerprint = dataset.fingerprint();
-        assert!(
-            fingerprint.partitions().contains_key(&session(9, 28)),
-            "{fingerprint:?}"
-        );
-        let mut sessions: Vec<SessionDate> = fingerprint.partitions().keys().copied().collect();
-        sessions.extend(fingerprint.missing());
-        sessions.sort();
-        assert_eq!(sessions, calendar.trading_days_in_range(range));
-        assert_eq!(
-            dataset.bars().keys().collect::<Vec<_>>(),
-            fingerprint.partitions().keys().collect::<Vec<_>>()
-        );
-        for (session, bars) in dataset.bars() {
-            assert!(
-                bars.rows().len() > 1000,
-                "{session}: {} bars",
-                bars.rows().len()
-            );
-        }
-        let counts = dataset.series(|bars| Some(bars.len() as f64)).unwrap();
-        assert_eq!(
-            counts.readings().keys().collect::<Vec<_>>(),
-            fingerprint.partitions().keys().collect::<Vec<_>>()
-        );
-        let again = daily_vendor_bars(&archive, &calendar, range, &mut study)
-            .await
-            .unwrap();
-        let journaled: Vec<String> = std::fs::read_dir(&directory)
-            .unwrap()
-            .map(|entry| std::fs::read_to_string(entry.unwrap().path()).unwrap())
-            .collect();
-        assert_eq!(journaled.concat().matches("\"dataset_read\"").count(), 2);
-        std::fs::remove_dir_all(&directory).unwrap();
-        assert_eq!(again.fingerprint(), fingerprint);
-        assert_eq!(lineage(&archive, fingerprint).await.unwrap(), []);
-        println!(
-            "{} sessions read, {} missing, {} bars; {:?}",
-            fingerprint.partitions().len(),
-            fingerprint.missing().len(),
-            dataset
-                .bars()
-                .values()
-                .map(|bars| bars.rows().len())
-                .sum::<usize>(),
-            fingerprint.partitions()
-        );
     }
 }

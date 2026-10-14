@@ -27,7 +27,7 @@ use crate::common::heal::{
     Coverage, CoverageRefusal, Held, KeepsRefusal, Leg, PartitionFailureKind, SeriesListing,
     SessionOutcome, WindowRefusal, alpaca_five_minute_bars, alpaca_minute_bars, alpaca_quotes,
     alpaca_series_boundaries, alpaca_trades, fetched_range, massive_daily_bars,
-    massive_security_details, massive_splits, owed, window,
+    massive_security_details, massive_splits, massive_traded_symbols, owed, window,
 };
 use crate::common::journal::{
     ArchiveSurveyed, ConditionsWritten, ConfigurationResolved, HealFinished, Observation,
@@ -50,7 +50,7 @@ use crate::ingest::alpaca::{
     Alpaca, AlpacaQuoteOutcome, AlpacaTradeOutcome, MinuteBars, Page, invalid_symbol,
 };
 use crate::ingest::massive::{DetailsAnswer, Massive};
-use crate::ingest::{FetchError, Fetched, RefusedRow, refused_by_cause};
+use crate::ingest::{FetchError, Fetched, RefusedRow, SessionBars, refused_by_cause};
 use crate::journal::Journal;
 use crate::parameter::{Directories, environment_variable};
 
@@ -181,8 +181,8 @@ pub enum PartitionFailure {
     /// Listed, then gone when read.
     #[error("{} vanished", .key.path())]
     Vanished { key: Key },
-    /// The session's daily bars, which name its symbols, are not written.
-    #[error("no daily bars at {} to take the symbols from", .key.path())]
+    /// The session's grouped daily, which names its symbols, listed none; `key` is its traded-symbols partition.
+    #[error("no symbols listed for {}", .key.path())]
     NoSymbols { key: Key },
     /// The session's minute bars, which roll up into its five-minute bars, are not written.
     #[error("no minute bars at {} to roll up", .key.path())]
@@ -428,6 +428,7 @@ async fn write(
 ) -> Result<PartitionWritten, PartitionFailure> {
     match leg {
         Leg::MassiveDailyBars => write_daily_bars(session, clients, journal).await,
+        Leg::MassiveTradedSymbols => write_traded_symbols(session, clients, journal).await,
         Leg::AlpacaMinuteBars => write_minute_bars(session, parameters, clients, journal).await,
         Leg::AlpacaFiveMinuteBars => write_five_minute_bars(session, clients).await,
         Leg::AlpacaQuotes => {
@@ -516,7 +517,12 @@ async fn write_daily_bars(
     clients: &Clients,
     journal: &Journal,
 ) -> Result<PartitionWritten, PartitionFailure> {
-    let daily = clients.massive.grouped_daily(session).await?;
+    let daily = clients
+        .massive
+        .grouped_daily(session)
+        .await
+        .into_parts()
+        .0?;
     if !daily.test_tickers().is_empty() {
         tracing::info!(%session, test_tickers = daily.test_tickers().len(), "Exchange test tickers left out");
     }
@@ -538,6 +544,59 @@ async fn write_daily_bars(
         BTreeMap::new(),
         BTreeMap::new(),
     ))
+}
+
+/// Stores the session's grouped daily response raw as the list of symbols that traded, fetched apart from the one
+/// `symbol_list` gives the tick legs; nothing is parsed from it into the archive.
+async fn write_traded_symbols(
+    session: SessionDate,
+    clients: &Clients,
+    journal: &Journal,
+) -> Result<PartitionWritten, PartitionFailure> {
+    let provenance = fetched_now(Subscription::StocksStarter, journal);
+    let daily = record_traded_symbols(
+        session,
+        clients.massive.grouped_daily(session).await,
+        &provenance,
+        clients.store(),
+    )
+    .await?;
+    Ok(PartitionWritten::new(
+        Leg::MassiveTradedSymbols,
+        session,
+        u64::try_from(daily.bars().len()).expect("a session lists fewer than u64::MAX symbols"),
+        refused_by_cause(daily.refused()),
+        BTreeMap::new(),
+        BTreeMap::new(),
+    ))
+}
+
+/// Stores `fetched` with `store` only once it parses and lists a symbol: the stored object alone marks the session held,
+/// so a body stored on failure would never be fetched again.
+async fn record_traded_symbols(
+    session: SessionDate,
+    fetched: Fetched<SessionBars>,
+    provenance: &Provenance,
+    store: impl AsyncFnOnce(ReferenceKey, &Provenance, Vec<Vec<u8>>) -> Result<(), PartitionFailure>,
+) -> Result<SessionBars, PartitionFailure> {
+    let (daily, bodies) = fetched.into_parts();
+    let daily = listed(session, daily)?;
+    store(massive_traded_symbols(session), provenance, bodies).await?;
+    Ok(daily)
+}
+
+/// A session's grouped daily as the symbols that traded, refused when it lists none.
+fn listed(
+    session: SessionDate,
+    daily: Result<SessionBars, FetchError>,
+) -> Result<SessionBars, PartitionFailure> {
+    let daily = daily?;
+    match daily.bars().is_empty() {
+        true => Err(PartitionFailure::NoSymbols {
+            key: Key::RawReference(massive_traded_symbols(session)),
+        }),
+        false => Ok(daily),
+    }
 }
 
 /// Writes Alpaca's one-minute bars for every symbol of the session, fetched in concurrent batches.
@@ -1142,19 +1201,18 @@ where
     }
 }
 
-/// The session's symbols, read from its written daily bars, since those name what traded that day.
+/// The symbols that traded on `session`, which the tick legs must name since Alpaca's endpoints take a symbol list.
+/// Taken from Massive's grouped daily as of the session, never its prices: Alpaca's asset list describes today, so a
+/// backfill would miss every name delisted since, and nothing would show they were never asked for.
 async fn symbol_list(
     clients: &Clients,
     session: SessionDate,
 ) -> Result<Vec<Symbol>, PartitionFailure> {
-    let key = massive_daily_bars(session);
-    let body = clients
-        .archive
-        .get(&Key::from(key))
-        .await?
-        .ok_or(PartitionFailure::NoSymbols { key: key.into() })?;
-    let (bars, _) = bars::decode(&key, body).map_err(archive::DecodeRefusal::from)?;
-    Ok(bars.rows().iter().map(Bar::symbol).cloned().collect())
+    let daily = listed(
+        session,
+        clients.massive.grouped_daily(session).await.into_parts().0,
+    )?;
+    Ok(daily.bars().iter().map(Bar::symbol).cloned().collect())
 }
 
 /// Fetches `symbols` in batches with at most `concurrency` in flight, concatenating the answers in the order the
@@ -1250,7 +1308,7 @@ mod tests {
                 body: "forbidden".to_string(),
             }),
             PartitionFailure::NoSymbols {
-                key: massive_daily_bars(session).into(),
+                key: Key::RawReference(massive_traded_symbols(session)),
             },
         ]
         .map(|failure| failure.outcome());
@@ -1272,8 +1330,8 @@ mod tests {
                 cause(PartitionFailureKind::Fetch, "refused with 403: forbidden"),
                 cause(
                     PartitionFailureKind::NoSymbols,
-                    "no daily bars at data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/\
-                     year=2026/month=09/day=29/data.parquet to take the symbols from"
+                    "no symbols listed for data/equity/stage=raw/reference/provider=massive/table=traded_symbols/\
+                     as_of=2026-09-29/data.jsonl.gz"
                 ),
             ]
         );
@@ -1549,6 +1607,65 @@ mod tests {
         assert_eq!(event_types(&journal), Vec::<&str>::new());
         std::fs::remove_dir_all(&directory).unwrap();
         std::fs::remove_dir_all(&unfetched_directory).unwrap();
+    }
+
+    /// A grouped daily is stored only once it parses and lists a symbol, since the stored object alone marks the
+    /// traded-symbols session held; a failed or empty one is left for the next heal to fetch again.
+    #[tokio::test]
+    async fn test_traded_symbols_are_stored_only_when_they_list_a_symbol() {
+        let [session, _] = sessions();
+        let provenance = Provenance::new(
+            Subscription::StocksStarter,
+            "2026-09-30T07:00:00Z".parse().unwrap(),
+            RunId::new(uuid::Uuid::from_u128(1)),
+            None,
+        );
+        let fetched = |body: &[u8]| {
+            Fetched::new(
+                crate::ingest::massive::parse_grouped_daily(body, session),
+                vec![body.to_vec()],
+            )
+        };
+        let record = async |fetched: Fetched<SessionBars>| {
+            let mut stored = Vec::new();
+            let recorded = record_traded_symbols(
+                session,
+                fetched,
+                &provenance,
+                async |key: ReferenceKey, _: &Provenance, bodies: Vec<Vec<u8>>| {
+                    stored.push((Key::RawReference(key).path(), bodies.len()));
+                    Ok(())
+                },
+            )
+            .await;
+            (recorded.map(|daily| daily.bars().len()), stored)
+        };
+
+        let (malformed, stored) = record(fetched(b"{\"results\":")).await;
+        assert!(matches!(
+            malformed,
+            Err(PartitionFailure::Fetch(FetchError::Malformed { .. }))
+        ));
+        assert_eq!(stored, []);
+
+        let (empty, stored) = record(fetched(br#"{"results":[]}"#)).await;
+        assert!(matches!(empty, Err(PartitionFailure::NoSymbols { .. })));
+        assert_eq!(stored, []);
+
+        let (listed, stored) = record(fetched(
+            br#"{"results":[{"T":"AAPL","o":1,"h":1,"l":1,"c":1,"v":1,"t":1790712000000}]}"#,
+        ))
+        .await;
+        assert_eq!(listed.unwrap(), 1);
+        assert_eq!(
+            stored,
+            [(
+                format!(
+                    "data/equity/stage=raw/reference/provider=massive/table=traded_symbols/as_of={session}/data.jsonl.gz"
+                ),
+                1
+            )]
+        );
     }
 
     /// A conditions response that fails to parse is still stored as served, and nothing parsed is written.
@@ -2001,6 +2118,46 @@ mod tests {
             Err(PartitionFailure::Tee(TeeError::LineBreak { .. }))
         ));
         assert!(rows.is_empty());
+    }
+
+    /// Stores a session's grouped daily raw in this profile's records bucket and reads its symbols from Massive.
+    #[tokio::test]
+    #[ignore = "fetches from Massive and writes one Deep Archive object to the profile's records bucket, then deletes it"]
+    async fn live_traded_symbols_store_raw_and_name_the_session() {
+        let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 9).unwrap());
+        let configuration = aws_config::load_from_env().await;
+        let clients = Clients::new(
+            Archive::records(&configuration).unwrap(),
+            Massive::from_environment(reqwest::Client::new()).unwrap(),
+            Alpaca::from_environment(reqwest::Client::new()).unwrap(),
+        );
+        let provenance = Provenance::new(
+            Subscription::StocksStarter,
+            Utc::now(),
+            RunId::new(uuid::Uuid::new_v4()),
+            None,
+        );
+        let key = massive_traded_symbols(session);
+        let daily = record_traded_symbols(
+            session,
+            clients.massive.grouped_daily(session).await,
+            &provenance,
+            clients.store(),
+        )
+        .await
+        .unwrap();
+        let symbols = symbol_list(&clients, session).await.unwrap();
+        let raw = Key::RawReference(key);
+        let stored = clients.archive.stored(&raw).await.unwrap().unwrap();
+        println!(
+            "{} symbols, {} bytes, {}",
+            symbols.len(),
+            stored.length(),
+            raw.path()
+        );
+        clients.archive.delete(&raw).await.unwrap();
+        assert_eq!(symbols.len(), daily.bars().len());
+        assert!(symbols.len() > 10_000);
     }
 
     /// Stores Massive's split pages raw in this profile's records bucket, clearing the parsed snapshot first.

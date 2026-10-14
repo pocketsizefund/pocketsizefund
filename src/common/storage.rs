@@ -78,6 +78,9 @@ pub enum ReferenceTable {
     SecurityDetails,
     Splits,
     SeriesBoundaries,
+    /// Massive's grouped daily bars for a session, kept only as the list of symbols that traded, from the endpoint the
+    /// tick legs take their symbols from; never read as prices.
+    TradedSymbols,
 }
 
 /// The S3 storage class an object is written in.

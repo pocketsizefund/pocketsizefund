@@ -103,7 +103,7 @@ impl Massive {
     }
 
     /// Unadjusted daily bars for every exchange-listed ticker that traded on `session`.
-    pub async fn grouped_daily(&self, session: SessionDate) -> Result<SessionBars, FetchError> {
+    pub async fn grouped_daily(&self, session: SessionDate) -> Fetched<SessionBars> {
         let url = format!(
             "{}/v2/aggs/grouped/locale/us/market/stocks/{session}",
             self.base_url
@@ -116,8 +116,11 @@ impl Massive {
                     .query(&[("adjusted", "false"), ("include_otc", "false")]),
             )
         })
-        .await?;
-        parse_grouped_daily(&body, session)
+        .await;
+        match body {
+            Ok(body) => Fetched::new(parse_grouped_daily(&body, session), vec![body]),
+            Err(error) => Fetched::new(Err(error), Vec::new()),
+        }
     }
 
     /// Every split Massive has published, past and announced, as one table.
@@ -429,7 +432,10 @@ pub(crate) fn capitalization_to_the_cent(dollars: f64) -> Result<Dollars, Dollar
     Dollars::from_float((dollars * 100.0).round() / 100.0)
 }
 
-fn parse_grouped_daily(body: &[u8], session: SessionDate) -> Result<SessionBars, FetchError> {
+pub(crate) fn parse_grouped_daily(
+    body: &[u8],
+    session: SessionDate,
+) -> Result<SessionBars, FetchError> {
     let response: GroupedResponse =
         serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
             reason: error.to_string(),
@@ -872,7 +878,12 @@ mod tests {
     #[ignore = "reads the live Massive API; run under secretspec with --ignored"]
     async fn live_grouped_daily_refuses_only_unmapped_notation() {
         let massive = Massive::from_environment(reqwest::Client::new()).unwrap();
-        let daily = massive.grouped_daily(session()).await.unwrap();
+        let daily = massive
+            .grouped_daily(session())
+            .await
+            .into_parts()
+            .0
+            .unwrap();
         let total = daily.bars.len() + daily.test_tickers.len() + daily.refused.len();
         println!(
             "rows {total}, bars {}, test tickers {}, refused {}",

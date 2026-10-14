@@ -431,6 +431,8 @@ mod tests {
             .unwrap()
             .grouped_daily(session)
             .await
+            .into_parts()
+            .0
             .unwrap();
         let provenance = Provenance::new(
             Subscription::StocksStarter,
