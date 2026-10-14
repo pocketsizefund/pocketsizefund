@@ -260,6 +260,11 @@ SELECT
     list_sort(list_distinct(CAST(payload ->> '$.fingerprints[*].leg' AS VARCHAR[]))) AS legs,
     CAST(list_min(CAST(payload ->> '$.fingerprints[*].first' AS VARCHAR[])) AS DATE) AS first,
     CAST(list_max(CAST(payload ->> '$.fingerprints[*].last' AS VARCHAR[])) AS DATE) AS last,
+    -- One entry per fingerprint, in its order; a read journaled before subsets kept every symbol.
+    list_transform(
+        CAST(payload -> '$.fingerprints[*]' AS JSON[]),
+        lambda fingerprint: coalesce(fingerprint -> '$.symbols', '"every"'::JSON)
+    ) AS symbols,
     payload -> '$.estimates' AS estimates,
     payload -> '$.metrics' AS metrics,
     "commit",
