@@ -348,6 +348,7 @@ impl TryFrom<Key> for ReferenceKey {
             | Key::RawBars { .. }
             | Key::RawQuotes { .. }
             | Key::RawTrades { .. }
+            | Key::RawReference(..)
             | Key::Journal(..)
             | Key::Logs(..) => Err(key),
         }
@@ -425,6 +426,8 @@ pub enum Key {
         provider: Provider,
         session: SessionDate,
     },
+    /// The vendor's responses fetched for a reference snapshot, one per line.
+    RawReference(ReferenceKey),
     Journal(JournalKey),
     Logs(LogsKey),
 }
@@ -444,8 +447,8 @@ impl EntityTag {
     }
 }
 
-fn reference_series(provider: Provider, table: ReferenceTable) -> String {
-    format!("{DATA_ROOT}/stage=parsed/reference/provider={provider}/table={table}/")
+fn reference_series(stage: &str, provider: Provider, table: ReferenceTable) -> String {
+    format!("{DATA_ROOT}/stage={stage}/reference/provider={provider}/table={table}/")
 }
 
 /// The prefix every session of one series shares, so listing it finds what is held.
@@ -460,7 +463,7 @@ impl SeriesPrefix {
 
     /// Every snapshot of `provider`'s `table`, whatever its date.
     pub fn reference(provider: Provider, table: ReferenceTable) -> Self {
-        Self(reference_series(provider, table))
+        Self(reference_series("parsed", provider, table))
     }
 
     pub fn as_str(&self) -> &str {
@@ -513,6 +516,7 @@ impl Key {
         let series = self.series();
         match self {
             Self::Reference(key) => format!("{series}as_of={}/data.parquet", key.as_of),
+            Self::RawReference(key) => format!("{series}as_of={}/data.jsonl.gz", key.as_of),
             Self::Bars(..)
             | Self::Quotes(..)
             | Self::Trades(..)
@@ -536,7 +540,8 @@ impl Key {
             Self::Bars(key) => parsed_series(key),
             Self::Quotes(key) => parsed_series(key),
             Self::Trades(key) => parsed_series(key),
-            Self::Reference(key) => reference_series(key.provider, key.table),
+            Self::Reference(key) => reference_series("parsed", key.provider, key.table),
+            Self::RawReference(key) => reference_series("raw", key.provider, key.table),
             Self::RawBars {
                 provider, interval, ..
             } => format!("{DATA_ROOT}/stage=raw/bars/provider={provider}/interval={interval}/"),
@@ -561,7 +566,7 @@ impl Key {
             Self::Bars(key) => key.session,
             Self::Quotes(key) => key.session,
             Self::Trades(key) => key.session,
-            Self::Reference(key) => key.as_of,
+            Self::Reference(key) | Self::RawReference(key) => key.as_of,
             Self::Journal(key) => key.session,
             Self::Logs(key) => key.session,
             Self::RawBars { session, .. }
@@ -579,16 +584,20 @@ impl Key {
             | Self::Reference(..)
             | Self::RawBars { .. }
             | Self::RawQuotes { .. }
-            | Self::RawTrades { .. } => Host::Archiver,
+            | Self::RawTrades { .. }
+            | Self::RawReference(..) => Host::Archiver,
             Self::Journal(key) => key.host,
             Self::Logs(key) => key.host,
         }
     }
 
-    /// The class this key is written in: Deep Archive for raw quotes and trades, Standard for everything else.
+    /// The class this key is written in: Deep Archive for raw quotes, trades and reference responses, Standard for
+    /// everything else.
     pub fn storage_class(&self) -> StorageClass {
         match self {
-            Self::RawQuotes { .. } | Self::RawTrades { .. } => StorageClass::DeepArchive,
+            Self::RawQuotes { .. } | Self::RawTrades { .. } | Self::RawReference(..) => {
+                StorageClass::DeepArchive
+            }
             Self::Bars(..)
             | Self::Quotes(..)
             | Self::Trades(..)
@@ -668,6 +677,20 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
             as_of,
             "data.parquet",
         ] => Some(Key::Reference(ReferenceKey::new(
+            hive(provider, "provider")?,
+            hive(table, "table")?,
+            hive::<NaiveDate>(as_of, "as_of").map(SessionDate::from_date)?,
+        ))),
+        [
+            "data",
+            "equity",
+            "stage=raw",
+            "reference",
+            provider,
+            table,
+            as_of,
+            "data.jsonl.gz",
+        ] => Some(Key::RawReference(ReferenceKey::new(
             hive(provider, "provider")?,
             hive(table, "table")?,
             hive::<NaiveDate>(as_of, "as_of").map(SessionDate::from_date)?,
@@ -891,6 +914,14 @@ pub(crate) mod tests {
                 "data/equity/stage=raw/trades/provider=alpaca/year=2026/month=08/day=03/data.jsonl.gz",
             ),
             (
+                Key::RawReference(ReferenceKey::new(
+                    Provider::Massive,
+                    ReferenceTable::Splits,
+                    session(),
+                )),
+                "data/equity/stage=raw/reference/provider=massive/table=splits/as_of=2026-08-03/data.jsonl.gz",
+            ),
+            (
                 JournalKey::new(Host::Trader, session()).into(),
                 "records/journal/producer=trader/year=2026/month=08/day=03/data.parquet",
             ),
@@ -924,6 +955,7 @@ pub(crate) mod tests {
             "data/equity/stage=raw/quotes/provider=alpaca/year=2026/month=08/day=03/data.csv.gz",
             "data/equity/stage=raw/trades/provider=massive/year=2026/month=08/day=03/data.jsonl.gz",
             "data/equity/stage=raw/reference/provider=massive/table=conditions/as_of=2026-08-03/data.parquet",
+            "data/equity/stage=parsed/reference/provider=massive/table=conditions/as_of=2026-08-03/data.jsonl.gz",
             "data/equity/stage=parsed/reference/provider=massive/as_of=2026-08-03/data.parquet",
             "data/equity/stage=parsed/reference/provider=massive/table=conditions/as_of=2026-8-3/data.parquet",
             "records/logs/producer=archiver/service=Archiver/year=2026/month=08/day=03/data.parquet",
@@ -986,6 +1018,10 @@ pub(crate) mod tests {
                 as_of: session,
                 ..key
             }),
+            Key::RawReference(key) => Key::RawReference(ReferenceKey {
+                as_of: session,
+                ..key
+            }),
             Key::RawBars {
                 provider, interval, ..
             } => Key::RawBars {
@@ -1030,8 +1066,11 @@ pub(crate) mod tests {
                         TradesKey::new(provider, origin, interval, session).into()
                     }
                 }),
+            (provider.clone(), table.clone(), session.clone()).prop_map(
+                |(provider, table, as_of)| ReferenceKey::new(provider, table, as_of).into()
+            ),
             (provider.clone(), table, session.clone()).prop_map(|(provider, table, as_of)| {
-                ReferenceKey::new(provider, table, as_of).into()
+                Key::RawReference(ReferenceKey::new(provider, table, as_of))
             }),
             (provider.clone(), interval, session.clone()).prop_map(
                 |(provider, interval, session)| Key::RawBars {
@@ -1067,11 +1106,12 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn property_only_raw_ticks_go_to_deep_archive(key in any_key()) {
+        fn property_only_raw_ticks_and_responses_go_to_deep_archive(key in any_key()) {
             let path = key.path();
-            let raw_tick = path.starts_with("data/equity/stage=raw/quotes/")
-                || path.starts_with("data/equity/stage=raw/trades/");
-            let expected = if raw_tick { StorageClass::DeepArchive } else { StorageClass::Standard };
+            let deep = path.starts_with("data/equity/stage=raw/quotes/")
+                || path.starts_with("data/equity/stage=raw/trades/")
+                || path.starts_with("data/equity/stage=raw/reference/");
+            let expected = if deep { StorageClass::DeepArchive } else { StorageClass::Standard };
             prop_assert_eq!(key.storage_class(), expected, "{}", path);
         }
 

@@ -1032,16 +1032,27 @@ async fn fetch_conditions(
     journal: &Mutex<Journal>,
 ) -> ExitCode {
     let fetched_at = Utc::now();
-    let conditions = match massive.trade_conditions().await {
+    let (conditions, bodies) = massive.trade_conditions().await.into_parts();
+    let key = reference::conditions_key(SessionDate::at(fetched_at));
+    let object = Key::from(key);
+    let provenance = provenance(Subscription::StocksStarter, fetched_at, journal);
+    match bodies.is_empty() {
+        true => {}
+        false => match archive.store_responses(key, &provenance, &bodies).await {
+            Ok(_) => {}
+            Err(error) => {
+                tracing::error!(%error, "Conditions responses not stored");
+                return ExitCode::FAILURE;
+            }
+        },
+    }
+    let conditions = match conditions {
         Ok(conditions) => conditions,
         Err(error) => {
             tracing::error!(%error, "Conditions not fetched");
             return ExitCode::FAILURE;
         }
     };
-    let key = reference::conditions_key(SessionDate::at(fetched_at));
-    let object = Key::from(key);
-    let provenance = provenance(Subscription::StocksStarter, fetched_at, journal);
     let encoded = reference::encode_conditions(&key, &conditions, &provenance)
         .map_err(archive::EncodeRefusal::from)
         .map(|body| (length(&body), archive.create(&object, body)));

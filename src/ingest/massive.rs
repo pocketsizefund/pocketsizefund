@@ -7,7 +7,9 @@ use chrono::{DateTime, NaiveDate};
 use serde::Deserialize;
 
 use super::retry::{FetchError, send, with_retries};
-use super::{Accepted, RefusedRow, RowRefusal, Secret, SessionBars, VariableRefusal, variable};
+use super::{
+    Accepted, Fetched, RefusedRow, RowRefusal, Secret, SessionBars, VariableRefusal, variable,
+};
 use crate::common::market::corporate_actions::{ActionId, Split, SplitRatio};
 use crate::common::market::record::{Bar, BarInterval, BarPrices};
 use crate::common::market::security_details::{
@@ -83,7 +85,7 @@ impl Massive {
     }
 
     /// The sale conditions a stock print can carry, with the consolidated tape's update rules for each.
-    pub async fn trade_conditions(&self) -> Result<TradeConditions, FetchError> {
+    pub async fn trade_conditions(&self) -> Fetched<TradeConditions> {
         let url = format!("{}/v3/reference/conditions", self.base_url);
         let body = with_retries(|| {
             send(
@@ -93,8 +95,11 @@ impl Massive {
                     .query(&[("asset_class", "stocks"), ("limit", "1000")]),
             )
         })
-        .await?;
-        parse_trade_conditions(&body)
+        .await;
+        match body {
+            Ok(body) => Fetched::new(parse_trade_conditions(&body), vec![body]),
+            Err(error) => Fetched::new(Err(error), Vec::new()),
+        }
     }
 
     /// Unadjusted daily bars for every exchange-listed ticker that traded on `session`.
@@ -116,9 +121,10 @@ impl Massive {
     }
 
     /// Every split Massive has published, past and announced, as one table.
-    pub async fn splits(&self) -> Result<SplitTable, FetchError> {
+    pub async fn splits(&self) -> Fetched<SplitTable> {
         let url = format!("{}/v3/reference/splits", self.base_url);
         let mut read = SplitPages::empty();
+        let mut bodies = Vec::new();
         let mut cursor: Option<String> = None;
         let mut seen = BTreeSet::new();
         for _ in 0..SPLITS_PAGES_AT_MOST {
@@ -134,22 +140,29 @@ impl Massive {
                         .query(&query),
                 )
             })
-            .await?;
-            let (page, next) = parse_splits_page(&body)?;
+            .await;
+            let body = match body {
+                Ok(body) => body,
+                Err(error) => return Fetched::new(Err(error), bodies),
+            };
+            let parsed = parse_splits_page(&body);
+            bodies.push(body);
+            let (page, next) = match parsed {
+                Ok(parsed) => parsed,
+                Err(error) => return Fetched::new(Err(error), bodies),
+            };
             read = read.combine(page);
             match next {
-                None => return Ok(read.unique()),
+                None => return Fetched::new(Ok(read.unique()), bodies),
                 Some(next) if !seen.insert(next.clone()) => {
-                    return Err(FetchError::Malformed {
-                        reason: format!("splits cursor {next} repeated"),
-                    });
+                    let reason = format!("splits cursor {next} repeated");
+                    return Fetched::new(Err(FetchError::Malformed { reason }), bodies);
                 }
                 Some(next) => cursor = Some(next),
             }
         }
-        Err(FetchError::Malformed {
-            reason: format!("splits did not end within {SPLITS_PAGES_AT_MOST} pages"),
-        })
+        let reason = format!("splits did not end within {SPLITS_PAGES_AT_MOST} pages");
+        Fetched::new(Err(FetchError::Malformed { reason }), bodies)
     }
 
     /// `symbol`'s details as Massive held them on `as_of`; a symbol not listed that day is `Missing`, not an error.
@@ -157,7 +170,7 @@ impl Massive {
         &self,
         symbol: &Symbol,
         as_of: SessionDate,
-    ) -> Result<DetailsAnswer, FetchError> {
+    ) -> Fetched<DetailsAnswer> {
         let ticker = massive_ticker(symbol);
         let url = format!("{}/v3/reference/tickers/{ticker}", self.base_url);
         let date = as_of.to_string();
@@ -171,9 +184,12 @@ impl Massive {
         })
         .await;
         match answer {
-            Ok(body) => parse_security_details(&body, symbol, &ticker),
-            Err(FetchError::Refused { status: 404, .. }) => Ok(DetailsAnswer::Missing),
-            Err(error) => Err(error),
+            Ok(body) => Fetched::new(parse_security_details(&body, symbol, &ticker), vec![body]),
+            // The refusal keeps the body as text, which for Massive's short JSON answer is the bytes it sent.
+            Err(FetchError::Refused { status: 404, body }) => {
+                Fetched::new(Ok(DetailsAnswer::Missing), vec![body.into_bytes()])
+            }
+            Err(error) => Fetched::new(Err(error), Vec::new()),
         }
     }
 }

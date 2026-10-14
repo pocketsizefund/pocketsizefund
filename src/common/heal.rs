@@ -68,9 +68,9 @@ impl Leg {
                     session,
                 },
             ],
-            Self::MassiveSecurityDetails => vec![massive_security_details(session).into()],
-            Self::MassiveSplits => vec![massive_splits(session).into()],
-            Self::AlpacaSeriesBoundaries => vec![alpaca_series_boundaries(session).into()],
+            Self::MassiveSecurityDetails => snapshot(massive_security_details(session)),
+            Self::MassiveSplits => snapshot(massive_splits(session)),
+            Self::AlpacaSeriesBoundaries => snapshot(alpaca_series_boundaries(session)),
         }
     }
 
@@ -95,6 +95,11 @@ impl Leg {
             }
         }
     }
+}
+
+/// A reference snapshot and the raw responses fetched for it.
+fn snapshot(key: ReferenceKey) -> Vec<Key> {
+    vec![key.into(), Key::RawReference(key)]
 }
 
 /// Massive's daily bars, the session's symbol list.
@@ -426,7 +431,7 @@ impl SeriesListing {
         let mut unrecognized = 0_u64;
         for path in paths {
             match path.parse::<Key>() {
-                Ok(Key::Reference(_)) => {}
+                Ok(Key::Reference(_) | Key::RawReference(_)) => {}
                 Ok(
                     key @ (Key::Bars(_)
                     | Key::Quotes(_)
@@ -844,8 +849,11 @@ mod tests {
             [
                 "data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/",
                 "data/equity/stage=parsed/reference/provider=massive/table=security_details/",
+                "data/equity/stage=raw/reference/provider=massive/table=security_details/",
                 "data/equity/stage=parsed/reference/provider=massive/table=splits/",
+                "data/equity/stage=raw/reference/provider=massive/table=splits/",
                 "data/equity/stage=parsed/reference/provider=alpaca/table=series_boundaries/",
+                "data/equity/stage=raw/reference/provider=alpaca/table=series_boundaries/",
                 "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/",
                 "data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/",
                 "data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/",

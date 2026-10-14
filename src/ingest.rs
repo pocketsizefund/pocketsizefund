@@ -61,6 +61,24 @@ impl std::fmt::Debug for Secret {
     }
 }
 
+/// What a fetch read, or why it failed, beside every response body it received, so the bodies can be stored as served
+/// even when reading them failed.
+#[derive(Debug)]
+pub struct Fetched<T> {
+    value: Result<T, FetchError>,
+    bodies: Vec<Vec<u8>>,
+}
+
+impl<T> Fetched<T> {
+    pub fn new(value: Result<T, FetchError>, bodies: Vec<Vec<u8>>) -> Self {
+        Self { value, bodies }
+    }
+
+    pub fn into_parts(self) -> (Result<T, FetchError>, Vec<Vec<u8>>) {
+        (self.value, self.bodies)
+    }
+}
+
 /// A vendor row that did not become a record, named as the vendor wrote it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RefusedRow {
