@@ -16,7 +16,7 @@ use chrono::{DateTime, Utc};
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
-use super::bars::{MetadataEntry, Provenance};
+use super::provenance::{MetadataEntry, Provenance};
 use super::{Archive, ArchiveError};
 use crate::common::storage::{EntityTag, Key, ReferenceKey, StorageClass};
 use crate::ingest::flat_files::{FlatFileDataset, FlatFileError, FlatFiles, Listed};

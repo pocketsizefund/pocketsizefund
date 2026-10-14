@@ -241,7 +241,7 @@ mod tests {
         let finished = HealFinished::new(
             Window::new(vec![session().plus_calendar_days(-1)]).unwrap(),
             BTreeMap::from([(
-                Leg::MassiveDailyBars,
+                Leg::MassiveSplits,
                 BTreeMap::from([(session().plus_calendar_days(-1), SessionOutcome::Unreached)]),
             )]),
             BTreeMap::new(),
@@ -376,25 +376,31 @@ mod tests {
     }
 
     #[test]
-    fn test_a_bars_file_is_refused_by_its_schema() {
-        use crate::common::market::record::{Bar, BarInterval, BarPrices, Partition};
+    fn test_a_trades_file_is_refused_by_its_schema() {
+        use crate::archive::provenance::{Provenance, Subscription};
+        use crate::common::market::aggregate::TradeTotals;
+        use crate::common::market::record::{BarInterval, Partition, Trade};
+        use crate::common::market::trade_bars::{TradeBar, TradeSums};
         use crate::common::market::{Price, Shares, Symbol};
-        let price = Price::from_dollars(10.0).unwrap();
-        let bar = Bar::new(
+        let trade = Trade::new(
+            Symbol::new("AAPL").unwrap(),
+            session().regular_close(),
+            Price::from_dollars(10.0).unwrap(),
+            Shares::whole(1).unwrap(),
+        )
+        .unwrap();
+        let bar = TradeBar::new(
             Symbol::new("AAPL").unwrap(),
             BarInterval::OneDay,
             session().regular_close(),
-            BarPrices::new(price, price, price, price).unwrap(),
-            Shares::whole(1).unwrap(),
-            None,
-            None,
+            TradeSums::new(TradeTotals::of(&trade), None, None),
         )
         .unwrap();
-        let bars = crate::archive::bars::encode(
-            &crate::common::heal::massive_daily_bars(session()),
+        let bars = crate::archive::trade_bars::encode(
+            &crate::common::heal::alpaca_trades(session()),
             &Partition::try_from(vec![bar]).unwrap(),
-            &crate::archive::bars::Provenance::new(
-                crate::archive::bars::Subscription::StocksStarter,
+            &Provenance::new(
+                Subscription::AlgoTraderPlus,
                 Utc::now(),
                 RunId::new(Uuid::from_u128(7)),
                 None,

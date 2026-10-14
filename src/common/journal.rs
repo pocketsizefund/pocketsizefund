@@ -776,7 +776,7 @@ mod tests {
             .encode()
         };
         let written = PartitionWritten::new(
-            Leg::AlpacaMinuteBars,
+            Leg::AlpacaQuotes,
             session,
             1_872_987,
             concatenate(
@@ -809,7 +809,7 @@ mod tests {
         let finished = HealFinished::new(
             Window::new(vec![session]).unwrap(),
             BTreeMap::from([(
-                Leg::MassiveDailyBars,
+                Leg::MassiveSplits,
                 BTreeMap::from([
                     (
                         session,
@@ -835,7 +835,7 @@ mod tests {
             format!(
                 "{prefix}{}",
                 concat!(
-                    r#""event_type":"partition_written","payload":{"leg":"alpaca_minute_bars","#,
+                    r#""event_type":"partition_written","payload":{"leg":"alpaca_quotes","#,
                     r#""session":"2026-09-29","rows":1872987,"#,
                     r#""refused":{"dollar_volume":1,"duplicate":2},"#,
                     r#""unanswered":{"ABC":"missing","BC.PRC":"invalid"},"#,
@@ -882,7 +882,7 @@ mod tests {
                 "{prefix}{}",
                 concat!(
                     r#""event_type":"heal_finished","payload":{"window":["2026-09-29"],"#,
-                    r#""outcomes":{"massive_daily_bars":{"2026-09-28":{"outcome":"unreached"},"#,
+                    r#""outcomes":{"massive_splits":{"2026-09-28":{"outcome":"unreached"},"#,
                     r#""2026-09-29":{"outcome":"failed","failure":"fetch","#,
                     r#""cause":"refused with 403"}}},"#,
                     r#""unrecognized":{"alpaca_quotes":{"data/stray.parquet":"not_a_key"}}}}"#,

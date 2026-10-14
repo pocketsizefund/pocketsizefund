@@ -9,14 +9,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::common::market::record::BarInterval;
 use crate::common::storage::{
-    BarsKey, Key, KeyRefusal, Origin, Provider, QuotesKey, ReferenceKey, ReferenceTable, TradesKey,
+    Key, KeyRefusal, Origin, Provider, QuotesKey, ReferenceKey, ReferenceTable, TradesKey,
 };
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 
-/// One series the archiver keeps whole, in the order a run works them: the daily bars first, since they are the
-/// other legs' symbol list, then the reference snapshots, which are quick, before the tick legs. A tick leg writes
-/// raw pages, then one-minute, five-minute and daily bars, and is held by its raw pages and its daily file.
+/// One series the archiver keeps whole, in the order a run works them: the traded symbols and reference snapshots,
+/// which are quick, before the tick legs. A tick leg writes raw pages, then one-minute, five-minute and daily bars, and
+/// is held by its raw pages and its daily file.
 #[derive(
     Debug,
     Clone,
@@ -36,15 +36,11 @@ use crate::common::time::{SessionDate, SessionRange};
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum Leg {
-    MassiveDailyBars,
     /// The session's grouped daily response stored raw, from the endpoint the tick legs take their symbols from.
     MassiveTradedSymbols,
     MassiveSecurityDetails,
     MassiveSplits,
     AlpacaSeriesBoundaries,
-    AlpacaMinuteBars,
-    /// Rolled up from the session's written minute bars, so it follows `AlpacaMinuteBars` in the order legs run.
-    AlpacaFiveMinuteBars,
     AlpacaQuotes,
     AlpacaTrades,
 }
@@ -53,10 +49,7 @@ impl Leg {
     /// The keys whose presence together means the session is held.
     pub fn keys(self, session: SessionDate) -> Vec<Key> {
         match self {
-            Self::MassiveDailyBars => vec![massive_daily_bars(session).into()],
             Self::MassiveTradedSymbols => vec![Key::RawReference(massive_traded_symbols(session))],
-            Self::AlpacaMinuteBars => vec![alpaca_minute_bars(session).into()],
-            Self::AlpacaFiveMinuteBars => vec![alpaca_five_minute_bars(session).into()],
             Self::AlpacaQuotes => vec![
                 alpaca_quotes(session).into(),
                 Key::RawQuotes {
@@ -87,12 +80,9 @@ impl Leg {
         calendar: &TradingCalendar,
     ) -> Result<Vec<SessionDate>, KeepsRefusal> {
         match self {
-            Self::MassiveDailyBars
-            | Self::MassiveTradedSymbols
-            | Self::AlpacaMinuteBars
-            | Self::AlpacaFiveMinuteBars
-            | Self::AlpacaQuotes
-            | Self::AlpacaTrades => Ok(window.sessions().to_vec()),
+            Self::MassiveTradedSymbols | Self::AlpacaQuotes | Self::AlpacaTrades => {
+                Ok(window.sessions().to_vec())
+            }
             Self::MassiveSplits | Self::AlpacaSeriesBoundaries => Ok(vec![window.last()]),
             Self::MassiveSecurityDetails => {
                 quarter_opening(calendar, window.last()).map(|opening| vec![opening])
@@ -104,35 +94,6 @@ impl Leg {
 /// A reference snapshot and the raw responses fetched for it.
 fn snapshot(key: ReferenceKey) -> Vec<Key> {
     vec![key.into(), Key::RawReference(key)]
-}
-
-/// Massive's daily bars, the session's symbol list.
-pub fn massive_daily_bars(session: SessionDate) -> BarsKey {
-    BarsKey::new(
-        Provider::Massive,
-        Origin::Vendor,
-        BarInterval::OneDay,
-        session,
-    )
-}
-
-pub fn alpaca_minute_bars(session: SessionDate) -> BarsKey {
-    BarsKey::new(
-        Provider::Alpaca,
-        Origin::Vendor,
-        BarInterval::OneMinute,
-        session,
-    )
-}
-
-/// Alpaca's minute bars rolled up to five minutes.
-pub fn alpaca_five_minute_bars(session: SessionDate) -> BarsKey {
-    BarsKey::new(
-        Provider::Alpaca,
-        Origin::Derived,
-        BarInterval::FiveMinute,
-        session,
-    )
 }
 
 /// Alpaca's daily quote bars; the leg writes the series' other intervals beside them.
@@ -237,7 +198,6 @@ pub enum PartitionFailureKind {
     Archive,
     Vanished,
     NoSymbols,
-    NoMinutes,
     Fold,
     /// The fetched pages could not be stored raw.
     Tee,
@@ -442,10 +402,8 @@ impl SeriesListing {
             match path.parse::<Key>() {
                 Ok(Key::Reference(_) | Key::RawReference(_)) => {}
                 Ok(
-                    key @ (Key::Bars(_)
-                    | Key::Quotes(_)
+                    key @ (Key::Quotes(_)
                     | Key::Trades(_)
-                    | Key::RawBars { .. }
                     | Key::RawQuotes { .. }
                     | Key::RawTrades { .. }
                     | Key::Journal(_)
@@ -601,7 +559,7 @@ mod tests {
     #[test]
     fn test_a_listing_groups_dated_series_and_reaches_from_the_earliest() {
         let minutes =
-            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/";
+            "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/";
         let raw_quotes = "data/equity/stage=raw/quotes/provider=massive/";
         let listing = SeriesListing::of([
             &format!("{minutes}year=2026/month=10/day=08/data.parquet") as &str,
@@ -722,15 +680,15 @@ mod tests {
     #[test]
     fn test_a_listing_holds_only_its_own_series() {
         let paths = [
-            "data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/year=2026/month=09/day=28/data.parquet",
-            "data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/year=2026/month=09/day=29/data.parquet",
-            // Another provider's daily bars and a derived series are not this leg's.
-            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=09/day=30/data.parquet",
-            "data/equity/stage=parsed/bars/provider=massive/origin=derived/interval=one_day/year=2026/month=10/day=01/data.parquet",
-            "data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/year=2026/month=10/day=02/data.parquet.tmp",
+            "data/equity/stage=raw/reference/provider=massive/table=traded_symbols/as_of=2026-09-28/data.jsonl.gz",
+            "data/equity/stage=raw/reference/provider=massive/table=traded_symbols/as_of=2026-09-29/data.jsonl.gz",
+            // Another table's raw responses and another provider's are not this leg's.
+            "data/equity/stage=raw/reference/provider=massive/table=splits/as_of=2026-09-30/data.jsonl.gz",
+            "data/equity/stage=raw/reference/provider=alpaca/table=traded_symbols/as_of=2026-10-01/data.jsonl.gz",
+            "data/equity/stage=raw/reference/provider=massive/table=traded_symbols/as_of=2026-10-02/data.jsonl.gz.tmp",
         ]
         .map(String::from);
-        let held = Held::of(Leg::MassiveDailyBars, paths.clone());
+        let held = Held::of(Leg::MassiveTradedSymbols, paths.clone());
         assert_eq!(
             held.sessions(),
             &BTreeSet::from([date("2026-09-28"), date("2026-09-29")])
@@ -770,11 +728,11 @@ mod tests {
         let night = |outcome: SessionOutcome| {
             BTreeMap::from([
                 (
-                    Leg::MassiveDailyBars,
+                    Leg::MassiveTradedSymbols,
                     BTreeMap::from([(date("2026-09-29"), SessionOutcome::Written)]),
                 ),
                 (
-                    Leg::AlpacaMinuteBars,
+                    Leg::AlpacaTrades,
                     BTreeMap::from([
                         (date("2026-09-28"), SessionOutcome::Written),
                         (date("2026-09-29"), outcome),
@@ -825,7 +783,6 @@ mod tests {
                 r#""archive""#,
                 r#""vanished""#,
                 r#""no_symbols""#,
-                r#""no_minutes""#,
                 r#""fold""#,
                 r#""tee""#,
                 r#""journal""#,
@@ -856,7 +813,6 @@ mod tests {
         assert_eq!(
             series,
             [
-                "data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/",
                 "data/equity/stage=raw/reference/provider=massive/table=traded_symbols/",
                 "data/equity/stage=parsed/reference/provider=massive/table=security_details/",
                 "data/equity/stage=raw/reference/provider=massive/table=security_details/",
@@ -864,8 +820,6 @@ mod tests {
                 "data/equity/stage=raw/reference/provider=massive/table=splits/",
                 "data/equity/stage=parsed/reference/provider=alpaca/table=series_boundaries/",
                 "data/equity/stage=raw/reference/provider=alpaca/table=series_boundaries/",
-                "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/",
-                "data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/",
                 "data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/",
                 "data/equity/stage=raw/quotes/provider=alpaca/",
                 "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_day/",

@@ -26,7 +26,7 @@ use crate::common::journal::{ParameterSource, ResolvedParameter};
 )]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
-/// A variant is never removed while a journal names it, since the records that name it would read back unreadable.
+/// Removing a variant leaves the journal records that name it unreadable as typed records; they are kept as text.
 pub enum Parameter {
     /// Trading days before today the archive heal looks back over.
     LookbackSessions,
@@ -34,10 +34,6 @@ pub enum Parameter {
     BudgetMinutes,
     JournalDirectory,
     LogDirectory,
-    /// Symbols per one-minute bars request.
-    MinuteBatchSymbols,
-    /// One-minute bars requests in flight at once.
-    MinuteConcurrency,
     /// Symbols whose quotes or trades are paged at once.
     TickConcurrency,
     /// The symbols the trader trades, comma-separated.
@@ -189,8 +185,6 @@ mod tests {
                 "FUND_BUDGET_MINUTES",
                 "FUND_JOURNAL_DIRECTORY",
                 "FUND_LOG_DIRECTORY",
-                "FUND_MINUTE_BATCH_SYMBOLS",
-                "FUND_MINUTE_CONCURRENCY",
                 "FUND_TICK_CONCURRENCY",
                 "FUND_UNIVERSE",
                 "FUND_DECISION_INTERVAL",
@@ -249,9 +243,9 @@ mod tests {
     fn test_a_value_that_does_not_parse_is_refused_with_itself() {
         let five = NonZeroUsize::new(5).unwrap();
         for raw in ["0", "-1", "", "five"] {
-            match resolve(Parameter::MinuteConcurrency, Some(raw), five) {
+            match resolve(Parameter::TickConcurrency, Some(raw), five) {
                 Err(ParameterRefusal::Unparsable {
-                    parameter: Parameter::MinuteConcurrency,
+                    parameter: Parameter::TickConcurrency,
                     raw: refused,
                     ..
                 }) => assert_eq!(refused, raw),

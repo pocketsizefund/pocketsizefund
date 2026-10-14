@@ -14,8 +14,8 @@ use arrow_array::{
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
 use chrono::DateTime;
 
-use super::bars::{Provenance, provenance_from};
 use super::parquet::{self, ReadRefusal, RowCause};
+use super::provenance::{Provenance, provenance_from};
 use crate::common::market::quote_bars::{QuoteBar, QuoteSums, Spread, StandingQuote, TimeWeighted};
 use crate::common::market::record::Partition;
 use crate::common::market::{QuoteCount, Shares, Symbol};
@@ -228,8 +228,8 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::archive::bars::Subscription;
     use crate::archive::parquet::PlacementRefusal;
+    use crate::archive::provenance::Subscription;
     use crate::common::journal::{Commit, RunId};
     use crate::common::market::Price;
     use crate::common::market::quote_bars::QuoteFold;

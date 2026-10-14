@@ -1,10 +1,10 @@
 //! The fund's S3 buckets: the shared market-data archive and each profile's records, with objects written under their
 //! `Key`, checked by S3 against a SHA-256 on upload and read back byte for byte before a write counts as done.
 
-pub mod bars;
 pub mod journal;
 pub mod logs;
 pub mod parquet;
+pub mod provenance;
 pub mod quote_bars;
 pub mod raw;
 pub mod reference;
@@ -56,7 +56,7 @@ pub enum ArchiveError {
 /// Why a file of any layout was not encoded, kept as the layout's own refusal.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum EncodeRefusal {
-    /// Vendor, quote and trade bars share one refusal, so the layout is named by the key the caller holds.
+    /// Quote and trade bars share one refusal, so the layout is named by the key the caller holds.
     #[error("bars not encoded: {0:?}")]
     Bars(parquet::EncodeRefusal),
     #[error("reference table not encoded: {0:?}")]
@@ -70,7 +70,7 @@ pub enum EncodeRefusal {
 /// Why a file of any layout was not decoded, kept as the layout's own refusal.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum DecodeRefusal {
-    /// Vendor, quote and trade bars share one refusal, so the layout is named by the key the caller holds.
+    /// Quote and trade bars share one refusal, so the layout is named by the key the caller holds.
     #[error("bars not decoded: {0}")]
     Bars(parquet::DecodeRefusal),
     #[error("reference table not decoded: {0:?}")]
@@ -367,15 +367,11 @@ enum Condition<'a> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{NaiveDate, Utc};
-    use uuid::Uuid;
+    use chrono::NaiveDate;
 
-    use super::bars::{Provenance, Subscription};
     use super::*;
-    use crate::common::journal::RunId;
     use crate::common::storage::{Key, Provider};
     use crate::common::time::SessionDate;
-    use crate::ingest::massive::Massive;
 
     #[tokio::test]
     async fn test_a_deep_archive_key_is_refused_before_any_request() {
@@ -419,42 +415,5 @@ mod tests {
                 written: 2
             })
         );
-    }
-
-    /// The first real object of the new archive: the key the archiver would own for this session anyway.
-    #[tokio::test]
-    #[ignore = "writes one real object to the shared archive bucket; run once, deliberately, under secretspec"]
-    async fn live_writes_and_reads_back_one_real_key() {
-        let session = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 9, 29).unwrap());
-        let key = crate::common::heal::massive_daily_bars(session);
-        let daily = Massive::from_environment(reqwest::Client::new())
-            .unwrap()
-            .grouped_daily(session)
-            .await
-            .into_parts()
-            .0
-            .unwrap();
-        let provenance = Provenance::new(
-            Subscription::StocksStarter,
-            Utc::now(),
-            RunId::new(Uuid::new_v4()),
-            None,
-        );
-        let written =
-            crate::common::market::record::Partition::try_from(daily.bars().to_vec()).unwrap();
-        let body = bars::encode(&key, &written, &provenance).unwrap();
-        let configuration = aws_config::load_from_env().await;
-        let archive = Archive::market_data(&configuration).unwrap();
-        archive.put(&Key::from(key), body.clone()).await.unwrap();
-        let (bars, read) =
-            bars::decode(&key, archive.get(&Key::from(key)).await.unwrap().unwrap()).unwrap();
-        println!(
-            "{} bars, {} bytes, {}",
-            bars.rows().len(),
-            body.len(),
-            Key::from(key).path()
-        );
-        assert_eq!(bars, written);
-        assert_eq!(read, provenance);
     }
 }

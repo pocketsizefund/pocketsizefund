@@ -1,5 +1,5 @@
-//! Massive's flat files into the archive while the Advanced keys last: `copy`, `parse`, `fold-quotes`, `fold-trades`,
-//! `roll-up`, `fetch-conditions` and `delete`, each object journaled and shipped. Exits 0 when everything succeeded and
+//! Massive's flat files into the archive while the Advanced keys last: `copy`, `fold-quotes`, `fold-trades`,
+//! `fetch-conditions` and `delete`, each object journaled and shipped. Exits 0 when everything succeeded and
 //! shipped, 1 when not, 2 when the run could not start.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -13,41 +13,33 @@ use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tracing::Instrument;
 
-use fund::archive::bars::{Provenance, Subscription};
+use fund::archive::provenance::{Provenance, Subscription};
 use fund::archive::raw::CopyError;
 use fund::archive::{self, Archive, ArchiveError};
-use fund::archive::{bars, parquet, quote_bars, reference, trade_bars};
+use fund::archive::{quote_bars, reference, trade_bars};
 use fund::common::journal::{ObjectDeleted, ObjectWritten, Observation};
-use fund::common::market::aggregate::{self, session_bars};
+use fund::common::market::aggregate::session_bars;
 use fund::common::market::quote_bars::QuoteFold;
 use fund::common::market::record::{BarInterval, Partition, PartitionRefusal};
 use fund::common::market::trade_bars::{TradeConditions, TradeFold};
 use fund::common::monoid::{Monoid, Tally};
 use fund::common::storage::{
-    BarsKey, Family, Host, Key, Origin, ParsedKey, Provider, QuotesKey, Service, TradesKey,
+    Family, Host, Key, Origin, ParsedKey, Provider, QuotesKey, Service, TradesKey,
 };
 use fund::common::time::calendar::TradingCalendar;
 use fund::common::time::{SessionDate, SessionRange};
 use fund::ingest::RowRefusalKind;
 use fund::ingest::alpaca::Alpaca;
 use fund::ingest::flat_files::{
-    BarFile, FlatFileDataset, FlatFileStream, FlatFiles, ParseRefusal, QuoteRowOutcome,
-    TradeRowOutcome, read_quotes, read_trades,
+    FlatFileDataset, FlatFileStream, FlatFiles, ParseRefusal, QuoteRowOutcome, TradeRowOutcome,
+    read_quotes, read_trades,
 };
 use fund::ingest::massive::Massive;
-use fund::ingest::refused_by_cause;
 use fund::journal::Journal;
 use fund::parameter::Directories;
 use fund::records::{Exclusion, RefusedToStart, resolved, ship_logged, start};
 
 const SERVICE: &str = "archive_raw";
-
-/// The first session the nightly heal writes Massive's REST daily bars for, which carry the dollar volume a flat
-/// file lacks; a create-only parse written first would hold that session against them.
-const HEAL_DAILY_BARS_FROM: NaiveDate = match NaiveDate::from_ymd_opt(2026, 9, 28) {
-    Some(date) => date,
-    None => panic!("2026-09-28 is a date"),
-};
 
 /// Sessions named in one log line; the count beside them says how many there are.
 const LISTED_SESSIONS: usize = 50;
@@ -60,11 +52,9 @@ const STREAM_AHEAD: usize = 8;
 #[strum(serialize_all = "kebab-case")]
 enum CommandName {
     Copy,
-    Parse,
     FoldQuotes,
     FetchConditions,
     Delete,
-    RollUp,
     FoldTrades,
 }
 
@@ -72,8 +62,8 @@ impl CommandName {
     /// The arguments the subcommand takes after its name, as the usage line shows them.
     fn arguments(self) -> &'static str {
         match self {
-            Self::Copy | Self::Parse => " <dataset> <first> <last> <concurrency>",
-            Self::FoldQuotes | Self::RollUp | Self::FoldTrades => " <first> <last> <concurrency>",
+            Self::Copy => " <dataset> <first> <last> <concurrency>",
+            Self::FoldQuotes | Self::FoldTrades => " <first> <last> <concurrency>",
             Self::FetchConditions => "",
             Self::Delete => " <path>...",
         }
@@ -86,11 +76,6 @@ enum Command {
         range: SessionRange,
         concurrency: NonZeroUsize,
     },
-    Parse {
-        file: BarFile,
-        range: SessionRange,
-        concurrency: NonZeroUsize,
-    },
     FoldQuotes {
         range: SessionRange,
         concurrency: NonZeroUsize,
@@ -99,10 +84,6 @@ enum Command {
     /// Deletes the objects at paths that each parse as a key.
     Delete {
         keys: Vec<Key>,
-    },
-    RollUp {
-        range: SessionRange,
-        concurrency: NonZeroUsize,
     },
     FoldTrades {
         range: SessionRange,
@@ -136,16 +117,6 @@ fn parse(arguments: &[String]) -> Option<Command> {
                 concurrency: concurrency(count)?,
             })
         }
-        CommandName::Parse => {
-            let [file, first, last, count] = rest else {
-                return None;
-            };
-            Some(Command::Parse {
-                file: file.parse().ok()?,
-                range: range(first, last)?,
-                concurrency: concurrency(count)?,
-            })
-        }
         CommandName::FetchConditions => rest.is_empty().then_some(Command::FetchConditions),
         CommandName::Delete => {
             let keys = rest
@@ -153,9 +124,6 @@ fn parse(arguments: &[String]) -> Option<Command> {
                 .map(|path| path.parse::<Key>().ok())
                 .collect::<Option<Vec<_>>>()?;
             (!keys.is_empty()).then_some(Command::Delete { keys })
-        }
-        CommandName::RollUp => {
-            ranged(rest).map(|(range, concurrency)| Command::RollUp { range, concurrency })
         }
         CommandName::FoldTrades => {
             ranged(rest).map(|(range, concurrency)| Command::FoldTrades { range, concurrency })
@@ -281,9 +249,6 @@ async fn run(command: Command, archive: Archive, journal: &SharedJournal) -> Exi
             };
             copy(&archive, &flat_files, dataset, range, concurrency, journal).await
         }
-        Command::RollUp { range, concurrency } => {
-            roll_up(archive, range, concurrency, journal).await
-        }
         Command::Delete { keys } => delete(&archive, &keys, journal).await,
         Command::FetchConditions => match Massive::from_environment(reqwest::Client::new()) {
             Ok(massive) => fetch_conditions(&archive, &massive, journal).await,
@@ -304,11 +269,6 @@ async fn run(command: Command, archive: Archive, journal: &SharedJournal) -> Exi
             };
             fold_quotes(&archive, &flat_files, &alpaca, range, concurrency, journal).await
         }
-        Command::Parse {
-            file,
-            range,
-            concurrency,
-        } => parse_bars(archive, file, range, concurrency, journal).await,
     }
 }
 
@@ -494,146 +454,6 @@ async fn held(
         .collect())
 }
 
-/// Why a held raw bar file was not written as bars.
-#[derive(Debug, thiserror::Error)]
-enum ParseFailure {
-    #[error("{0}")]
-    Archive(ArchiveError),
-    /// Listed a moment ago, gone now.
-    #[error("the raw file is gone")]
-    Missing,
-    /// The raw copy records no fetch time, which the bars' provenance needs.
-    #[error("the raw file records no fetch time")]
-    Unstamped,
-    #[error("{0}")]
-    Parse(ParseRefusal),
-    /// No row became a bar, so writing the session would mark it done with nothing in it.
-    #[error("no bars: {test_tickers} test tickers and {refused} refused rows")]
-    Empty { test_tickers: usize, refused: usize },
-    #[error("{0:?}")]
-    Encode(parquet::EncodeRefusal),
-    /// The blocking parse did not finish.
-    #[error("the parse did not finish: {0}")]
-    Interrupted(String),
-    /// Written, but the write went unrecorded.
-    #[error("journaling the write failed: {0}")]
-    Journal(std::io::Error),
-}
-
-async fn parse_bars(
-    archive: Archive,
-    file: BarFile,
-    range: SessionRange,
-    concurrency: NonZeroUsize,
-    journal: &SharedJournal,
-) -> ExitCode {
-    let (dataset, interval) = (file.dataset(), file.interval());
-    let heal_start = SessionDate::from_date(HEAL_DAILY_BARS_FROM);
-    match file {
-        BarFile::Daily if range.last() >= heal_start => {
-            tracing::error!(last = %range.last(), %heal_start, "Daily bars from this session on are the nightly heal's to write");
-            return RefusedToStart.into();
-        }
-        BarFile::Daily | BarFile::Minute => {}
-    }
-    let bars_key =
-        move |session| BarsKey::new(Provider::Massive, Origin::Vendor, interval, session);
-    let series = Key::from(bars_key(range.first())).series();
-    let (raw, parsed) = match (held(&archive, dataset).await, archive.list(&series).await) {
-        (Ok(raw), Ok(parsed)) => (
-            raw,
-            parsed
-                .iter()
-                .filter_map(|path| path.parse::<Key>().ok())
-                .map(|key| key.session())
-                .collect::<BTreeSet<_>>(),
-        ),
-        (Err(error), _) | (_, Err(error)) => {
-            tracing::error!(%error, "Archive not listed");
-            return ExitCode::FAILURE;
-        }
-    };
-    let offered: Vec<SessionDate> = raw
-        .into_iter()
-        .filter(|session| range.contains(*session))
-        .collect();
-    let (already, owed): (Vec<SessionDate>, Vec<SessionDate>) =
-        offered.iter().partition(|session| parsed.contains(session));
-    tracing::info!(
-        %dataset,
-        first = %range.first(),
-        last = %range.last(),
-        offered = offered.len(),
-        offered_first = ?offered.first().map(ToString::to_string),
-        offered_last = ?offered.last().map(ToString::to_string),
-        already_held = already.len(),
-        already_held_sessions = listed(&already),
-        owed = owed.len(),
-        concurrency,
-        %series,
-        "Planned a raw parse"
-    );
-    let mut tasks = JoinSet::new();
-    let mut outcomes = BTreeMap::new();
-    let mut panicked = 0;
-    for session in owed {
-        while tasks.len() >= concurrency.get() {
-            if let Some(joined) = tasks.join_next().await {
-                record(joined, &mut outcomes, &mut panicked);
-            }
-        }
-        let archive = archive.clone();
-        let journal = Arc::clone(journal);
-        let key = bars_key(session);
-        tasks.spawn(
-            async move {
-                let outcome = parse_one(&archive, file, key, &journal).await;
-                match &outcome {
-                    Ok(()) => {}
-                    Err(failure) => {
-                        tracing::error!(session = %session, %failure, "Raw file not parsed")
-                    }
-                }
-                (session, outcome)
-            }
-            .in_current_span(),
-        );
-    }
-    while let Some(joined) = tasks.join_next().await {
-        record(joined, &mut outcomes, &mut panicked);
-    }
-    let failed: Vec<SessionDate> = outcomes
-        .iter()
-        .filter(|(_, outcome)| outcome.is_err())
-        .map(|(session, _)| *session)
-        .collect();
-    let contended: Vec<SessionDate> = outcomes
-        .iter()
-        .filter(|(_, outcome)| {
-            matches!(
-                outcome,
-                Err(ParseFailure::Archive(ArchiveError::Contended { .. }))
-            )
-        })
-        .map(|(session, _)| *session)
-        .collect();
-    tracing::info!(
-        %dataset,
-        written = outcomes.len() - failed.len(),
-        failed = failed.len(),
-        failed_sessions = listed(&failed),
-        contended = contended.len(),
-        contended_sessions = listed(&contended),
-        panicked,
-        "Finished a raw parse"
-    );
-    if failed.is_empty() && panicked == 0 {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
-    }
-}
-
 fn record<T>(
     joined: Result<(SessionDate, T), tokio::task::JoinError>,
     outcomes: &mut BTreeMap<SessionDate, T>,
@@ -658,63 +478,6 @@ fn listed(sessions: &[SessionDate]) -> String {
         .map(ToString::to_string)
         .collect::<Vec<_>>()
         .join(",")
-}
-
-/// Reads one held raw file, parses it, and creates its bars under `key`, which must be unwritten.
-async fn parse_one(
-    archive: &Archive,
-    file: BarFile,
-    key: BarsKey,
-    journal: &Mutex<Journal>,
-) -> Result<(), ParseFailure> {
-    let session = key.session();
-    let raw_key = file.dataset().key(session);
-    let fetched_at = archive
-        .stored(&raw_key)
-        .await
-        .map_err(ParseFailure::Archive)?
-        .ok_or(ParseFailure::Missing)?
-        .fetched_at()
-        .ok_or(ParseFailure::Unstamped)?;
-    let gzipped = archive
-        .get(&raw_key)
-        .await
-        .map_err(ParseFailure::Archive)?
-        .ok_or(ParseFailure::Missing)?;
-    let provenance = provenance(Subscription::StocksAdvanced, fetched_at, journal);
-    // Decompressing, parsing and encoding a minute file is seconds of CPU, which belongs off the async workers.
-    let (count, test_tickers, refused, by_cause, body) = tokio::task::spawn_blocking(move || {
-        let parsed = file
-            .parse_bars(&gzipped, session)
-            .map_err(ParseFailure::Parse)?;
-        let (test_tickers, refused) = (parsed.test_tickers().len(), parsed.refused().len());
-        let by_cause = refused_by_cause(parsed.refused());
-        let bars = Partition::try_from(parsed.into_bars()).map_err(|refusal| match refusal {
-            PartitionRefusal::Empty => ParseFailure::Empty {
-                test_tickers,
-                refused,
-            },
-        })?;
-        let body = bars::encode(&key, &bars, &provenance).map_err(ParseFailure::Encode)?;
-        Ok((bars.rows().len(), test_tickers, refused, by_cause, body))
-    })
-    .await
-    .map_err(|error| ParseFailure::Interrupted(error.to_string()))??;
-    let bytes = length(&body);
-    archive
-        .create(&Key::from(key), body)
-        .await
-        .map_err(ParseFailure::Archive)?;
-    written(journal, key.into(), bytes).map_err(ParseFailure::Journal)?;
-    tracing::info!(
-        session = %session,
-        bars = count,
-        test_tickers,
-        refused,
-        refused_by_cause = %by_cause,
-        "Parsed a raw file"
-    );
-    Ok(())
 }
 
 /// Where a session's quote or trade bars folded from Massive's flat files at `interval` are written.
@@ -1198,155 +961,6 @@ async fn fold_trades_one(
     Ok(())
 }
 
-/// Massive's bars at `interval` and `origin` for a session.
-fn massive_bars_key(origin: Origin, interval: BarInterval, session: SessionDate) -> BarsKey {
-    BarsKey::new(Provider::Massive, origin, interval, session)
-}
-
-/// Why a session's minutes were not rolled up.
-#[derive(Debug, thiserror::Error)]
-enum RollUpFailure {
-    #[error("{0}")]
-    Archive(ArchiveError),
-    #[error("the minute bars are gone")]
-    Missing,
-    #[error("minute bars not read: {0:?}")]
-    Decode(parquet::DecodeRefusal),
-    #[error("five-minute bars not encoded: {0:?}")]
-    Encode(parquet::EncodeRefusal),
-    /// The roll-up's task panicked or was canceled before it finished.
-    #[error("the roll-up did not finish: {0}")]
-    Interrupted(String),
-    /// Written, but the write went unrecorded.
-    #[error("journaling the write failed: {0}")]
-    Journal(std::io::Error),
-}
-
-/// Writes derived five-minute bars for each session whose Massive minute bars are held and five-minute bars are not.
-async fn roll_up(
-    archive: Archive,
-    range: SessionRange,
-    concurrency: NonZeroUsize,
-    journal: &SharedJournal,
-) -> ExitCode {
-    let sessions = |origin, interval| {
-        let archive = archive.clone();
-        async move {
-            archive
-                .list(&Key::from(massive_bars_key(origin, interval, range.first())).series())
-                .await
-                .map(|paths| {
-                    paths
-                        .iter()
-                        .filter_map(|path| path.parse::<Key>().ok())
-                        .map(|key| key.session())
-                        .filter(|session| range.contains(*session))
-                        .collect::<BTreeSet<SessionDate>>()
-                })
-        }
-    };
-    let (minutes, rolled) = match (
-        sessions(Origin::Vendor, BarInterval::OneMinute).await,
-        sessions(Origin::Derived, BarInterval::FiveMinute).await,
-    ) {
-        (Ok(minutes), Ok(rolled)) => (minutes, rolled),
-        (Err(error), _) | (_, Err(error)) => {
-            tracing::error!(%error, "Archive not listed");
-            return ExitCode::FAILURE;
-        }
-    };
-    let owed: Vec<SessionDate> = minutes.difference(&rolled).copied().collect();
-    tracing::info!(
-        first = %range.first(),
-        last = %range.last(),
-        minute_sessions = minutes.len(),
-        already_rolled = minutes.len() - owed.len(),
-        owed = owed.len(),
-        owed_first = ?owed.first().map(ToString::to_string),
-        owed_last = ?owed.last().map(ToString::to_string),
-        "Planned a five-minute roll-up"
-    );
-    let mut tasks = JoinSet::new();
-    let mut outcomes = BTreeMap::new();
-    let mut panicked = 0;
-    for session in owed {
-        while tasks.len() >= concurrency.get() {
-            if let Some(joined) = tasks.join_next().await {
-                record(joined, &mut outcomes, &mut panicked);
-            }
-        }
-        let archive = archive.clone();
-        let journal = Arc::clone(journal);
-        tasks.spawn(
-            async move {
-                let outcome = roll_up_one(&archive, session, &journal).await;
-                match &outcome {
-                    Ok(bars) => tracing::info!(session = %session, bars, "Rolled up a session"),
-                    Err(failure) => {
-                        tracing::error!(session = %session, %failure, "Session not rolled up")
-                    }
-                }
-                (session, outcome)
-            }
-            .in_current_span(),
-        );
-    }
-    while let Some(joined) = tasks.join_next().await {
-        record(joined, &mut outcomes, &mut panicked);
-    }
-    let failed: Vec<SessionDate> = outcomes
-        .iter()
-        .filter(|(_, outcome)| outcome.is_err())
-        .map(|(session, _)| *session)
-        .collect();
-    tracing::info!(
-        written = outcomes.len() - failed.len(),
-        failed = failed.len(),
-        failed_sessions = listed(&failed),
-        panicked,
-        "Finished a five-minute roll-up"
-    );
-    if failed.is_empty() && panicked == 0 {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
-    }
-}
-
-/// Rolls one session's minute bars up to five-minute bars under the minutes' own provenance.
-async fn roll_up_one(
-    archive: &Archive,
-    session: SessionDate,
-    journal: &Mutex<Journal>,
-) -> Result<usize, RollUpFailure> {
-    let minute_key = massive_bars_key(Origin::Vendor, BarInterval::OneMinute, session);
-    let bytes = archive
-        .get(&Key::from(minute_key))
-        .await
-        .map_err(RollUpFailure::Archive)?
-        .ok_or(RollUpFailure::Missing)?;
-    let key = massive_bars_key(Origin::Derived, BarInterval::FiveMinute, session);
-    let (count, body) = tokio::task::spawn_blocking(move || {
-        let (minutes, provenance) =
-            bars::decode(&minute_key, bytes).map_err(RollUpFailure::Decode)?;
-        let five_minutes = aggregate::roll_up(minutes.rows(), BarInterval::FiveMinute)
-            .expect("minutes roll up to five minutes");
-        let five_minutes = Partition::try_from(five_minutes)
-            .expect("a minute or more rolls up to a five-minute bar or more");
-        let body = bars::encode(&key, &five_minutes, &provenance).map_err(RollUpFailure::Encode)?;
-        Ok::<_, RollUpFailure>((five_minutes.rows().len(), body))
-    })
-    .await
-    .map_err(|error| RollUpFailure::Interrupted(error.to_string()))??;
-    let bytes = length(&body);
-    archive
-        .create(&Key::from(key), body)
-        .await
-        .map_err(RollUpFailure::Archive)?;
-    written(journal, key.into(), bytes).map_err(RollUpFailure::Journal)?;
-    Ok(count)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1360,18 +974,10 @@ mod tests {
         };
         assert!(parse(&arguments("2021-08-23", "2021-08-23")).is_some());
         assert!(parse(&arguments("2021-08-24", "2021-08-23")).is_none());
-        let parsing = ["parse", "daily_bars", "2021-08-24", "2021-08-23", "4"].map(String::from);
-        assert!(parse(&parsing).is_none());
-        let parse_file =
-            |file: &str| parse(&["parse", file, "2021-08-23", "2021-08-24", "4"].map(String::from));
-        assert!(matches!(
-            parse_file("minute_bars"),
-            Some(Command::Parse {
-                file: BarFile::Minute,
-                ..
-            })
-        ));
-        assert!(parse_file("quotes").is_none());
+        assert!(
+            parse(&["copy", "daily_bars", "2021-08-23", "2021-08-24", "4"].map(String::from))
+                .is_none()
+        );
         let folding = |first: &str, last: &str, concurrency: &str| {
             parse(&["fold-quotes", first, last, concurrency].map(String::from))
         };
@@ -1379,14 +985,12 @@ mod tests {
         assert!(folding("2021-08-24", "2021-08-23", "9").is_none());
         assert!(folding("2021-08-23", "2021-08-24", "0").is_none());
         let day = |text: &str| SessionDate::from_date(text.parse().unwrap());
-        for command in ["roll-up", "fold-trades", "fold-quotes"] {
+        for command in ["fold-trades", "fold-quotes"] {
             let ranged = |first: &str, last: &str| {
                 parse(&[command, first, last, "2"].map(String::from)).map(|command| match command {
-                    Command::RollUp { range, .. }
-                    | Command::FoldTrades { range, .. }
+                    Command::FoldTrades { range, .. }
                     | Command::FoldQuotes { range, .. }
-                    | Command::Copy { range, .. }
-                    | Command::Parse { range, .. } => Some((range.first(), range.last())),
+                    | Command::Copy { range, .. } => Some((range.first(), range.last())),
                     Command::FetchConditions | Command::Delete { .. } => None,
                 })
             };
@@ -1404,9 +1008,8 @@ mod tests {
         assert_eq!(
             usage(),
             concat!(
-                "copy <dataset> <first> <last> <concurrency> | parse <dataset> <first> <last> <concurrency> | ",
-                "fold-quotes <first> <last> <concurrency> | fetch-conditions | delete <path>... | ",
-                "roll-up <first> <last> <concurrency> | fold-trades <first> <last> <concurrency>",
+                "copy <dataset> <first> <last> <concurrency> | fold-quotes <first> <last> <concurrency> | ",
+                "fetch-conditions | delete <path>... | fold-trades <first> <last> <concurrency>",
             )
         );
         for name in CommandName::iter() {

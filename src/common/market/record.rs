@@ -180,28 +180,6 @@ impl Bar {
         self.timestamp
     }
 
-    /// The instant the bar's period ends: an intraday bar is stamped at its start and a daily bar at its close.
-    pub fn ends(&self) -> DateTime<Utc> {
-        self.interval.ends(self.timestamp)
-    }
-
-    /// This bar with every price set to `price` and its dollar volume to match, keeping the series, instant, volume
-    /// and trade count: the input a replay control runs on, where no price moves.
-    pub fn at_price(&self, price: Price) -> Self {
-        Self {
-            prices: BarPrices {
-                open: price,
-                high: price,
-                low: price,
-                close: price,
-            },
-            dollar_volume: self
-                .dollar_volume
-                .map(|_| DollarVolume::of(price, self.volume)),
-            ..self.clone()
-        }
-    }
-
     pub fn prices(&self) -> BarPrices {
         self.prices
     }
@@ -459,7 +437,7 @@ mod tests {
     }
 
     #[test]
-    fn test_a_bar_ends_after_its_period_and_a_daily_bar_at_its_stamp() {
+    fn test_an_interval_ends_after_its_period_and_a_daily_bar_at_its_stamp() {
         for (interval, timestamp, ends) in [
             (
                 BarInterval::OneMinute,
@@ -478,56 +456,11 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                bar(interval, timestamp).unwrap().ends(),
+                interval.ends(instant(timestamp)),
                 instant(ends),
                 "{interval}"
             );
         }
-    }
-
-    /// Repricing keeps everything but the prices, and repricing twice is repricing once to the last price.
-    #[test]
-    fn test_a_repriced_bar_keeps_its_series_and_volume() {
-        let original = Bar::new(
-            Symbol::new("AAPL").unwrap(),
-            BarInterval::OneMinute,
-            instant("2026-07-31T14:31:00Z"),
-            prices(),
-            Shares::whole(100).unwrap(),
-            Some(TradeCount::new(7)),
-            Some(DollarVolume::of(price(10.0), Shares::whole(100).unwrap())),
-        )
-        .unwrap();
-        let repriced = original.at_price(price(2.0));
-        assert_eq!(
-            repriced.prices(),
-            BarPrices::new(price(2.0), price(2.0), price(2.0), price(2.0)).unwrap()
-        );
-        assert_eq!(repriced.volume_weighted_average_price(), Some(2.0));
-        assert_eq!(
-            (
-                repriced.symbol(),
-                repriced.interval(),
-                repriced.timestamp(),
-                repriced.volume(),
-                repriced.trade_count()
-            ),
-            (
-                original.symbol(),
-                original.interval(),
-                original.timestamp(),
-                original.volume(),
-                original.trade_count()
-            )
-        );
-        assert_eq!(original.at_price(price(5.0)).at_price(price(2.0)), repriced);
-        assert_eq!(
-            bar(BarInterval::OneMinute, "2026-07-31T14:31:00Z")
-                .unwrap()
-                .at_price(price(2.0))
-                .dollar_volume(),
-            None
-        );
     }
 
     #[test]
@@ -622,44 +555,6 @@ mod tests {
                 }
                 BarInterval::OneDay => prop_assert_eq!(SessionDate::at(bucket), SessionDate::at(at)),
             }
-        }
-
-        /// Repricing twice is repricing once to the second price, and repricing keeps all but the prices.
-        #[test]
-        fn property_repricing_composes_to_the_last_price(
-            minute in 0..390i64,
-            interval in prop::sample::select(vec![BarInterval::OneMinute, BarInterval::FiveMinute]),
-            ticks in prop::collection::vec(1..10_000_000_000i64, 4),
-            volume in 0..1_000_000_000u64,
-            trade_count in prop::option::of(0..10_000u64),
-            reported in prop::bool::ANY,
-            first in 1..10_000_000_000i64,
-            second in 1..10_000_000_000i64,
-        ) {
-            let price = |units: i64| Price::from_ticks(units).unwrap();
-            let low = *ticks.iter().min().unwrap();
-            let high = *ticks.iter().max().unwrap();
-            let open = instant("2026-07-31T13:30:00Z") + TimeDelta::minutes(minute - minute % 5);
-            let volume = Shares::from_units(volume);
-            let bar = Bar::new(
-                Symbol::new("AAPL").unwrap(),
-                interval,
-                open,
-                BarPrices::new(price(ticks[0]), price(high), price(low), price(ticks[1])).unwrap(),
-                volume,
-                trade_count.map(TradeCount::new),
-                reported.then(|| DollarVolume::of(price(ticks[2]), volume)),
-            )
-            .unwrap();
-            let repriced = bar.at_price(price(second));
-            prop_assert_eq!(bar.at_price(price(first)).at_price(price(second)), repriced.clone());
-            let flat = price(second);
-            prop_assert_eq!(repriced.prices(), BarPrices::new(flat, flat, flat, flat).unwrap());
-            prop_assert_eq!(repriced.dollar_volume(), reported.then(|| DollarVolume::of(flat, volume)));
-            prop_assert_eq!(
-                (repriced.symbol(), repriced.interval(), repriced.timestamp(), repriced.volume(), repriced.trade_count()),
-                (bar.symbol(), bar.interval(), bar.timestamp(), bar.volume(), bar.trade_count())
-            );
         }
     }
 }
