@@ -259,6 +259,84 @@ fn allows(policy: &serde_json::Value, action: &str, resource: &str) -> bool {
         })
 }
 
+/// Every resource an `Allow` statement grants `action` on, its action listed outright or matched by a `*` wildcard.
+fn allowed_resources(policy: &serde_json::Value, action: &str) -> Vec<String> {
+    let strings = |value: &serde_json::Value| -> Vec<String> {
+        match value {
+            serde_json::Value::String(value) => vec![value.clone()],
+            serde_json::Value::Array(values) => values
+                .iter()
+                .filter_map(|value| value.as_str().map(String::from))
+                .collect(),
+            serde_json::Value::Null
+            | serde_json::Value::Bool(_)
+            | serde_json::Value::Number(_)
+            | serde_json::Value::Object(_) => Vec::new(),
+        }
+    };
+    policy["Statement"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|statement| statement["Effect"] == "Allow")
+        .filter(|statement| {
+            strings(&statement["Action"])
+                .iter()
+                .any(|pattern| wildcard_matches(pattern, action))
+        })
+        .flat_map(|statement| strings(&statement["Resource"]))
+        .collect()
+}
+
+/// Whether IAM's `*` wildcard `pattern` matches `value`, ignoring case as IAM action names do.
+fn wildcard_matches(pattern: &str, value: &str) -> bool {
+    let (pattern, value) = (pattern.to_ascii_lowercase(), value.to_ascii_lowercase());
+    let pieces: Vec<&str> = pattern.split('*').collect();
+    let (first, wildcarded) = pieces.split_first().unwrap();
+    let Some(mut rest) = value.strip_prefix(first) else {
+        return false;
+    };
+    match wildcarded.split_last() {
+        None => rest.is_empty(),
+        Some((last, middle)) => {
+            for piece in middle {
+                match rest.find(piece) {
+                    Some(index) => rest = &rest[index + piece.len()..],
+                    None => return false,
+                }
+            }
+            rest.ends_with(last)
+        }
+    }
+}
+
+#[test]
+fn test_an_iam_wildcard_matches_the_actions_it_names() {
+    for (pattern, matches) in [
+        ("s3:DeleteObject", true),
+        ("s3:*Object", true),
+        ("s3:*", true),
+        ("*", true),
+        ("S3:deleteobject", true),
+        ("*Object", true),
+        ("s3:**Object", true),
+        ("s3:DeleteObject*", true),
+        ("s3:*e*e*Object", true),
+        ("s3:Delete*teObject", false),
+        ("s3:DeleteObj*Object", false),
+        ("s3:DeleteObjec", false),
+        ("s3:Delete*Version", false),
+        ("s3:DeleteObjectVersion", false),
+        ("s3:Get*", false),
+    ] {
+        assert_eq!(
+            wildcard_matches(pattern, "s3:DeleteObject"),
+            matches,
+            "{pattern}"
+        );
+    }
+}
+
 /// Whether a `Deny` statement listing `action` refuses `resource` because it falls outside the statement's `NotResource`.
 /// Models only a single `NotResource` string ending in `*`, matched as a prefix; any other shape refuses nothing.
 fn denies_outside(policy: &serde_json::Value, action: &str, resource: &str) -> bool {
@@ -313,18 +391,11 @@ fn test_a_new_archiver_is_granted_its_prefixes_and_scheduled_once_bootstrapped()
         );
     }
     // The heal deletes a session's parsed key before re-fetching it, and nothing may delete the raw tee.
-    let deletable: Vec<&serde_json::Value> = grant["Statement"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|statement| statement["Action"].to_string().contains("s3:DeleteObject"))
-        .map(|statement| &statement["Resource"])
-        .collect();
+    let parsed = "arn:aws:s3:::oscm-fund-archive/data/equity/stage=parsed/*";
+    assert!(allows(&grant, "s3:DeleteObject", parsed), "{grant}");
     assert_eq!(
-        deletable,
-        [&serde_json::json!(
-            "arn:aws:s3:::oscm-fund-archive/data/equity/stage=parsed/*"
-        )],
+        allowed_resources(&grant, "s3:DeleteObject"),
+        [parsed],
         "{grant}"
     );
     let mut granted: Vec<String> = Host::Archiver.writable_prefixes();
