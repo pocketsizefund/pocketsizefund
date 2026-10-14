@@ -483,6 +483,29 @@ mod tests {
         );
     }
 
+    proptest::proptest! {
+        /// Any non-empty set of symbols, kept by a fingerprint, reads back exactly as written.
+        #[test]
+        fn property_the_symbols_kept_round_trip(
+            raw in proptest::collection::btree_set("[A-Z]{1,5}(\\.[A-Z]{1,3})?", 1..20),
+        ) {
+            let symbols = Symbols::only(raw.iter().map(|symbol| Symbol::new(symbol).unwrap()).collect())
+                .unwrap();
+            let fingerprint = Fingerprint::new(
+                DatasetLeg::DailyTradeBars,
+                range(21, 25),
+                &calendar(),
+                tags(&[21]),
+            )
+            .unwrap()
+            .keeping(symbols.clone());
+            let stored = serde_json::to_string(&fingerprint).unwrap();
+            proptest::prop_assert_eq!(serde_json::from_str::<Fingerprint>(&stored).unwrap(), fingerprint);
+            let stored = serde_json::to_string(&symbols).unwrap();
+            proptest::prop_assert_eq!(serde_json::from_str::<Symbols>(&stored).unwrap(), symbols);
+        }
+    }
+
     /// A subset is journaled by its symbols and read back as written; a read journaled before subsets existed kept
     /// every symbol, and a subset naming none is refused.
     #[test]
