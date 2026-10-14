@@ -422,6 +422,23 @@ pub enum AlpacaTradeOutcome {
 /// unresolved rather than being dropped.
 const UNSPELLABLE: ConditionLetter = ConditionLetter::of('\u{FFFD}');
 
+/// One response page of a symbol's ticks: its bytes as served and the outcomes read from them.
+#[derive(Debug)]
+pub struct Page<Outcome> {
+    body: Vec<u8>,
+    outcomes: Vec<Outcome>,
+}
+
+impl<Outcome> Page<Outcome> {
+    pub fn new(body: Vec<u8>, outcomes: Vec<Outcome>) -> Self {
+        Self { body, outcomes }
+    }
+
+    pub fn into_parts(self) -> (Vec<u8>, Vec<Outcome>) {
+        (self.body, self.outcomes)
+    }
+}
+
 /// Reads one page of a symbol's ticks into outcomes, with whether any row came filed under that symbol.
 type PageParser<Outcome> = fn(&Symbol, &[u8]) -> Result<(Vec<Outcome>, bool), FetchError>;
 
@@ -433,7 +450,7 @@ impl Alpaca {
         &self,
         symbol: &Symbol,
         session: SessionDate,
-        pages: &Sender<Vec<AlpacaQuoteOutcome>>,
+        pages: &Sender<Page<AlpacaQuoteOutcome>>,
     ) -> Result<bool, FetchError> {
         self.tick_pages(QUOTES_URL, symbol, session, quote_page, pages)
             .await
@@ -444,7 +461,7 @@ impl Alpaca {
         &self,
         symbol: &Symbol,
         session: SessionDate,
-        pages: &Sender<Vec<AlpacaTradeOutcome>>,
+        pages: &Sender<Page<AlpacaTradeOutcome>>,
     ) -> Result<bool, FetchError> {
         self.tick_pages(TRADES_URL, symbol, session, trade_page, pages)
             .await
@@ -456,7 +473,7 @@ impl Alpaca {
         symbol: &Symbol,
         session: SessionDate,
         parse: PageParser<Outcome>,
-        pages: &Sender<Vec<Outcome>>,
+        pages: &Sender<Page<Outcome>>,
     ) -> Result<bool, FetchError> {
         let (start, end) = session.bounds();
         // The endpoint's end is inclusive, so the next session's first nanosecond is excluded.
@@ -491,7 +508,7 @@ impl Alpaca {
             let (outcomes, page_answered) = parse(symbol, &body)?;
             answered |= page_answered;
             // A closed channel means nothing folds these pages, so fetching more is wasted.
-            match (pages.send(outcomes).await, next) {
+            match (pages.send(Page::new(body, outcomes)).await, next) {
                 (Err(_), _) | (Ok(()), None) => return Ok(answered),
                 (Ok(()), Some(next)) => token = Some(next),
             }

@@ -76,6 +76,7 @@ fn test_each_private_file_fails_and_is_named() {
         "data/equity/bars/data.parquet",
         "data/raw/trades.csv.gz",
         "records/2026-10-08.jsonl",
+        "data/raw/quotes.jsonl.gz",
         "models/weights.safetensors",
         "data/capital_flows.toml",
         "journal/README.md",

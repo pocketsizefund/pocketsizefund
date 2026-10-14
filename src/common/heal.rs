@@ -213,6 +213,8 @@ pub enum PartitionFailureKind {
     NoSymbols,
     NoMinutes,
     Fold,
+    /// The fetched pages could not be stored raw.
+    Tee,
     /// A write the partition needed went unrecorded, which stops the run.
     Journal,
 }
@@ -771,6 +773,7 @@ mod tests {
                 r#""no_symbols""#,
                 r#""no_minutes""#,
                 r#""fold""#,
+                r#""tee""#,
                 r#""journal""#,
             ]
         );

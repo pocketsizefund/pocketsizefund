@@ -16,6 +16,7 @@ capital_flows.toml
 *.parquet
 *.csv.gz
 *.jsonl
+*.jsonl.gz
 *.safetensor*
 .devenv
 .pre-commit-config.yaml
