@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Reconciles one host's EC2 instance, IAM, security group and start and stop schedules for a role and a profile.
+# Reconciles one host's EC2 instance, IAM, security group and start and stop schedules for a role and a profile, and
+# for the archiver the archive bucket's lifecycle rules.
 # Dry run unless --apply; a setting that cannot change in place is reported as drift and refused, never adopted.
 set -euo pipefail
 
@@ -290,6 +291,22 @@ JSON
 changed "put inline policy $ROLE on $NAME"
 if [[ "$APPLY" == true ]]; then
   aws iam put-role-policy --role-name "$NAME" --policy-name "$ROLE" --policy-document "$ROLE_POLICY"
+fi
+
+# The archiver writes the archive, so its run owns the bucket's rules; raw objects are written in Deep Archive, and the
+# backstop moves any that land in Standard.
+if [[ "$ROLE" == archiver ]]; then
+  step "Lifecycle rules on $ARCHIVE_BUCKET"
+  LIFECYCLE='{"Rules":[
+  {"ID":"raw-to-deep-archive-backstop","Filter":{"Prefix":"data/equity/stage=raw/"},"Status":"Enabled",
+   "Transitions":[{"Days":1,"StorageClass":"DEEP_ARCHIVE"}]},
+  {"ID":"abort-incomplete-multipart-uploads","Filter":{"Prefix":""},"Status":"Enabled",
+   "AbortIncompleteMultipartUpload":{"DaysAfterInitiation":7}}
+]}'
+  changed "put lifecycle rules on $ARCHIVE_BUCKET"
+  if [[ "$APPLY" == true ]]; then
+    aws s3api put-bucket-lifecycle-configuration --bucket "$ARCHIVE_BUCKET" --lifecycle-configuration "$LIFECYCLE"
+  fi
 fi
 
 if [[ "$INSTANCE_ID" == "None" || -z "$INSTANCE_ID" ]]; then
