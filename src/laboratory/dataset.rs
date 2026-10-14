@@ -6,7 +6,7 @@ use crate::archive::provenance::Provenance;
 use crate::archive::{Archive, ArchiveError, parquet, trade_bars};
 use crate::common::journal::RunId;
 use crate::common::laboratory::dataset::{
-    Contamination, DatasetLeg, Fingerprint, FingerprintRefusal, PartitionRead,
+    Contamination, DatasetLeg, Fingerprint, FingerprintRefusal, PartitionRead, Symbols,
 };
 use crate::common::laboratory::series::{Series, SeriesRefusal};
 use crate::common::market::record::{BarInterval, Partition};
@@ -53,7 +53,7 @@ impl Dataset {
         self.lineage.fingerprint()
     }
 
-    /// One reading per session read, `read` folding that session's bars; a missing session stays out of the series.
+    /// One reading per session holding bars, `read` folding them; a session missing or keeping no symbol stays out.
     pub fn series(
         &self,
         read: impl Fn(&[TradeBar]) -> Option<f64>,
@@ -82,28 +82,49 @@ pub enum DatasetError {
     },
 }
 
-/// Trade bars at `interval` for every trading session in `range`, each session from Massive where it holds one and
-/// Alpaca otherwise, journaled to `study` before it is returned with the provider of each session in its fingerprint.
+/// Trade bars of `symbols` at `interval` for every trading session in `range`, each session from Massive where it
+/// holds one and Alpaca otherwise, journaled to `study` before it is returned with the provider of each session and the
+/// symbols kept in its fingerprint.
 pub async fn trade_bars(
     archive: &Archive,
     calendar: &TradingCalendar,
     range: SessionRange,
     interval: BarInterval,
+    symbols: Symbols,
     study: &mut Study,
 ) -> Result<Dataset, DatasetError> {
     load(
         DatasetLeg::trade_bars(interval),
         calendar,
         range,
+        symbols.clone(),
         study,
         async |session| {
-            preferred(trade_keys(interval, session), async |provider, key| {
+            let found = preferred(trade_keys(interval, session), async |provider, key| {
                 read(archive, provider, key, session, trade_bars::decode).await
             })
-            .await
+            .await?;
+            // Kept as each session decodes, so a subset never holds more than one whole session at once.
+            Ok(found.map(|(partition, read)| (kept(partition, &symbols), read)))
         },
     )
     .await
+}
+
+/// The rows of `partition` whose symbol `symbols` keeps, `None` when it keeps none of them.
+fn kept(partition: Partition<TradeBar>, symbols: &Symbols) -> Option<Partition<TradeBar>> {
+    match symbols {
+        Symbols::Every => Some(partition),
+        Symbols::Only(_) => Partition::try_from(
+            partition
+                .rows()
+                .iter()
+                .filter(|bar| symbols.keeps(bar.symbol()))
+                .cloned()
+                .collect::<Vec<_>>(),
+        )
+        .ok(),
+    }
 }
 
 /// What `held` finds for the first of `candidates` it finds anything for, consulting none after that one; `None`
@@ -132,10 +153,14 @@ async fn load(
     leg: DatasetLeg,
     calendar: &TradingCalendar,
     range: SessionRange,
+    symbols: Symbols,
     study: &mut Study,
     partition: impl AsyncFn(
         SessionDate,
-    ) -> Result<Option<(Partition<TradeBar>, PartitionRead)>, DatasetError>,
+    ) -> Result<
+        Option<(Option<Partition<TradeBar>>, PartitionRead)>,
+        DatasetError,
+    >,
 ) -> Result<Dataset, DatasetError> {
     // Taken empty first, so the window is checked before any read and its missing sessions are the ones to read.
     let owed =
@@ -145,11 +170,14 @@ async fn load(
         let Some((rows, read)) = partition(*session).await? else {
             continue;
         };
-        bars.insert(*session, rows);
+        if let Some(rows) = rows {
+            bars.insert(*session, rows);
+        }
         reads.insert(*session, read);
     }
-    let fingerprint =
-        Fingerprint::new(leg, range, calendar, reads).map_err(DatasetError::Window)?;
+    let fingerprint = Fingerprint::new(leg, range, calendar, reads)
+        .map_err(DatasetError::Window)?
+        .keeping(symbols);
     study.read(&fingerprint).map_err(DatasetError::Journal)?;
     Ok(Dataset {
         bars,
@@ -243,7 +271,13 @@ pub(crate) mod tests {
     }
 
     /// AAPL's trade bar at `timestamp`, opening at its start and closing a second before its end, over 100 shares.
-    fn trade_bar(
+    fn trade_bar(interval: BarInterval, timestamp: DateTime<Utc>, prices: [f64; 4]) -> TradeBar {
+        symbol_bar("AAPL", interval, timestamp, prices)
+    }
+
+    /// `symbol`'s trade bar at `timestamp`, as `trade_bar` builds AAPL's.
+    fn symbol_bar(
+        symbol: &str,
         interval: BarInterval,
         timestamp: DateTime<Utc>,
         [open, high, low, close]: [f64; 4],
@@ -256,7 +290,7 @@ pub(crate) mod tests {
         };
         let shares = Shares::from_float(100.0).unwrap();
         TradeBar::new(
-            Symbol::new("AAPL").unwrap(),
+            Symbol::new(symbol).unwrap(),
             interval,
             timestamp,
             TradeSums::new(
@@ -363,6 +397,88 @@ pub(crate) mod tests {
             assert_eq!(found, expected, "{held:?}");
             assert_eq!(*asked.lock().unwrap(), consulted, "{held:?}");
         }
+    }
+
+    /// A subset keeps only its symbols' rows, and a partition holding none of them keeps nothing.
+    #[test]
+    fn test_a_partition_keeps_only_the_symbols_named() {
+        let at = session(0).regular_close();
+        let partition = Partition::try_from(
+            ["AAPL", "MSFT", "AAPL"]
+                .map(|symbol| symbol_bar(symbol, BarInterval::OneDay, at, [10.0; 4]))
+                .to_vec(),
+        )
+        .unwrap();
+        let only = |symbols: &[&str]| {
+            Symbols::only(
+                symbols
+                    .iter()
+                    .map(|symbol| Symbol::new(symbol).unwrap())
+                    .collect(),
+            )
+            .unwrap()
+        };
+        let symbols_of = |kept: Option<Partition<TradeBar>>| -> Option<Vec<String>> {
+            kept.map(|partition| {
+                partition
+                    .rows()
+                    .iter()
+                    .map(|bar| bar.symbol().to_string())
+                    .collect()
+            })
+        };
+        assert_eq!(
+            symbols_of(kept(partition.clone(), &Symbols::Every)),
+            Some(vec!["AAPL".into(), "MSFT".into(), "AAPL".into()])
+        );
+        assert_eq!(
+            symbols_of(kept(partition.clone(), &only(&["MSFT"]))),
+            Some(vec!["MSFT".into()])
+        );
+        assert_eq!(symbols_of(kept(partition, &only(&["IBM"]))), None);
+    }
+
+    /// A session whose partition kept no symbol is still read, so it is neither missing nor given bars, and the
+    /// fingerprint journaled names the symbols kept.
+    #[tokio::test]
+    async fn test_a_session_keeping_no_symbol_is_read_without_bars() {
+        let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
+        let mut study = Study::open(Label::new("subset").unwrap(), &directory).unwrap();
+        let symbols = Symbols::only([Symbol::new("AAPL").unwrap()].into()).unwrap();
+        let dataset = load(
+            DatasetLeg::DailyTradeBars,
+            &calendar(),
+            SessionRange::new(session(0), session(2)).unwrap(),
+            symbols.clone(),
+            &mut study,
+            async |day| {
+                let read = PartitionRead::new(Provider::Massive, EntityTag::new("\"tag\""));
+                let bar = trade_bar(BarInterval::OneDay, day.regular_close(), [10.0; 4]);
+                Ok(match day == session(0) {
+                    true => Some((Some(Partition::try_from(vec![bar]).unwrap()), read)),
+                    false if day == session(1) => Some((None, read)),
+                    false => None,
+                })
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            dataset.bars().keys().copied().collect::<Vec<_>>(),
+            [session(0)]
+        );
+        assert_eq!(
+            dataset
+                .fingerprint()
+                .partitions()
+                .keys()
+                .copied()
+                .collect::<Vec<_>>(),
+            [session(0), session(1)]
+        );
+        assert_eq!(dataset.fingerprint().missing(), [session(2)]);
+        assert_eq!(dataset.fingerprint().symbols(), &symbols);
+        std::fs::remove_dir_all(&directory).unwrap();
     }
 
     /// The series keeps exactly the sessions read, an unmeasured one as `None`.
@@ -501,6 +617,7 @@ pub(crate) mod tests {
             &calendar,
             range,
             BarInterval::OneMinute,
+            Symbols::Every,
             &mut study,
         )
         .await

@@ -1,10 +1,11 @@
 //! What a study read: one archive series over a window of sessions, each partition with the version read, so a later
 //! rewrite of any of them is visible against the record.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use crate::common::market::Symbol;
 use crate::common::market::record::BarInterval;
 use crate::common::storage::{EntityTag, Provider};
 use crate::common::time::calendar::TradingCalendar;
@@ -55,6 +56,56 @@ impl DatasetLeg {
     }
 }
 
+/// The symbols a dataset kept of each partition it read: every one, or only a named set.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Symbols {
+    #[default]
+    Every,
+    Only(SymbolSet),
+}
+
+/// A set of symbols to keep, which is never empty.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "BTreeSet<Symbol>", into = "BTreeSet<Symbol>")]
+pub struct SymbolSet(BTreeSet<Symbol>);
+
+/// A set of symbols to keep that names none, which would keep nothing of any partition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("a dataset keeping no symbol keeps nothing")]
+pub struct NoSymbols;
+
+impl TryFrom<BTreeSet<Symbol>> for SymbolSet {
+    type Error = NoSymbols;
+
+    fn try_from(symbols: BTreeSet<Symbol>) -> Result<Self, Self::Error> {
+        match symbols.is_empty() {
+            true => Err(NoSymbols),
+            false => Ok(Self(symbols)),
+        }
+    }
+}
+
+impl From<SymbolSet> for BTreeSet<Symbol> {
+    fn from(set: SymbolSet) -> Self {
+        set.0
+    }
+}
+
+impl Symbols {
+    pub fn only(symbols: BTreeSet<Symbol>) -> Result<Self, NoSymbols> {
+        SymbolSet::try_from(symbols).map(Self::Only)
+    }
+
+    /// Whether a row of `symbol` is kept.
+    pub fn keeps(&self, symbol: &Symbol) -> bool {
+        match self {
+            Self::Every => true,
+            Self::Only(SymbolSet(symbols)) => symbols.contains(symbol),
+        }
+    }
+}
+
 /// One session's partition as read: the provider whose partition it was and the entity tag of the version read.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartitionRead {
@@ -87,6 +138,8 @@ pub struct Fingerprint {
     partitions: BTreeMap<SessionDate, PartitionRead>,
     /// Trading sessions in the window with no partition, so an absence is read as one rather than as a short window.
     missing: Vec<SessionDate>,
+    /// The symbols kept of each partition; a session read whose partition held none of them has no bars.
+    symbols: Symbols,
 }
 
 #[derive(Deserialize)]
@@ -96,6 +149,9 @@ struct FingerprintFields {
     last: SessionDate,
     partitions: BTreeMap<SessionDate, PartitionRead>,
     missing: Vec<SessionDate>,
+    // A read journaled before datasets kept a subset kept every symbol.
+    #[serde(default)]
+    symbols: Symbols,
 }
 
 impl TryFrom<FingerprintFields> for Fingerprint {
@@ -129,6 +185,7 @@ impl TryFrom<FingerprintFields> for Fingerprint {
             range,
             partitions: fields.partitions,
             missing: fields.missing,
+            symbols: fields.symbols,
         })
     }
 }
@@ -177,11 +234,21 @@ impl Fingerprint {
             range,
             partitions,
             missing,
+            symbols: Symbols::Every,
         })
+    }
+
+    /// The fingerprint of a read that kept only `symbols` of each partition.
+    pub(crate) fn keeping(self, symbols: Symbols) -> Self {
+        Self { symbols, ..self }
     }
 
     pub fn leg(&self) -> DatasetLeg {
         self.leg
+    }
+
+    pub fn symbols(&self) -> &Symbols {
+        &self.symbols
     }
 
     pub fn partitions(&self) -> &BTreeMap<SessionDate, PartitionRead> {
@@ -408,12 +475,54 @@ mod tests {
         let encoded = serde_json::to_string(&fingerprint).unwrap();
         assert_eq!(
             encoded,
-            r#"{"leg":"daily_trade_bars","first":"2026-09-21","last":"2026-09-25","partitions":{"2026-09-21":{"provider":"massive","tag":"\"tag-21\""},"2026-09-24":{"provider":"massive","tag":"\"tag-24\""}},"missing":["2026-09-22","2026-09-23","2026-09-25"]}"#
+            r#"{"leg":"daily_trade_bars","first":"2026-09-21","last":"2026-09-25","partitions":{"2026-09-21":{"provider":"massive","tag":"\"tag-21\""},"2026-09-24":{"provider":"massive","tag":"\"tag-24\""}},"missing":["2026-09-22","2026-09-23","2026-09-25"],"symbols":"every"}"#
         );
         assert_eq!(
             serde_json::from_str::<Fingerprint>(&encoded).unwrap(),
             fingerprint
         );
+    }
+
+    /// A subset is journaled by its symbols and read back as written; a read journaled before subsets existed kept
+    /// every symbol, and a subset naming none is refused.
+    #[test]
+    fn test_the_symbols_kept_read_back_as_written() {
+        let fingerprint = Fingerprint::new(
+            DatasetLeg::DailyTradeBars,
+            range(21, 25),
+            &calendar(),
+            tags(&[21]),
+        )
+        .unwrap();
+        let only = Symbols::only(
+            ["SPY", "QQQ"]
+                .map(|symbol| Symbol::new(symbol).unwrap())
+                .into(),
+        )
+        .unwrap();
+        let kept = fingerprint.clone().keeping(only.clone());
+        let stored = serde_json::to_value(&kept).unwrap();
+        assert_eq!(
+            stored["symbols"],
+            serde_json::json!({"only": ["QQQ", "SPY"]})
+        );
+        assert_eq!(
+            serde_json::from_value::<Fingerprint>(stored.clone()).unwrap(),
+            kept
+        );
+
+        let mut earlier = stored.clone();
+        earlier.as_object_mut().unwrap().remove("symbols");
+        assert_eq!(
+            serde_json::from_value::<Fingerprint>(earlier)
+                .unwrap()
+                .symbols(),
+            &Symbols::Every
+        );
+        let mut empty = stored;
+        empty["symbols"] = serde_json::json!({"only": []});
+        assert!(serde_json::from_value::<Fingerprint>(empty).is_err());
+        assert_eq!(Symbols::only(BTreeSet::new()), Err(NoSymbols));
     }
 
     /// Each leg keeps the name journals already hold, and serde and strum agree on it.
