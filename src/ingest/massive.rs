@@ -7,7 +7,9 @@ use chrono::{DateTime, NaiveDate};
 use serde::Deserialize;
 
 use super::retry::{FetchError, send, with_retries};
-use super::{Accepted, RefusedRow, RowRefusal, Secret, SessionBars, VariableRefusal, variable};
+use super::{
+    Accepted, Fetched, RefusedRow, RowRefusal, Secret, SessionBars, VariableRefusal, variable,
+};
 use crate::common::market::corporate_actions::{ActionId, Split, SplitRatio};
 use crate::common::market::record::{Bar, BarInterval, BarPrices};
 use crate::common::market::security_details::{
@@ -83,7 +85,7 @@ impl Massive {
     }
 
     /// The sale conditions a stock print can carry, with the consolidated tape's update rules for each.
-    pub async fn trade_conditions(&self) -> Result<TradeConditions, FetchError> {
+    pub async fn trade_conditions(&self) -> Result<Fetched<TradeConditions>, FetchError> {
         let url = format!("{}/v3/reference/conditions", self.base_url);
         let body = with_retries(|| {
             send(
@@ -94,7 +96,8 @@ impl Massive {
             )
         })
         .await?;
-        parse_trade_conditions(&body)
+        let conditions = parse_trade_conditions(&body)?;
+        Ok(Fetched::new(conditions, vec![body]))
     }
 
     /// Unadjusted daily bars for every exchange-listed ticker that traded on `session`.
@@ -116,9 +119,10 @@ impl Massive {
     }
 
     /// Every split Massive has published, past and announced, as one table.
-    pub async fn splits(&self) -> Result<SplitTable, FetchError> {
+    pub async fn splits(&self) -> Result<Fetched<SplitTable>, FetchError> {
         let url = format!("{}/v3/reference/splits", self.base_url);
         let mut read = SplitPages::empty();
+        let mut bodies = Vec::new();
         let mut cursor: Option<String> = None;
         let mut seen = BTreeSet::new();
         for _ in 0..SPLITS_PAGES_AT_MOST {
@@ -136,9 +140,10 @@ impl Massive {
             })
             .await?;
             let (page, next) = parse_splits_page(&body)?;
+            bodies.push(body);
             read = read.combine(page);
             match next {
-                None => return Ok(read.unique()),
+                None => return Ok(Fetched::new(read.unique(), bodies)),
                 Some(next) if !seen.insert(next.clone()) => {
                     return Err(FetchError::Malformed {
                         reason: format!("splits cursor {next} repeated"),
@@ -152,12 +157,13 @@ impl Massive {
         })
     }
 
-    /// `symbol`'s details as Massive held them on `as_of`; a symbol not listed that day is `Missing`, not an error.
+    /// `symbol`'s details as Massive held them on `as_of`; a symbol not listed that day is `Missing`, not an error, and
+    /// comes with no body.
     pub async fn security_details(
         &self,
         symbol: &Symbol,
         as_of: SessionDate,
-    ) -> Result<DetailsAnswer, FetchError> {
+    ) -> Result<Fetched<DetailsAnswer>, FetchError> {
         let ticker = massive_ticker(symbol);
         let url = format!("{}/v3/reference/tickers/{ticker}", self.base_url);
         let date = as_of.to_string();
@@ -171,8 +177,11 @@ impl Massive {
         })
         .await;
         match answer {
-            Ok(body) => parse_security_details(&body, symbol, &ticker),
-            Err(FetchError::Refused { status: 404, .. }) => Ok(DetailsAnswer::Missing),
+            Ok(body) => parse_security_details(&body, symbol, &ticker)
+                .map(|answer| Fetched::new(answer, vec![body])),
+            Err(FetchError::Refused { status: 404, .. }) => {
+                Ok(Fetched::new(DetailsAnswer::Missing, Vec::new()))
+            }
             Err(error) => Err(error),
         }
     }

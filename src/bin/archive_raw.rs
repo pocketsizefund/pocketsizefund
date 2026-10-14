@@ -1032,7 +1032,11 @@ async fn fetch_conditions(
     journal: &Mutex<Journal>,
 ) -> ExitCode {
     let fetched_at = Utc::now();
-    let conditions = match massive.trade_conditions().await {
+    let conditions = match massive
+        .trade_conditions()
+        .await
+        .map(|fetched| fetched.into_parts().0)
+    {
         Ok(conditions) => conditions,
         Err(error) => {
             tracing::error!(%error, "Conditions not fetched");

@@ -502,7 +502,7 @@ fn test_every_archive_series_the_nightly_writes_has_a_view() {
             Key::Trades(daily) => BarInterval::iter()
                 .map(|interval| daily.at_interval(interval).into())
                 .collect(),
-            Key::RawQuotes { .. } | Key::RawTrades { .. } => Vec::new(),
+            Key::RawQuotes { .. } | Key::RawTrades { .. } | Key::RawReference(..) => Vec::new(),
             Key::Bars(..)
             | Key::Reference(..)
             | Key::RawBars { .. }

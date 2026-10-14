@@ -11,6 +11,7 @@ use crate::common::market::Symbol;
 use crate::common::market::corporate_actions::{ActionId, BoundaryChange, SeriesBoundary};
 use crate::common::monoid::{Monoid, concatenate};
 use crate::common::time::{SessionDate, SessionRange};
+use crate::ingest::Fetched;
 
 const CORPORATE_ACTIONS_URL: &str = "https://data.alpaca.markets/v1/corporate-actions";
 
@@ -58,7 +59,7 @@ impl Alpaca {
     pub async fn series_boundaries(
         &self,
         range: SessionRange,
-    ) -> Result<SeriesBoundaries, FetchError> {
+    ) -> Result<Fetched<SeriesBoundaries>, FetchError> {
         let (start, end) = (range.first().to_string(), range.last().to_string());
         let (start, end) = (&start, &end);
         let pages = paginate(|page_token| async move {
@@ -85,7 +86,7 @@ impl Alpaca {
             .iter()
             .map(|page| parse_boundaries_page(page))
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(concatenate(read))
+        Ok(Fetched::new(concatenate(read), pages))
     }
 }
 
