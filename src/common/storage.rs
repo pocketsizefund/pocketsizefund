@@ -520,9 +520,14 @@ impl Key {
             | Self::Logs(..) => {
                 format!("{series}{}/data.parquet", date_partition(self.session()))
             }
-            Self::RawBars { .. } | Self::RawQuotes { .. } | Self::RawTrades { .. } => {
+            Self::RawBars { .. } => {
                 format!("{series}{}/data.csv.gz", date_partition(self.session()))
             }
+            Self::RawQuotes { provider, .. } | Self::RawTrades { provider, .. } => format!(
+                "{series}{}/{}",
+                date_partition(self.session()),
+                raw_ticks_file(*provider)
+            ),
         }
     }
 
@@ -618,6 +623,14 @@ fn date_partition(session: SessionDate) -> String {
     )
 }
 
+/// The file a vendor's tick session is stored as: Massive's flat file, or Alpaca's REST pages one per line.
+fn raw_ticks_file(provider: Provider) -> &'static str {
+    match provider {
+        Provider::Massive => "data.csv.gz",
+        Provider::Alpaca => "data.jsonl.gz",
+    }
+}
+
 fn parse_segments(segments: &[&str]) -> Option<Key> {
     match segments {
         [
@@ -684,7 +697,7 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
             year,
             month,
             day,
-            "data.csv.gz",
+            _file,
         ] => Some(Key::RawQuotes {
             provider: hive(provider, "provider")?,
             session: session(year, month, day)?,
@@ -698,7 +711,7 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
             year,
             month,
             day,
-            "data.csv.gz",
+            _file,
         ] => Some(Key::RawTrades {
             provider: hive(provider, "provider")?,
             session: session(year, month, day)?,
@@ -864,6 +877,20 @@ pub(crate) mod tests {
                 "data/equity/stage=raw/trades/provider=massive/year=2026/month=08/day=03/data.csv.gz",
             ),
             (
+                Key::RawQuotes {
+                    provider: Provider::Alpaca,
+                    session: session(),
+                },
+                "data/equity/stage=raw/quotes/provider=alpaca/year=2026/month=08/day=03/data.jsonl.gz",
+            ),
+            (
+                Key::RawTrades {
+                    provider: Provider::Alpaca,
+                    session: session(),
+                },
+                "data/equity/stage=raw/trades/provider=alpaca/year=2026/month=08/day=03/data.jsonl.gz",
+            ),
+            (
                 JournalKey::new(Host::Trader, session()).into(),
                 "records/journal/producer=trader/year=2026/month=08/day=03/data.parquet",
             ),
@@ -894,6 +921,8 @@ pub(crate) mod tests {
             "data/equity/stage=parsed/reference/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
             "data/equity/stage=raw/bars/provider=massive/interval=one_day/year=2026/month=08/day=03/data.parquet",
             "data/equity/stage=raw/quotes/provider=massive/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
+            "data/equity/stage=raw/quotes/provider=alpaca/year=2026/month=08/day=03/data.csv.gz",
+            "data/equity/stage=raw/trades/provider=massive/year=2026/month=08/day=03/data.jsonl.gz",
             "data/equity/stage=raw/reference/provider=massive/table=conditions/as_of=2026-08-03/data.parquet",
             "data/equity/stage=parsed/reference/provider=massive/as_of=2026-08-03/data.parquet",
             "data/equity/stage=parsed/reference/provider=massive/table=conditions/as_of=2026-8-3/data.parquet",

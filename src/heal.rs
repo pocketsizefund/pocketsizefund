@@ -15,6 +15,7 @@ use tokio::task::JoinSet;
 use tokio::time::Instant;
 
 use crate::archive::bars::{Provenance, Subscription};
+use crate::archive::raw::TeeError;
 use crate::archive::reference::{
     conditions_key, decode_series_boundaries, encode_conditions, encode_security_details,
     encode_series_boundaries, encode_splits, latest_conditions, latest_snapshot,
@@ -45,7 +46,7 @@ use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::ingest::alpaca::corporate_actions::SeriesBoundaries;
 use crate::ingest::alpaca::{
-    Alpaca, AlpacaQuoteOutcome, AlpacaTradeOutcome, MinuteBars, invalid_symbol,
+    Alpaca, AlpacaQuoteOutcome, AlpacaTradeOutcome, MinuteBars, Page, invalid_symbol,
 };
 use crate::ingest::massive::{DetailsAnswer, Massive};
 use crate::ingest::{FetchError, RefusedRow, refused_by_cause};
@@ -187,6 +188,8 @@ pub enum PartitionFailure {
     NoMinutes { key: Key },
     #[error("{0}")]
     Fold(QuoteFoldRefusal),
+    #[error("{0}")]
+    Tee(TeeError),
     /// A write the partition needed could not be journaled, which stops the run.
     #[error("journaling a write failed: {0}")]
     Journal(std::io::Error),
@@ -205,6 +208,7 @@ impl PartitionFailure {
             Self::NoSymbols { .. } => PartitionFailureKind::NoSymbols,
             Self::NoMinutes { .. } => PartitionFailureKind::NoMinutes,
             Self::Fold(_) => PartitionFailureKind::Fold,
+            Self::Tee(_) => PartitionFailureKind::Tee,
             Self::Journal(_) => PartitionFailureKind::Journal,
         }
     }
@@ -790,7 +794,14 @@ async fn write_quotes(
     let mut fold = QuoteFold::new(open, close).map_err(PartitionFailure::Fold)?;
     let mut refused = Vec::new();
     let mut one_sided = 0_u64;
-    let unanswered = per_symbol(
+    let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
+    let unanswered = per_symbol_raw(
+        &clients.archive,
+        Key::RawQuotes {
+            provider: Provider::Alpaca,
+            session,
+        },
+        &provenance,
         &symbols,
         parameters.tick_concurrency,
         |symbol, pages| {
@@ -805,7 +816,6 @@ async fn write_quotes(
     )
     .await?;
     let (minutes, counts) = fold.finish();
-    let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
     let minute_bars = publish_ticks(
         clients.put(),
         minutes,
@@ -836,7 +846,14 @@ async fn write_trades(
     let conditions = trade_conditions(clients, journal).await?;
     let mut fold = TradeFold::new(session, conditions);
     let mut refused = Vec::new();
-    let unanswered = per_symbol(
+    let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
+    let unanswered = per_symbol_raw(
+        &clients.archive,
+        Key::RawTrades {
+            provider: Provider::Alpaca,
+            session,
+        },
+        &provenance,
         &symbols,
         parameters.tick_concurrency,
         |symbol, pages| {
@@ -855,7 +872,6 @@ async fn write_trades(
     )
     .await?;
     let (minutes, counts) = fold.finish();
-    let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
     let minute_bars = publish_ticks(
         clients.put(),
         minutes,
@@ -924,17 +940,59 @@ async fn write_conditions(
     Ok(conditions)
 }
 
-/// Fetches each symbol's rows with at most `concurrency` in flight, handing every row to `each` a page at a time as
-/// pages arrive, in order within a symbol but interleaved across symbols. A symbol Alpaca names invalid, or answers
-/// with no row filed under it, is returned as unanswered rather than failing the session; any other failure fails it.
+/// `per_symbol`, storing every page under the raw `key` stamped with `provenance`, the object complete before this
+/// returns so nothing folded from the pages is published without them; a failed fetch abandons the upload.
+async fn per_symbol_raw<Fetch, Pending, Row>(
+    archive: &Archive,
+    key: Key,
+    provenance: &Provenance,
+    symbols: &[Symbol],
+    concurrency: NonZeroUsize,
+    fetch: Fetch,
+    each: impl FnMut(Row),
+) -> Result<BTreeMap<Symbol, Unanswered>, PartitionFailure>
+where
+    Fetch: Fn(Symbol, Sender<Page<Row>>) -> Pending,
+    Pending: Future<Output = Result<bool, FetchError>> + Send + 'static,
+    Row: Send + 'static,
+{
+    let mut writer = archive
+        .begin_raw(key, provenance)
+        .await
+        .map_err(PartitionFailure::Tee)?;
+    let fetched = per_symbol(
+        symbols,
+        concurrency,
+        fetch,
+        async |body: Vec<u8>| writer.push_line(&body).await,
+        each,
+    )
+    .await;
+    match fetched {
+        Ok(unanswered) => {
+            writer.finish().await.map_err(PartitionFailure::Tee)?;
+            Ok(unanswered)
+        }
+        Err(failure) => {
+            writer.abort().await;
+            Err(failure)
+        }
+    }
+}
+
+/// Fetches each symbol's rows with at most `concurrency` in flight, handing every page's bytes to `tee` and its rows to
+/// `each` as pages arrive, in order within a symbol but interleaved across symbols. A symbol Alpaca names invalid, or
+/// answers with no row filed under it, is returned as unanswered rather than failing the session; any other failure
+/// fails it.
 async fn per_symbol<Fetch, Pending, Row>(
     symbols: &[Symbol],
     concurrency: NonZeroUsize,
     fetch: Fetch,
+    mut tee: impl AsyncFnMut(Vec<u8>) -> Result<(), TeeError>,
     mut each: impl FnMut(Row),
-) -> Result<BTreeMap<Symbol, Unanswered>, FetchError>
+) -> Result<BTreeMap<Symbol, Unanswered>, PartitionFailure>
 where
-    Fetch: Fn(Symbol, Sender<Vec<Row>>) -> Pending,
+    Fetch: Fn(Symbol, Sender<Page<Row>>) -> Pending,
     Pending: Future<Output = Result<bool, FetchError>> + Send + 'static,
     Row: Send + 'static,
 {
@@ -953,12 +1011,18 @@ where
         if in_flight.is_empty() {
             drop(sender);
             while let Some(page) = pages.recv().await {
-                page.into_iter().for_each(&mut each);
+                let (body, rows) = page.into_parts();
+                tee(body).await.map_err(PartitionFailure::Tee)?;
+                rows.into_iter().for_each(&mut each);
             }
             return Ok(unanswered);
         }
         tokio::select! {
-            Some(page) = pages.recv() => page.into_iter().for_each(&mut each),
+            Some(page) = pages.recv() => {
+                let (body, rows) = page.into_parts();
+                tee(body).await.map_err(PartitionFailure::Tee)?;
+                rows.into_iter().for_each(&mut each);
+            }
             Some(joined) = in_flight.join_next() => {
                 let (symbol, answer) =
                     joined.unwrap_or_else(|error| std::panic::resume_unwind(error.into_panic()));
@@ -972,7 +1036,7 @@ where
                     {
                         unanswered.insert(symbol, Unanswered::Invalid);
                     }
-                    Err(error) => return Err(error),
+                    Err(error) => return Err(error.into()),
                 }
             }
         }
@@ -1667,20 +1731,24 @@ mod tests {
             .map(|name| Symbol::new(name).unwrap())
             .collect();
         let mut rows = Vec::new();
+        let mut bodies = Vec::new();
         let unanswered = per_symbol(
             &symbols,
             size(2),
             |symbol, pages| async move {
                 match symbol.as_str() {
                     "AAA" => {
-                        for page in [vec![1, 2], vec![3]] {
-                            pages.send(page).await.unwrap();
+                        for (body, page) in [("a1", vec![1, 2]), ("a2", vec![3])] {
+                            pages.send(Page::new(body.into(), page)).await.unwrap();
                         }
                         Ok(true)
                     }
                     // Only rows filed under another ticker: the symbol asked for did not answer.
                     "BBB" => {
-                        pages.send(vec![4]).await.unwrap();
+                        pages
+                            .send(Page::new(b"b1".to_vec(), vec![4]))
+                            .await
+                            .unwrap();
                         Ok(false)
                     }
                     _ => Err(FetchError::Refused {
@@ -1689,12 +1757,18 @@ mod tests {
                     }),
                 }
             },
+            async |body| {
+                bodies.push(body);
+                Ok(())
+            },
             |row: i32| rows.push(row),
         )
         .await
         .unwrap();
         rows.sort();
         assert_eq!(rows, [1, 2, 3, 4]);
+        bodies.sort();
+        assert_eq!(bodies, [b"a1".to_vec(), b"a2".to_vec(), b"b1".to_vec()]);
         assert_eq!(
             unanswered,
             BTreeMap::from([
@@ -1714,10 +1788,11 @@ mod tests {
             size(1),
             |_, pages| async move {
                 for page in 0..5 {
-                    pages.send(vec![page]).await.unwrap();
+                    pages.send(Page::new(Vec::new(), vec![page])).await.unwrap();
                 }
                 Ok(true)
             },
+            async |_| Ok(()),
             |row: i32| rows.push(row),
         );
         let unanswered = tokio::time::timeout(Duration::from_secs(5), answer)
@@ -1726,6 +1801,86 @@ mod tests {
             .unwrap();
         assert_eq!(rows, [0, 1, 2, 3, 4]);
         assert!(unanswered.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_a_page_not_stored_raw_fails_the_session_before_its_rows_fold() {
+        let symbols = [Symbol::new("AAA").unwrap()];
+        let mut rows = Vec::new();
+        let answer = per_symbol(
+            &symbols,
+            size(1),
+            |_, pages| async move {
+                let _ = pages.send(Page::new(b"a1".to_vec(), vec![1])).await;
+                Ok(true)
+            },
+            async |_| {
+                Err(TeeError::LineBreak {
+                    path: "raw".to_string(),
+                })
+            },
+            |row: i32| rows.push(row),
+        )
+        .await;
+        assert!(matches!(
+            answer,
+            Err(PartitionFailure::Tee(TeeError::LineBreak { .. }))
+        ));
+        assert!(rows.is_empty());
+    }
+
+    /// Stores five busy symbols' quotes for one session, enough to span several parts, in this profile's records bucket.
+    #[tokio::test]
+    #[ignore = "fetches from Alpaca and writes one Deep Archive object to the profile's records bucket, then deletes it"]
+    async fn live_raw_quote_pages_store_across_parts() {
+        let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 9).unwrap());
+        let symbols: Vec<Symbol> = ["SPY", "QQQ", "AAPL", "NVDA", "TSLA"]
+            .iter()
+            .map(|name| Symbol::new(name).unwrap())
+            .collect();
+        let configuration = aws_config::load_from_env().await;
+        let archive = Archive::records(&configuration).unwrap();
+        let alpaca = Arc::new(Alpaca::from_environment(reqwest::Client::new()).unwrap());
+        let key = Key::RawQuotes {
+            provider: Provider::Alpaca,
+            session,
+        };
+        let provenance = Provenance::new(
+            Subscription::AlgoTraderPlus,
+            Utc::now(),
+            RunId::new(uuid::Uuid::new_v4()),
+            None,
+        );
+        let mut quotes = 0_u64;
+        let unanswered = per_symbol_raw(
+            &archive,
+            key.clone(),
+            &provenance,
+            &symbols,
+            size(5),
+            |symbol, pages| {
+                let alpaca = Arc::clone(&alpaca);
+                async move { alpaca.quotes(&symbol, session, &pages).await }
+            },
+            |_| quotes += 1,
+        )
+        .await
+        .unwrap();
+        let stored = archive.stored(&key).await.unwrap().unwrap();
+        println!(
+            "{quotes} quotes, {} bytes, {:?}, {}",
+            stored.length(),
+            stored.checksum(),
+            key.path()
+        );
+        archive.delete(&key).await.unwrap();
+        assert!(unanswered.is_empty());
+        assert!(stored.length() > 64 * 1024 * 1024);
+        assert!(matches!(
+            stored.checksum(),
+            crate::archive::raw::Checksum::FullObject(_)
+        ));
+        assert_eq!(stored.fetched_at(), Some(provenance.fetched_at()));
     }
 
     /// Built field by field rather than through `combine`, so the law test does not lean on what it checks.

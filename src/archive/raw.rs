@@ -1,7 +1,9 @@
-//! Vendor files copied into the archive byte for byte, in parts fetched and uploaded in parallel so no file is ever
-//! held whole, under a full-object CRC64 that S3 computes and any later copy of the same bytes must match.
+//! Vendor bytes stored as served: flat files copied byte for byte in parts fetched and uploaded in parallel, and fetched
+//! response pages written a line each into one gzip stream, so no file is ever held whole, under a full-object CRC64
+//! that S3 computes and any later copy of the same bytes must match.
 
 use std::collections::HashMap;
+use std::io::Write;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::Duration;
@@ -120,33 +122,10 @@ impl Archive {
         if listed.length() == 0 {
             return Err(CopyError::Empty { path });
         }
-        let failed = |reason: String| {
-            CopyError::Archive(ArchiveError::Put {
-                path: path.clone(),
-                reason,
-            })
-        };
-        let metadata = provenance
-            .entries()
-            .into_iter()
-            .filter_map(|(name, value)| value.map(|value| (<&str>::from(name).to_string(), value)))
-            .collect();
-        let created = self
-            .s3_client
-            .create_multipart_upload()
-            .bucket(&self.bucket_name)
-            .key(&path)
-            .storage_class(storage_class(&key))
-            .checksum_algorithm(ChecksumAlgorithm::Crc64Nvme)
-            .checksum_type(ChecksumType::FullObject)
-            .set_metadata(Some(metadata))
-            .send()
+        let upload_id = self
+            .create_upload(&key, provenance)
             .await
-            .map_err(|error| failed(aws_sdk_s3::error::DisplayErrorContext(error).to_string()))?;
-        let upload_id = created
-            .upload_id()
-            .ok_or_else(|| failed("no upload id".to_string()))?
-            .to_string();
+            .map_err(CopyError::Archive)?;
         let uploaded = self
             .upload_parts(flat_files, dataset, listed, &upload_id, permits)
             .await;
@@ -155,23 +134,7 @@ impl Archive {
             Err(error) => Err(error),
         };
         if let Err(error) = completed {
-            // An upload left open keeps billing for its parts, so a failed abort is logged with the id to abort by hand.
-            if let Err(abort) = self
-                .s3_client
-                .abort_multipart_upload()
-                .bucket(&self.bucket_name)
-                .key(&path)
-                .upload_id(&upload_id)
-                .send()
-                .await
-            {
-                tracing::error!(
-                    path,
-                    upload_id,
-                    error = %aws_sdk_s3::error::DisplayErrorContext(abort),
-                    "Multipart upload not aborted"
-                );
-            }
+            self.abort_upload(&path, &upload_id).await;
             return Err(error);
         }
         match self.stored(&key).await.map_err(CopyError::Archive)? {
@@ -181,6 +144,56 @@ impl Archive {
                 listed: listed.length(),
                 stored: stored.map(|stored| stored.length),
             }),
+        }
+    }
+
+    /// Opens a multipart upload under `key` stamped with `provenance`, returning its id; finish or abort it, or its
+    /// parts keep billing.
+    async fn create_upload(
+        &self,
+        key: &Key,
+        provenance: &Provenance,
+    ) -> Result<String, ArchiveError> {
+        let path = key.path();
+        let failed = |reason: String| ArchiveError::Put {
+            path: path.clone(),
+            reason,
+        };
+        let created = self
+            .s3_client
+            .create_multipart_upload()
+            .bucket(&self.bucket_name)
+            .key(&path)
+            .storage_class(storage_class(key))
+            .checksum_algorithm(ChecksumAlgorithm::Crc64Nvme)
+            .checksum_type(ChecksumType::FullObject)
+            .set_metadata(Some(metadata(provenance)))
+            .send()
+            .await
+            .map_err(|error| failed(aws_sdk_s3::error::DisplayErrorContext(error).to_string()))?;
+        Ok(created
+            .upload_id()
+            .ok_or_else(|| failed("no upload id".to_string()))?
+            .to_string())
+    }
+
+    /// Discards an upload and its parts; a failed abort is logged with the id to abort by hand.
+    async fn abort_upload(&self, path: &str, upload_id: &str) {
+        if let Err(abort) = self
+            .s3_client
+            .abort_multipart_upload()
+            .bucket(&self.bucket_name)
+            .key(path)
+            .upload_id(upload_id)
+            .send()
+            .await
+        {
+            tracing::error!(
+                path,
+                upload_id,
+                error = %aws_sdk_s3::error::DisplayErrorContext(abort),
+                "Multipart upload not aborted"
+            );
         }
     }
 
@@ -316,6 +329,230 @@ impl Archive {
             )),
         }
     }
+}
+
+/// Why a session's fetched pages were not stored.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum TeeError {
+    #[error("{0}")]
+    Archive(ArchiveError),
+    /// A page holding a line break would split into two lines that are neither the page.
+    #[error("{path} was sent a page holding a line break")]
+    LineBreak { path: String },
+    /// No page was sent, which a multipart upload cannot hold.
+    #[error("{path} was sent no pages")]
+    Empty { path: String },
+    /// Stored at a different length than was written.
+    #[error("{path} stored {stored:?} bytes where {written} were written")]
+    Length {
+        path: String,
+        written: u64,
+        stored: Option<u64>,
+    },
+}
+
+/// Pages gzipped into one stream a line each, cut into parts of at least `part_length` bytes as it grows.
+struct GzipLines {
+    encoder: flate2::write::GzEncoder<Vec<u8>>,
+    part_length: usize,
+    lines: u64,
+}
+
+impl GzipLines {
+    fn new(part_length: usize) -> Self {
+        Self {
+            encoder: flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default()),
+            part_length,
+            lines: 0,
+        }
+    }
+
+    /// Appends `line` and its line break, returning a part once the compressed bytes reach `part_length`.
+    fn push(&mut self, line: &[u8]) -> Result<Option<Vec<u8>>, LineBreak> {
+        if line.contains(&b'\n') {
+            return Err(LineBreak);
+        }
+        self.encoder
+            .write_all(line)
+            .and_then(|()| self.encoder.write_all(b"\n"))
+            .expect("writing to a vector cannot fail");
+        self.lines += 1;
+        Ok((self.encoder.get_ref().len() >= self.part_length)
+            .then(|| std::mem::take(self.encoder.get_mut())))
+    }
+
+    /// The last part, holding the stream's trailer, or `None` when no line was pushed.
+    fn finish(self) -> Option<Vec<u8>> {
+        let lines = self.lines;
+        let rest = self
+            .encoder
+            .finish()
+            .expect("writing to a vector cannot fail");
+        (lines > 0).then_some(rest)
+    }
+}
+
+/// A page refused for holding a line break.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LineBreak;
+
+/// A session's fetched pages being stored under one raw key, a line each, replacing whatever the key held.
+pub struct RawWriter {
+    archive: Archive,
+    key: Key,
+    upload_id: String,
+    lines: GzipLines,
+    parts: Vec<CompletedPart>,
+    written: u64,
+}
+
+impl Archive {
+    /// Opens an upload under `key` stamped with `provenance`; finish or abort it, or its parts keep billing.
+    pub async fn begin_raw(
+        &self,
+        key: Key,
+        provenance: &Provenance,
+    ) -> Result<RawWriter, TeeError> {
+        let upload_id = self
+            .create_upload(&key, provenance)
+            .await
+            .map_err(TeeError::Archive)?;
+        Ok(RawWriter {
+            archive: self.clone(),
+            key,
+            upload_id,
+            lines: GzipLines::new(PART_LENGTH as usize),
+            parts: Vec::new(),
+            written: 0,
+        })
+    }
+}
+
+impl RawWriter {
+    /// Appends one page as a line, uploading a part whenever enough has accumulated.
+    pub async fn push_line(&mut self, page: &[u8]) -> Result<(), TeeError> {
+        match self.lines.push(page) {
+            Ok(Some(part)) => self.upload(part).await,
+            Ok(None) => Ok(()),
+            Err(LineBreak) => Err(TeeError::LineBreak {
+                path: self.key.path(),
+            }),
+        }
+    }
+
+    /// Uploads the last part and completes the object, aborting the upload on any failure.
+    pub async fn finish(mut self) -> Result<Stored, TeeError> {
+        let path = self.key.path();
+        let last = std::mem::replace(&mut self.lines, GzipLines::new(0)).finish();
+        let completed = match last {
+            Some(part) => match self.upload(part).await {
+                Ok(()) => self.complete().await,
+                Err(error) => Err(error),
+            },
+            None => Err(TeeError::Empty { path: path.clone() }),
+        };
+        if let Err(error) = completed {
+            self.abort().await;
+            return Err(error);
+        }
+        match self
+            .archive
+            .stored(&self.key)
+            .await
+            .map_err(TeeError::Archive)?
+        {
+            Some(stored) if stored.length == self.written => Ok(stored),
+            stored => Err(TeeError::Length {
+                path,
+                written: self.written,
+                stored: stored.map(|stored| stored.length),
+            }),
+        }
+    }
+
+    /// Discards the upload and its parts; a failed abort is logged with the id to abort by hand.
+    pub async fn abort(self) {
+        self.archive
+            .abort_upload(&self.key.path(), &self.upload_id)
+            .await;
+    }
+
+    async fn upload(&mut self, part: Vec<u8>) -> Result<(), TeeError> {
+        let path = self.key.path();
+        let number =
+            i32::try_from(self.parts.len() + 1).expect("an upload holds at most 10,000 parts");
+        let length = part.len() as u64;
+        let body = bytes::Bytes::from(part);
+        let mut attempt = 1;
+        let uploaded = loop {
+            match self
+                .archive
+                .s3_client
+                .upload_part()
+                .bucket(&self.archive.bucket_name)
+                .key(&path)
+                .upload_id(&self.upload_id)
+                .part_number(number)
+                .checksum_algorithm(ChecksumAlgorithm::Crc64Nvme)
+                .body(ByteStream::from(body.clone()))
+                .send()
+                .await
+            {
+                Ok(uploaded) => break uploaded,
+                Err(error) if attempt < PART_ATTEMPTS => {
+                    tracing::warn!(path, part = number, attempt, error = %aws_sdk_s3::error::DisplayErrorContext(error), "Retrying a part");
+                    tokio::time::sleep(Duration::from_secs(2_u64.pow(attempt))).await;
+                    attempt += 1;
+                }
+                Err(error) => return Err(put_failed(&path, error)),
+            }
+        };
+        self.parts.push(
+            CompletedPart::builder()
+                .part_number(number)
+                .set_e_tag(uploaded.e_tag().map(String::from))
+                .set_checksum_crc64_nvme(uploaded.checksum_crc64_nvme().map(String::from))
+                .build(),
+        );
+        self.written += length;
+        Ok(())
+    }
+
+    async fn complete(&mut self) -> Result<(), TeeError> {
+        let path = self.key.path();
+        self.archive
+            .s3_client
+            .complete_multipart_upload()
+            .bucket(&self.archive.bucket_name)
+            .key(&path)
+            .upload_id(&self.upload_id)
+            .checksum_type(ChecksumType::FullObject)
+            .multipart_upload(
+                CompletedMultipartUpload::builder()
+                    .set_parts(Some(std::mem::take(&mut self.parts)))
+                    .build(),
+            )
+            .send()
+            .await
+            .map_err(|error| put_failed(&path, error))?;
+        Ok(())
+    }
+}
+
+fn put_failed<E: std::error::Error + 'static>(path: &str, error: E) -> TeeError {
+    TeeError::Archive(ArchiveError::Put {
+        path: path.to_string(),
+        reason: aws_sdk_s3::error::DisplayErrorContext(error).to_string(),
+    })
+}
+
+/// The provenance entries an object's metadata carries.
+fn metadata(provenance: &Provenance) -> HashMap<String, String> {
+    provenance
+        .entries()
+        .into_iter()
+        .filter_map(|(name, value)| value.map(|value| (<&str>::from(name).to_string(), value)))
+        .collect()
 }
 
 /// The fetch time an object's metadata records, refusing a stamp that is present but unreadable.
@@ -489,7 +726,73 @@ mod tests {
         );
     }
 
+    /// Every part `GzipLines` cut for `lines`, the last included.
+    fn gzip_parts(lines: &[Vec<u8>], part_length: usize) -> Vec<Vec<u8>> {
+        let mut gzip = GzipLines::new(part_length);
+        let mut parts: Vec<Vec<u8>> = lines
+            .iter()
+            .filter_map(|line| gzip.push(line).unwrap())
+            .collect();
+        parts.extend(gzip.finish());
+        parts
+    }
+
+    fn gunzip(parts: &[Vec<u8>]) -> Vec<u8> {
+        let mut text = Vec::new();
+        std::io::Read::read_to_end(
+            &mut flate2::read::GzDecoder::new(&parts.concat()[..]),
+            &mut text,
+        )
+        .unwrap();
+        text
+    }
+
+    #[test]
+    fn test_pages_are_stored_a_line_each() {
+        let parts = gzip_parts(
+            &[
+                br#"{"quotes":{}}"#.to_vec(),
+                br#"{"next_page_token":null}"#.to_vec(),
+            ],
+            1 << 20,
+        );
+        assert_eq!(parts.len(), 1);
+        assert_eq!(
+            gunzip(&parts),
+            b"{\"quotes\":{}}\n{\"next_page_token\":null}\n"
+        );
+    }
+
+    #[test]
+    fn test_a_page_holding_a_line_break_is_refused() {
+        assert_eq!(GzipLines::new(1 << 20).push(b"{}\n{}"), Err(LineBreak));
+    }
+
+    #[test]
+    fn test_no_pages_is_no_part() {
+        assert_eq!(GzipLines::new(1 << 20).finish(), None);
+    }
+
     proptest::proptest! {
+        /// However the stream is cut, every part but the last reaches the part length and together they unzip to the
+        /// pages in order, a line each.
+        #[test]
+        fn property_parts_unzip_to_the_pages(
+            lines in proptest::collection::vec(proptest::collection::vec(0_u8..=255, 0..2_000).prop_map(|line| line.into_iter().filter(|byte| *byte != b'\n').collect::<Vec<_>>()), 1..40),
+            part_length in 1_usize..4_000,
+        ) {
+            let parts = gzip_parts(&lines, part_length);
+            for part in &parts[..parts.len() - 1] {
+                proptest::prop_assert!(part.len() >= part_length);
+            }
+            let mut expected = Vec::new();
+            for line in &lines {
+                expected.extend_from_slice(line);
+                expected.push(b'\n');
+            }
+            proptest::prop_assert_eq!(gunzip(&parts), expected);
+        }
+
         /// Parts are numbered from one, each starts where the last ended, every part but the last is a full 64 MiB, and
         /// together they are the file.
         #[test]
