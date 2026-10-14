@@ -259,7 +259,7 @@ fn allows(policy: &serde_json::Value, action: &str, resource: &str) -> bool {
         })
 }
 
-/// Every resource an `Allow` statement grants `action` on, its action listed outright or matched by a `*` wildcard.
+/// Every resource an unconditional `Allow` statement grants `action` on, its action listed outright or matched by a `*` wildcard.
 fn allowed_resources(policy: &serde_json::Value, action: &str) -> Vec<String> {
     let strings = |value: &serde_json::Value| -> Vec<String> {
         match value {
@@ -278,19 +278,18 @@ fn allowed_resources(policy: &serde_json::Value, action: &str) -> Vec<String> {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|statement| statement["Effect"] == "Allow")
+        .filter(|statement| statement["Effect"] == "Allow" && statement["Condition"].is_null())
         .filter(|statement| {
-            strings(&statement["Action"])
-                .iter()
-                .any(|pattern| wildcard_matches(pattern, action))
+            strings(&statement["Action"]).iter().any(|pattern| {
+                wildcard_matches(&pattern.to_ascii_lowercase(), &action.to_ascii_lowercase())
+            })
         })
         .flat_map(|statement| strings(&statement["Resource"]))
         .collect()
 }
 
-/// Whether IAM's `*` wildcard `pattern` matches `value`, ignoring case as IAM action names do.
+/// Whether IAM's `*` wildcard `pattern` matches `value`, case-sensitively as resource ARNs are.
 fn wildcard_matches(pattern: &str, value: &str) -> bool {
-    let (pattern, value) = (pattern.to_ascii_lowercase(), value.to_ascii_lowercase());
     let pieces: Vec<&str> = pattern.split('*').collect();
     let (first, wildcarded) = pieces.split_first().unwrap();
     let Some(mut rest) = value.strip_prefix(first) else {
@@ -317,7 +316,7 @@ fn test_an_iam_wildcard_matches_the_actions_it_names() {
         ("s3:*Object", true),
         ("s3:*", true),
         ("*", true),
-        ("S3:deleteobject", true),
+        ("S3:deleteobject", false),
         ("*Object", true),
         ("s3:**Object", true),
         ("s3:DeleteObject*", true),
@@ -719,23 +718,80 @@ fn test_every_s3_operation_the_archive_calls_is_granted_to_the_archiver() {
     let provisioned = Provisioned::run("production", &[]);
     assert_eq!(provisioned.code, 0, "{}", provisioned.output);
     let grant = provisioned.json("policy-archiver.json");
-    for (file, operation) in &operations {
-        let object = |resource: &String| resource.starts_with("arn:aws:s3:::oscm-fund-archive/");
-        let bucket = |resource: &String| resource == "arn:aws:s3:::oscm-fund-archive";
-        let (action, covers): (&str, fn(&String) -> bool) = match operation.as_str() {
-            "get_object" | "head_object" => ("s3:GetObject", object),
-            "put_object"
-            | "create_multipart_upload"
-            | "upload_part"
-            | "complete_multipart_upload" => ("s3:PutObject", object),
-            "abort_multipart_upload" => ("s3:AbortMultipartUpload", object),
-            "delete_object" => ("s3:DeleteObject", object),
-            "list_objects_v2" => ("s3:ListBucket", bucket),
-            unmapped => panic!("{file} calls `{unmapped}`, which needs its IAM action named here"),
-        };
-        assert!(
-            allowed_resources(&grant, action).iter().any(covers),
-            "{file} calls `{operation}`, but the archiver is not granted {action}: {grant}"
-        );
-    }
+    assert_eq!(ungranted(&grant, &operations), Vec::<String>::new());
+}
+
+/// Each `(file, operation)` whose IAM action `policy` does not grant on every archive resource the operation reaches.
+fn ungranted(policy: &serde_json::Value, operations: &[(String, String)]) -> Vec<String> {
+    let raw = "arn:aws:s3:::oscm-fund-archive/data/equity/stage=raw/key";
+    let parsed = "arn:aws:s3:::oscm-fund-archive/data/equity/stage=parsed/key";
+    let bucket = "arn:aws:s3:::oscm-fund-archive";
+    operations
+        .iter()
+        .filter(|(file, operation)| {
+            // The heal deletes only parsed keys.
+            let (action, resources): (&str, &[&str]) = match operation.as_str() {
+                "get_object" | "head_object" => ("s3:GetObject", &[raw, parsed]),
+                "put_object"
+                | "create_multipart_upload"
+                | "upload_part"
+                | "complete_multipart_upload" => ("s3:PutObject", &[raw, parsed]),
+                "abort_multipart_upload" => ("s3:AbortMultipartUpload", &[raw, parsed]),
+                "delete_object" => ("s3:DeleteObject", &[parsed]),
+                "list_objects_v2" => ("s3:ListBucket", &[bucket]),
+                unmapped => {
+                    panic!("{file} calls `{unmapped}`, which needs its IAM action named here")
+                }
+            };
+            let granted = allowed_resources(policy, action);
+            !resources.iter().all(|resource| {
+                granted
+                    .iter()
+                    .any(|pattern| wildcard_matches(pattern, resource))
+            })
+        })
+        .map(|(file, operation)| format!("{file} {operation}"))
+        .collect()
+}
+
+#[test]
+fn test_a_grant_on_another_prefix_leaves_the_operation_ungranted() {
+    let operations = [(
+        "src/archive/raw.rs".to_string(),
+        "abort_multipart_upload".to_string(),
+    )];
+    let policy = |resource: &str| serde_json::json!({"Statement": [{"Effect": "Allow", "Action": ["s3:AbortMultipartUpload"], "Resource": resource}]});
+    assert_eq!(
+        ungranted(
+            &policy("arn:aws:s3:::oscm-fund-archive/data/equity/*"),
+            &operations
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        ungranted(
+            &policy("arn:aws:s3:::oscm-fund-archive/data/equity/stage=parsed/*"),
+            &operations
+        ),
+        ["src/archive/raw.rs abort_multipart_upload"]
+    );
+}
+
+#[test]
+fn test_a_conditioned_grant_leaves_the_operation_ungranted() {
+    let operations = [("src/archive.rs".to_string(), "list_objects_v2".to_string())];
+    let statement = serde_json::json!({"Effect": "Allow", "Action": "S3:listbucket", "Resource": "arn:aws:s3:::oscm-fund-archive"});
+    let mut conditioned = statement.clone();
+    conditioned["Condition"] = serde_json::json!({"StringLike": {"s3:prefix": ["records/*"]}});
+    assert_eq!(
+        ungranted(&serde_json::json!({"Statement": [statement]}), &operations),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        ungranted(
+            &serde_json::json!({"Statement": [conditioned]}),
+            &operations
+        ),
+        ["src/archive.rs list_objects_v2"]
+    );
 }
