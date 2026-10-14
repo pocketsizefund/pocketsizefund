@@ -37,6 +37,8 @@ use crate::common::time::{SessionDate, SessionRange};
 #[strum(serialize_all = "snake_case")]
 pub enum Leg {
     MassiveDailyBars,
+    /// The session's grouped daily response stored raw, from the endpoint the tick legs take their symbols from.
+    MassiveTradedSymbols,
     MassiveSecurityDetails,
     MassiveSplits,
     AlpacaSeriesBoundaries,
@@ -52,6 +54,7 @@ impl Leg {
     pub fn keys(self, session: SessionDate) -> Vec<Key> {
         match self {
             Self::MassiveDailyBars => vec![massive_daily_bars(session).into()],
+            Self::MassiveTradedSymbols => vec![Key::RawReference(massive_traded_symbols(session))],
             Self::AlpacaMinuteBars => vec![alpaca_minute_bars(session).into()],
             Self::AlpacaFiveMinuteBars => vec![alpaca_five_minute_bars(session).into()],
             Self::AlpacaQuotes => vec![
@@ -85,6 +88,7 @@ impl Leg {
     ) -> Result<Vec<SessionDate>, KeepsRefusal> {
         match self {
             Self::MassiveDailyBars
+            | Self::MassiveTradedSymbols
             | Self::AlpacaMinuteBars
             | Self::AlpacaFiveMinuteBars
             | Self::AlpacaQuotes
@@ -153,6 +157,11 @@ pub fn alpaca_trades(session: SessionDate) -> TradesKey {
 
 pub fn massive_security_details(session: SessionDate) -> ReferenceKey {
     ReferenceKey::new(Provider::Massive, ReferenceTable::SecurityDetails, session)
+}
+
+/// The grouped daily response kept only for the symbols it names; it has no parsed snapshot.
+pub fn massive_traded_symbols(session: SessionDate) -> ReferenceKey {
+    ReferenceKey::new(Provider::Massive, ReferenceTable::TradedSymbols, session)
 }
 
 pub fn massive_splits(session: SessionDate) -> ReferenceKey {
@@ -848,6 +857,7 @@ mod tests {
             series,
             [
                 "data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/",
+                "data/equity/stage=raw/reference/provider=massive/table=traded_symbols/",
                 "data/equity/stage=parsed/reference/provider=massive/table=security_details/",
                 "data/equity/stage=raw/reference/provider=massive/table=security_details/",
                 "data/equity/stage=parsed/reference/provider=massive/table=splits/",
