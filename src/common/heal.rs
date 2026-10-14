@@ -16,7 +16,7 @@ use crate::common::time::{SessionDate, SessionRange};
 
 /// One series the archiver keeps whole, in the order a run works them: the daily bars first, since they are the
 /// other legs' symbol list, then the reference snapshots, which are quick, before the tick legs. A tick leg writes
-/// one-minute, five-minute and daily bars, and is held by its daily file, which it writes last.
+/// raw pages, then one-minute, five-minute and daily bars, and is held by its raw pages and its daily file.
 #[derive(
     Debug,
     Clone,
@@ -48,17 +48,29 @@ pub enum Leg {
 }
 
 impl Leg {
-    /// The key whose presence means the session is held.
-    pub fn key(self, session: SessionDate) -> Key {
+    /// The keys whose presence together means the session is held.
+    pub fn keys(self, session: SessionDate) -> Vec<Key> {
         match self {
-            Self::MassiveDailyBars => massive_daily_bars(session).into(),
-            Self::AlpacaMinuteBars => alpaca_minute_bars(session).into(),
-            Self::AlpacaFiveMinuteBars => alpaca_five_minute_bars(session).into(),
-            Self::AlpacaQuotes => alpaca_quotes(session).into(),
-            Self::AlpacaTrades => alpaca_trades(session).into(),
-            Self::MassiveSecurityDetails => massive_security_details(session).into(),
-            Self::MassiveSplits => massive_splits(session).into(),
-            Self::AlpacaSeriesBoundaries => alpaca_series_boundaries(session).into(),
+            Self::MassiveDailyBars => vec![massive_daily_bars(session).into()],
+            Self::AlpacaMinuteBars => vec![alpaca_minute_bars(session).into()],
+            Self::AlpacaFiveMinuteBars => vec![alpaca_five_minute_bars(session).into()],
+            Self::AlpacaQuotes => vec![
+                alpaca_quotes(session).into(),
+                Key::RawQuotes {
+                    provider: Provider::Alpaca,
+                    session,
+                },
+            ],
+            Self::AlpacaTrades => vec![
+                alpaca_trades(session).into(),
+                Key::RawTrades {
+                    provider: Provider::Alpaca,
+                    session,
+                },
+            ],
+            Self::MassiveSecurityDetails => vec![massive_security_details(session).into()],
+            Self::MassiveSplits => vec![massive_splits(session).into()],
+            Self::AlpacaSeriesBoundaries => vec![alpaca_series_boundaries(session).into()],
         }
     }
 
@@ -480,7 +492,8 @@ pub enum Unrecognized {
     AnotherSeries,
 }
 
-/// What a listing under `leg`'s series holds: the sessions of its own keys, and every path that is not one of them.
+/// What a listing under `leg`'s series holds: the sessions with every one of its keys, and every path that is none of
+/// them.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Held {
     sessions: BTreeSet<SessionDate>,
@@ -488,13 +501,15 @@ pub struct Held {
 }
 
 impl Held {
-    /// Reads a listing, so an object a sibling series or a stray write left under the prefix is never taken as held.
+    /// Reads a listing of the leg's series, so an object a sibling series or a stray write left under a prefix is
+    /// never taken as held, nor a session holding only some of its keys.
     pub fn of(leg: Leg, paths: impl IntoIterator<Item = String>) -> Self {
         let mut held = Self::default();
+        let mut found: BTreeMap<SessionDate, Vec<Key>> = BTreeMap::new();
         for path in paths {
             match path.parse::<Key>() {
-                Ok(key) if key == leg.key(key.session()) => {
-                    held.sessions.insert(key.session());
+                Ok(key) if leg.keys(key.session()).contains(&key) => {
+                    found.entry(key.session()).or_default().push(key);
                 }
                 Ok(_) => {
                     held.unrecognized.insert(path, Unrecognized::AnotherSeries);
@@ -504,6 +519,11 @@ impl Held {
                 }
             }
         }
+        held.sessions = found
+            .into_iter()
+            .filter(|(session, keys)| leg.keys(*session).iter().all(|key| keys.contains(key)))
+            .map(|(session, _)| session)
+            .collect();
         held
     }
 
@@ -712,6 +732,26 @@ mod tests {
     }
 
     #[test]
+    fn test_a_tick_session_is_held_only_beside_its_raw_pages() {
+        let parsed = |day: &str| {
+            format!(
+                "data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/year=2026/month=10/day={day}/data.parquet"
+            )
+        };
+        let raw = |day: &str| {
+            format!(
+                "data/equity/stage=raw/quotes/provider=alpaca/year=2026/month=10/day={day}/data.jsonl.gz"
+            )
+        };
+        let held = Held::of(
+            Leg::AlpacaQuotes,
+            [parsed("05"), raw("05"), parsed("06"), raw("07")],
+        );
+        assert_eq!(held.sessions(), &BTreeSet::from([date("2026-10-05")]));
+        assert!(held.unrecognized().is_empty());
+    }
+
+    #[test]
     fn test_only_a_night_of_written_sessions_is_complete() {
         let night = |outcome: SessionOutcome| {
             BTreeMap::from([
@@ -796,7 +836,8 @@ mod tests {
     #[test]
     fn test_each_leg_has_its_series() {
         let series: Vec<String> = Leg::iter()
-            .map(|leg| leg.key(date("2026-09-29")).series().to_string())
+            .flat_map(|leg| leg.keys(date("2026-09-29")))
+            .map(|key| key.series().to_string())
             .collect();
         assert_eq!(
             series,
@@ -808,7 +849,9 @@ mod tests {
                 "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/",
                 "data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/",
                 "data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/",
+                "data/equity/stage=raw/quotes/provider=alpaca/",
                 "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_day/",
+                "data/equity/stage=raw/trades/provider=alpaca/",
             ]
         );
     }

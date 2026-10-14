@@ -294,15 +294,17 @@ pub async fn run(
     let mut outcomes = BTreeMap::new();
     let mut unrecognized = BTreeMap::new();
     for leg in Leg::iter() {
-        let series = leg.key(today).series();
-        let held = Held::of(
-            leg,
-            clients
-                .archive
-                .list(&series)
-                .await
-                .map_err(HealError::List)?,
-        );
+        let mut paths = Vec::new();
+        for key in leg.keys(today) {
+            paths.extend(
+                clients
+                    .archive
+                    .list(&key.series())
+                    .await
+                    .map_err(HealError::List)?,
+            );
+        }
+        let held = Held::of(leg, paths);
         if !held.unrecognized().is_empty() {
             tracing::warn!(%leg, unrecognized = ?held.unrecognized(), "Objects outside the series were not counted as held");
             unrecognized.insert(leg, held.unrecognized().clone());
@@ -1151,7 +1153,7 @@ mod tests {
                 body: "forbidden".to_string(),
             }),
             PartitionFailure::NoSymbols {
-                key: Leg::MassiveDailyBars.key(session),
+                key: massive_daily_bars(session).into(),
             },
         ]
         .map(|failure| failure.outcome());

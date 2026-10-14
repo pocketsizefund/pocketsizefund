@@ -491,9 +491,10 @@ fn test_every_archive_series_the_nightly_writes_has_a_view() {
             key.series()
         );
     }
-    // A tick leg's key is its daily file; the leg writes every interval of that series.
-    for leg in Leg::iter() {
-        let key = leg.key(session);
+    // A tick leg's parsed key is its daily file; the leg writes every interval of that series. Raw is never viewed.
+    for (leg, key) in
+        Leg::iter().flat_map(|leg| leg.keys(session).into_iter().map(move |key| (leg, key)))
+    {
         let written: Vec<Key> = match key {
             Key::Quotes(daily) => BarInterval::iter()
                 .map(|interval| daily.at_interval(interval).into())
@@ -501,11 +502,10 @@ fn test_every_archive_series_the_nightly_writes_has_a_view() {
             Key::Trades(daily) => BarInterval::iter()
                 .map(|interval| daily.at_interval(interval).into())
                 .collect(),
+            Key::RawQuotes { .. } | Key::RawTrades { .. } => Vec::new(),
             Key::Bars(..)
             | Key::Reference(..)
             | Key::RawBars { .. }
-            | Key::RawQuotes { .. }
-            | Key::RawTrades { .. }
             | Key::Journal(..)
             | Key::Logs(..) => vec![key],
         };
