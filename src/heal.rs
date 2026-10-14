@@ -799,6 +799,7 @@ async fn write_quotes(
     let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
     let unanswered = per_symbol_raw(
         &clients.archive,
+        alpaca_quotes(session).into(),
         Key::RawQuotes {
             provider: Provider::Alpaca,
             session,
@@ -851,6 +852,7 @@ async fn write_trades(
     let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
     let unanswered = per_symbol_raw(
         &clients.archive,
+        alpaca_trades(session).into(),
         Key::RawTrades {
             provider: Provider::Alpaca,
             session,
@@ -943,9 +945,12 @@ async fn write_conditions(
 }
 
 /// `per_symbol`, storing every page under the raw `key` stamped with `provenance`, the object complete before this
-/// returns so nothing folded from the pages is published without them; a failed fetch abandons the upload.
+/// returns so nothing folded from the pages is published without them; a failed fetch abandons the upload. `held_by`
+/// is deleted first, so a session that fails after its new raw object is written reads as owed rather than held.
+#[allow(clippy::too_many_arguments)]
 async fn per_symbol_raw<Fetch, Pending, Row>(
     archive: &Archive,
+    held_by: Key,
     key: Key,
     provenance: &Provenance,
     symbols: &[Symbol],
@@ -958,6 +963,7 @@ where
     Pending: Future<Output = Result<bool, FetchError>> + Send + 'static,
     Row: Send + 'static,
 {
+    archive.delete(&held_by).await?;
     let mut writer = archive
         .begin_raw(key, provenance)
         .await
@@ -1831,7 +1837,8 @@ mod tests {
         assert!(rows.is_empty());
     }
 
-    /// Stores five busy symbols' quotes for one session, enough to span several parts, in this profile's records bucket.
+    /// Stores five busy symbols' quotes for one session, enough to span several parts, in this profile's records bucket,
+    /// clearing the earlier fetch's daily fold first.
     #[tokio::test]
     #[ignore = "fetches from Alpaca and writes one Deep Archive object to the profile's records bucket, then deletes it"]
     async fn live_raw_quote_pages_store_across_parts() {
@@ -1853,9 +1860,15 @@ mod tests {
             RunId::new(uuid::Uuid::new_v4()),
             None,
         );
+        let held_by: Key = alpaca_quotes(session).into();
+        archive
+            .put(&held_by, b"an earlier fetch".to_vec())
+            .await
+            .unwrap();
         let mut quotes = 0_u64;
         let unanswered = per_symbol_raw(
             &archive,
+            held_by.clone(),
             key.clone(),
             &provenance,
             &symbols,
@@ -1876,6 +1889,7 @@ mod tests {
             key.path()
         );
         archive.delete(&key).await.unwrap();
+        assert_eq!(archive.get(&held_by).await.unwrap(), None);
         assert!(unanswered.is_empty());
         assert!(stored.length() > 64 * 1024 * 1024);
         assert!(matches!(
