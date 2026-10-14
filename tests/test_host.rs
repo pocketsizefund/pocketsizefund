@@ -648,3 +648,94 @@ fn test_a_new_trader_reads_its_playbook_and_writes_only_its_own_records() {
         provisioned.output
     );
 }
+
+/// Each S3 operation the crate calls on an `s3_client` field, by file: a call on it that names a bucket next.
+fn s3_operations(directory: &std::path::Path) -> Vec<(String, String)> {
+    struct Calls(Vec<String>);
+    impl<'a> syn::visit::Visit<'a> for Calls {
+        fn visit_expr_method_call(&mut self, call: &'a syn::ExprMethodCall) {
+            if call.method == "bucket"
+                && let syn::Expr::MethodCall(operation) = &*call.receiver
+                && let syn::Expr::Field(field) = &*operation.receiver
+                && matches!(&field.member, syn::Member::Named(name) if name == "s3_client")
+            {
+                self.0.push(operation.method.to_string());
+            }
+            syn::visit::visit_expr_method_call(self, call);
+        }
+    }
+    let mut operations = Vec::new();
+    for entry in std::fs::read_dir(directory).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            operations.extend(s3_operations(&path));
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            let file = syn::parse_file(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            let mut calls = Calls(Vec::new());
+            syn::visit::Visit::visit_file(&mut calls, &file);
+            let relative = path.strip_prefix(env!("CARGO_MANIFEST_DIR")).unwrap();
+            operations.extend(
+                calls
+                    .0
+                    .into_iter()
+                    .map(|operation| (relative.display().to_string(), operation)),
+            );
+        }
+    }
+    operations
+}
+
+#[test]
+fn test_every_s3_operation_the_archive_calls_is_granted_to_the_archiver() {
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut operations: Vec<(String, String)> = s3_operations(&source)
+        .into_iter()
+        // The flat-file client reads Massive's own bucket under Massive's keys, which no role of ours grants.
+        .filter(|(file, _)| file != "src/ingest/flat_files.rs")
+        .collect();
+    operations.sort();
+    operations.dedup();
+    let mut found: Vec<&str> = operations
+        .iter()
+        .map(|(_, operation)| operation.as_str())
+        .collect();
+    found.sort();
+    found.dedup();
+    assert_eq!(
+        found,
+        [
+            "abort_multipart_upload",
+            "complete_multipart_upload",
+            "create_multipart_upload",
+            "delete_object",
+            "get_object",
+            "head_object",
+            "list_objects_v2",
+            "put_object",
+            "upload_part",
+        ]
+    );
+
+    let provisioned = Provisioned::run("production", &[]);
+    assert_eq!(provisioned.code, 0, "{}", provisioned.output);
+    let grant = provisioned.json("policy-archiver.json");
+    for (file, operation) in &operations {
+        let object = |resource: &String| resource.starts_with("arn:aws:s3:::oscm-fund-archive/");
+        let bucket = |resource: &String| resource == "arn:aws:s3:::oscm-fund-archive";
+        let (action, covers): (&str, fn(&String) -> bool) = match operation.as_str() {
+            "get_object" | "head_object" => ("s3:GetObject", object),
+            "put_object"
+            | "create_multipart_upload"
+            | "upload_part"
+            | "complete_multipart_upload" => ("s3:PutObject", object),
+            "abort_multipart_upload" => ("s3:AbortMultipartUpload", object),
+            "delete_object" => ("s3:DeleteObject", object),
+            "list_objects_v2" => ("s3:ListBucket", bucket),
+            unmapped => panic!("{file} calls `{unmapped}`, which needs its IAM action named here"),
+        };
+        assert!(
+            allowed_resources(&grant, action).iter().any(covers),
+            "{file} calls `{operation}`, but the archiver is not granted {action}: {grant}"
+        );
+    }
+}
