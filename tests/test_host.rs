@@ -312,11 +312,20 @@ fn test_a_new_archiver_is_granted_its_prefixes_and_scheduled_once_bootstrapped()
             "{resource} is not writable: {grant}"
         );
     }
-    // The heal deletes a session's held marker before re-fetching it.
-    let data = "arn:aws:s3:::oscm-fund-archive/data/equity/*";
-    assert!(
-        allows(&grant, "s3:DeleteObject", data),
-        "{data} is not deletable: {grant}"
+    // The heal deletes a session's parsed key before re-fetching it, and nothing may delete the raw tee.
+    let deletable: Vec<&serde_json::Value> = grant["Statement"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|statement| statement["Action"].to_string().contains("s3:DeleteObject"))
+        .map(|statement| &statement["Resource"])
+        .collect();
+    assert_eq!(
+        deletable,
+        [&serde_json::json!(
+            "arn:aws:s3:::oscm-fund-archive/data/equity/stage=parsed/*"
+        )],
+        "{grant}"
     );
     let mut granted: Vec<String> = Host::Archiver.writable_prefixes();
     granted.sort();

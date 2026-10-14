@@ -237,8 +237,10 @@ case "$ROLE" in
   archiver)
     ROLE_STATEMENTS="$(cat <<JSON
     {"Sid": "ReadWriteArchiveData", "Effect": "Allow",
-     "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload"],
+     "Action": ["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload"],
      "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}/data/equity/*"},
+    {"Sid": "DeleteParsedArchiveData", "Effect": "Allow", "Action": ["s3:DeleteObject"],
+     "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}/data/equity/stage=parsed/*"},
     {"Sid": "ListArchive", "Effect": "Allow",
      "Action": ["s3:ListBucket", "s3:ListBucketMultipartUploads"],
      "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}"},
