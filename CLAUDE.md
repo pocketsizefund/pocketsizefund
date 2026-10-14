@@ -213,7 +213,7 @@ This is a collection of guidelines and references.
 - Keep a pull request to roughly 250–500 lines of production code, excluding tests and lockfiles; when a plan
   or a diff grows past that, propose splitting it into stacked slices
 - Before opening a pull request or pushing to one, spawn the `reviewer` subagent over the diff and let it fix
-  what it finds, without waiting on the user
+  what it finds, without waiting on the user, then record its fixes in the commit message that carries them
 - When naming branches, use an all-lowercase, hyphenated, and concise summary of the work being done
 - Only use existing repository labels for GitHub issues and pull requests
 - Do not use emojis in commit messages, GitHub issues, or pull requests - maintain a professional tone
