@@ -18,7 +18,7 @@ use tokio::task::JoinSet;
 
 use super::bars::{MetadataEntry, Provenance};
 use super::{Archive, ArchiveError};
-use crate::common::storage::{EntityTag, Key, StorageClass};
+use crate::common::storage::{EntityTag, Key, ReferenceKey, StorageClass};
 use crate::ingest::flat_files::{FlatFileDataset, FlatFileError, FlatFiles, Listed};
 
 /// The largest quote file, about 19 GB, is under three hundred parts of this size.
@@ -425,6 +425,25 @@ impl Archive {
             parts: Vec::new(),
             written: 0,
         })
+    }
+}
+
+impl Archive {
+    /// Stores a reference snapshot's response bodies as served, one per line, under its raw key.
+    pub async fn store_responses(
+        &self,
+        key: ReferenceKey,
+        provenance: &Provenance,
+        bodies: &[Vec<u8>],
+    ) -> Result<Stored, TeeError> {
+        let mut writer = self.begin_raw(Key::RawReference(key), provenance).await?;
+        for body in bodies {
+            if let Err(error) = writer.push_line(body).await {
+                writer.abort().await;
+                return Err(error);
+            }
+        }
+        writer.finish().await
     }
 }
 

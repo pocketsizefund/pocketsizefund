@@ -56,10 +56,7 @@ impl Monoid for SeriesBoundaries {
 
 impl Alpaca {
     /// The series boundaries Alpaca processed over `range`.
-    pub async fn series_boundaries(
-        &self,
-        range: SessionRange,
-    ) -> Result<Fetched<SeriesBoundaries>, FetchError> {
+    pub async fn series_boundaries(&self, range: SessionRange) -> Fetched<SeriesBoundaries> {
         let (start, end) = (range.first().to_string(), range.last().to_string());
         let (start, end) = (&start, &end);
         let pages = paginate(|page_token| async move {
@@ -81,12 +78,17 @@ impl Alpaca {
             })
             .await
         })
-        .await?;
+        .await;
+        let pages = match pages {
+            Ok(pages) => pages,
+            Err(error) => return Fetched::new(Err(error), Vec::new()),
+        };
         let read = pages
             .iter()
             .map(|page| parse_boundaries_page(page))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Fetched::new(concatenate(read), pages))
+            .collect::<Result<Vec<_>, _>>()
+            .map(concatenate);
+        Fetched::new(read, pages)
     }
 }
 

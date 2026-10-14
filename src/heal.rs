@@ -6,6 +6,7 @@ use std::future::Future;
 use std::num::{NonZeroU16, NonZeroU64, NonZeroUsize};
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -281,18 +282,10 @@ impl Clients {
     ) -> impl AsyncFn(ReferenceKey, &Provenance, Vec<Vec<u8>>) -> Result<(), PartitionFailure> {
         async |key: ReferenceKey, provenance: &Provenance, bodies: Vec<Vec<u8>>| {
             self.archive.delete(&Key::from(key)).await?;
-            let mut writer = self
-                .archive
-                .begin_raw(Key::RawReference(key), provenance)
+            self.archive
+                .store_responses(key, provenance, &bodies)
                 .await
                 .map_err(PartitionFailure::Tee)?;
-            for body in &bodies {
-                if let Err(error) = writer.push_line(body).await {
-                    writer.abort().await;
-                    return Err(PartitionFailure::Tee(error));
-                }
-            }
-            writer.finish().await.map_err(PartitionFailure::Tee)?;
             Ok(())
         }
     }
@@ -649,8 +642,13 @@ async fn write_splits(
     journal: &Journal,
 ) -> Result<PartitionWritten, PartitionFailure> {
     let provenance = fetched_now(Subscription::StocksStarter, journal);
-    let (splits, bodies) = clients.massive.splits().await?.into_parts();
-    clients.store()(massive_splits(session), &provenance, bodies).await?;
+    let splits = kept(
+        clients.store(),
+        massive_splits(session),
+        &provenance,
+        clients.massive.splits().await,
+    )
+    .await?;
     let rows = publish(
         clients.put(),
         massive_splits(session),
@@ -667,6 +665,23 @@ async fn write_splits(
         BTreeMap::new(),
         BTreeMap::new(),
     ))
+}
+
+/// Stores every body `fetched` received with `store`, even when reading them failed, and returns what was read; a fetch
+/// that received nothing fails as it failed, with nothing stored.
+async fn kept<T>(
+    store: impl AsyncFnOnce(ReferenceKey, &Provenance, Vec<Vec<u8>>) -> Result<(), PartitionFailure>,
+    key: ReferenceKey,
+    provenance: &Provenance,
+    fetched: Fetched<T>,
+) -> Result<T, PartitionFailure> {
+    let (value, bodies) = fetched.into_parts();
+    let value = match (value, bodies.is_empty()) {
+        (Err(error), true) => return Err(error.into()),
+        (value, true | false) => value,
+    };
+    store(key, provenance, bodies).await?;
+    Ok(value?)
 }
 
 /// How far before the previous snapshot a refresh reaches back, and the span of one request.
@@ -718,13 +733,26 @@ async fn write_series_boundaries(
     let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
     let mut read = SeriesBoundaries::empty();
     let mut bodies = Vec::new();
+    let mut failed = None;
     for span in window.spans(BOUNDARY_REFRESH_DAYS) {
-        let (boundaries, pages) = clients.alpaca.series_boundaries(span).await?.into_parts();
-        read = read.combine(boundaries);
+        let (boundaries, pages) = clients.alpaca.series_boundaries(span).await.into_parts();
         bodies.extend(pages);
+        match boundaries {
+            Ok(boundaries) => read = read.combine(boundaries),
+            Err(error) => {
+                failed = Some(error);
+                break;
+            }
+        }
     }
+    let read = kept(
+        clients.store(),
+        alpaca_series_boundaries(session),
+        &provenance,
+        Fetched::new(failed.map_or(Ok(read), Err), bodies),
+    )
+    .await?;
     let boundaries = refresh_boundaries(&held, read.boundaries(), window);
-    clients.store()(alpaca_series_boundaries(session), &provenance, bodies).await?;
     let rows = publish(
         clients.put(),
         alpaca_series_boundaries(session),
@@ -750,6 +778,8 @@ struct DetailsGathered {
     missing: Vec<Symbol>,
     refused: Vec<RefusedRow>,
     bodies: Vec<Vec<u8>>,
+    /// The first request that failed, kept rather than returned so the bodies already received are still stored.
+    failed: Option<FetchError>,
 }
 
 impl Monoid for DetailsGathered {
@@ -762,6 +792,7 @@ impl Monoid for DetailsGathered {
         self.missing.extend(other.missing);
         self.refused.extend(other.refused);
         self.bodies.extend(other.bodies);
+        self.failed = self.failed.or(other.failed);
         self
     }
 }
@@ -776,31 +807,47 @@ async fn write_security_details(
     let symbols = symbol_list(clients, session).await?;
     let provenance = fetched_now(Subscription::StocksStarter, journal);
     let one = NonZeroUsize::new(1).expect("one is not zero");
-    let gathered: DetailsGathered =
+    let stopped = Arc::new(AtomicBool::new(false));
+    let mut gathered: DetailsGathered =
         in_batches(&symbols, one, parameters.tick_concurrency, |batch| {
             let massive = Arc::clone(&clients.massive);
+            let stopped = Arc::clone(&stopped);
             async move {
                 let mut gathered = DetailsGathered::default();
                 for symbol in batch {
+                    // A failed request ends the leg, so the symbols after it are not requested.
+                    if stopped.load(Ordering::Relaxed) {
+                        break;
+                    }
                     let (answer, bodies) = massive
                         .security_details(&symbol, session)
-                        .await?
+                        .await
                         .into_parts();
                     gathered.bodies.extend(bodies);
                     match answer {
-                        DetailsAnswer::Details(details) => gathered.details.push(details),
-                        DetailsAnswer::Missing => gathered.missing.push(symbol),
-                        DetailsAnswer::Refused(row) => gathered.refused.push(row),
+                        Ok(DetailsAnswer::Details(details)) => gathered.details.push(details),
+                        Ok(DetailsAnswer::Missing) => gathered.missing.push(symbol),
+                        Ok(DetailsAnswer::Refused(row)) => gathered.refused.push(row),
+                        Err(error) => {
+                            stopped.store(true, Ordering::Relaxed);
+                            gathered.failed = Some(error);
+                            break;
+                        }
                     }
                 }
                 Ok(gathered)
             }
         })
         .await?;
-    clients.store()(
+    let failed = gathered.failed.take();
+    kept(
+        clients.store(),
         massive_security_details(session),
         &provenance,
-        gathered.bodies,
+        Fetched::new(
+            failed.map_or(Ok(()), Err),
+            std::mem::take(&mut gathered.bodies),
+        ),
     )
     .await?;
     let rows = publish(
@@ -961,12 +1008,11 @@ async fn trade_conditions(
 /// write before returning them.
 async fn write_conditions(
     journal: &mut Journal,
-    fetch: impl AsyncFnOnce() -> Result<Fetched<TradeConditions>, FetchError>,
+    fetch: impl AsyncFnOnce() -> Fetched<TradeConditions>,
     store: impl AsyncFnOnce(ReferenceKey, &Provenance, Vec<Vec<u8>>) -> Result<(), PartitionFailure>,
     put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), ArchiveError>,
 ) -> Result<TradeConditions, PartitionFailure> {
     let fetched_at = Utc::now();
-    let (conditions, bodies) = fetch().await?.into_parts();
     let key = conditions_key(SessionDate::at(fetched_at));
     let provenance = Provenance::new(
         Subscription::StocksStarter,
@@ -974,7 +1020,7 @@ async fn write_conditions(
         journal.run_id(),
         journal.commit().cloned(),
     );
-    store(key, &provenance, bodies).await?;
+    let conditions = kept(store, key, &provenance, fetch().await).await?;
     let body =
         encode_conditions(&key, &conditions, &provenance).map_err(archive::EncodeRefusal::from)?;
     put(&key.into(), body).await?;
@@ -1414,8 +1460,8 @@ mod tests {
         let conditions = write_conditions(
             &mut journal,
             async || {
-                Ok(Fetched::new(
-                    TradeConditions::new(BTreeMap::from([(
+                Fetched::new(
+                    Ok(TradeConditions::new(BTreeMap::from([(
                         ConditionCode::new(37),
                         Condition::new(
                             UpdateRules::VOLUME_ONLY,
@@ -1423,9 +1469,9 @@ mod tests {
                             None,
                             ConditionStatus::Current,
                         ),
-                    )])),
+                    )]))),
                     vec![b"{}".to_vec()],
-                ))
+                )
             },
             async |key: ReferenceKey, _provenance: &Provenance, bodies: Vec<Vec<u8>>| {
                 order
@@ -1481,10 +1527,13 @@ mod tests {
         let refused = write_conditions(
             &mut journal,
             async || {
-                Err(FetchError::Refused {
-                    status: 403,
-                    body: "forbidden".to_string(),
-                })
+                Fetched::new(
+                    Err(FetchError::Refused {
+                        status: 403,
+                        body: "forbidden".to_string(),
+                    }),
+                    Vec::new(),
+                )
             },
             async |_: ReferenceKey, _: &Provenance, _: Vec<Vec<u8>>| {
                 panic!("nothing fetched is stored")
@@ -1500,6 +1549,45 @@ mod tests {
         assert_eq!(event_types(&journal), Vec::<&str>::new());
         std::fs::remove_dir_all(&directory).unwrap();
         std::fs::remove_dir_all(&unfetched_directory).unwrap();
+    }
+
+    /// A conditions response that fails to parse is still stored as served, and nothing parsed is written.
+    #[tokio::test]
+    async fn test_a_conditions_response_that_fails_to_parse_is_still_stored() {
+        let (mut journal, directory) = temporary_journal();
+        let mut stored = Vec::new();
+        let failed = write_conditions(
+            &mut journal,
+            async || {
+                Fetched::new(
+                    Err(FetchError::Malformed {
+                        reason: "no update rules".to_string(),
+                    }),
+                    vec![b"{\"results\":[{}]}".to_vec()],
+                )
+            },
+            async |key: ReferenceKey, _provenance: &Provenance, bodies: Vec<Vec<u8>>| {
+                stored.push((Key::RawReference(key).series().to_string(), bodies));
+                Ok(())
+            },
+            async |_: &Key, _body| -> Result<(), ArchiveError> {
+                panic!("nothing parsed is written")
+            },
+        )
+        .await;
+        assert!(matches!(
+            failed,
+            Err(PartitionFailure::Fetch(FetchError::Malformed { .. }))
+        ));
+        assert_eq!(
+            stored,
+            [(
+                "data/equity/stage=raw/reference/provider=massive/table=conditions/".to_string(),
+                vec![b"{\"results\":[{}]}".to_vec()],
+            )]
+        );
+        assert_eq!(event_types(&journal), Vec::<&str>::new());
+        std::fs::remove_dir_all(&directory).unwrap();
     }
 
     /// Two prints a minute apart, folded into the minute bars a trade leg publishes.
@@ -1938,7 +2026,8 @@ mod tests {
             RunId::new(uuid::Uuid::new_v4()),
             None,
         );
-        let (splits, bodies) = clients.massive.splits().await.unwrap().into_parts();
+        let (splits, bodies) = clients.massive.splits().await.into_parts();
+        let splits = splits.unwrap();
         let pages = bodies.len();
         clients.store()(key, &provenance, bodies).await.unwrap();
         let raw = Key::RawReference(key);
@@ -2039,6 +2128,7 @@ mod tests {
                     .collect(),
                 missing,
                 bodies: Vec::new(),
+                failed: None,
                 refused: refused
                     .into_iter()
                     .map(|(ticker, cause)| RefusedRow::new(&ticker, cause))

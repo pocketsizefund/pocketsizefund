@@ -61,19 +61,20 @@ impl std::fmt::Debug for Secret {
     }
 }
 
-/// What a fetch read, beside the response bodies it was read from, so they can be stored as served.
-#[derive(Debug, Clone, PartialEq)]
+/// What a fetch read, or why it failed, beside every response body it received, so the bodies can be stored as served
+/// even when reading them failed.
+#[derive(Debug)]
 pub struct Fetched<T> {
-    value: T,
+    value: Result<T, FetchError>,
     bodies: Vec<Vec<u8>>,
 }
 
 impl<T> Fetched<T> {
-    pub fn new(value: T, bodies: Vec<Vec<u8>>) -> Self {
+    pub fn new(value: Result<T, FetchError>, bodies: Vec<Vec<u8>>) -> Self {
         Self { value, bodies }
     }
 
-    pub fn into_parts(self) -> (T, Vec<Vec<u8>>) {
+    pub fn into_parts(self) -> (Result<T, FetchError>, Vec<Vec<u8>>) {
         (self.value, self.bodies)
     }
 }
