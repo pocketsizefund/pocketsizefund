@@ -12,15 +12,13 @@ use serde::Deserialize;
 use tokio::sync::mpsc::Sender;
 
 use super::retry::{FetchError, send, with_retries};
-use super::{Accepted, RefusedRow, RowRefusal, Secret, VariableRefusal, one_sided, variable};
-use crate::common::market::record::{Bar, BarInterval, BarPrices, Quote};
+use super::{RefusedRow, RowRefusal, Secret, VariableRefusal, one_sided, variable};
+use crate::common::market::record::Quote;
 use crate::common::market::trade_bars::{ConditionLetter, Correction, Print, Tape};
-use crate::common::market::{DollarVolume, Price, Shares, Symbol, TradeCount};
-use crate::common::monoid::Monoid;
+use crate::common::market::{Price, Shares, Symbol};
 use crate::common::time::calendar::{TradingCalendar, TradingSession};
 use crate::common::time::{SessionDate, SessionRange};
 
-const BARS_URL: &str = "https://data.alpaca.markets/v2/stocks/bars";
 const QUOTES_URL: &str = "https://data.alpaca.markets/v2/stocks/quotes";
 const TRADES_URL: &str = "https://data.alpaca.markets/v2/stocks/trades";
 
@@ -70,137 +68,10 @@ impl Credentials {
     }
 }
 
-/// One batch's one-minute bars. Every symbol asked for is exactly one of answered (its rows are bars or refusals),
-/// missing or invalid, and every row is a bar or a refusal.
-#[derive(Debug, Clone, PartialEq)]
-pub struct MinuteBars {
-    bars: Vec<Bar>,
-    missing: Vec<Symbol>,
-    invalid: Vec<Symbol>,
-    refused: Vec<RefusedRow>,
-}
-
-impl MinuteBars {
-    /// Reads the pages answering for `requested`; `invalid` are the symbols dropped before they were fetched.
-    fn from_pages(
-        pages: &[Vec<u8>],
-        requested: &[Symbol],
-        invalid: Vec<Symbol>,
-        session: SessionDate,
-    ) -> Result<Self, FetchError> {
-        let asked: BTreeSet<&str> = requested.iter().map(Symbol::as_str).collect();
-        let mut answered = BTreeSet::new();
-        let mut accepted = Accepted::new();
-        for page in pages {
-            let page: BarsPage =
-                serde_json::from_slice(page).map_err(|error| FetchError::Malformed {
-                    reason: error.to_string(),
-                })?;
-            for (ticker, rows) in page.bars.unwrap_or_default() {
-                let was_asked = asked.contains(ticker.as_str());
-                for row in rows {
-                    let bar = match was_asked {
-                        true => minute_bar(&ticker, &row, session),
-                        false => Err(RowRefusal::Unrequested),
-                    };
-                    match bar {
-                        Ok(bar) => accepted.offer(
-                            (bar.symbol().clone(), bar.timestamp()),
-                            ticker.clone(),
-                            bar,
-                        ),
-                        Err(cause) => accepted.refuse(ticker.clone(), cause),
-                    }
-                }
-                if was_asked {
-                    answered.insert(ticker);
-                }
-            }
-        }
-        let missing = requested
-            .iter()
-            .filter(|symbol| !answered.contains(symbol.as_str()))
-            .cloned()
-            .collect();
-        let (bars, refused) = accepted.finish();
-        Ok(Self {
-            bars,
-            missing,
-            invalid,
-            refused,
-        })
-    }
-
-    /// In symbol, then timestamp, order.
-    pub fn bars(&self) -> &[Bar] {
-        &self.bars
-    }
-
-    pub fn into_bars(self) -> Vec<Bar> {
-        self.bars
-    }
-
-    /// Asked for but absent from every page: Alpaca drops a name it does not know without saying so.
-    pub fn missing(&self) -> &[Symbol] {
-        &self.missing
-    }
-
-    /// Named invalid by Alpaca, which fails the whole batch, so dropped and the rest fetched again.
-    pub fn invalid(&self) -> &[Symbol] {
-        &self.invalid
-    }
-
-    pub fn refused(&self) -> &[RefusedRow] {
-        &self.refused
-    }
-}
-
-/// Batches over disjoint symbols concatenate in the order they were asked, which keeps the bars in symbol order when
-/// the batches were cut from a sorted list.
-impl Monoid for MinuteBars {
-    fn empty() -> Self {
-        Self {
-            bars: Vec::new(),
-            missing: Vec::new(),
-            invalid: Vec::new(),
-            refused: Vec::new(),
-        }
-    }
-
-    fn combine(mut self, other: Self) -> Self {
-        self.bars.extend(other.bars);
-        self.missing.extend(other.missing);
-        self.invalid.extend(other.invalid);
-        self.refused.extend(other.refused);
-        self
-    }
-}
-
+/// The one field every paginated Alpaca response shares.
 #[derive(Deserialize)]
-struct BarsPage {
-    /// `null` on a page with no bars.
-    bars: Option<BTreeMap<String, Vec<AlpacaBar>>>,
+struct PageToken {
     next_page_token: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct AlpacaBar {
-    #[serde(rename = "t")]
-    timestamp: DateTime<Utc>,
-    #[serde(rename = "o")]
-    open: f64,
-    #[serde(rename = "h")]
-    high: f64,
-    #[serde(rename = "l")]
-    low: f64,
-    #[serde(rename = "c")]
-    close: f64,
-    #[serde(rename = "v")]
-    volume: u64,
-    #[serde(rename = "n")]
-    trade_count: Option<u64>,
-    #[serde(rename = "vw")]
-    volume_weighted_average_price: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -276,61 +147,6 @@ impl Alpaca {
         })
         .await?;
         parse_calendar(&body, range)
-    }
-
-    /// Raw one-minute SIP bars across the whole Eastern day of `session`, with symbols resolved as of that session so
-    /// a renamed or reused ticker reads its own history.
-    pub async fn minute_bars(
-        &self,
-        symbols: &[Symbol],
-        session: SessionDate,
-    ) -> Result<MinuteBars, FetchError> {
-        let (pages, requested, invalid) =
-            dropping_invalid(symbols, |requested| self.pages(requested, session)).await?;
-        MinuteBars::from_pages(&pages, &requested, invalid, session)
-    }
-
-    async fn pages(
-        &self,
-        symbols: Vec<Symbol>,
-        session: SessionDate,
-    ) -> Result<Vec<Vec<u8>>, FetchError> {
-        let joined = symbols
-            .iter()
-            .map(Symbol::as_str)
-            .collect::<Vec<_>>()
-            .join(",");
-        let (start, end) = session.bounds();
-        // The endpoint's end is inclusive, so the next session's midnight bar is excluded by ending a second early.
-        let end = end - TimeDelta::seconds(1);
-        let as_of = session.to_string();
-        let (start, end) = (start.to_rfc3339(), end.to_rfc3339());
-        let (joined, start, end, as_of) = (&joined, &start, &end, &as_of);
-        paginate(|page_token| async move {
-            with_retries(|| {
-                let mut query = vec![
-                    ("symbols", joined.as_str()),
-                    ("timeframe", "1Min"),
-                    ("start", start.as_str()),
-                    ("end", end.as_str()),
-                    ("feed", "sip"),
-                    ("adjustment", "raw"),
-                    ("asof", as_of.as_str()),
-                    ("sort", "asc"),
-                    ("limit", PAGE_LIMIT),
-                ];
-                if let Some(token) = page_token.as_deref() {
-                    query.push(("page_token", token));
-                }
-                send(
-                    self.credentials
-                        .sign(self.http_client.get(BARS_URL))
-                        .query(&query),
-                )
-            })
-            .await
-        })
-        .await
     }
 }
 
@@ -672,35 +488,6 @@ fn parse_calendar(body: &[u8], range: SessionRange) -> Result<TradingCalendar, F
     TradingCalendar::new(sessions, range).map_err(|refusal| malformed(format!("{refusal:?}")))
 }
 
-/// Fetches `symbols`, and whenever Alpaca names one invalid (which fails the whole request) drops it and fetches the
-/// rest again. Returns the pages, the symbols they answer for, and the symbols dropped.
-async fn dropping_invalid<Fetch, Pending>(
-    symbols: &[Symbol],
-    mut fetch: Fetch,
-) -> Result<(Vec<Vec<u8>>, Vec<Symbol>, Vec<Symbol>), FetchError>
-where
-    Fetch: FnMut(Vec<Symbol>) -> Pending,
-    Pending: std::future::Future<Output = Result<Vec<Vec<u8>>, FetchError>>,
-{
-    let mut requested = symbols.to_vec();
-    let mut invalid = Vec::new();
-    while !requested.is_empty() {
-        match fetch(requested.clone()).await {
-            Ok(pages) => return Ok((pages, requested, invalid)),
-            Err(FetchError::Refused { status: 400, body }) => {
-                let named = invalid_symbol(&body)
-                    .and_then(|name| requested.iter().position(|symbol| symbol.as_str() == name));
-                match named {
-                    Some(index) => invalid.push(requested.remove(index)),
-                    None => return Err(FetchError::Refused { status: 400, body }),
-                }
-            }
-            Err(error) => return Err(error),
-        }
-    }
-    Ok((Vec::new(), requested, invalid))
-}
-
 /// Follows `next_page_token` until it is null.
 async fn paginate<Fetch, Pending>(mut fetch_page: Fetch) -> Result<Vec<Vec<u8>>, FetchError>
 where
@@ -741,7 +528,7 @@ impl PageTokens {
 }
 
 fn next_page_token(body: &[u8]) -> Result<Option<String>, FetchError> {
-    let page: BarsPage = serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
+    let page: PageToken = serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
         reason: error.to_string(),
     })?;
     Ok(page.next_page_token)
@@ -756,186 +543,11 @@ pub(crate) fn invalid_symbol(body: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn minute_bar(ticker: &str, row: &AlpacaBar, session: SessionDate) -> Result<Bar, RowRefusal> {
-    let symbol = Symbol::new(ticker).map_err(RowRefusal::Symbol)?;
-    if SessionDate::at(row.timestamp) != session {
-        return Err(RowRefusal::Session {
-            timestamp: row.timestamp.to_rfc3339(),
-        });
-    }
-    let price = |dollars: f64| Price::from_dollars(dollars).map_err(RowRefusal::Price);
-    let prices = BarPrices::new(
-        price(row.open)?,
-        price(row.high)?,
-        price(row.low)?,
-        price(row.close)?,
-    )
-    .map_err(RowRefusal::Prices)?;
-    let volume = Shares::whole(row.volume).map_err(RowRefusal::Shares)?;
-    let dollar_volume = row
-        .volume_weighted_average_price
-        .map(|average| DollarVolume::from_average(average, volume))
-        .transpose()
-        .map_err(RowRefusal::DollarVolume)?;
-    Bar::new(
-        symbol,
-        BarInterval::OneMinute,
-        row.timestamp,
-        prices,
-        volume,
-        row.trade_count.map(TradeCount::new),
-        dollar_volume,
-    )
-    .map_err(RowRefusal::Bar)
-}
-
 #[cfg(test)]
 mod tests {
-    use chrono::NaiveDate;
-    use proptest::prelude::*;
     use strum::IntoEnumIterator;
 
     use super::*;
-    use crate::common::monoid::laws;
-
-    fn session() -> SessionDate {
-        SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 9, 25).unwrap())
-    }
-
-    fn read(pages: &[Vec<u8>], requested: &[Symbol]) -> Result<MinuteBars, FetchError> {
-        MinuteBars::from_pages(pages, requested, Vec::new(), session())
-    }
-
-    fn symbols(names: &[&str]) -> Vec<Symbol> {
-        names
-            .iter()
-            .map(|name| Symbol::new(name).unwrap())
-            .collect()
-    }
-
-    /// Minute bars for ABE and ABE.B over 13:30-13:32Z on 2026-09-25, invented in Alpaca's shape.
-    const FIXTURE: &[u8] = br#"{"bars":{
-        "ABE":[
-            {"c":50.25,"h":50.5,"l":50.1,"n":9600,"o":50.2,"t":"2026-09-25T13:30:00Z","v":436000,"vw":50.312345},
-            {"c":50.15,"h":50.3,"l":50.05,"n":3600,"o":50.25,"t":"2026-09-25T13:31:00Z","v":152000,"vw":50.175},
-            {"c":50.1225,"h":50.2075,"l":50.0525,"n":2000,"o":50.15,"t":"2026-09-25T13:32:00Z","v":78000,"vw":50.125}
-        ],
-        "ABE.B":[
-            {"c":100.6,"h":101.48,"l":100.5,"n":1600,"o":101.25,"t":"2026-09-25T13:30:00Z","v":57000,"vw":101.012345},
-            {"c":101.362,"h":101.362,"l":100.55,"n":450,"o":100.57,"t":"2026-09-25T13:31:00Z","v":15500,"vw":101.0975},
-            {"c":101.1888,"h":101.6,"l":100.6101,"n":240,"o":101.49,"t":"2026-09-25T13:32:00Z","v":5000,"vw":101.025}
-        ]
-    },"next_page_token":null}"#;
-
-    #[test]
-    fn test_a_page_becomes_minute_bars_and_names_what_is_missing() {
-        let batch = read(&[FIXTURE.to_vec()], &symbols(&["ABE", "ABE.B", "ZTST"])).unwrap();
-        assert_eq!(batch.bars.len(), 6);
-        assert_eq!(batch.missing, symbols(&["ZTST"]));
-        assert!(batch.refused.is_empty());
-        let first = &batch.bars[0];
-        assert_eq!(first.symbol().as_str(), "ABE");
-        assert_eq!(first.timestamp().to_rfc3339(), "2026-09-25T13:30:00+00:00");
-        assert_eq!(first.volume(), Shares::whole(436_000).unwrap());
-        assert_eq!(first.trade_count(), Some(TradeCount::new(9600)));
-        let average = first.volume_weighted_average_price().unwrap();
-        assert!((average - 50.312_345).abs() < 1e-9, "{average}");
-        // A four-decimal SIP print sits on the grid.
-        assert_eq!(batch.bars[2].prices().close().to_string(), "50.1225");
-    }
-
-    #[test]
-    fn test_pages_are_read_in_order_and_a_zero_volume_bar_has_no_average() {
-        let first = br#"{"bars":{"ABF.WS":[{"t":"2026-09-25T14:00:00Z","o":0.7125,"h":0.7125,"l":0.7125,"c":0.7125,"v":0,"n":0,"vw":0}]},"next_page_token":"abc"}"#;
-        let second = br#"{"bars":null,"next_page_token":null}"#;
-        assert_eq!(next_page_token(first), Ok(Some("abc".to_string())));
-        assert_eq!(next_page_token(second), Ok(None));
-        let batch = read(&[first.to_vec(), second.to_vec()], &symbols(&["ABF.WS"])).unwrap();
-        assert_eq!(batch.bars.len(), 1);
-        assert_eq!(batch.bars[0].volume_weighted_average_price(), None);
-        assert!(batch.missing.is_empty());
-    }
-
-    #[test]
-    fn test_a_bar_from_another_session_is_refused() {
-        let page = br#"{"bars":{"AAPL":[{"t":"2026-09-26T04:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}]},"next_page_token":null}"#;
-        let batch = read(&[page.to_vec()], &symbols(&["AAPL"])).unwrap();
-        assert_eq!(
-            batch.refused,
-            [RefusedRow {
-                ticker: "AAPL".to_string(),
-                cause: RowRefusal::Session {
-                    timestamp: "2026-09-26T04:00:00+00:00".to_string()
-                }
-            }]
-        );
-    }
-
-    /// Every symbol asked for lands in exactly one of answered, missing or invalid.
-    #[test]
-    fn test_every_requested_symbol_is_accounted_for_once() {
-        let batch = MinuteBars::from_pages(
-            &[FIXTURE.to_vec()],
-            &symbols(&["ABE", "ABE.B", "ZTST"]),
-            symbols(&["BC.PRC"]),
-            session(),
-        )
-        .unwrap();
-        let answered: BTreeSet<&str> = batch
-            .bars()
-            .iter()
-            .map(|bar| bar.symbol().as_str())
-            .chain(batch.refused().iter().map(RefusedRow::ticker))
-            .collect();
-        let mut accounted: Vec<&str> = answered
-            .into_iter()
-            .chain(batch.missing().iter().map(Symbol::as_str))
-            .chain(batch.invalid().iter().map(Symbol::as_str))
-            .collect();
-        accounted.sort();
-        assert_eq!(accounted, ["ABE", "ABE.B", "BC.PRC", "ZTST"]);
-    }
-
-    #[test]
-    fn test_a_symbol_answered_but_not_asked_for_is_refused() {
-        // What Alpaca sent back for `BCpC`: the unrelated common stock.
-        let page = br#"{"bars":{"BCPC":[{"t":"2026-09-25T14:00:00Z","o":167,"h":168,"l":166,"c":167,"v":10}]},"next_page_token":null}"#;
-        let batch = read(&[page.to_vec()], &symbols(&["BC.PRC"])).unwrap();
-        assert!(batch.bars().is_empty());
-        assert_eq!(batch.missing(), symbols(&["BC.PRC"]));
-        assert_eq!(
-            batch.refused(),
-            [RefusedRow {
-                ticker: "BCPC".to_string(),
-                cause: RowRefusal::Unrequested
-            }]
-        );
-    }
-
-    #[test]
-    fn test_a_minute_repeated_across_pages_keeps_neither_row() {
-        let row = |close: u32| {
-            format!(
-                r#"{{"bars":{{"AAPL":[{{"t":"2026-09-25T14:00:00Z","o":1,"h":2,"l":1,"c":{close},"v":10}}]}},"next_page_token":null}}"#
-            )
-            .into_bytes()
-        };
-        let batch = read(&[row(1), row(2), row(2)], &symbols(&["AAPL"])).unwrap();
-        assert!(batch.bars().is_empty());
-        assert_eq!(
-            batch
-                .refused()
-                .iter()
-                .map(|row| row.cause().clone())
-                .collect::<Vec<_>>(),
-            [
-                RowRefusal::Duplicate,
-                RowRefusal::Duplicate,
-                RowRefusal::Duplicate
-            ]
-        );
-        assert!(batch.missing().is_empty());
-    }
 
     #[test]
     fn test_an_invalid_symbol_is_read_from_the_live_error_body() {
@@ -949,7 +561,19 @@ mod tests {
 
     fn page(token: Option<&str>) -> Vec<u8> {
         let token = token.map_or("null".to_string(), |token| format!("\"{token}\""));
-        format!(r#"{{"bars":{{}},"next_page_token":{token}}}"#).into_bytes()
+        format!(r#"{{"trades":{{}},"next_page_token":{token}}}"#).into_bytes()
+    }
+
+    #[test]
+    fn test_a_page_names_the_next_token_until_the_last() {
+        let mut tokens = PageTokens::default();
+        assert_eq!(tokens.next(&page(Some("a"))), Ok(Some("a".to_string())));
+        assert_eq!(tokens.next(&page(Some("b"))), Ok(Some("b".to_string())));
+        assert_eq!(tokens.next(&page(None)), Ok(None));
+        assert!(matches!(
+            tokens.next(b"<html>"),
+            Err(FetchError::Malformed { .. })
+        ));
     }
 
     #[tokio::test]
@@ -967,7 +591,7 @@ mod tests {
         })
         .await
         .unwrap();
-        assert_eq!(pages.len(), 3);
+        assert_eq!(pages, [page(Some("a")), page(Some("b")), page(None)]);
         assert_eq!(
             *requested.borrow(),
             [None, Some("a".to_string()), Some("b".to_string())]
@@ -1002,87 +626,6 @@ mod tests {
             })
         );
         assert_eq!(calls.get(), 3);
-    }
-
-    fn refusal(name: &str) -> FetchError {
-        FetchError::Refused {
-            status: 400,
-            body: format!(r#"{{"message":"invalid symbol: {name}"}}"#),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_an_invalid_symbol_is_dropped_and_the_rest_fetched_again() {
-        let calls = std::cell::RefCell::new(Vec::new());
-        let result = dropping_invalid(&symbols(&["AAPL", "BRK.B", "MSFT"]), |requested| {
-            let names: Vec<String> = requested.iter().map(Symbol::to_string).collect();
-            calls.borrow_mut().push(names.clone());
-            async move {
-                if names.contains(&"BRK.B".to_string()) {
-                    Err(refusal("BRK.B"))
-                } else {
-                    Ok(vec![b"page".to_vec()])
-                }
-            }
-        })
-        .await;
-        assert_eq!(
-            result,
-            Ok((
-                vec![b"page".to_vec()],
-                symbols(&["AAPL", "MSFT"]),
-                symbols(&["BRK.B"])
-            ))
-        );
-        assert_eq!(calls.borrow().len(), 2);
-    }
-
-    #[tokio::test]
-    async fn test_a_refusal_naming_no_requested_symbol_is_returned() {
-        let result =
-            dropping_invalid(&symbols(&["AAPL"]), |_| async { Err(refusal("BC-C")) }).await;
-        assert_eq!(result, Err(refusal("BC-C")));
-    }
-
-    #[tokio::test]
-    async fn test_a_batch_that_loses_every_symbol_stops() {
-        let result =
-            dropping_invalid(&symbols(&["AAPL"]), |_| async { Err(refusal("AAPL")) }).await;
-        assert_eq!(result, Ok((Vec::new(), Vec::new(), symbols(&["AAPL"]))));
-    }
-
-    fn any_batch() -> impl Strategy<Value = MinuteBars> {
-        let pool = read(&[FIXTURE.to_vec()], &symbols(&["ABE", "ABE.B"]))
-            .unwrap()
-            .bars;
-        let names = symbols(&["ZTST", "BC.PRC", "ABC", "XYZ"]);
-        let causes = prop::sample::select(vec![RowRefusal::Unrequested, RowRefusal::Duplicate]);
-        (
-            prop::sample::subsequence(pool.clone(), 0..=pool.len()),
-            prop::sample::subsequence(names.clone(), 0..=names.len()),
-            prop::sample::subsequence(names, 0..=2),
-            prop::collection::vec(("[A-Z]{1,4}", causes), 0..3),
-        )
-            .prop_map(|(bars, missing, invalid, refused)| MinuteBars {
-                bars,
-                missing,
-                invalid,
-                refused: refused
-                    .into_iter()
-                    .map(|(ticker, cause)| RefusedRow { ticker, cause })
-                    .collect(),
-            })
-    }
-
-    proptest! {
-        #[test]
-        fn property_batches_concatenate_as_a_monoid(
-            first in any_batch(),
-            second in any_batch(),
-            third in any_batch(),
-        ) {
-            laws::check_ordered(first, second, third)?;
-        }
     }
 
     /// Alpaca's calendar over Thanksgiving 2026, whose hours are the exchange's published schedule.
@@ -1184,27 +727,6 @@ mod tests {
             parse_calendar(CALENDAR, range("2026-11-25", "2026-11-27")),
             Err(FetchError::Malformed { .. })
         ));
-    }
-
-    #[tokio::test]
-    #[ignore = "reads the live Alpaca API; run under secretspec with --ignored"]
-    async fn live_minute_bars_cover_the_session() {
-        let alpaca = Alpaca::from_environment(reqwest::Client::new()).unwrap();
-        let batch = alpaca
-            .minute_bars(&symbols(&["AAPL", "BRK.B", "BC.PRC", "ZTST"]), session())
-            .await
-            .unwrap();
-        let per_symbol = batch.bars.iter().fold(BTreeMap::new(), |mut counts, bar| {
-            *counts.entry(bar.symbol().to_string()).or_insert(0) += 1;
-            counts
-        });
-        println!(
-            "{per_symbol:?} missing {:?} refused {:?}",
-            batch.missing, batch.refused
-        );
-        assert!(per_symbol["AAPL"] > 390, "{per_symbol:?}");
-        assert_eq!(batch.missing, symbols(&["ZTST"]));
-        assert!(batch.refused.is_empty(), "{:?}", batch.refused);
     }
 
     /// SIP quotes and trades for ABC on 2026-10-02 with invented values in Alpaca's shape: a one-sided quote, the

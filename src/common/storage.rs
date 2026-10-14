@@ -196,7 +196,6 @@ impl Service {
 )]
 #[strum(serialize_all = "snake_case")]
 pub enum ParsedKind {
-    Bars,
     Quotes,
     Trades,
 }
@@ -204,12 +203,11 @@ pub enum ParsedKind {
 mod sealed {
     pub trait Sealed {}
 
-    impl Sealed for super::Bars {}
     impl Sealed for super::Quotes {}
     impl Sealed for super::Trades {}
 }
 
-/// A parsed kind as a type, so a codec's key admits only the kind it reads; sealed to the three below.
+/// A parsed kind as a type, so a codec's key admits only the kind it reads; sealed to the two below.
 pub trait Family: sealed::Sealed + Copy + Default {
     const KIND: ParsedKind;
 
@@ -217,21 +215,10 @@ pub trait Family: sealed::Sealed + Copy + Default {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Bars;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Quotes;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Trades;
-
-impl Family for Bars {
-    const KIND: ParsedKind = ParsedKind::Bars;
-
-    fn wrap(key: ParsedKey<Self>) -> Key {
-        Key::Bars(key)
-    }
-}
 
 impl Family for Quotes {
     const KIND: ParsedKind = ParsedKind::Quotes;
@@ -259,7 +246,6 @@ pub struct ParsedKey<F> {
     family: F,
 }
 
-pub type BarsKey = ParsedKey<Bars>;
 pub type QuotesKey = ParsedKey<Quotes>;
 pub type TradesKey = ParsedKey<Trades>;
 
@@ -345,10 +331,8 @@ impl TryFrom<Key> for ReferenceKey {
     fn try_from(key: Key) -> Result<Self, Key> {
         match key {
             Key::Reference(key) => Ok(key),
-            Key::Bars(..)
-            | Key::Quotes(..)
+            Key::Quotes(..)
             | Key::Trades(..)
-            | Key::RawBars { .. }
             | Key::RawQuotes { .. }
             | Key::RawTrades { .. }
             | Key::RawReference(..)
@@ -409,16 +393,9 @@ impl From<LogsKey> for Key {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub enum Key {
-    Bars(BarsKey),
     Quotes(QuotesKey),
     Trades(TradesKey),
     Reference(ReferenceKey),
-    /// A vendor's bar file exactly as served.
-    RawBars {
-        provider: Provider,
-        interval: BarInterval,
-        session: SessionDate,
-    },
     /// A vendor's quote file exactly as served.
     RawQuotes {
         provider: Provider,
@@ -520,15 +497,8 @@ impl Key {
         match self {
             Self::Reference(key) => format!("{series}as_of={}/data.parquet", key.as_of),
             Self::RawReference(key) => format!("{series}as_of={}/data.jsonl.gz", key.as_of),
-            Self::Bars(..)
-            | Self::Quotes(..)
-            | Self::Trades(..)
-            | Self::Journal(..)
-            | Self::Logs(..) => {
+            Self::Quotes(..) | Self::Trades(..) | Self::Journal(..) | Self::Logs(..) => {
                 format!("{series}{}/data.parquet", date_partition(self.session()))
-            }
-            Self::RawBars { .. } => {
-                format!("{series}{}/data.csv.gz", date_partition(self.session()))
             }
             Self::RawQuotes { provider, .. } | Self::RawTrades { provider, .. } => format!(
                 "{series}{}/{}",
@@ -540,14 +510,10 @@ impl Key {
 
     pub fn series(&self) -> SeriesPrefix {
         SeriesPrefix(match self {
-            Self::Bars(key) => parsed_series(key),
             Self::Quotes(key) => parsed_series(key),
             Self::Trades(key) => parsed_series(key),
             Self::Reference(key) => reference_series("parsed", key.provider, key.table),
             Self::RawReference(key) => reference_series("raw", key.provider, key.table),
-            Self::RawBars {
-                provider, interval, ..
-            } => format!("{DATA_ROOT}/stage=raw/bars/provider={provider}/interval={interval}/"),
             Self::RawQuotes { provider, .. } => {
                 format!("{DATA_ROOT}/stage=raw/quotes/provider={provider}/")
             }
@@ -566,26 +532,21 @@ impl Key {
     /// The session a key is for.
     pub fn session(&self) -> SessionDate {
         match self {
-            Self::Bars(key) => key.session,
             Self::Quotes(key) => key.session,
             Self::Trades(key) => key.session,
             Self::Reference(key) | Self::RawReference(key) => key.as_of,
             Self::Journal(key) => key.session,
             Self::Logs(key) => key.session,
-            Self::RawBars { session, .. }
-            | Self::RawQuotes { session, .. }
-            | Self::RawTrades { session, .. } => *session,
+            Self::RawQuotes { session, .. } | Self::RawTrades { session, .. } => *session,
         }
     }
 
     /// The one host that may write this object: the archiver for data, the producer for a record.
     pub fn writer(&self) -> Host {
         match self {
-            Self::Bars(..)
-            | Self::Quotes(..)
+            Self::Quotes(..)
             | Self::Trades(..)
             | Self::Reference(..)
-            | Self::RawBars { .. }
             | Self::RawQuotes { .. }
             | Self::RawTrades { .. }
             | Self::RawReference(..) => Host::Archiver,
@@ -601,11 +562,9 @@ impl Key {
             Self::RawQuotes { .. } | Self::RawTrades { .. } | Self::RawReference(..) => {
                 StorageClass::DeepArchive
             }
-            Self::Bars(..)
-            | Self::Quotes(..)
+            Self::Quotes(..)
             | Self::Trades(..)
             | Self::Reference(..)
-            | Self::RawBars { .. }
             | Self::Journal(..)
             | Self::Logs(..) => StorageClass::Standard,
         }
@@ -665,7 +624,6 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
                 session(year, month, day)?,
             );
             Some(match kind.parse::<ParsedKind>().ok()? {
-                ParsedKind::Bars => BarsKey::new(provider, origin, interval, session).into(),
                 ParsedKind::Quotes => QuotesKey::new(provider, origin, interval, session).into(),
                 ParsedKind::Trades => TradesKey::new(provider, origin, interval, session).into(),
             })
@@ -698,22 +656,6 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
             hive(table, "table")?,
             hive::<NaiveDate>(as_of, "as_of").map(SessionDate::from_date)?,
         ))),
-        [
-            "data",
-            "equity",
-            "stage=raw",
-            "bars",
-            provider,
-            interval,
-            year,
-            month,
-            day,
-            "data.csv.gz",
-        ] => Some(Key::RawBars {
-            provider: hive(provider, "provider")?,
-            interval: hive(interval, "interval")?,
-            session: session(year, month, day)?,
-        }),
         [
             "data",
             "equity",
@@ -833,16 +775,6 @@ pub(crate) mod tests {
     fn test_each_key_has_its_path() {
         let cases = [
             (
-                BarsKey::new(
-                    Provider::Alpaca,
-                    Origin::Vendor,
-                    BarInterval::OneMinute,
-                    session(),
-                )
-                .into(),
-                "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/year=2026/month=08/day=03/data.parquet",
-            ),
-            (
                 QuotesKey::new(
                     Provider::Alpaca,
                     Origin::Derived,
@@ -879,14 +811,6 @@ pub(crate) mod tests {
                 )
                 .into(),
                 "data/equity/stage=parsed/reference/provider=alpaca/table=series_boundaries/as_of=2026-08-03/data.parquet",
-            ),
-            (
-                Key::RawBars {
-                    provider: Provider::Massive,
-                    interval: BarInterval::OneDay,
-                    session: session(),
-                },
-                "data/equity/stage=raw/bars/provider=massive/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
             ),
             (
                 Key::RawQuotes {
@@ -942,17 +866,20 @@ pub(crate) mod tests {
     #[test]
     fn test_a_path_outside_the_layout_is_refused_with_itself() {
         for path in [
-            "data/derived/equity/bars/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/bars/provider=massive/origin=fetched/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/bars/provider=massive/origin=fetched/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/bars/provider=databento/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=8/day=03/data.parquet",
-            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=02/day=30/data.parquet",
-            "data/equity/stage=parsed/bars/origin=vendor/provider=alpaca/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
+            "data/derived/equity/trades/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/trades/provider=massive/origin=fetched/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=massive/origin=fetched/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=databento/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=8/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=02/day=30/data.parquet",
+            "data/equity/stage=parsed/trades/origin=vendor/provider=alpaca/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
             "data/equity/stage=parsed/options/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/Bars/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/Trades/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
             "data/equity/stage=parsed/reference/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            // Vendor bars are retired, so their once-valid paths are no keys.
+            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=raw/bars/provider=massive/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
             "data/equity/stage=raw/bars/provider=massive/interval=one_day/year=2026/month=08/day=03/data.parquet",
             "data/equity/stage=raw/quotes/provider=massive/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
             "data/equity/stage=raw/quotes/provider=alpaca/year=2026/month=08/day=03/data.csv.gz",
@@ -1014,7 +941,6 @@ pub(crate) mod tests {
     fn moved(key: &Key, to: &Key) -> Key {
         let session = to.session();
         match key.clone() {
-            Key::Bars(key) => Key::Bars(ParsedKey { session, ..key }),
             Key::Quotes(key) => Key::Quotes(ParsedKey { session, ..key }),
             Key::Trades(key) => Key::Trades(ParsedKey { session, ..key }),
             Key::Reference(key) => Key::Reference(ReferenceKey {
@@ -1025,13 +951,6 @@ pub(crate) mod tests {
                 as_of: session,
                 ..key
             }),
-            Key::RawBars {
-                provider, interval, ..
-            } => Key::RawBars {
-                provider,
-                interval,
-                session,
-            },
             Key::RawQuotes { provider, .. } => Key::RawQuotes { provider, session },
             Key::RawTrades { provider, .. } => Key::RawTrades { provider, session },
             Key::Journal(key) => Key::Journal(JournalKey { session, ..key }),
@@ -1061,7 +980,6 @@ pub(crate) mod tests {
                 session.clone()
             )
                 .prop_map(|(kind, provider, origin, interval, session)| match kind {
-                    ParsedKind::Bars => BarsKey::new(provider, origin, interval, session).into(),
                     ParsedKind::Quotes => {
                         QuotesKey::new(provider, origin, interval, session).into()
                     }
@@ -1075,13 +993,6 @@ pub(crate) mod tests {
             (provider.clone(), table, session.clone()).prop_map(|(provider, table, as_of)| {
                 Key::RawReference(ReferenceKey::new(provider, table, as_of))
             }),
-            (provider.clone(), interval, session.clone()).prop_map(
-                |(provider, interval, session)| Key::RawBars {
-                    provider,
-                    interval,
-                    session
-                }
-            ),
             (provider.clone(), session.clone())
                 .prop_map(|(provider, session)| Key::RawQuotes { provider, session }),
             (provider, session.clone())

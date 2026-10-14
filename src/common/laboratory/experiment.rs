@@ -423,7 +423,7 @@ mod tests {
             })
             .into();
         Fingerprint::new(
-            DatasetLeg::DailyVendorBars,
+            DatasetLeg::DailyTradeBars,
             SessionRange::new(session(0), session(2)).unwrap(),
             &calendar,
             read,

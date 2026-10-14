@@ -8,8 +8,8 @@ use chrono::NaiveDate;
 use fund::common::heal::Leg;
 use fund::common::market::record::BarInterval;
 use fund::common::storage::{
-    BarsKey, Host, JournalKey, Key, LogsKey, Origin, Provider, QuotesKey, ReferenceKey,
-    ReferenceTable, Service, TradesKey,
+    Host, JournalKey, Key, LogsKey, Origin, Provider, QuotesKey, ReferenceKey, ReferenceTable,
+    Service, TradesKey,
 };
 use fund::common::time::SessionDate;
 use strum::IntoEnumIterator;
@@ -82,26 +82,18 @@ fn real(answers: &[(&str, Answer)], profile: &str) -> (i32, String) {
 /// The archive's market data views in `views.sql` order, each answering as the daily or the minute bars do.
 fn bars(daily: Answer, minute: Answer) -> Vec<(&'static str, Answer)> {
     vec![
-        ("alpaca_minute_bars", minute),
-        ("alpaca_five_minute_bars", minute),
         ("alpaca_minute_quote_bars", minute),
         ("alpaca_five_minute_quote_bars", minute),
         ("alpaca_daily_quote_bars", daily),
         ("alpaca_minute_trade_bars", minute),
         ("alpaca_five_minute_trade_bars", minute),
         ("alpaca_daily_trade_bars", daily),
-        ("massive_minute_bars", minute),
-        ("massive_five_minute_bars", minute),
-        ("massive_daily_bars", daily),
         ("massive_minute_quote_bars", minute),
         ("massive_five_minute_quote_bars", minute),
         ("massive_daily_quote_bars", daily),
         ("massive_minute_trade_bars", minute),
         ("massive_five_minute_trade_bars", minute),
         ("massive_daily_trade_bars", daily),
-        ("minute_bars", minute),
-        ("five_minute_bars", minute),
-        ("daily_bars", daily),
         ("minute_quote_bars", minute),
         ("five_minute_quote_bars", minute),
         ("daily_quote_bars", daily),
@@ -136,26 +128,18 @@ fn test_every_view_in_views_sql_is_checked() {
     assert_eq!(
         reported(&output),
         [
-            "alpaca_minute_bars",
-            "alpaca_five_minute_bars",
             "alpaca_minute_quote_bars",
             "alpaca_five_minute_quote_bars",
             "alpaca_daily_quote_bars",
             "alpaca_minute_trade_bars",
             "alpaca_five_minute_trade_bars",
             "alpaca_daily_trade_bars",
-            "massive_minute_bars",
-            "massive_five_minute_bars",
-            "massive_daily_bars",
             "massive_minute_quote_bars",
             "massive_five_minute_quote_bars",
             "massive_daily_quote_bars",
             "massive_minute_trade_bars",
             "massive_five_minute_trade_bars",
             "massive_daily_trade_bars",
-            "minute_bars",
-            "five_minute_bars",
-            "daily_bars",
             "minute_quote_bars",
             "five_minute_quote_bars",
             "daily_quote_bars",
@@ -172,8 +156,14 @@ fn test_every_view_in_views_sql_is_checked() {
             "bar_seam"
         ]
     );
-    assert!(output.contains("\nminute_bars: reads rows\n"), "{output}");
-    assert!(output.contains("\ndaily_bars: reads rows\n"), "{output}");
+    assert!(
+        output.contains("\nminute_trade_bars: reads rows\n"),
+        "{output}"
+    );
+    assert!(
+        output.contains("\ndaily_trade_bars: reads rows\n"),
+        "{output}"
+    );
     assert_eq!(status, 0, "{output}");
 }
 
@@ -182,7 +172,7 @@ fn test_an_empty_view_fails() {
     let (status, output) = real(&bars(Answer::Rows(0), Answer::Rows(7)), "production");
     assert_eq!(status, 3, "{output}");
     assert!(
-        output.contains("massive_daily_bars: reads no rows"),
+        output.contains("massive_daily_trade_bars: reads no rows"),
         "{output}"
     );
 }
@@ -195,7 +185,7 @@ fn test_a_view_that_does_not_create_fails() {
     );
     assert_eq!(status, 3, "{output}");
     assert!(
-        output.contains("alpaca_minute_bars: did not create: Binder Error: no column"),
+        output.contains("alpaca_minute_quote_bars: did not create: Binder Error: no column"),
         "{output}"
     );
 }
@@ -368,7 +358,7 @@ fn test_every_view_ends_on_its_first_line_ending_in_a_semicolon() {
         );
         ended.push(view);
     }
-    assert_eq!(ended.len(), 34, "{ended:?}");
+    assert_eq!(ended.len(), 26, "{ended:?}");
 }
 
 /// Each `(bucket, series)` the views of `views.sql` pass to the `sessions`, `snapshots` and `preferred` macros, in file
@@ -408,15 +398,7 @@ fn macro_series() -> Vec<(String, String)> {
 /// Every parsed archive series the views cover, built from its parts.
 fn archive_keys() -> Vec<Key> {
     let session = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 8).unwrap());
-    let bars =
-        |provider, origin, interval| Key::from(BarsKey::new(provider, origin, interval, session));
-    let mut keys = vec![
-        bars(Provider::Alpaca, Origin::Vendor, BarInterval::OneMinute),
-        bars(Provider::Alpaca, Origin::Derived, BarInterval::FiveMinute),
-        bars(Provider::Massive, Origin::Vendor, BarInterval::OneMinute),
-        bars(Provider::Massive, Origin::Derived, BarInterval::FiveMinute),
-        bars(Provider::Massive, Origin::Vendor, BarInterval::OneDay),
-    ];
+    let mut keys = Vec::new();
     for provider in [Provider::Alpaca, Provider::Massive] {
         for interval in BarInterval::iter() {
             keys.push(QuotesKey::new(provider, Origin::Derived, interval, session).into());
@@ -459,9 +441,9 @@ fn test_every_series_views_sql_reads_is_a_key_series() {
         keys.push(LogsKey::new(host, Service::new("archive_nightly").unwrap(), session).into());
     }
     let called = macro_series();
-    // 21 series views, `daily_bars`, the eight other neutral views' two reads each, `journal`, `logs`,
-    // `experiments`, and `bar_seam`'s two reads.
-    assert_eq!(called.len(), 43, "{called:?}");
+    // 16 series views, the six neutral views' two reads each, `journal`, `logs`, `experiments`, and `bar_seam`'s two
+    // reads.
+    assert_eq!(called.len(), 33, "{called:?}");
     for (bucket, series) in &called {
         let expected_bucket = if series.starts_with("records/") {
             "records_bucket"
@@ -503,11 +485,7 @@ fn test_every_archive_series_the_nightly_writes_has_a_view() {
                 .map(|interval| daily.at_interval(interval).into())
                 .collect(),
             Key::RawQuotes { .. } | Key::RawTrades { .. } | Key::RawReference(..) => Vec::new(),
-            Key::Bars(..)
-            | Key::Reference(..)
-            | Key::RawBars { .. }
-            | Key::Journal(..)
-            | Key::Logs(..) => vec![key],
+            Key::Reference(..) | Key::Journal(..) | Key::Logs(..) => vec![key],
         };
         for key in written {
             assert!(archive.contains(&key), "{leg} writes {}", key.series());

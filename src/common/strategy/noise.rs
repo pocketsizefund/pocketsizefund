@@ -50,16 +50,18 @@ impl Strategy for Noise {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, NaiveDate, Utc};
+    use chrono::{DateTime, NaiveDate, TimeDelta, Utc};
     use proptest::prelude::{any, prop, prop_assert_eq, proptest};
     use proptest::strategy::Strategy as _;
 
     use super::*;
     use crate::common::book::Cash;
     use crate::common::laboratory::cost::{BasisPoints, FillStyle};
-    use crate::common::market::Price;
-    use crate::common::market::record::{Bar, BarInterval, BarPrices};
+    use crate::common::market::aggregate::TradeTotals;
+    use crate::common::market::record::BarInterval;
     use crate::common::market::state::MarketEvent;
+    use crate::common::market::trade_bars::{HighLow, OpenClose, TradeBar, TradeSums};
+    use crate::common::market::{DollarVolume, Price, StampedPrice, TradeCount};
     use crate::common::monoid::{Monoid, concatenate};
     use crate::common::replay::{FillModel, Replay, Replayer};
     use crate::common::time::SessionDate;
@@ -95,23 +97,37 @@ mod tests {
         MarketState::of(MarketEvent::Clock(day(index)))
     }
 
-    fn daily(raw: &str, index: i64, ticks: i64) -> Bar {
-        let price = Price::from_ticks(ticks).unwrap();
-        Bar::new(
+    fn daily(raw: &str, index: i64, ticks: i64) -> TradeBar {
+        daily_at(raw, day(index), ticks)
+    }
+
+    /// A daily trade bar closing at `close` at one price, its only print a second before.
+    fn daily_at(raw: &str, close: DateTime<Utc>, ticks: i64) -> TradeBar {
+        let price = StampedPrice::new(
+            close - TimeDelta::seconds(1),
+            Price::from_ticks(ticks).unwrap(),
+        );
+        let shares = Shares::whole(100).unwrap();
+        TradeBar::new(
             symbol(raw),
             BarInterval::OneDay,
-            day(index),
-            BarPrices::new(price, price, price, price).unwrap(),
-            Shares::whole(100).unwrap(),
-            None,
-            None,
+            close,
+            TradeSums::new(
+                TradeTotals::new(
+                    TradeCount::new(1),
+                    shares,
+                    DollarVolume::of(price.price(), shares),
+                ),
+                Some(OpenClose::new(price, price).unwrap()),
+                Some(HighLow::new(price.price(), price.price()).unwrap()),
+            ),
         )
         .unwrap()
     }
 
     /// Daily bars at arbitrary prices over a stream of any length, with sessions skipped and any of the three symbols
     /// missing from any session.
-    fn arbitrary_stream() -> impl prop::strategy::Strategy<Value = Vec<Bar>> {
+    fn arbitrary_stream() -> impl prop::strategy::Strategy<Value = Vec<TradeBar>> {
         prop::collection::vec(
             (
                 1..4i64,
@@ -234,7 +250,7 @@ mod tests {
                 FillModel::new(FillStyle::Aggressive, BasisPoints::new(spread).unwrap()).unwrap(),
                 BarInterval::OneDay,
             )
-            .act(Replay::open(Book::funded(opening)), bars.iter().map(|bar| bar.at_price(flat)))
+            .act(Replay::open(Book::funded(opening)), bars.iter().map(|bar| daily_at(bar.symbol().as_str(), bar.timestamp(), flat.ticks())))
             .unwrap()
             .finish();
             prop_assert_eq!(replay.book().value(|_| Some(flat)), Ok(opening.combine(costs(&replay))));

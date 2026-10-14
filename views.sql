@@ -136,14 +136,6 @@ FULL OUTER JOIN archive
 CREATE OR REPLACE MACRO bar_seam_on(day) AS TABLE
 SELECT * FROM bar_seam_over(strftime(day, 'year=%Y/month=%m/day=%d'));
 
--- Alpaca's SIP one-minute bars over the whole Eastern day, extended hours included.
-CREATE OR REPLACE VIEW alpaca_minute_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/');
-
--- Five-minute bars the nightly rolls up from Alpaca's one-minute bars.
-CREATE OR REPLACE VIEW alpaca_five_minute_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/');
-
 -- One-minute quote bars the nightly folds from Alpaca's SIP quotes.
 CREATE OR REPLACE VIEW alpaca_minute_quote_bars AS
 SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_minute/');
@@ -168,18 +160,6 @@ SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/pr
 CREATE OR REPLACE VIEW alpaca_daily_trade_bars AS
 SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_day/');
 
--- Massive's one-minute bars from its flat files, back to 2003; no nightly leg extends it.
-CREATE OR REPLACE VIEW massive_minute_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_minute/');
-
--- Five-minute bars rolled up from Massive's one-minute bars.
-CREATE OR REPLACE VIEW massive_five_minute_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=massive/origin=derived/interval=five_minute/');
-
--- Massive's grouped daily, one bar per symbol per session, stamped at the 16:00 Eastern close.
-CREATE OR REPLACE VIEW massive_daily_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/');
-
 -- One-minute quote bars folded from Massive's quote flat files, time-weighted over regular hours.
 CREATE OR REPLACE VIEW massive_minute_quote_bars AS
 SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=one_minute/');
@@ -203,24 +183,6 @@ SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/pr
 -- Daily trade bars rolled up from Massive's one-minute trade bars.
 CREATE OR REPLACE VIEW massive_daily_trade_bars AS
 SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_day/');
-
--- One-minute bars from either provider, one provider per session.
-CREATE OR REPLACE VIEW minute_bars AS
-SELECT * FROM preferred(
-    'data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_minute/',
-    'data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/'
-);
-
--- Five-minute bars from either provider, one provider per session.
-CREATE OR REPLACE VIEW five_minute_bars AS
-SELECT * FROM preferred(
-    'data/equity/stage=parsed/bars/provider=massive/origin=derived/interval=five_minute/',
-    'data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/'
-);
-
--- Daily bars, which only Massive carries.
-CREATE OR REPLACE VIEW daily_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/bars/provider=massive/origin=vendor/interval=one_day/');
 
 -- One-minute quote bars from either provider, one provider per session.
 CREATE OR REPLACE VIEW minute_quote_bars AS

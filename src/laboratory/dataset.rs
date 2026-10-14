@@ -2,29 +2,28 @@
 
 use std::collections::BTreeMap;
 
-use crate::archive::bars::Provenance;
+use crate::archive::provenance::Provenance;
 use crate::archive::{Archive, ArchiveError, parquet, trade_bars};
-use crate::common::heal::massive_daily_bars;
 use crate::common::journal::RunId;
 use crate::common::laboratory::dataset::{
     Contamination, DatasetLeg, Fingerprint, FingerprintRefusal, PartitionRead,
 };
 use crate::common::laboratory::series::{Series, SeriesRefusal};
-use crate::common::market::record::{Bar, BarInterval, Partition};
+use crate::common::market::record::{BarInterval, Partition};
 use crate::common::market::trade_bars::TradeBar;
 use crate::common::storage::{Key, Origin, Provider, TradesKey};
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::laboratory::Study;
 
-/// Bars of one kind by session and the lineage of the partitions they came from.
+/// Trade bars by session and the lineage of the partitions they came from.
 #[derive(Debug)]
-pub struct Dataset<B = Bar> {
-    bars: BTreeMap<SessionDate, Partition<B>>,
+pub struct Dataset {
+    bars: BTreeMap<SessionDate, Partition<TradeBar>>,
     lineage: Lineage,
 }
 
-/// What a dataset read, whatever its kind: the fingerprint of its partitions and the run whose journal holds the read.
+/// What a dataset read: the fingerprint of its partitions and the run whose journal holds the read.
 #[derive(Debug)]
 pub struct Lineage {
     fingerprint: Fingerprint,
@@ -41,8 +40,8 @@ impl Lineage {
     }
 }
 
-impl<B> Dataset<B> {
-    pub fn bars(&self) -> &BTreeMap<SessionDate, Partition<B>> {
+impl Dataset {
+    pub fn bars(&self) -> &BTreeMap<SessionDate, Partition<TradeBar>> {
         &self.bars
     }
 
@@ -55,7 +54,10 @@ impl<B> Dataset<B> {
     }
 
     /// One reading per session read, `read` folding that session's bars; a missing session stays out of the series.
-    pub fn series(&self, read: impl Fn(&[B]) -> Option<f64>) -> Result<Series, SeriesRefusal> {
+    pub fn series(
+        &self,
+        read: impl Fn(&[TradeBar]) -> Option<f64>,
+    ) -> Result<Series, SeriesRefusal> {
         Series::new(
             self.bars
                 .iter()
@@ -88,7 +90,7 @@ pub async fn trade_bars(
     range: SessionRange,
     interval: BarInterval,
     study: &mut Study,
-) -> Result<Dataset<TradeBar>, DatasetError> {
+) -> Result<Dataset, DatasetError> {
     load(
         DatasetLeg::trade_bars(interval),
         calendar,
@@ -130,13 +132,15 @@ fn trade_keys(interval: BarInterval, session: SessionDate) -> [(Provider, Trades
 
 /// `leg`'s bars for every trading session in `range`, each read by `partition`, journaled to `study` before it is
 /// returned.
-async fn load<B>(
+async fn load(
     leg: DatasetLeg,
     calendar: &TradingCalendar,
     range: SessionRange,
     study: &mut Study,
-    partition: impl AsyncFn(SessionDate) -> Result<Option<(Partition<B>, PartitionRead)>, DatasetError>,
-) -> Result<Dataset<B>, DatasetError> {
+    partition: impl AsyncFn(
+        SessionDate,
+    ) -> Result<Option<(Partition<TradeBar>, PartitionRead)>, DatasetError>,
+) -> Result<Dataset, DatasetError> {
     // Taken empty first, so the window is checked before any read and its missing sessions are the ones to read.
     let owed =
         Fingerprint::new(leg, range, calendar, BTreeMap::new()).map_err(DatasetError::Window)?;
@@ -188,12 +192,9 @@ pub async fn lineage(
 ) -> Result<Vec<Contamination>, ArchiveError> {
     let mut current = BTreeMap::new();
     for session in fingerprint.partitions().keys() {
-        let candidates: Vec<(Provider, Key)> = match fingerprint.leg().trades_interval() {
-            None => vec![(Provider::Massive, massive_daily_bars(*session).into())],
-            Some(interval) => trade_keys(interval, *session)
-                .map(|(provider, key)| (provider, key.into()))
-                .into(),
-        };
+        let candidates: Vec<(Provider, Key)> = trade_keys(fingerprint.leg().interval(), *session)
+            .map(|(provider, key)| (provider, key.into()))
+            .into();
         let found = preferred(candidates, async |provider, key| {
             Ok::<_, ArchiveError>(
                 archive
@@ -212,14 +213,16 @@ pub async fn lineage(
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use chrono::NaiveDate;
+    use chrono::{DateTime, NaiveDate, Utc};
 
     use super::*;
     use crate::common::journal::{Observation, ReadLine, read};
     use crate::common::laboratory::estimate::{Estimate, summarize};
     use crate::common::laboratory::experiment::{Label, Outputs, Parameters};
-    use crate::common::market::record::{BarInterval, BarPrices};
-    use crate::common::market::{Price, Shares, Symbol};
+    use crate::common::market::aggregate::TradeTotals;
+    use crate::common::market::record::BarInterval;
+    use crate::common::market::trade_bars::{HighLow, OpenClose, TradeBar, TradeSums};
+    use crate::common::market::{DollarVolume, Price, Shares, StampedPrice, Symbol, TradeCount};
     use crate::common::storage::{EntityTag, Host, JournalKey};
     use crate::common::time::calendar::TradingSession;
     use crate::ingest::alpaca::Alpaca;
@@ -243,25 +246,55 @@ pub(crate) mod tests {
         .unwrap()
     }
 
+    /// AAPL's trade bar at `timestamp`, opening at its start and closing a second before its end, over 100 shares.
+    fn trade_bar(
+        interval: BarInterval,
+        timestamp: DateTime<Utc>,
+        [open, high, low, close]: [f64; 4],
+    ) -> TradeBar {
+        let price = |dollars: f64| Price::from_dollars(dollars).unwrap();
+        let ends = interval.ends(timestamp);
+        let opened = match interval {
+            BarInterval::OneMinute | BarInterval::FiveMinute => timestamp,
+            BarInterval::OneDay => ends - chrono::TimeDelta::minutes(390),
+        };
+        let shares = Shares::from_float(100.0).unwrap();
+        TradeBar::new(
+            Symbol::new("AAPL").unwrap(),
+            interval,
+            timestamp,
+            TradeSums::new(
+                TradeTotals::new(
+                    TradeCount::new(1),
+                    shares,
+                    DollarVolume::of(price(close), shares),
+                ),
+                Some(
+                    OpenClose::new(
+                        StampedPrice::new(opened, price(open)),
+                        StampedPrice::new(ends - chrono::TimeDelta::seconds(1), price(close)),
+                    )
+                    .unwrap(),
+                ),
+                Some(HighLow::new(price(high), price(low)).unwrap()),
+            ),
+        )
+        .unwrap()
+    }
+
     /// `dataset` with each session read as two AAPL minute bars an hour before the close, opening at $10.
     pub(crate) fn minute_dataset(run: RunId) -> Dataset {
         let mut dataset = dataset(run);
-        let price = |dollars: f64| Price::from_dollars(dollars).unwrap();
         dataset.bars = dataset
             .bars
             .into_keys()
             .map(|day| {
                 let minutes = [60, 59].map(|before| {
-                    Bar::new(
-                        Symbol::new("AAPL").unwrap(),
+                    trade_bar(
                         BarInterval::OneMinute,
                         day.regular_close() - chrono::TimeDelta::minutes(before),
-                        BarPrices::new(price(10.0), price(10.0), price(10.0), price(10.0)).unwrap(),
-                        Shares::from_float(100.0).unwrap(),
-                        None,
-                        None,
+                        [10.0; 4],
                     )
-                    .unwrap()
                 });
                 (day, Partition::try_from(minutes.to_vec()).unwrap())
             })
@@ -272,18 +305,12 @@ pub(crate) mod tests {
     /// Sessions 0, 1 and 3 read by `run` with one, two and three bars, and session 2 missing.
     pub(crate) fn dataset(run: RunId) -> Dataset {
         let calendar = calendar();
-        let price = |dollars: f64| Price::from_dollars(dollars).unwrap();
         let bars = |day: i64, count: usize| {
-            let bar = Bar::new(
-                Symbol::new("AAPL").unwrap(),
+            let bar = trade_bar(
                 BarInterval::OneDay,
                 session(day).regular_close(),
-                BarPrices::new(price(10.0), price(12.0), price(9.5), price(11.0)).unwrap(),
-                Shares::from_float(100.0).unwrap(),
-                None,
-                None,
-            )
-            .unwrap();
+                [10.0, 12.0, 9.5, 11.0],
+            );
             (session(day), Partition::try_from(vec![bar; count]).unwrap())
         };
         let read = [0, 1, 3]
@@ -301,7 +328,7 @@ pub(crate) mod tests {
             bars: [bars(0, 1), bars(1, 2), bars(3, 3)].into(),
             lineage: Lineage {
                 fingerprint: Fingerprint::new(
-                    DatasetLeg::DailyVendorBars,
+                    DatasetLeg::DailyTradeBars,
                     SessionRange::new(session(0), session(3)).unwrap(),
                     &calendar,
                     read,

@@ -11,7 +11,7 @@ use crate::common::book::{Book, Cash, Fill, Side, ValuationRefusal};
 use crate::common::guard::{OrderGuarded, Tradability, guard};
 use crate::common::laboratory::cost::{BasisPoints, CostModel, CostRefusal, FillStyle};
 use crate::common::laboratory::series::{Series, SeriesRefusal};
-use crate::common::market::record::{Bar, BarInterval};
+use crate::common::market::record::BarInterval;
 use crate::common::market::state::{MarketEvent, MarketState};
 use crate::common::market::trade_bars::TradeBar;
 use crate::common::market::{DollarVolume, Price, Symbol};
@@ -21,94 +21,11 @@ use crate::common::strategy::{Order, Strategy, orders};
 use crate::common::time::SessionDate;
 use crate::common::time::calendar::TradingCalendar;
 
-mod sealed {
-    pub trait Sealed {}
-
-    impl Sealed for super::Bar {}
-    impl Sealed for super::TradeBar {}
-}
-
-/// A bar a replay steps over and fills against, sealed to vendor and derived trade bars; a `Replay` is typed by the kind
-/// it steps over, so one replay never mixes the two.
-///
-/// ```
-/// # use fund::common::market::trade_bars::TradeBar;
-/// # use fund::common::replay::{Replay, Replayer};
-/// # use fund::common::strategy::Strategy;
-/// fn trades<S: Strategy>(replayer: &Replayer<S>, replay: Replay<TradeBar>, bars: Vec<TradeBar>) {
-///     let _ = replayer.act(replay, bars);
-/// }
-/// ```
-///
-/// ```compile_fail
-/// # use fund::common::market::trade_bars::TradeBar;
-/// # use fund::common::replay::{Replay, Replayer};
-/// # use fund::common::strategy::Strategy;
-/// fn mixed<S: Strategy>(replayer: &Replayer<S>, replay: Replay, bars: Vec<TradeBar>) {
-///     let _ = replayer.act(replay, bars);
-/// }
-/// ```
-pub trait Tape: sealed::Sealed + Clone + PartialEq {
-    fn symbol(&self) -> &Symbol;
-
-    fn interval(&self) -> BarInterval;
-
-    fn timestamp(&self) -> DateTime<Utc>;
-
-    /// The price an order reaching this bar fills at, absent when the bar holds no priced print.
-    fn opening_price(&self) -> Option<Price>;
-
-    fn event(self) -> MarketEvent;
-
-    fn ends(&self) -> DateTime<Utc> {
-        self.interval().ends(self.timestamp())
-    }
-}
-
-impl Tape for Bar {
-    fn symbol(&self) -> &Symbol {
-        Bar::symbol(self)
-    }
-
-    fn interval(&self) -> BarInterval {
-        Bar::interval(self)
-    }
-
-    fn timestamp(&self) -> DateTime<Utc> {
-        Bar::timestamp(self)
-    }
-
-    fn opening_price(&self) -> Option<Price> {
-        Some(self.prices().open())
-    }
-
-    fn event(self) -> MarketEvent {
-        MarketEvent::Bar(self)
-    }
-}
-
-impl Tape for TradeBar {
-    fn symbol(&self) -> &Symbol {
-        TradeBar::symbol(self)
-    }
-
-    fn interval(&self) -> BarInterval {
-        TradeBar::interval(self)
-    }
-
-    fn timestamp(&self) -> DateTime<Utc> {
-        TradeBar::timestamp(self)
-    }
-
-    fn opening_price(&self) -> Option<Price> {
-        self.sums()
-            .open_close()
-            .map(|open_close| open_close.open().price())
-    }
-
-    fn event(self) -> MarketEvent {
-        MarketEvent::Trades(self)
-    }
+/// The price an order reaching `bar` fills at, absent when the bar holds no priced print.
+fn opening_price(bar: &TradeBar) -> Option<Price> {
+    bar.sums()
+        .open_close()
+        .map(|open_close| open_close.open().price())
 }
 
 /// The grid a crossing's charge is rounded to: hundred-millionths of the notional, so a basis point is 10,000.
@@ -279,10 +196,10 @@ pub enum ControlsRefusal {
     },
 }
 
-/// A replay so far over bars of kind `B`: the state and book it has reached, the orders awaiting the next bar, and what
+/// A replay so far over trade bars: the state and book it has reached, the orders awaiting the next bar, and what
 /// happened.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Replay<B = Bar> {
+pub struct Replay {
     state: MarketState,
     book: Book,
     pending: Vec<Order>,
@@ -294,7 +211,6 @@ pub struct Replay<B = Bar> {
     /// Under restraint, what risk cut at each decision, or why it could not judge and nothing was sent.
     restraints: BTreeMap<DateTime<Utc>, Result<Vec<Cut>, ValuationRefusal>>,
     held: Vec<(DateTime<Utc>, OrderGuarded)>,
-    kind: std::marker::PhantomData<fn() -> B>,
 }
 
 /// Why a stretch of bars was refused.
@@ -313,7 +229,7 @@ pub enum ReplayRefusal {
     },
 }
 
-impl<B> Replay<B> {
+impl Replay {
     /// A replay that has seen nothing, holding `book`.
     pub fn open(book: Book) -> Self {
         Self {
@@ -326,7 +242,6 @@ impl<B> Replay<B> {
             marks: BTreeMap::new(),
             restraints: BTreeMap::new(),
             held: Vec::new(),
-            kind: std::marker::PhantomData,
         }
     }
 
@@ -466,15 +381,20 @@ impl<S: Strategy> Replayer<S> {
 
     /// Replays `bars` from where `replay` stopped, grouped by the instant each ends; refused, unchanged, when a bar
     /// ends no later than what was already replayed.
-    pub fn act<B: Tape>(
+    pub fn act(
         &self,
-        replay: Replay<B>,
-        bars: impl IntoIterator<Item = B>,
-    ) -> Result<Replay<B>, ReplayRefusal> {
+        replay: Replay,
+        bars: impl IntoIterator<Item = TradeBar>,
+    ) -> Result<Replay, ReplayRefusal> {
         // Keyed per series and instant, so a repeated bar counts once and a conflicting one cannot pick the fill.
-        let mut distinct: BTreeMap<(DateTime<Utc>, Symbol, BarInterval), B> = BTreeMap::new();
+        let mut distinct: BTreeMap<(DateTime<Utc>, Symbol, BarInterval), TradeBar> =
+            BTreeMap::new();
         for bar in bars {
-            let key = (bar.ends(), bar.symbol().clone(), bar.interval());
+            let key = (
+                bar.interval().ends(bar.timestamp()),
+                bar.symbol().clone(),
+                bar.interval(),
+            );
             match distinct.get(&key) {
                 Some(kept) if kept != &bar => {
                     return Err(ReplayRefusal::Conflicting {
@@ -489,7 +409,7 @@ impl<S: Strategy> Replayer<S> {
                 }
             }
         }
-        let mut stretch: BTreeMap<DateTime<Utc>, Vec<B>> = BTreeMap::new();
+        let mut stretch: BTreeMap<DateTime<Utc>, Vec<TradeBar>> = BTreeMap::new();
         for ((ends, _, _), bar) in distinct {
             stretch.entry(ends).or_default().push(bar);
         }
@@ -504,7 +424,7 @@ impl<S: Strategy> Replayer<S> {
     }
 
     /// When a decision bar closes here, fills the pending orders at these bars' opens, folds the bars in and decides.
-    fn step<B: Tape>(&self, mut replay: Replay<B>, ends: DateTime<Utc>, bars: Vec<B>) -> Replay<B> {
+    fn step(&self, mut replay: Replay, ends: DateTime<Utc>, bars: Vec<TradeBar>) -> Replay {
         let decides = bars.iter().any(|bar| bar.interval() == self.decision);
         let pending = if decides {
             std::mem::take(&mut replay.pending)
@@ -525,7 +445,7 @@ impl<S: Strategy> Replayer<S> {
         }
         replay.state = replay.state.combine(concatenate(
             bars.into_iter()
-                .map(Tape::event)
+                .map(MarketEvent::Trades)
                 .chain([MarketEvent::Clock(ends)])
                 .map(MarketState::of),
         ));
@@ -575,11 +495,11 @@ impl<S: Strategy> Replayer<S> {
         replay
     }
 
-    fn fill<B: Tape>(
+    fn fill(
         &self,
         book: &Book,
         order: Order,
-        opening: Option<&B>,
+        opening: Option<&TradeBar>,
         at: DateTime<Utc>,
     ) -> Result<Fill, Unfilled> {
         let Some(bar) = opening else {
@@ -589,7 +509,7 @@ impl<S: Strategy> Replayer<S> {
                 cause: UnfilledCause::NoBar,
             });
         };
-        let Some(price) = bar.opening_price() else {
+        let Some(price) = opening_price(bar) else {
             return Err(Unfilled {
                 order,
                 at,
@@ -632,7 +552,6 @@ mod tests {
 
     use super::*;
     use crate::common::market::aggregate::TradeTotals;
-    use crate::common::market::record::BarPrices;
     use crate::common::market::trade_bars::{HighLow, OpenClose, TradeSums};
     use crate::common::market::{Price, Shares, StampedPrice, TradeCount};
     use crate::common::strategy::Strategy;
@@ -686,25 +605,39 @@ mod tests {
             .regular_close()
     }
 
+    /// `raw`'s trade bar at `timestamp`, opening at the bar's start and closing a second before its end.
     fn bar(
         raw: &str,
         interval: BarInterval,
         timestamp: DateTime<Utc>,
         open: i64,
         close: i64,
-    ) -> Bar {
+    ) -> TradeBar {
         let (open, close) = (
             Price::from_ticks(open).unwrap(),
             Price::from_ticks(close).unwrap(),
         );
-        Bar::new(
+        let ends = interval.ends(timestamp);
+        let opened = match interval {
+            BarInterval::OneMinute | BarInterval::FiveMinute => timestamp,
+            BarInterval::OneDay => ends - TimeDelta::minutes(390),
+        };
+        let shares = Shares::whole(100).unwrap();
+        TradeBar::new(
             symbol(raw),
             interval,
             timestamp,
-            BarPrices::new(open, open.max(close), open.min(close), close).unwrap(),
-            Shares::whole(100).unwrap(),
-            None,
-            None,
+            TradeSums::new(
+                TradeTotals::new(TradeCount::new(1), shares, DollarVolume::of(close, shares)),
+                Some(
+                    OpenClose::new(
+                        StampedPrice::new(opened, open),
+                        StampedPrice::new(ends - TimeDelta::seconds(1), close),
+                    )
+                    .unwrap(),
+                ),
+                Some(HighLow::new(open.max(close), open.min(close)).unwrap()),
+            ),
         )
         .unwrap()
     }
@@ -744,7 +677,7 @@ mod tests {
         .unwrap()
     }
 
-    fn daily(raw: &str, index: i64, open: i64, close: i64) -> Bar {
+    fn daily(raw: &str, index: i64, open: i64, close: i64) -> TradeBar {
         bar(raw, BarInterval::OneDay, day(index), open, close)
     }
 
@@ -1250,7 +1183,7 @@ mod tests {
     }
 
     /// Daily AAPL and MSFT bars over `days` days with arbitrary opens and closes.
-    fn arbitrary_stream(days: usize) -> impl prop::strategy::Strategy<Value = Vec<Bar>> {
+    fn arbitrary_stream(days: usize) -> impl prop::strategy::Strategy<Value = Vec<TradeBar>> {
         prop::collection::vec((1..50_000_000i64, 1..50_000_000i64, prop::bool::ANY), days).prop_map(
             |sessions| {
                 sessions
@@ -1283,7 +1216,7 @@ mod tests {
             );
             let opening = Replay::open(Book::funded(cash(1_000)));
             let (before, after): (Vec<_>, Vec<_>) =
-                bars.iter().cloned().partition(|bar| bar.ends() <= day(split));
+                bars.iter().cloned().partition(|bar| bar.interval().ends(bar.timestamp()) <= day(split));
             let stretched = replayer
                 .act(replayer.act(opening.clone(), before).unwrap(), after)
                 .unwrap();
@@ -1291,7 +1224,7 @@ mod tests {
             prop_assert_eq!(&replayer.act(opening.clone(), repeated).unwrap(), &stretched);
             let whole = replayer.act(opening.clone(), bars).unwrap();
             prop_assert_eq!(&stretched, &whole);
-            prop_assert_eq!(replayer.act(whole.clone(), Vec::<Bar>::new()).unwrap(), whole);
+            prop_assert_eq!(replayer.act(whole.clone(), Vec::<TradeBar>::new()).unwrap(), whole);
         }
 
         /// The book a replay reaches is its opening combined with each fill, so no cash appears outside a fill.

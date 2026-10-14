@@ -14,8 +14,8 @@ use arrow_array::{
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
 use chrono::{DateTime, Utc};
 
-use super::bars::{Provenance, provenance_from};
 use super::parquet::{self, ReadRefusal, RowCause};
+use super::provenance::{Provenance, provenance_from};
 use crate::common::market::aggregate::TradeTotals;
 use crate::common::market::record::Partition;
 use crate::common::market::trade_bars::{HighLow, OpenClose, TradeBar, TradeSums};
@@ -224,7 +224,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::archive::bars::Subscription;
+    use crate::archive::provenance::Subscription;
     use crate::common::journal::RunId;
     use crate::common::market::record::BarInterval;
     use crate::common::market::record::{PartitionRefusal, Trade};
@@ -363,6 +363,26 @@ mod tests {
         assert_eq!(read, written);
         assert_eq!(read.rows()[1].sums().open_close(), None);
         assert_eq!(read_provenance, provenance);
+        let alpaca = TradesKey::new(
+            Provider::Alpaca,
+            Origin::Derived,
+            BarInterval::OneMinute,
+            session,
+        );
+        assert_eq!(
+            encode(&alpaca, &written, &provenance),
+            Err(parquet::EncodeRefusal::SubscriptionProvider {
+                provenance: provenance.clone(),
+                key: Provider::Alpaca
+            })
+        );
+        assert_eq!(
+            decode(&alpaca, encode(&key, &written, &provenance).unwrap()).map(|_| ()),
+            Err(parquet::DecodeRefusal::Provider {
+                provenance,
+                key: Provider::Alpaca
+            })
+        );
     }
 
     #[test]

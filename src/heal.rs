@@ -15,26 +15,25 @@ use tokio::sync::mpsc::{self, Sender};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use crate::archive::bars::{Provenance, Subscription};
+use crate::archive::provenance::{Provenance, Subscription};
 use crate::archive::raw::TeeError;
 use crate::archive::reference::{
     conditions_key, decode_series_boundaries, encode_conditions, encode_security_details,
     encode_series_boundaries, encode_splits, latest_conditions, latest_snapshot,
 };
 use crate::archive::{self, Archive, ArchiveError};
-use crate::archive::{bars, quote_bars, trade_bars};
+use crate::archive::{quote_bars, trade_bars};
 use crate::common::heal::{
     Coverage, CoverageRefusal, Held, KeepsRefusal, Leg, PartitionFailureKind, SeriesListing,
-    SessionOutcome, WindowRefusal, alpaca_five_minute_bars, alpaca_minute_bars, alpaca_quotes,
-    alpaca_series_boundaries, alpaca_trades, fetched_range, massive_daily_bars,
-    massive_security_details, massive_splits, massive_traded_symbols, owed, window,
+    SessionOutcome, WindowRefusal, alpaca_quotes, alpaca_series_boundaries, alpaca_trades,
+    fetched_range, massive_security_details, massive_splits, massive_traded_symbols, owed, window,
 };
 use crate::common::journal::{
     ArchiveSurveyed, ConditionsWritten, ConfigurationResolved, HealFinished, Observation,
     PartitionFailed, PartitionWritten, Unanswered, quotes_folded, trades_folded,
 };
 use crate::common::market::Symbol;
-use crate::common::market::aggregate::{self, RollsUp, session_bars};
+use crate::common::market::aggregate::{RollsUp, session_bars};
 use crate::common::market::corporate_actions::refresh_boundaries;
 use crate::common::market::quote_bars::{QuoteFold, QuoteFoldRefusal};
 use crate::common::market::record::{Bar, BarInterval, Partition, PartitionRefusal};
@@ -46,9 +45,7 @@ use crate::common::storage::{Key, Provider, ReferenceKey, ReferenceTable, Series
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::ingest::alpaca::corporate_actions::SeriesBoundaries;
-use crate::ingest::alpaca::{
-    Alpaca, AlpacaQuoteOutcome, AlpacaTradeOutcome, MinuteBars, Page, invalid_symbol,
-};
+use crate::ingest::alpaca::{Alpaca, AlpacaQuoteOutcome, AlpacaTradeOutcome, Page, invalid_symbol};
 use crate::ingest::massive::{DetailsAnswer, Massive};
 use crate::ingest::{FetchError, Fetched, RefusedRow, SessionBars, refused_by_cause};
 use crate::journal::Journal;
@@ -56,9 +53,6 @@ use crate::parameter::{Directories, environment_variable};
 
 const DEFAULT_LOOKBACK_SESSIONS: NonZeroUsize = NonZeroUsize::new(5).expect("5 is not zero");
 const DEFAULT_BUDGET_MINUTES: NonZeroU64 = NonZeroU64::new(240).expect("240 is not zero");
-/// A whole-market session measured 2026-09-30 at about 33 s with these two.
-const DEFAULT_MINUTE_BATCH_SYMBOLS: NonZeroUsize = NonZeroUsize::new(200).expect("200 is not zero");
-const DEFAULT_MINUTE_CONCURRENCY: NonZeroUsize = NonZeroUsize::new(8).expect("8 is not zero");
 /// Each symbol's ticks are one serial chain of pages, so a session is bounded by its longest names.
 const DEFAULT_TICK_CONCURRENCY: NonZeroUsize = NonZeroUsize::new(16).expect("16 is not zero");
 /// Five years of sessions, as far back as Massive Starter reaches.
@@ -73,8 +67,6 @@ pub struct Parameters {
     lookback_sessions: NonZeroUsize,
     budget: Duration,
     directories: Directories,
-    minute_batch_symbols: NonZeroUsize,
-    minute_concurrency: NonZeroUsize,
     tick_concurrency: NonZeroUsize,
 }
 
@@ -111,16 +103,6 @@ impl Parameters {
             )?,
             budget: Duration::from_secs(budget_minutes.get() * 60),
             directories: Directories::resolved(supplied, &mut resolved)?,
-            minute_batch_symbols: record(
-                read(Parameter::MinuteBatchSymbols)?,
-                DEFAULT_MINUTE_BATCH_SYMBOLS,
-                &mut resolved,
-            )?,
-            minute_concurrency: record(
-                read(Parameter::MinuteConcurrency)?,
-                DEFAULT_MINUTE_CONCURRENCY,
-                &mut resolved,
-            )?,
             tick_concurrency: record(
                 read(Parameter::TickConcurrency)?,
                 DEFAULT_TICK_CONCURRENCY,
@@ -184,9 +166,6 @@ pub enum PartitionFailure {
     /// The session's grouped daily, which names its symbols, listed none; `key` is its traded-symbols partition.
     #[error("no symbols listed for {}", .key.path())]
     NoSymbols { key: Key },
-    /// The session's minute bars, which roll up into its five-minute bars, are not written.
-    #[error("no minute bars at {} to roll up", .key.path())]
-    NoMinutes { key: Key },
     #[error("{0}")]
     Fold(QuoteFoldRefusal),
     #[error("{0}")]
@@ -207,7 +186,6 @@ impl PartitionFailure {
             Self::Archive(_) => PartitionFailureKind::Archive,
             Self::Vanished { .. } => PartitionFailureKind::Vanished,
             Self::NoSymbols { .. } => PartitionFailureKind::NoSymbols,
-            Self::NoMinutes { .. } => PartitionFailureKind::NoMinutes,
             Self::Fold(_) => PartitionFailureKind::Fold,
             Self::Tee(_) => PartitionFailureKind::Tee,
             Self::Journal(_) => PartitionFailureKind::Journal,
@@ -427,10 +405,7 @@ async fn write(
     journal: &mut Journal,
 ) -> Result<PartitionWritten, PartitionFailure> {
     match leg {
-        Leg::MassiveDailyBars => write_daily_bars(session, clients, journal).await,
         Leg::MassiveTradedSymbols => write_traded_symbols(session, clients, journal).await,
-        Leg::AlpacaMinuteBars => write_minute_bars(session, parameters, clients, journal).await,
-        Leg::AlpacaFiveMinuteBars => write_five_minute_bars(session, clients).await,
         Leg::AlpacaQuotes => {
             let hours = calendar
                 .session(session)
@@ -511,41 +486,6 @@ async fn publish_ticks<K: Into<Key>, B: RollsUp, Refusal: Into<archive::EncodeRe
     Ok(written)
 }
 
-/// Writes Massive's grouped daily bars for the session.
-async fn write_daily_bars(
-    session: SessionDate,
-    clients: &Clients,
-    journal: &Journal,
-) -> Result<PartitionWritten, PartitionFailure> {
-    let daily = clients
-        .massive
-        .grouped_daily(session)
-        .await
-        .into_parts()
-        .0?;
-    if !daily.test_tickers().is_empty() {
-        tracing::info!(%session, test_tickers = daily.test_tickers().len(), "Exchange test tickers left out");
-    }
-    let provenance = fetched_now(Subscription::StocksStarter, journal);
-    let refused = refused_by_cause(daily.refused());
-    let bars = publish_partition(
-        clients.put(),
-        massive_daily_bars(session),
-        &partition(daily.into_bars())?,
-        &provenance,
-        bars::encode,
-    )
-    .await?;
-    Ok(PartitionWritten::new(
-        Leg::MassiveDailyBars,
-        session,
-        bars,
-        refused,
-        BTreeMap::new(),
-        BTreeMap::new(),
-    ))
-}
-
 /// Stores the session's grouped daily response raw as the list of symbols that traded, fetched apart from the one
 /// `symbol_list` gives the tick legs; nothing is parsed from it into the archive.
 async fn write_traded_symbols(
@@ -597,101 +537,6 @@ fn listed(
         }),
         false => Ok(daily),
     }
-}
-
-/// Writes Alpaca's one-minute bars for every symbol of the session, fetched in concurrent batches.
-async fn write_minute_bars(
-    session: SessionDate,
-    parameters: &Parameters,
-    clients: &Clients,
-    journal: &Journal,
-) -> Result<PartitionWritten, PartitionFailure> {
-    let symbols = symbol_list(clients, session).await?;
-    let minute: MinuteBars = in_batches(
-        &symbols,
-        parameters.minute_batch_symbols,
-        parameters.minute_concurrency,
-        |batch| {
-            let alpaca = Arc::clone(&clients.alpaca);
-            async move { alpaca.minute_bars(&batch, session).await }
-        },
-    )
-    .await?;
-    let unanswered = minute
-        .missing()
-        .iter()
-        .map(|symbol| (symbol.clone(), Unanswered::Missing))
-        .chain(
-            minute
-                .invalid()
-                .iter()
-                .map(|symbol| (symbol.clone(), Unanswered::Invalid)),
-        )
-        .collect();
-    let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
-    let refused = refused_by_cause(minute.refused());
-    let bars = publish_partition(
-        clients.put(),
-        alpaca_minute_bars(session),
-        &partition(minute.into_bars())?,
-        &provenance,
-        bars::encode,
-    )
-    .await?;
-    Ok(PartitionWritten::new(
-        Leg::AlpacaMinuteBars,
-        session,
-        bars,
-        refused,
-        unanswered,
-        BTreeMap::new(),
-    ))
-}
-
-/// Rolls the session's written Alpaca minute bars up to five minutes, under the minutes' own provenance.
-async fn write_five_minute_bars(
-    session: SessionDate,
-    clients: &Clients,
-) -> Result<PartitionWritten, PartitionFailure> {
-    let minutes = clients
-        .archive
-        .get(&Key::from(alpaca_minute_bars(session)))
-        .await?;
-    roll_up_minutes(session, minutes, clients.put()).await
-}
-
-/// Writes the five-minute bars of `session`'s Alpaca minute file, which is `None` when the archive holds none.
-async fn roll_up_minutes(
-    session: SessionDate,
-    minutes: Option<Vec<u8>>,
-    put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), ArchiveError>,
-) -> Result<PartitionWritten, PartitionFailure> {
-    let minute_key = alpaca_minute_bars(session);
-    let body = minutes.ok_or(PartitionFailure::NoMinutes {
-        key: minute_key.into(),
-    })?;
-    let (minutes, provenance) =
-        bars::decode(&minute_key, body).map_err(archive::DecodeRefusal::from)?;
-    let five_minutes = aggregate::roll_up(minutes.rows(), BarInterval::FiveMinute)
-        .expect("minutes roll up to five minutes");
-    let five_minutes = Partition::try_from(five_minutes)
-        .expect("a minute or more rolls up to a five-minute bar or more");
-    let bars = publish_partition(
-        put,
-        alpaca_five_minute_bars(session),
-        &five_minutes,
-        &provenance,
-        bars::encode,
-    )
-    .await?;
-    Ok(PartitionWritten::new(
-        Leg::AlpacaFiveMinuteBars,
-        session,
-        bars,
-        refused_by_cause(&[]),
-        BTreeMap::new(),
-        BTreeMap::new(),
-    ))
 }
 
 /// Writes Massive's whole split table as the session's snapshot.
@@ -1393,7 +1238,7 @@ mod tests {
         let (mut journal, directory) = temporary_journal();
         let mut seen = Vec::new();
         let outcomes = heal_leg(
-            Leg::MassiveDailyBars,
+            Leg::MassiveSplits,
             [first, second],
             far_deadline(),
             &mut journal,
@@ -1403,7 +1248,7 @@ mod tests {
                     Err(PartitionFailure::NoRows)
                 } else {
                     Ok(PartitionWritten::new(
-                        Leg::MassiveDailyBars,
+                        Leg::MassiveSplits,
                         session,
                         1,
                         Tally::default(),
@@ -1445,7 +1290,7 @@ mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
         let mut attempted = Vec::new();
         let refused = heal_leg(
-            Leg::MassiveDailyBars,
+            Leg::MassiveSplits,
             [first, second],
             far_deadline(),
             &mut refusing,
@@ -1486,7 +1331,7 @@ mod tests {
         let (mut journal, directory) = temporary_journal();
         let mut attempted = Vec::new();
         let outcomes = heal_leg(
-            Leg::MassiveDailyBars,
+            Leg::MassiveSplits,
             [first, second],
             Instant::now(),
             &mut journal,
@@ -1772,93 +1617,6 @@ mod tests {
         assert_eq!(*written.lock().unwrap(), Vec::<String>::new());
     }
 
-    /// The stored minutes land as five-minute bars under the derived key, carrying the minutes' provenance; a session
-    /// with no minute file is refused before anything is written.
-    #[tokio::test]
-    async fn test_minutes_roll_up_to_five_minutes_under_their_own_provenance() {
-        use crate::common::market::record::BarPrices;
-        use crate::common::market::{Price, Shares, TradeCount};
-        let [session, _] = sessions();
-        let provenance = Provenance::new(
-            Subscription::AlgoTraderPlus,
-            "2026-09-30T07:00:00Z".parse().unwrap(),
-            RunId::new(uuid::Uuid::from_u128(1)),
-            None,
-        );
-        let bar = |interval, at: &str, [open, high, low, close]: [f64; 4], shares, trades| {
-            let price = |dollars| Price::from_dollars(dollars).unwrap();
-            Bar::new(
-                Symbol::new("AAPL").unwrap(),
-                interval,
-                at.parse().unwrap(),
-                BarPrices::new(price(open), price(high), price(low), price(close)).unwrap(),
-                Shares::whole(shares).unwrap(),
-                Some(TradeCount::new(trades)),
-                None,
-            )
-            .unwrap()
-        };
-        let minutes = [
-            ("2026-09-29T13:30:00Z", [10.0, 11.0, 9.0, 10.5], 100, 2),
-            ("2026-09-29T13:31:00Z", [10.5, 12.0, 10.0, 11.5], 50, 1),
-            ("2026-09-29T13:35:00Z", [11.5, 11.5, 11.0, 11.25], 30, 4),
-        ]
-        .map(|(at, prices, shares, trades)| {
-            bar(BarInterval::OneMinute, at, prices, shares, trades)
-        });
-        let body = bars::encode(
-            &alpaca_minute_bars(session),
-            &Partition::try_from(minutes.to_vec()).unwrap(),
-            &provenance,
-        )
-        .unwrap();
-        let written = std::sync::Mutex::new(Vec::new());
-        let put = async |key: &Key, body| {
-            written.lock().unwrap().push((key.path(), body));
-            Ok(())
-        };
-
-        let outcome = roll_up_minutes(session, Some(body), &put).await.unwrap();
-        assert_eq!(outcome.leg(), Leg::AlpacaFiveMinuteBars);
-        assert_eq!(outcome.rows(), 2);
-        let [(path, body)]: [(String, Vec<u8>); 1] = std::mem::take(&mut *written.lock().unwrap())
-            .try_into()
-            .unwrap();
-        assert_eq!(
-            path,
-            "data/equity/stage=parsed/bars/provider=alpaca/origin=derived/interval=five_minute/year=2026/month=09/day=29/data.parquet"
-        );
-        let (five_minutes, read_provenance) =
-            bars::decode(&alpaca_five_minute_bars(session), body).unwrap();
-        assert_eq!(read_provenance, provenance);
-        assert_eq!(
-            five_minutes.rows(),
-            [
-                bar(
-                    BarInterval::FiveMinute,
-                    "2026-09-29T13:30:00Z",
-                    [10.0, 12.0, 9.0, 11.5],
-                    150,
-                    3
-                ),
-                bar(
-                    BarInterval::FiveMinute,
-                    "2026-09-29T13:35:00Z",
-                    [11.5, 11.5, 11.0, 11.25],
-                    30,
-                    4
-                ),
-            ]
-        );
-
-        let refused = roll_up_minutes(session, None, &put).await;
-        assert!(
-            matches!(&refused, Err(PartitionFailure::NoMinutes { key }) if *key == Key::from(alpaca_minute_bars(session))),
-            "{refused:?}"
-        );
-        assert!(written.lock().unwrap().is_empty());
-    }
-
     /// An empty fold is refused before anything is written, so the session is not marked held.
     #[tokio::test]
     async fn test_no_bars_are_refused_unwritten() {
@@ -1977,12 +1735,6 @@ mod tests {
                     "/var/log/fund",
                     ParameterSource::Default
                 ),
-                (
-                    Parameter::MinuteBatchSymbols,
-                    "200",
-                    ParameterSource::Default
-                ),
-                (Parameter::MinuteConcurrency, "8", ParameterSource::Default),
                 (Parameter::TickConcurrency, "16", ParameterSource::Default),
             ]
         );
