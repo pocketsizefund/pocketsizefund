@@ -305,7 +305,9 @@ if [[ "$ROLE" == archiver ]]; then
 ]}'
   changed "put lifecycle rules on $ARCHIVE_BUCKET"
   if [[ "$APPLY" == true ]]; then
-    aws s3api put-bucket-lifecycle-configuration --bucket "$ARCHIVE_BUCKET" --lifecycle-configuration "$LIFECYCLE"
+    # S3 otherwise skips transitioning objects under 128 KiB, which leaves a small raw response in Standard.
+    aws s3api put-bucket-lifecycle-configuration --bucket "$ARCHIVE_BUCKET" --lifecycle-configuration "$LIFECYCLE" \
+      --transition-default-minimum-object-size varies_by_storage_class
   fi
 fi
 

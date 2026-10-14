@@ -166,7 +166,8 @@ case "$1 $2" in
   "iam put-role-policy")
     value_of --policy-document "$@" > "$STUB_DIRECTORY/policy-$(value_of --policy-name "$@").json" ;;
   "s3api put-bucket-lifecycle-configuration")
-    value_of --lifecycle-configuration "$@" > "$STUB_DIRECTORY/lifecycle-$(value_of --bucket "$@").json" ;;
+    value_of --lifecycle-configuration "$@" > "$STUB_DIRECTORY/lifecycle-$(value_of --bucket "$@").json"
+    value_of --transition-default-minimum-object-size "$@" > "$STUB_DIRECTORY/lifecycle-$(value_of --bucket "$@").size" ;;
   "scheduler create-schedule" | "scheduler update-schedule")
     value_of --target "$@" > "$STUB_DIRECTORY/target-$(value_of --name "$@").json" ;;
   *) echo None ;;
@@ -836,7 +837,19 @@ fn test_the_archive_backstop_covers_exactly_the_keys_written_in_deep_archive() {
     let backstop = rule("raw-to-deep-archive-backstop");
     assert_eq!(backstop["Status"], "Enabled");
     assert_eq!(backstop["Transitions"][0]["StorageClass"], "DEEP_ARCHIVE");
+    assert_eq!(backstop["Transitions"][0]["Days"], 1);
+    assert_eq!(
+        std::fs::read_to_string(
+            provisioned
+                .directory
+                .join("lifecycle-oscm-fund-archive.size")
+        )
+        .unwrap()
+        .trim(),
+        "varies_by_storage_class"
+    );
     let abort = rule("abort-incomplete-multipart-uploads");
+    assert_eq!(abort["Status"], "Enabled");
     assert_eq!(abort["Filter"]["Prefix"], "");
     assert_eq!(
         abort["AbortIncompleteMultipartUpload"]["DaysAfterInitiation"],
