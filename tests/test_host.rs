@@ -139,8 +139,8 @@ fn test_every_host_is_a_role_of_both_scripts() {
     }
 }
 
-/// Stands in for the `aws` CLI: answers each call from `STUB_*`, saves every policy and schedule target it is handed
-/// under `STUB_DIRECTORY`, and logs each call's service and operation to `calls`.
+/// Stands in for the `aws` CLI: answers each call from `STUB_*`, saves every policy, schedule target and lifecycle
+/// configuration it is handed under `STUB_DIRECTORY`, and logs each call's service and operation to `calls`.
 const STUB: &str = r#"#!/usr/bin/env bash
 echo "$1 $2" >> "$STUB_DIRECTORY/calls"
 value_of() {
@@ -165,6 +165,9 @@ case "$1 $2" in
     esac ;;
   "iam put-role-policy")
     value_of --policy-document "$@" > "$STUB_DIRECTORY/policy-$(value_of --policy-name "$@").json" ;;
+  "s3api put-bucket-lifecycle-configuration")
+    value_of --lifecycle-configuration "$@" > "$STUB_DIRECTORY/lifecycle-$(value_of --bucket "$@").json"
+    value_of --transition-default-minimum-object-size "$@" > "$STUB_DIRECTORY/lifecycle-$(value_of --bucket "$@").size" ;;
   "scheduler create-schedule" | "scheduler update-schedule")
     value_of --target "$@" > "$STUB_DIRECTORY/target-$(value_of --name "$@").json" ;;
   *) echo None ;;
@@ -370,6 +373,7 @@ fn test_a_new_archiver_is_granted_its_prefixes_and_scheduled_once_bootstrapped()
     assert_eq!(
         written,
         [
+            "lifecycle-oscm-fund-archive.json",
             "policy-archiver.json",
             "policy-start-and-stop.json",
             "target-fund-archiver-production-start.json",
@@ -793,5 +797,139 @@ fn test_a_conditioned_grant_leaves_the_operation_ungranted() {
             &operations
         ),
         ["src/archive.rs list_objects_v2"]
+    );
+}
+
+#[test]
+fn test_the_archive_backstop_covers_exactly_the_keys_written_in_deep_archive() {
+    use fund::common::storage::{
+        JournalKey, Key, LogsKey, Provider, QuotesKey, ReferenceKey, ReferenceTable, Service,
+        StorageClass, TradesKey,
+    };
+    use fund::common::{market::record::BarInterval, time::SessionDate};
+
+    let provisioned = Provisioned::run("production", &[]);
+    assert_eq!(provisioned.code, 0, "{}", provisioned.output);
+    let rules = provisioned.json("lifecycle-oscm-fund-archive.json")["Rules"].clone();
+    let mut identifiers: Vec<&str> = rules
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|rule| rule["ID"].as_str().unwrap())
+        .collect();
+    identifiers.sort();
+    assert_eq!(
+        identifiers,
+        [
+            "abort-incomplete-multipart-uploads",
+            "raw-to-deep-archive-backstop"
+        ]
+    );
+    let rule = |identifier: &str| {
+        rules
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|rule| rule["ID"] == identifier)
+            .unwrap()
+            .clone()
+    };
+    let backstop = rule("raw-to-deep-archive-backstop");
+    assert_eq!(backstop["Status"], "Enabled");
+    assert_eq!(backstop["Transitions"][0]["StorageClass"], "DEEP_ARCHIVE");
+    assert_eq!(backstop["Transitions"][0]["Days"], 1);
+    assert_eq!(
+        std::fs::read_to_string(
+            provisioned
+                .directory
+                .join("lifecycle-oscm-fund-archive.size")
+        )
+        .unwrap()
+        .trim(),
+        "varies_by_storage_class"
+    );
+    let abort = rule("abort-incomplete-multipart-uploads");
+    assert_eq!(abort["Status"], "Enabled");
+    assert_eq!(abort["Filter"]["Prefix"], "");
+    assert_eq!(
+        abort["AbortIncompleteMultipartUpload"]["DaysAfterInitiation"],
+        7
+    );
+
+    let prefix = backstop["Filter"]["Prefix"].as_str().unwrap();
+    let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 14).unwrap());
+    let mut keys: Vec<Key> = vec![
+        JournalKey::new(Host::Archiver, session).into(),
+        LogsKey::new(
+            Host::Archiver,
+            Service::new("archive_nightly").unwrap(),
+            session,
+        )
+        .into(),
+    ];
+    for provider in Provider::iter() {
+        keys.push(Key::RawQuotes { provider, session });
+        keys.push(Key::RawTrades { provider, session });
+        keys.push(QuotesKey::new(provider, BarInterval::OneDay, session).into());
+        keys.push(TradesKey::new(provider, BarInterval::OneDay, session).into());
+        for table in ReferenceTable::iter() {
+            keys.push(Key::RawReference(ReferenceKey::new(
+                provider, table, session,
+            )));
+            keys.push(Key::Reference(ReferenceKey::new(provider, table, session)));
+        }
+    }
+    // No wildcard, so a new variant fails to compile here; the set proves every variant above was built.
+    let variants: std::collections::BTreeSet<&str> = keys
+        .iter()
+        .map(|key| match key {
+            Key::Quotes(..) => "quotes",
+            Key::Trades(..) => "trades",
+            Key::Reference(..) => "reference",
+            Key::RawQuotes { .. } => "raw_quotes",
+            Key::RawTrades { .. } => "raw_trades",
+            Key::RawReference(..) => "raw_reference",
+            Key::Journal(..) => "journal",
+            Key::Logs(..) => "logs",
+        })
+        .collect();
+    assert_eq!(
+        variants.into_iter().collect::<Vec<_>>(),
+        [
+            "journal",
+            "logs",
+            "quotes",
+            "raw_quotes",
+            "raw_reference",
+            "raw_trades",
+            "reference",
+            "trades"
+        ]
+    );
+    let deep = keys
+        .iter()
+        .filter(|key| key.storage_class() == StorageClass::DeepArchive)
+        .count();
+    assert!(deep > 0 && deep < keys.len(), "{deep} of {}", keys.len());
+    for key in &keys {
+        assert_eq!(
+            key.path().starts_with(prefix),
+            key.storage_class() == StorageClass::DeepArchive,
+            "{} under {prefix}",
+            key.path()
+        );
+    }
+}
+
+#[test]
+fn test_only_the_archiver_sets_the_archive_lifecycle() {
+    let provisioned = Provisioned::run_role("trader", "production", &[]);
+    assert_eq!(provisioned.code, 0, "{}", provisioned.output);
+    assert!(
+        !provisioned
+            .calls()
+            .contains(&"s3api put-bucket-lifecycle-configuration".to_string()),
+        "{:?}",
+        provisioned.calls()
     );
 }
