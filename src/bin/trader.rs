@@ -22,9 +22,7 @@ use fund::common::market::state::MarketState;
 use fund::common::market::{Price, Symbol};
 use fund::common::playbook::{Playbook, PlaybookRead, PlaybookRefusal, Played};
 use fund::common::standing::{HaltCause, SessionClosed, SessionEnding};
-use fund::common::storage::{
-    ConfigurationKey, Host, Key, ObjectKey, Origin, Provider, Service, TradesKey,
-};
+use fund::common::storage::{ConfigurationKey, Host, Key, ObjectKey, Provider, Service, TradesKey};
 use fund::common::time::calendar::TradingCalendar;
 use fund::common::time::{SessionDate, SessionRange};
 use fund::ingest::alpaca::Alpaca;
@@ -392,12 +390,7 @@ async fn previous_bars(
     let previous = calendar
         .previous_trading_day(today)
         .ok_or(PreviousRefusal::NoTradingDay { today })?;
-    let key = TradesKey::new(
-        Provider::Alpaca,
-        Origin::Derived,
-        BarInterval::OneMinute,
-        previous,
-    );
+    let key = TradesKey::new(Provider::Alpaca, BarInterval::OneMinute, previous);
     let bytes = match archive
         .get(&Key::from(key))
         .await
@@ -470,13 +463,12 @@ mod tests {
     fn previous_key() -> TradesKey {
         TradesKey::new(
             Provider::Alpaca,
-            Origin::Derived,
             BarInterval::OneMinute,
             SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 7).unwrap()),
         )
     }
 
-    const PREVIOUS_PATH: &str = "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/year=2026/month=10/day=07/data.parquet";
+    const PREVIOUS_PATH: &str = "data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/year=2026/month=10/day=07/data.parquet";
 
     #[test]
     fn test_each_start_refusal_displays_its_cause() {

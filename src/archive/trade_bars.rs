@@ -233,18 +233,13 @@ mod tests {
         UpdateRules,
     };
     use crate::common::market::{Price, PriceRefusal};
-    use crate::common::storage::{Origin, Provider};
+    use crate::common::storage::Provider;
     use crate::common::time::SessionDate;
 
     #[test]
     fn test_a_file_with_no_rows_is_refused() {
         let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap());
-        let key = TradesKey::new(
-            Provider::Massive,
-            Origin::Derived,
-            BarInterval::OneMinute,
-            session,
-        );
+        let key = TradesKey::new(Provider::Massive, BarInterval::OneMinute, session);
         let provenance = Provenance::new(
             Subscription::StocksAdvanced,
             "2026-10-03T07:00:00Z".parse().unwrap(),
@@ -314,12 +309,7 @@ mod tests {
     #[test]
     fn test_trade_bars_read_back_exactly_with_their_missing_prices() {
         let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap());
-        let key = TradesKey::new(
-            Provider::Massive,
-            Origin::Derived,
-            BarInterval::OneMinute,
-            session,
-        );
+        let key = TradesKey::new(Provider::Massive, BarInterval::OneMinute, session);
         let mut fold = TradeFold::new(
             session,
             TradeConditions::new(BTreeMap::from([(
@@ -363,12 +353,7 @@ mod tests {
         assert_eq!(read, written);
         assert_eq!(read.rows()[1].sums().open_close(), None);
         assert_eq!(read_provenance, provenance);
-        let alpaca = TradesKey::new(
-            Provider::Alpaca,
-            Origin::Derived,
-            BarInterval::OneMinute,
-            session,
-        );
+        let alpaca = TradesKey::new(Provider::Alpaca, BarInterval::OneMinute, session);
         assert_eq!(
             encode(&alpaca, &written, &provenance),
             Err(parquet::EncodeRefusal::SubscriptionProvider {
@@ -388,12 +373,7 @@ mod tests {
     #[test]
     fn test_a_row_is_refused_with_its_typed_cause() {
         let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap());
-        let key = TradesKey::new(
-            Provider::Massive,
-            Origin::Derived,
-            BarInterval::OneMinute,
-            session,
-        );
+        let key = TradesKey::new(Provider::Massive, BarInterval::OneMinute, session);
         let provenance = Provenance::new(
             Subscription::StocksAdvanced,
             "2026-10-03T07:00:00Z".parse().unwrap(),
@@ -494,7 +474,7 @@ mod tests {
                     Some(TradeBar::new(Symbol::new(symbol).unwrap(), interval, timestamp, TradeSums::new(totals, open_close, high_low)).unwrap())
                 })
                 .collect();
-            let key = TradesKey::new(Provider::Massive, Origin::Derived, interval, session);
+            let key = TradesKey::new(Provider::Massive, interval, session);
             let provenance = Provenance::new(
                 Subscription::StocksAdvanced,
                 "2026-10-03T07:00:00Z".parse().unwrap(),

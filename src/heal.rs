@@ -1596,7 +1596,7 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(minute_bars, 2);
-        let prefix = "data/equity/stage=parsed/trades/provider=alpaca/origin=derived";
+        let prefix = "data/equity/stage=parsed/trades/provider=alpaca";
         let suffix = "year=2026/month=09/day=29/data.parquet";
         assert_eq!(
             *written.lock().unwrap(),

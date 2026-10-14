@@ -90,7 +90,7 @@ fn test_the_seam_matches_minutes_in_the_run_and_differs_only_where_the_bars_do()
     let (records, archive) = (directory.join("records"), directory.join("archive"));
     let journal = records.join("records/journal/producer=trader/year=2026/month=10/day=08");
     let bars = archive.join(
-        "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/year=2026/month=10/day=08",
+        "data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/year=2026/month=10/day=08",
     );
     // A second session copies the first under another run, so a read reaching past its day shows as extra rows; two
     // more hold only one side each.

@@ -235,7 +235,7 @@ mod tests {
     use crate::common::market::quote_bars::QuoteFold;
     use crate::common::market::record::BarInterval;
     use crate::common::market::record::{PartitionRefusal, Quote};
-    use crate::common::storage::{Origin, Provider};
+    use crate::common::storage::Provider;
     use crate::common::time::SessionDate;
 
     fn session() -> SessionDate {
@@ -243,12 +243,7 @@ mod tests {
     }
 
     fn key() -> QuotesKey {
-        QuotesKey::new(
-            Provider::Massive,
-            Origin::Derived,
-            BarInterval::OneMinute,
-            session(),
-        )
+        QuotesKey::new(Provider::Massive, BarInterval::OneMinute, session())
     }
 
     fn provenance() -> Provenance {
@@ -321,7 +316,6 @@ mod tests {
     fn test_a_bar_from_another_session_is_refused() {
         let other = QuotesKey::new(
             Provider::Massive,
-            Origin::Derived,
             BarInterval::OneMinute,
             session().plus_calendar_days(1),
         );
@@ -416,7 +410,7 @@ mod tests {
                     unique.push(bar);
                 }
             }
-            let key = QuotesKey::new(Provider::Massive, Origin::Derived, interval, session());
+            let key = QuotesKey::new(Provider::Massive, interval, session());
             let written = Partition::try_from(unique.clone()).unwrap();
             let (read, read_provenance) = decode(&key, encode(&key, &written, &provenance()).unwrap()).unwrap();
             unique.sort_by(|left, right| (left.symbol(), left.timestamp()).cmp(&(right.symbol(), right.timestamp())));
