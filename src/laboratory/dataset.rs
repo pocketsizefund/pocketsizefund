@@ -11,7 +11,7 @@ use crate::common::laboratory::dataset::{
 use crate::common::laboratory::series::{Series, SeriesRefusal};
 use crate::common::market::record::{BarInterval, Partition};
 use crate::common::market::trade_bars::TradeBar;
-use crate::common::storage::{Key, Origin, Provider, TradesKey};
+use crate::common::storage::{Key, Provider, TradesKey};
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::laboratory::Study;
@@ -122,12 +122,8 @@ async fn preferred<K, Found, Error>(
 
 /// Each provider's trade-bar key at `interval` for `session`, in the order a session is preferred from.
 fn trade_keys(interval: BarInterval, session: SessionDate) -> [(Provider, TradesKey); 2] {
-    [Provider::Massive, Provider::Alpaca].map(|provider| {
-        (
-            provider,
-            TradesKey::new(provider, Origin::Derived, interval, session),
-        )
-    })
+    [Provider::Massive, Provider::Alpaca]
+        .map(|provider| (provider, TradesKey::new(provider, interval, session)))
 }
 
 /// `leg`'s bars for every trading session in `range`, each read by `partition`, journaled to `study` before it is

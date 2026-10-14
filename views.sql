@@ -104,7 +104,7 @@ watched AS (
 ),
 archive AS (
     SELECT runs.run_id, bars.*
-    FROM partitions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/', days) AS bars
+    FROM partitions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/', days) AS bars
     JOIN runs ON runs.session = bars.session
     JOIN watched ON watched.run_id = runs.run_id AND watched.symbol = bars.symbol
     WHERE bars.timestamp BETWEEN runs.first AND runs.last
@@ -138,92 +138,92 @@ SELECT * FROM bar_seam_over(strftime(day, 'year=%Y/month=%m/day=%d'));
 
 -- One-minute quote bars the nightly folds from Alpaca's SIP quotes.
 CREATE OR REPLACE VIEW alpaca_minute_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_minute/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=one_minute/');
 
 -- Five-minute quote bars rolled up from Alpaca's one-minute quote bars.
 CREATE OR REPLACE VIEW alpaca_five_minute_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=five_minute/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=five_minute/');
 
 -- Daily quote bars rolled up from Alpaca's one-minute quote bars.
 CREATE OR REPLACE VIEW alpaca_daily_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=one_day/');
 
 -- One-minute trade bars derived from Alpaca's SIP trades over the whole Eastern day by the trader's own fold.
 CREATE OR REPLACE VIEW alpaca_minute_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/');
 
 -- Five-minute trade bars rolled up from Alpaca's one-minute trade bars.
 CREATE OR REPLACE VIEW alpaca_five_minute_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=five_minute/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=five_minute/');
 
 -- Daily trade bars rolled up from Alpaca's one-minute trade bars.
 CREATE OR REPLACE VIEW alpaca_daily_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_day/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/');
 
 -- One-minute quote bars folded from Massive's quote flat files, time-weighted over regular hours.
 CREATE OR REPLACE VIEW massive_minute_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=one_minute/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=one_minute/');
 
 -- Five-minute quote bars rolled up from Massive's one-minute quote bars.
 CREATE OR REPLACE VIEW massive_five_minute_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=five_minute/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=five_minute/');
 
 -- Daily quote bars rolled up from Massive's one-minute quote bars.
 CREATE OR REPLACE VIEW massive_daily_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=one_day/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=one_day/');
 
 -- One-minute trade bars folded from Massive's trade flat files over the whole Eastern day.
 CREATE OR REPLACE VIEW massive_minute_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_minute/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=one_minute/');
 
 -- Five-minute trade bars rolled up from Massive's one-minute trade bars.
 CREATE OR REPLACE VIEW massive_five_minute_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=five_minute/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=five_minute/');
 
 -- Daily trade bars rolled up from Massive's one-minute trade bars.
 CREATE OR REPLACE VIEW massive_daily_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_day/');
+SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=one_day/');
 
 -- One-minute quote bars from either provider, one provider per session.
 CREATE OR REPLACE VIEW minute_quote_bars AS
 SELECT * FROM preferred(
-    'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=one_minute/',
-    'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_minute/'
+    'data/equity/stage=parsed/quotes/provider=massive/interval=one_minute/',
+    'data/equity/stage=parsed/quotes/provider=alpaca/interval=one_minute/'
 );
 
 -- Five-minute quote bars from either provider, one provider per session.
 CREATE OR REPLACE VIEW five_minute_quote_bars AS
 SELECT * FROM preferred(
-    'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=five_minute/',
-    'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=five_minute/'
+    'data/equity/stage=parsed/quotes/provider=massive/interval=five_minute/',
+    'data/equity/stage=parsed/quotes/provider=alpaca/interval=five_minute/'
 );
 
 -- Daily quote bars from either provider, one provider per session.
 CREATE OR REPLACE VIEW daily_quote_bars AS
 SELECT * FROM preferred(
-    'data/equity/stage=parsed/quotes/provider=massive/origin=derived/interval=one_day/',
-    'data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/'
+    'data/equity/stage=parsed/quotes/provider=massive/interval=one_day/',
+    'data/equity/stage=parsed/quotes/provider=alpaca/interval=one_day/'
 );
 
 -- One-minute trade bars from either provider, one provider per session.
 CREATE OR REPLACE VIEW minute_trade_bars AS
 SELECT * FROM preferred(
-    'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_minute/',
-    'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/'
+    'data/equity/stage=parsed/trades/provider=massive/interval=one_minute/',
+    'data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/'
 );
 
 -- Five-minute trade bars from either provider, one provider per session.
 CREATE OR REPLACE VIEW five_minute_trade_bars AS
 SELECT * FROM preferred(
-    'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=five_minute/',
-    'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=five_minute/'
+    'data/equity/stage=parsed/trades/provider=massive/interval=five_minute/',
+    'data/equity/stage=parsed/trades/provider=alpaca/interval=five_minute/'
 );
 
 -- Daily trade bars from either provider, one provider per session.
 CREATE OR REPLACE VIEW daily_trade_bars AS
 SELECT * FROM preferred(
-    'data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_day/',
-    'data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_day/'
+    'data/equity/stage=parsed/trades/provider=massive/interval=one_day/',
+    'data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/'
 );
 
 -- Each snapshot of the trade conditions table, one row per condition code.

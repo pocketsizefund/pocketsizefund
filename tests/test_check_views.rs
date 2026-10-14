@@ -8,8 +8,8 @@ use chrono::NaiveDate;
 use fund::common::heal::Leg;
 use fund::common::market::record::BarInterval;
 use fund::common::storage::{
-    Host, JournalKey, Key, LogsKey, Origin, Provider, QuotesKey, ReferenceKey, ReferenceTable,
-    Service, TradesKey,
+    Host, JournalKey, Key, LogsKey, Provider, QuotesKey, ReferenceKey, ReferenceTable, Service,
+    TradesKey,
 };
 use fund::common::time::SessionDate;
 use strum::IntoEnumIterator;
@@ -401,8 +401,8 @@ fn archive_keys() -> Vec<Key> {
     let mut keys = Vec::new();
     for provider in [Provider::Alpaca, Provider::Massive] {
         for interval in BarInterval::iter() {
-            keys.push(QuotesKey::new(provider, Origin::Derived, interval, session).into());
-            keys.push(TradesKey::new(provider, Origin::Derived, interval, session).into());
+            keys.push(QuotesKey::new(provider, interval, session).into());
+            keys.push(TradesKey::new(provider, interval, session).into());
         }
     }
     for (provider, table) in [

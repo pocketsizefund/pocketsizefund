@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::common::market::record::BarInterval;
 use crate::common::storage::{
-    Key, KeyRefusal, Origin, Provider, QuotesKey, ReferenceKey, ReferenceTable, TradesKey,
+    Key, KeyRefusal, Provider, QuotesKey, ReferenceKey, ReferenceTable, TradesKey,
 };
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
@@ -98,22 +98,12 @@ fn snapshot(key: ReferenceKey) -> Vec<Key> {
 
 /// Alpaca's daily quote bars; the leg writes the series' other intervals beside them.
 pub fn alpaca_quotes(session: SessionDate) -> QuotesKey {
-    QuotesKey::new(
-        Provider::Alpaca,
-        Origin::Derived,
-        BarInterval::OneDay,
-        session,
-    )
+    QuotesKey::new(Provider::Alpaca, BarInterval::OneDay, session)
 }
 
 /// Alpaca's daily trade bars; the leg writes the series' other intervals beside them.
 pub fn alpaca_trades(session: SessionDate) -> TradesKey {
-    TradesKey::new(
-        Provider::Alpaca,
-        Origin::Derived,
-        BarInterval::OneDay,
-        session,
-    )
+    TradesKey::new(Provider::Alpaca, BarInterval::OneDay, session)
 }
 
 pub fn massive_security_details(session: SessionDate) -> ReferenceKey {
@@ -558,8 +548,7 @@ mod tests {
     /// and the calendar must reach from the earliest held session to today.
     #[test]
     fn test_a_listing_groups_dated_series_and_reaches_from_the_earliest() {
-        let minutes =
-            "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_minute/";
+        let minutes = "data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/";
         let raw_quotes = "data/equity/stage=raw/quotes/provider=massive/";
         let listing = SeriesListing::of([
             &format!("{minutes}year=2026/month=10/day=08/data.parquet") as &str,
@@ -707,7 +696,7 @@ mod tests {
     fn test_a_tick_session_is_held_only_beside_its_raw_pages() {
         let parsed = |day: &str| {
             format!(
-                "data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/year=2026/month=10/day={day}/data.parquet"
+                "data/equity/stage=parsed/quotes/provider=alpaca/interval=one_day/year=2026/month=10/day={day}/data.parquet"
             )
         };
         let raw = |day: &str| {
@@ -820,9 +809,9 @@ mod tests {
                 "data/equity/stage=raw/reference/provider=massive/table=splits/",
                 "data/equity/stage=parsed/reference/provider=alpaca/table=series_boundaries/",
                 "data/equity/stage=raw/reference/provider=alpaca/table=series_boundaries/",
-                "data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=one_day/",
+                "data/equity/stage=parsed/quotes/provider=alpaca/interval=one_day/",
                 "data/equity/stage=raw/quotes/provider=alpaca/",
-                "data/equity/stage=parsed/trades/provider=alpaca/origin=derived/interval=one_day/",
+                "data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/",
                 "data/equity/stage=raw/trades/provider=alpaca/",
             ]
         );

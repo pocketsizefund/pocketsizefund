@@ -36,27 +36,6 @@ pub enum Provider {
     Massive,
 }
 
-/// Whether a parsed series was aggregated by the vendor or built by us from finer data, which never share a partition series.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::Display,
-    strum::EnumString,
-    strum::IntoStaticStr,
-    strum::EnumIter,
-)]
-#[strum(serialize_all = "snake_case")]
-pub enum Origin {
-    Vendor,
-    Derived,
-}
-
 /// Which reference table a snapshot holds.
 #[derive(
     Debug,
@@ -240,7 +219,6 @@ impl Family for Trades {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParsedKey<F> {
     provider: Provider,
-    origin: Origin,
     interval: BarInterval,
     session: SessionDate,
     family: F,
@@ -250,15 +228,9 @@ pub type QuotesKey = ParsedKey<Quotes>;
 pub type TradesKey = ParsedKey<Trades>;
 
 impl<F: Family> ParsedKey<F> {
-    pub fn new(
-        provider: Provider,
-        origin: Origin,
-        interval: BarInterval,
-        session: SessionDate,
-    ) -> Self {
+    pub fn new(provider: Provider, interval: BarInterval, session: SessionDate) -> Self {
         Self {
             provider,
-            origin,
             interval,
             session,
             family: F::default(),
@@ -277,7 +249,7 @@ impl<F: Family> ParsedKey<F> {
         self.session
     }
 
-    /// The same provider, origin, kind and session at another interval, which names another series.
+    /// The same provider, kind and session at another interval, which names another series.
     pub fn at_interval(self, interval: BarInterval) -> Self {
         Self { interval, ..self }
     }
@@ -610,22 +582,20 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
             "stage=parsed",
             kind,
             provider,
-            origin,
             interval,
             year,
             month,
             day,
             "data.parquet",
         ] => {
-            let (provider, origin, interval, session) = (
+            let (provider, interval, session) = (
                 hive(provider, "provider")?,
-                hive(origin, "origin")?,
                 hive(interval, "interval")?,
                 session(year, month, day)?,
             );
             Some(match kind.parse::<ParsedKind>().ok()? {
-                ParsedKind::Quotes => QuotesKey::new(provider, origin, interval, session).into(),
-                ParsedKind::Trades => TradesKey::new(provider, origin, interval, session).into(),
+                ParsedKind::Quotes => QuotesKey::new(provider, interval, session).into(),
+                ParsedKind::Trades => TradesKey::new(provider, interval, session).into(),
             })
         }
         [
@@ -707,10 +677,9 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
 
 fn parsed_series<F: Family>(key: &ParsedKey<F>) -> String {
     format!(
-        "{DATA_ROOT}/stage=parsed/{}/provider={}/origin={}/interval={}/",
+        "{DATA_ROOT}/stage=parsed/{}/provider={}/interval={}/",
         F::KIND,
         key.provider,
-        key.origin,
         key.interval
     )
 }
@@ -775,24 +744,12 @@ pub(crate) mod tests {
     fn test_each_key_has_its_path() {
         let cases = [
             (
-                QuotesKey::new(
-                    Provider::Alpaca,
-                    Origin::Derived,
-                    BarInterval::FiveMinute,
-                    session(),
-                )
-                .into(),
-                "data/equity/stage=parsed/quotes/provider=alpaca/origin=derived/interval=five_minute/year=2026/month=08/day=03/data.parquet",
+                QuotesKey::new(Provider::Alpaca, BarInterval::FiveMinute, session()).into(),
+                "data/equity/stage=parsed/quotes/provider=alpaca/interval=five_minute/year=2026/month=08/day=03/data.parquet",
             ),
             (
-                TradesKey::new(
-                    Provider::Massive,
-                    Origin::Derived,
-                    BarInterval::OneDay,
-                    session(),
-                )
-                .into(),
-                "data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_day/year=2026/month=08/day=03/data.parquet",
+                TradesKey::new(Provider::Massive, BarInterval::OneDay, session()).into(),
+                "data/equity/stage=parsed/trades/provider=massive/interval=one_day/year=2026/month=08/day=03/data.parquet",
             ),
             (
                 ReferenceKey::new(
@@ -867,18 +824,19 @@ pub(crate) mod tests {
     fn test_a_path_outside_the_layout_is_refused_with_itself() {
         for path in [
             "data/derived/equity/trades/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/trades/provider=massive/origin=fetched/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/trades/provider=massive/origin=fetched/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/trades/provider=databento/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/trades/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=8/day=03/data.parquet",
-            "data/equity/stage=parsed/trades/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=02/day=30/data.parquet",
-            "data/equity/stage=parsed/trades/origin=vendor/provider=alpaca/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/trades/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
-            "data/equity/stage=parsed/options/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/Trades/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
-            "data/equity/stage=parsed/reference/provider=alpaca/origin=vendor/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/trades/provider=massive/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            // The retired origin segment no longer names a key.
+            "data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=databento/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/year=2026/month=8/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/year=2026/month=02/day=30/data.parquet",
+            "data/equity/stage=parsed/trades/interval=one_day/provider=alpaca/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
+            "data/equity/stage=parsed/options/provider=alpaca/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/Trades/provider=alpaca/interval=one_day/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/reference/provider=alpaca/interval=one_day/year=2026/month=08/day=03/data.parquet",
             // Vendor bars are retired, so their once-valid paths are no keys.
-            "data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/year=2026/month=08/day=03/data.parquet",
+            "data/equity/stage=parsed/bars/provider=alpaca/interval=one_minute/year=2026/month=08/day=03/data.parquet",
             "data/equity/stage=raw/bars/provider=massive/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
             "data/equity/stage=raw/bars/provider=massive/interval=one_day/year=2026/month=08/day=03/data.parquet",
             "data/equity/stage=raw/quotes/provider=massive/interval=one_day/year=2026/month=08/day=03/data.csv.gz",
@@ -960,7 +918,6 @@ pub(crate) mod tests {
 
     pub(crate) fn any_key() -> impl Strategy<Value = Key> {
         let provider = prop::sample::select(Provider::iter().collect::<Vec<_>>());
-        let origin = prop::sample::select(Origin::iter().collect::<Vec<_>>());
         let interval = prop::sample::select(BarInterval::iter().collect::<Vec<_>>());
         let table = prop::sample::select(ReferenceTable::iter().collect::<Vec<_>>());
         let host = prop::sample::select(Host::iter().collect::<Vec<_>>());
@@ -972,21 +929,16 @@ pub(crate) mod tests {
         let service = "[a-z][a-z0-9_-]{0,15}".prop_map(|raw| Service::new(&raw).unwrap());
         let kind = prop::sample::select(ParsedKind::iter().collect::<Vec<_>>());
         prop_oneof![
-            (
-                kind,
-                provider.clone(),
-                origin,
-                interval.clone(),
-                session.clone()
-            )
-                .prop_map(|(kind, provider, origin, interval, session)| match kind {
+            (kind, provider.clone(), interval.clone(), session.clone()).prop_map(
+                |(kind, provider, interval, session)| match kind {
                     ParsedKind::Quotes => {
-                        QuotesKey::new(provider, origin, interval, session).into()
+                        QuotesKey::new(provider, interval, session).into()
                     }
                     ParsedKind::Trades => {
-                        TradesKey::new(provider, origin, interval, session).into()
+                        TradesKey::new(provider, interval, session).into()
                     }
-                }),
+                }
+            ),
             (provider.clone(), table.clone(), session.clone()).prop_map(
                 |(provider, table, as_of)| ReferenceKey::new(provider, table, as_of).into()
             ),

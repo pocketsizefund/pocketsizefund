@@ -24,7 +24,7 @@ use fund::common::market::record::{BarInterval, Partition, PartitionRefusal};
 use fund::common::market::trade_bars::{TradeConditions, TradeFold};
 use fund::common::monoid::{Monoid, Tally};
 use fund::common::storage::{
-    Family, Host, Key, Origin, ParsedKey, Provider, QuotesKey, Service, TradesKey,
+    Family, Host, Key, ParsedKey, Provider, QuotesKey, Service, TradesKey,
 };
 use fund::common::time::calendar::TradingCalendar;
 use fund::common::time::{SessionDate, SessionRange};
@@ -482,7 +482,7 @@ fn listed(sessions: &[SessionDate]) -> String {
 
 /// Where a session's quote or trade bars folded from Massive's flat files at `interval` are written.
 fn massive_derived<F: Family>(interval: BarInterval, session: SessionDate) -> ParsedKey<F> {
-    ParsedKey::new(Provider::Massive, Origin::Derived, interval, session)
+    ParsedKey::new(Provider::Massive, interval, session)
 }
 
 /// The flat files to stream and the calendar to plan by, or `None` once the refusal is logged.
@@ -1051,7 +1051,7 @@ mod tests {
 
     #[test]
     fn test_a_delete_names_only_paths_that_parse_as_keys() {
-        let key = "data/equity/stage=parsed/trades/provider=massive/origin=derived/interval=one_day/year=2021/month=08/day=23/data.parquet";
+        let key = "data/equity/stage=parsed/trades/provider=massive/interval=one_day/year=2021/month=08/day=23/data.parquet";
         assert!(parse(&["delete".to_string(), key.to_string()]).is_some());
         let outside =
             "data/derived/equity/trades/interval=one_day/year=2021/month=08/day=23/data.parquet";
