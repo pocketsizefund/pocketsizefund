@@ -216,6 +216,8 @@ This is a collection of guidelines and references.
   or a diff grows past that, propose splitting it into stacked slices
 - Before opening a pull request or pushing to one, spawn the `reviewer` subagent over the diff and let it fix
   what it finds, without waiting on the user, then record its fixes in the commit message that carries them
+- Before quoting a study's result as measured (in a memory, a plan or an artifact), spawn the `reviewer` over the
+  claim, the study binary and its `experiments` label, and quote its verdict and scope beside the number
 - When naming branches, use an all-lowercase, hyphenated, and concise summary of the work being done
 - Only use existing repository labels for GitHub issues and pull requests
 - Do not use emojis in commit messages, GitHub issues, or pull requests - maintain a professional tone
