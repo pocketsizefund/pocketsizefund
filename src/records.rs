@@ -16,7 +16,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use uuid::Uuid;
 
 use crate::archive::{self, Archive, ArchiveError, logs};
-use crate::common::journal::{ConfigurationResolved, Observation, RunId, read};
+use crate::common::journal::{ConfigurationResolved, Observation, RunId, merge, read};
 use crate::common::storage::{Host, JournalKey, Key, LogsKey, Service};
 use crate::common::time::SessionDate;
 use crate::journal::{Journal, UNKNOWN_COMMIT, built_commit, lock};
@@ -280,6 +280,43 @@ pub async fn ship_logged(
         }
     }
     all_shipped
+}
+
+/// Attempts at merging into a session's object before giving up to whoever keeps rewriting it.
+const MERGE_ATTEMPTS: u32 = 5;
+
+/// Reads `key`'s object, adds the lines of `text` it lacks, and writes it back only over the version read.
+pub async fn merge_into(records: &Archive, key: JournalKey, text: &str) -> Result<(), ShipFailure> {
+    let object = Key::from(key);
+    for _ in 0..MERGE_ATTEMPTS {
+        let (held, tag) = match records
+            .get_tagged(&object)
+            .await
+            .map_err(ShipFailure::Archive)?
+        {
+            Some((body, tag)) => (
+                archive::journal::decode(&key, body).map_err(|refusal| {
+                    ShipFailure::Decode(archive::DecodeRefusal::from(refusal))
+                })?,
+                Some(tag),
+            ),
+            None => (Vec::new(), None),
+        };
+        let body = archive::journal::encode(&key, &merge(held, read(text)))
+            .map_err(|refusal| ShipFailure::Encode(archive::EncodeRefusal::from(refusal)))?;
+        let written = match tag {
+            Some(tag) => records.replace(&object, body, &tag).await,
+            None => records.create(&object, body).await,
+        };
+        match written {
+            Ok(()) => return Ok(()),
+            Err(ArchiveError::Contended { .. }) => continue,
+            Err(error) => return Err(ShipFailure::Archive(error)),
+        }
+    }
+    Err(ShipFailure::Contended {
+        attempts: MERGE_ATTEMPTS,
+    })
 }
 
 #[cfg(test)]

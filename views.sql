@@ -242,7 +242,7 @@ SELECT * FROM snapshots('data/equity/stage=parsed/reference/provider=massive/tab
 CREATE OR REPLACE VIEW series_boundaries AS
 SELECT * FROM snapshots('data/equity/stage=parsed/reference/provider=alpaca/table=series_boundaries/');
 
--- Every host's journal, one row per line; `payload` is JSON text for `json_extract`.
+-- Every producer's journal, the hosts' and the operator's, one row per line; `payload` is JSON text for `json_extract`.
 CREATE OR REPLACE VIEW journal AS
 SELECT * FROM sessions('records_bucket', 'records/journal/producer=*/');
 
