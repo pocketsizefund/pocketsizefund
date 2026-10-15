@@ -12,12 +12,13 @@ use chrono::TimeDelta;
 
 use crate::common::book::Cash;
 use crate::common::journal::ConfigurationResolved;
+use crate::common::market::state::{Staleness, StalenessRefusal};
 use crate::common::market::{Dollars, Symbol, SymbolRefusal};
 use crate::common::parameter::{Parameter, ParameterRefusal, record, record_required};
 use crate::common::risk::{Limits, LimitsRefusal};
 use crate::execution::{Patience, PatienceRefusal};
 use crate::parameter::{Directories, environment_variable};
-use crate::trader::{DecisionInterval, SessionSettings, SettingsRefusal};
+use crate::trader::{DecisionInterval, SessionSettings};
 
 const DEFAULT_DECISION_INTERVAL: DecisionInterval = DecisionInterval::FiveMinute;
 const DEFAULT_STALE_AFTER: StaleAfter = StaleAfter(120);
@@ -181,8 +182,8 @@ pub enum ParametersRefusal {
     Limits(LimitsRefusal),
     #[error("the patience is refused: {0}")]
     Patience(PatienceRefusal),
-    #[error("the settings are refused: {0}")]
-    Settings(SettingsRefusal),
+    #[error("the staleness is refused: {0}")]
+    Staleness(StalenessRefusal),
 }
 
 impl From<ParameterRefusal> for ParametersRefusal {
@@ -244,8 +245,9 @@ impl Parameters {
         )?;
         let patience =
             Patience::new(poll.into(), open_for.into()).map_err(ParametersRefusal::Patience)?;
-        let settings = SessionSettings::new(decision, limits, patience, stale_after.into())
-            .map_err(ParametersRefusal::Settings)?;
+        let stale_after =
+            Staleness::new(stale_after.into()).map_err(ParametersRefusal::Staleness)?;
+        let settings = SessionSettings::new(decision, limits, patience, stale_after);
         let parameters = Self {
             universe,
             settings,
@@ -503,13 +505,13 @@ mod tests {
     }
 
     #[test]
-    fn test_a_staleness_under_a_minute_is_refused_by_the_settings() {
+    fn test_a_staleness_under_a_minute_is_refused() {
         let mut values = REQUIRED.to_vec();
         values.push((Parameter::StaleAfterSeconds, "59"));
         assert_eq!(
             Parameters::resolved(&supplied(&values)).map(|_| ()),
-            Err(ParametersRefusal::Settings(
-                SettingsRefusal::StalenessUnderAMinute {
+            Err(ParametersRefusal::Staleness(
+                StalenessRefusal::UnderAMinute {
                     stale_after: TimeDelta::seconds(59)
                 }
             ))

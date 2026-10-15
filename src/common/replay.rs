@@ -12,7 +12,7 @@ use crate::common::guard::{OrderGuarded, Tradability, guard};
 use crate::common::laboratory::cost::{BasisPoints, CostModel, CostRefusal, FillStyle};
 use crate::common::laboratory::series::{Series, SeriesRefusal};
 use crate::common::market::record::BarInterval;
-use crate::common::market::state::{MarketEvent, MarketState};
+use crate::common::market::state::{MarketEvent, MarketState, Staleness};
 use crate::common::market::trade_bars::TradeBar;
 use crate::common::market::{DollarVolume, Price, Symbol};
 use crate::common::monoid::{Monoid, concatenate};
@@ -132,27 +132,35 @@ pub enum Controls {
     Restrained(Restraint),
 }
 
-/// The limits, calendar and tradability a restrained replay applies. Risk prices off the decision interval's last
-/// close where the trader prices off a fresh one-minute close, a known seam.
+/// The limits, calendar, tradability and staleness a restrained replay applies. Risk and the guard price off the
+/// decision interval's last close where the trader reads the one-minute close.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Restraint {
     limits: Limits,
     calendar: TradingCalendar,
     tradability: BTreeMap<Symbol, Tradability>,
+    stale_after: Staleness,
 }
 
 impl Restraint {
-    /// A symbol `tradability` does not name trades whole and fractional shares.
+    /// A symbol `tradability` does not name trades whole and fractional shares, and a close set more than
+    /// `stale_after` before a decision prices nothing, as live.
     pub fn new(
         limits: Limits,
         calendar: TradingCalendar,
         tradability: BTreeMap<Symbol, Tradability>,
+        stale_after: Staleness,
     ) -> Self {
         Self {
             limits,
             calendar,
             tradability,
+            stale_after,
         }
+    }
+
+    pub fn stale_after(&self) -> Staleness {
+        self.stale_after
     }
 
     pub fn limits(&self) -> &Limits {
@@ -460,7 +468,9 @@ impl<S: Strategy> Replayer<S> {
             replay.pending = match &self.controls {
                 Controls::Unrestrained => orders(&replay.book, &wanted),
                 Controls::Restrained(restraint) => {
-                    let price = |symbol: &Symbol| state.last_price(symbol, self.decision);
+                    let price = |symbol: &Symbol| {
+                        state.fresh_price(symbol, self.decision, ends, restraint.stale_after)
+                    };
                     let restrained = session_opening(&replay.marks, ends).and_then(|opening| {
                         risk(
                             &restraint.limits,
@@ -704,6 +714,15 @@ mod tests {
         flat_before_close: TimeDelta,
         tradability: BTreeMap<Symbol, Tradability>,
     ) -> Controls {
+        restraint_stale(flat_before_close, tradability, TimeDelta::minutes(2))
+    }
+
+    /// `restraint_within`, a close set more than `stale_after` before a decision pricing nothing.
+    fn restraint_stale(
+        flat_before_close: TimeDelta,
+        tradability: BTreeMap<Symbol, Tradability>,
+        stale_after: TimeDelta,
+    ) -> Controls {
         let monday = SessionDate::at(day(0));
         let session = crate::common::time::calendar::TradingSession::new(
             monday,
@@ -717,7 +736,12 @@ mod tests {
         )
         .unwrap();
         let limits = Limits::new(cash(1_000), cash(1_000), cash(1_000), flat_before_close).unwrap();
-        Controls::Restrained(Restraint::new(limits, calendar, tradability))
+        Controls::Restrained(Restraint::new(
+            limits,
+            calendar,
+            tradability,
+            Staleness::new(stale_after).unwrap(),
+        ))
     }
 
     /// One share of AAPL wanted at a minute bar's close and filled at the next one's open.
@@ -744,6 +768,55 @@ mod tests {
             .act(Replay::open(Book::funded(cash(100))), bars)
             .unwrap()
             .finish()
+    }
+
+    /// Risk prices a wanted name only off a close no older than the restraint's staleness, as the live trader does: a
+    /// decision five minutes after AAPL last printed is refused under two minutes and sized under ten.
+    #[test]
+    fn test_a_stale_close_prices_nothing_under_restraint() {
+        let at = before_close(120);
+        let decided = at + TimeDelta::minutes(6);
+        for (stale_after, refused) in [
+            (TimeDelta::minutes(2), true),
+            (TimeDelta::minutes(10), false),
+        ] {
+            let replayer = Replayer::controlled(
+                Hold(vec![("AAPL", 1)]),
+                free(),
+                BarInterval::OneMinute,
+                restraint_stale(TimeDelta::minutes(15), BTreeMap::new(), stale_after),
+            )
+            .unwrap();
+            let bars = [
+                bar("AAPL", BarInterval::OneMinute, at, 1000, 1000),
+                bar(
+                    "MSFT",
+                    BarInterval::OneMinute,
+                    at + TimeDelta::minutes(5),
+                    1000,
+                    1000,
+                ),
+            ];
+            let replay = replayer
+                .act(Replay::open(Book::funded(cash(100))), bars)
+                .unwrap()
+                .finish();
+            assert_eq!(
+                replay.restraints().keys().copied().collect::<Vec<_>>(),
+                [at + TimeDelta::minutes(1), decided],
+                "{stale_after}"
+            );
+            assert_eq!(
+                replay.restraints()[&decided],
+                match refused {
+                    true => Err(ValuationRefusal::Unpriced {
+                        symbol: symbol("AAPL")
+                    }),
+                    false => Ok(Vec::new()),
+                },
+                "{stale_after}"
+            );
+        }
     }
 
     #[test]

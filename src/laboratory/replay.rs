@@ -53,6 +53,7 @@ pub enum ReplaySetting {
     DailyLossLimitUnits,
     FlatBeforeCloseSeconds,
     Tradability,
+    StaleAfterSeconds,
 }
 
 /// A measurement every replay journals, by the name it is journaled under.
@@ -169,6 +170,10 @@ pub(crate) fn settings(
                     ReplaySetting::Tradability,
                     serde_json::to_string(restraint.tradability())
                         .expect("a tradability map has only string keys"),
+                ),
+                (
+                    ReplaySetting::StaleAfterSeconds,
+                    restraint.stale_after().seconds().to_string(),
                 ),
             ]);
         }
@@ -295,7 +300,12 @@ pub(crate) mod tests {
             chrono::TimeDelta::minutes(flat_before_close_minutes),
         )
         .unwrap();
-        Controls::Restrained(Restraint::new(limits, calendar(), tradability))
+        Controls::Restrained(Restraint::new(
+            limits,
+            calendar(),
+            tradability,
+            crate::common::market::state::Staleness::new(chrono::TimeDelta::minutes(2)).unwrap(),
+        ))
     }
 
     /// Flat all session, risk cuts each of the six decisions; with AAPL untradable, the guard holds each buy instead.
@@ -378,7 +388,12 @@ pub(crate) mod tests {
         )
         .unwrap();
         let tradability = BTreeMap::from([(Symbol::new("AAPL").unwrap(), Tradability::Untradable)]);
-        let controls = Controls::Restrained(Restraint::new(limits, calendar, tradability));
+        let controls = Controls::Restrained(Restraint::new(
+            limits,
+            calendar,
+            tradability,
+            crate::common::market::state::Staleness::new(chrono::TimeDelta::minutes(2)).unwrap(),
+        ));
         let fill_model =
             FillModel::new(FillStyle::Aggressive, BasisPoints::new(10.0).unwrap()).unwrap();
         let opening = Opening::new(Cash::from_units(1)).unwrap();
@@ -405,6 +420,7 @@ pub(crate) mod tests {
                 ("daily_loss_limit_units", "1".to_string()),
                 ("flat_before_close_seconds", "900".to_string()),
                 ("tradability", r#"{"AAPL":"untradable"}"#.to_string()),
+                ("stale_after_seconds", "120".to_string()),
             ]
         );
         let names: Vec<&str> = metrics(

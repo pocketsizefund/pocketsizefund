@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 
 use super::record::BarInterval;
 use super::trade_bars::TradeBar;
@@ -28,6 +28,42 @@ struct Retained {
     /// The close and the instant its closing print was set; `None` for a bar no print was allowed to price, such as a
     /// minute of odd lots.
     close: Option<StampedPrice>,
+}
+
+/// How old a close may be before risk treats it as unpriced: whole seconds, so a journal records it exactly, and at least a
+/// minute, since a bar is folded only after its minute ends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Staleness(TimeDelta);
+
+/// Why a staleness was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum StalenessRefusal {
+    #[error("a staleness of {stale_after} is under a minute")]
+    UnderAMinute { stale_after: TimeDelta },
+    #[error("a staleness of {stale_after} is not whole seconds")]
+    Fractional { stale_after: TimeDelta },
+}
+
+impl Staleness {
+    pub fn new(stale_after: TimeDelta) -> Result<Self, StalenessRefusal> {
+        match (
+            stale_after < TimeDelta::minutes(1),
+            stale_after.subsec_nanos() != 0,
+        ) {
+            (true, _) => Err(StalenessRefusal::UnderAMinute { stale_after }),
+            (false, true) => Err(StalenessRefusal::Fractional { stale_after }),
+            (false, false) => Ok(Self(stale_after)),
+        }
+    }
+
+    pub fn get(self) -> TimeDelta {
+        self.0
+    }
+
+    /// The staleness in seconds, exact since it holds whole seconds.
+    pub fn seconds(self) -> i64 {
+        self.0.num_seconds()
+    }
 }
 
 /// The latest clock and each series' latest `RETAINED_BARS` bars.
@@ -79,6 +115,18 @@ impl MarketState {
     /// The close of the series' latest priced bar, `None` when no retained bar of it has a close.
     pub fn last_price(&self, symbol: &Symbol, interval: BarInterval) -> Option<Price> {
         self.last_close(symbol, interval).map(StampedPrice::price)
+    }
+
+    /// `last_price`, unless the print that set it is more than `stale_after` before `now`.
+    pub fn fresh_price(
+        &self,
+        symbol: &Symbol,
+        interval: BarInterval,
+        now: DateTime<Utc>,
+        stale_after: Staleness,
+    ) -> Option<Price> {
+        let close = self.last_close(symbol, interval)?;
+        (now - close.at() <= stale_after.get()).then_some(close.price())
     }
 
     /// `last_price` with the instant its closing print was set, so a caller can judge how old it is.
@@ -223,6 +271,68 @@ mod tests {
             ))
         }));
         assert_eq!(state, latest);
+    }
+
+    /// A close prices until it is exactly `stale_after` old and not a second after.
+    #[test]
+    fn test_a_close_older_than_the_staleness_prices_nothing() {
+        let state = MarketState::of(MarketEvent::Trades(minute_bar("AAPL", 0, 1000, 100)));
+        let set = "2026-09-25T13:30:00Z".parse::<DateTime<Utc>>().unwrap();
+        let fresh = |now| {
+            state.fresh_price(
+                &symbol("AAPL"),
+                BarInterval::OneMinute,
+                now,
+                Staleness::new(TimeDelta::minutes(2)).unwrap(),
+            )
+        };
+        assert_eq!(
+            fresh(set + TimeDelta::minutes(2)),
+            Some(Price::from_ticks(1000).unwrap())
+        );
+        assert_eq!(fresh(set + TimeDelta::seconds(121)), None);
+        assert_eq!(
+            state.fresh_price(
+                &symbol("MSFT"),
+                BarInterval::OneMinute,
+                set,
+                Staleness::new(TimeDelta::minutes(2)).unwrap()
+            ),
+            None
+        );
+    }
+
+    /// A staleness is whole seconds of at least a minute, so the journal's seconds are exactly what risk applied.
+    #[test]
+    fn test_a_staleness_under_a_minute_or_in_part_seconds_is_refused() {
+        for (stale_after, expected) in [
+            (
+                TimeDelta::seconds(59),
+                Err(StalenessRefusal::UnderAMinute {
+                    stale_after: TimeDelta::seconds(59),
+                }),
+            ),
+            (
+                TimeDelta::milliseconds(-120_500),
+                Err(StalenessRefusal::UnderAMinute {
+                    stale_after: TimeDelta::milliseconds(-120_500),
+                }),
+            ),
+            (
+                TimeDelta::milliseconds(120_500),
+                Err(StalenessRefusal::Fractional {
+                    stale_after: TimeDelta::milliseconds(120_500),
+                }),
+            ),
+            (TimeDelta::seconds(60), Ok(60)),
+            (TimeDelta::seconds(120), Ok(120)),
+        ] {
+            assert_eq!(
+                Staleness::new(stale_after).map(Staleness::seconds),
+                expected,
+                "{stale_after}"
+            );
+        }
     }
 
     /// A minute of trades with no print allowed to price it leaves the last price where the last priced minute set it.
