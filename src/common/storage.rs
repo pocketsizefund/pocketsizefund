@@ -314,16 +314,54 @@ impl TryFrom<Key> for ReferenceKey {
     }
 }
 
-/// One session of a host's journal.
+/// Who writes a journal: one of the hosts, or an operator recording a change made by hand, which no host makes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Producer {
+    Host(Host),
+    Operator,
+}
+
+impl std::fmt::Display for Producer {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Host(host) => write!(formatter, "{host}"),
+            Self::Operator => formatter.write_str("operator"),
+        }
+    }
+}
+
+impl std::str::FromStr for Producer {
+    type Err = strum::ParseError;
+
+    fn from_str(raw: &str) -> Result<Self, Self::Err> {
+        match raw {
+            "operator" => Ok(Self::Operator),
+            _ => raw.parse().map(Self::Host),
+        }
+    }
+}
+
+/// One session of a producer's journal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JournalKey {
-    host: Host,
+    producer: Producer,
     session: SessionDate,
 }
 
 impl JournalKey {
     pub fn new(host: Host, session: SessionDate) -> Self {
-        Self { host, session }
+        Self {
+            producer: Producer::Host(host),
+            session,
+        }
+    }
+
+    /// The session's journal of changes an operator made by hand.
+    pub fn operator(session: SessionDate) -> Self {
+        Self {
+            producer: Producer::Operator,
+            session,
+        }
     }
 
     pub fn session(&self) -> SessionDate {
@@ -492,7 +530,7 @@ impl Key {
             Self::RawTrades { provider, .. } => {
                 format!("{DATA_ROOT}/stage=raw/trades/provider={provider}/")
             }
-            Self::Journal(key) => format!("{RECORDS_ROOT}/journal/producer={}/", key.host),
+            Self::Journal(key) => format!("{RECORDS_ROOT}/journal/producer={}/", key.producer),
             Self::Logs(key) => format!(
                 "{RECORDS_ROOT}/logs/producer={}/service={}/",
                 key.host,
@@ -513,17 +551,17 @@ impl Key {
         }
     }
 
-    /// The one host that may write this object: the archiver for data, the producer for a record.
-    pub fn writer(&self) -> Host {
+    /// The one producer that may write this object: the archiver for data, the producer for a record.
+    pub fn writer(&self) -> Producer {
         match self {
             Self::Quotes(..)
             | Self::Trades(..)
             | Self::Reference(..)
             | Self::RawQuotes { .. }
             | Self::RawTrades { .. }
-            | Self::RawReference(..) => Host::Archiver,
-            Self::Journal(key) => key.host,
-            Self::Logs(key) => key.host,
+            | Self::RawReference(..) => Producer::Host(Host::Archiver),
+            Self::Journal(key) => key.producer,
+            Self::Logs(key) => Producer::Host(key.host),
         }
     }
 
@@ -654,9 +692,18 @@ fn parse_segments(segments: &[&str]) -> Option<Key> {
             provider: hive(provider, "provider")?,
             session: session(year, month, day)?,
         }),
-        ["records", "journal", host, year, month, day, "data.parquet"] => Some(Key::Journal(
-            JournalKey::new(hive(host, "producer")?, session(year, month, day)?),
-        )),
+        [
+            "records",
+            "journal",
+            producer,
+            year,
+            month,
+            day,
+            "data.parquet",
+        ] => Some(Key::Journal(JournalKey {
+            producer: hive(producer, "producer")?,
+            session: session(year, month, day)?,
+        })),
         [
             "records",
             "logs",
@@ -810,6 +857,10 @@ pub(crate) mod tests {
                 "records/journal/producer=trader/year=2026/month=08/day=03/data.parquet",
             ),
             (
+                JournalKey::operator(session()).into(),
+                "records/journal/producer=operator/year=2026/month=08/day=03/data.parquet",
+            ),
+            (
                 LogsKey::new(Host::Archiver, Service::new("archiver").unwrap(), session()).into(),
                 "records/logs/producer=archiver/service=archiver/year=2026/month=08/day=03/data.parquet",
             ),
@@ -859,6 +910,21 @@ pub(crate) mod tests {
             let refused = serde_json::from_str::<Key>(&format!("\"{path}\""));
             assert!(refused.is_err(), "{path}");
         }
+    }
+
+    /// Every producer reads back from the name its partition is written under, and the operator's name is no host's.
+    #[test]
+    fn test_a_producer_round_trips_through_its_partition_name() {
+        let producers: Vec<Producer> = Host::iter()
+            .map(Producer::Host)
+            .chain([Producer::Operator])
+            .collect();
+        let names: Vec<String> = producers.iter().map(Producer::to_string).collect();
+        assert_eq!(names, ["archiver", "trader", "researcher", "operator"]);
+        for (producer, name) in producers.iter().zip(&names) {
+            assert_eq!(name.parse::<Producer>(), Ok(*producer));
+        }
+        assert!("operator".parse::<Host>().is_err());
     }
 
     #[test]
@@ -951,6 +1017,9 @@ pub(crate) mod tests {
                 .prop_map(|(provider, session)| Key::RawTrades { provider, session }),
             (host.clone(), session.clone())
                 .prop_map(|(host, session)| JournalKey::new(host, session).into()),
+            session
+                .clone()
+                .prop_map(|session| JournalKey::operator(session).into()),
             (host, service, session)
                 .prop_map(|(host, service, session)| LogsKey::new(host, service, session).into()),
         ]
@@ -1008,7 +1077,7 @@ pub(crate) mod tests {
                     .writable_prefixes()
                     .iter()
                     .any(|prefix| path.starts_with(prefix));
-                prop_assert_eq!(allowed, host == key.writer(), "{} {}", host, path);
+                prop_assert_eq!(allowed, Producer::Host(host) == key.writer(), "{} {}", host, path);
             }
         }
     }

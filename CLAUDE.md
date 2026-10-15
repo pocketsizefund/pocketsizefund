@@ -62,6 +62,8 @@ This is a collection of guidelines and references.
   so a second environment cannot adopt the first's box
 - "Profile" means an environment (secretspec's `production`, `development/<name>`) and nothing else, so never
   give it a second sense; a record's host partition is `producer=`
+- `producer=` names a host, or `operator` for a change a person makes by hand (a playbook upload), which no
+  host makes and which never names an instance
 - Apply the spell-it-out rule to new code and to identifiers you touch; already-shipped schema identifiers
   and stored values are effectively fixed and change only via an explicit migration
 - Structured log messages should be short sentences with sentence case (e.g., "Starting data sync" not

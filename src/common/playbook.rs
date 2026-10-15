@@ -11,6 +11,7 @@ use crate::common::book::Book;
 use crate::common::journal::RunId;
 use crate::common::market::state::MarketState;
 use crate::common::market::{Shares, Symbol};
+use crate::common::storage::EntityTag;
 use crate::common::strategy::noise::Noise;
 use crate::common::strategy::{Progress, Strategy, Target, roll};
 use crate::common::time::{REGULAR_CLOSE, REGULAR_OPEN, eastern_time};
@@ -345,6 +346,27 @@ impl PlaybookRead {
 
     pub fn contents(&self) -> &str {
         &self.contents
+    }
+}
+
+/// A playbook an operator uploaded, journaled whole beside the version it replaced, `None` when none was held.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlaybookUploaded {
+    contents: String,
+    replaced: Option<EntityTag>,
+}
+
+impl PlaybookUploaded {
+    pub fn new(contents: String, replaced: Option<EntityTag>) -> Self {
+        Self { contents, replaced }
+    }
+
+    pub fn contents(&self) -> &str {
+        &self.contents
+    }
+
+    pub fn replaced(&self) -> Option<&EntityTag> {
+        self.replaced.as_ref()
     }
 }
 

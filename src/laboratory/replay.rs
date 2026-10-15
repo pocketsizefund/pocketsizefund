@@ -507,8 +507,10 @@ pub(crate) mod tests {
                     | Observation::FeedChanged(_)
                     | Observation::SessionHalted(_)
                     | Observation::SessionClosed(_)
-                    | Observation::PlaybookRead(_) => None,
+                    | Observation::PlaybookRead(_)
+                    | Observation::PlaybookUploaded(_) => None,
                 },
+                ReadLine::Untyped(untyped) => panic!("untyped: {untyped:?}"),
                 ReadLine::Unreadable { line, cause, .. } => panic!("line {line}: {cause:?}"),
             })
             .unwrap();

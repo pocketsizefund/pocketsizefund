@@ -229,8 +229,10 @@ mod tests {
                         | Observation::FeedChanged(_)
                         | Observation::SessionHalted(_)
                         | Observation::SessionClosed(_)
-                        | Observation::PlaybookRead(_) => {}
+                        | Observation::PlaybookRead(_)
+                        | Observation::PlaybookUploaded(_) => {}
                     },
+                    ReadLine::Untyped(untyped) => panic!("untyped: {untyped:?}"),
                     ReadLine::Unreadable { line, cause, .. } => panic!("line {line}: {cause:?}"),
                 }
             }

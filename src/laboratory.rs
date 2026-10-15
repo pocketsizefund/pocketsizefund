@@ -13,8 +13,8 @@ use chrono::Utc;
 use tokio::time::Instant;
 use uuid::Uuid;
 
-use crate::archive::{self, Archive, ArchiveError};
-use crate::common::journal::{Observation, RunId, merge, read};
+use crate::archive::Archive;
+use crate::common::journal::{Observation, RunId};
 use crate::common::laboratory::dataset::Fingerprint;
 use crate::common::laboratory::experiment::{
     DatasetRead, Elapsed, ExperimentRan, Label, Machine, Outputs, Parameters,
@@ -23,10 +23,7 @@ use crate::common::storage::{Host, JournalKey, Key};
 use crate::common::time::SessionDate;
 use crate::journal::{Journal, file_name};
 use crate::laboratory::dataset::Lineage;
-use crate::records::{RESHIPPED_DAYS, ShipFailure, contents};
-
-/// Attempts at merging into a session's object before giving up to whoever keeps rewriting it.
-const MERGE_ATTEMPTS: u32 = 5;
+use crate::records::{RESHIPPED_DAYS, ShipFailure, contents, merge_into};
 
 /// One run of study code: its journal, what it is about, the machine it runs on, and when it opened.
 pub struct Study {
@@ -137,40 +134,6 @@ impl Study {
     }
 }
 
-/// Reads `key`'s object, adds the lines of `text` it lacks, and writes it back only over the version read.
-async fn merge_into(records: &Archive, key: JournalKey, text: &str) -> Result<(), ShipFailure> {
-    let object = Key::from(key);
-    for _ in 0..MERGE_ATTEMPTS {
-        let (held, tag) = match records
-            .get_tagged(&object)
-            .await
-            .map_err(ShipFailure::Archive)?
-        {
-            Some((body, tag)) => (
-                archive::journal::decode(&key, body).map_err(|refusal| {
-                    ShipFailure::Decode(archive::DecodeRefusal::from(refusal))
-                })?,
-                Some(tag),
-            ),
-            None => (Vec::new(), None),
-        };
-        let body = archive::journal::encode(&key, &merge(held, read(text)))
-            .map_err(|refusal| ShipFailure::Encode(archive::EncodeRefusal::from(refusal)))?;
-        let written = match tag {
-            Some(tag) => records.replace(&object, body, &tag).await,
-            None => records.create(&object, body).await,
-        };
-        match written {
-            Ok(()) => return Ok(()),
-            Err(ArchiveError::Contended { .. }) => continue,
-            Err(error) => return Err(ShipFailure::Archive(error)),
-        }
-    }
-    Err(ShipFailure::Contended {
-        attempts: MERGE_ATTEMPTS,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,9 +165,11 @@ mod tests {
             std::fs::remove_dir_all(&directory).unwrap();
         }
         let key = JournalKey::new(Host::Researcher, SessionDate::at(Utc::now()));
-        let held =
-            archive::journal::decode(&key, records.get(&Key::from(key)).await.unwrap().unwrap())
-                .unwrap();
+        let held = crate::archive::journal::decode(
+            &key,
+            records.get(&Key::from(key)).await.unwrap().unwrap(),
+        )
+        .unwrap();
         for run in runs {
             assert!(
                 held.iter().any(|line| matches!(

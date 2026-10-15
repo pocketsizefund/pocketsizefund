@@ -23,6 +23,13 @@ pub enum HistoryError {
         line: usize,
         cause: UnreadableCause,
     },
+    /// A complete record whose payload this build cannot type, such as one naming a retired variant.
+    #[error("{} holds a {event_type} record this build cannot type: {reason}", .file.display())]
+    Untyped {
+        file: PathBuf,
+        event_type: String,
+        reason: String,
+    },
 }
 
 impl From<io::Error> for HistoryError {
@@ -96,6 +103,13 @@ impl Journal {
             for line in read(&std::fs::read_to_string(&file)?) {
                 match line {
                     ReadLine::Read(record) => records.push(*record),
+                    ReadLine::Untyped(untyped) => {
+                        return Err(HistoryError::Untyped {
+                            file,
+                            event_type: untyped.event_type().to_string(),
+                            reason: untyped.reason().to_string(),
+                        });
+                    }
                     ReadLine::Unreadable {
                         cause: UnreadableCause::NotJson { .. },
                         ..
@@ -299,6 +313,7 @@ mod tests {
                     ReadLine::Read(record) => {
                         (record.sequence(), record.run_id(), record.commit().cloned())
                     }
+                    ReadLine::Untyped(untyped) => panic!("untyped: {untyped:?}"),
                     ReadLine::Unreadable { line, cause, .. } => panic!("line {line}: {cause:?}"),
                 })
                 .collect()
@@ -347,6 +362,32 @@ mod tests {
                 "{unreadable}: {error}"
             );
             std::fs::write(&file, before).unwrap();
+        }
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A complete record this build cannot type, a retired event or a later schema version, stops the history.
+    #[test]
+    fn test_history_refuses_a_complete_record_it_cannot_type() {
+        let directory = temporary_directory();
+        let mut journal = Journal::open(&directory, RunId::new(Uuid::new_v4())).unwrap();
+        journal
+            .append("2026-07-31T14:30:00Z".parse().unwrap(), observation())
+            .unwrap();
+        let file = directory.join("session-2026-07-31.jsonl");
+        let written = std::fs::read_to_string(&file).unwrap();
+        let retired = written.replace("configuration_resolved", "retired_event");
+        let later = written.replace(r#""schema_version":1"#, r#""schema_version":2"#);
+        for (untyped, event_type) in [
+            (retired, "retired_event"),
+            (later, "configuration_resolved"),
+        ] {
+            std::fs::write(&file, format!("{written}{untyped}")).unwrap();
+            let error = journal.history().unwrap_err();
+            assert!(
+                matches!(&error, HistoryError::Untyped { event_type: found, .. } if found == event_type),
+                "{untyped}: {error}"
+            );
         }
         std::fs::remove_dir_all(&directory).unwrap();
     }
@@ -409,6 +450,7 @@ mod tests {
             .iter()
             .map(|line| match line {
                 ReadLine::Read(record) => record.sequence(),
+                ReadLine::Untyped(untyped) => panic!("untyped: {untyped:?}"),
                 ReadLine::Unreadable { line, cause, .. } => panic!("line {line}: {cause:?}"),
             })
             .collect();

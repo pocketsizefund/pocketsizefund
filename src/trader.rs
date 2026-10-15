@@ -765,6 +765,7 @@ mod tests {
             .flat_map(|path| read(&std::fs::read_to_string(path).unwrap()))
             .map(|line| match line {
                 ReadLine::Read(record) => *record,
+                ReadLine::Untyped(untyped) => panic!("untyped: {untyped:?}"),
                 ReadLine::Unreadable { line, cause, .. } => panic!("line {line}: {cause:?}"),
             })
             .collect();

@@ -1,14 +1,21 @@
-//! Uploads a playbook to the profile's records bucket, where the trader reads it at startup: `playbook upload <path>`.
+//! Uploads a playbook to the profile's records bucket, where the trader reads it at startup, and journals the upload
+//! under `producer=operator`: `playbook upload <path>`.
 
+use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use chrono::{DateTime, Utc};
 use tracing_subscriber::EnvFilter;
+use uuid::Uuid;
 
 use fund::archive::Archive;
-use fund::common::playbook::Playbook;
-use fund::common::storage::{ConfigurationKey, EntityTag, ObjectKey};
-use fund::records::RefusedToStart;
+use fund::common::journal::{Observation, Record, RunId};
+use fund::common::playbook::{Playbook, PlaybookUploaded};
+use fund::common::storage::{ConfigurationKey, EntityTag, JournalKey, Key, ObjectKey};
+use fund::common::time::SessionDate;
+use fund::journal::built_commit;
+use fund::records::{RefusedToStart, merge_into};
 
 const USAGE: &str = "playbook upload <path>";
 
@@ -29,6 +36,23 @@ fn upload<'a>(held: Option<&'a (Vec<u8>, EntityTag)>, contents: &[u8]) -> Upload
         Some((bytes, _)) if bytes == contents => Upload::Unchanged,
         Some((_, tag)) => Upload::Replace(tag),
     }
+}
+
+/// The upload's record, the first and only of its own run, and the operator journal of the session it happened in.
+fn uploaded(
+    contents: String,
+    replaced: Option<EntityTag>,
+    run: RunId,
+    at: DateTime<Utc>,
+) -> (JournalKey, Record) {
+    let record = Record::new(
+        run,
+        NonZeroU64::MIN,
+        at,
+        built_commit(),
+        Observation::PlaybookUploaded(PlaybookUploaded::new(contents, replaced)),
+    );
+    (JournalKey::operator(SessionDate::at(at)), record)
 }
 
 #[tokio::main]
@@ -75,7 +99,7 @@ async fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let body = contents.into_bytes();
+    let body = contents.clone().into_bytes();
     let written = match upload(held.as_ref(), &body) {
         Upload::Unchanged => {
             tracing::info!(path = key.path(), "Playbook unchanged");
@@ -85,16 +109,28 @@ async fn main() -> ExitCode {
         Upload::Replace(tag) => records.replace(&key, body, tag).await,
     };
     match written {
-        Ok(()) => {
-            tracing::info!(
-                path = key.path(),
-                replaced = held.is_some(),
-                "Playbook uploaded"
-            );
-            ExitCode::SUCCESS
-        }
+        Ok(()) => {}
         Err(error) => {
             tracing::error!(%error, "Playbook not uploaded");
+            return ExitCode::FAILURE;
+        }
+    }
+    let replaced = held.map(|(_, tag)| tag);
+    tracing::info!(
+        path = key.path(),
+        replaced = replaced.is_some(),
+        "Playbook uploaded"
+    );
+    let (journal, record) = uploaded(contents, replaced, RunId::new(Uuid::new_v4()), Utc::now());
+    let journal_path = Key::from(journal).path();
+    match merge_into(&records, journal, &record.encode()).await {
+        Ok(()) => {
+            tracing::info!(path = journal_path, "Upload journaled");
+            ExitCode::SUCCESS
+        }
+        // The playbook is already uploaded, so this fails only the record of it.
+        Err(failure) => {
+            tracing::error!(path = journal_path, %failure, "Upload not journaled");
             ExitCode::FAILURE
         }
     }
@@ -111,5 +147,36 @@ mod tests {
         assert_eq!(upload(None, b"new"), Upload::Create);
         assert_eq!(upload(Some(&held), b"old"), Upload::Unchanged);
         assert_eq!(upload(Some(&held), b"new"), Upload::Replace(&tag));
+    }
+
+    /// An upload is journaled under the operator's session it happened in, as its own run's first record, with the
+    /// playbook whole and the version it replaced.
+    #[test]
+    fn test_an_upload_is_journaled_to_the_operator_session_it_happened_in() {
+        let run = RunId::new(Uuid::from_u128(3));
+        // 23:30 Eastern on 2026-10-14, so the session is the Eastern date, not the UTC one.
+        let at = "2026-10-15T03:30:00Z".parse().unwrap();
+        let tag = EntityTag::new("\"abc\"");
+        let (journal, record) = uploaded(
+            "roll_off_minutes = 5\n".to_string(),
+            Some(tag.clone()),
+            run,
+            at,
+        );
+        assert_eq!(
+            Key::from(journal).path(),
+            "records/journal/producer=operator/year=2026/month=10/day=14/data.parquet"
+        );
+        assert_eq!(
+            (record.run_id(), record.sequence(), record.timestamp()),
+            (run, 1, at)
+        );
+        assert_eq!(
+            record.observation(),
+            &Observation::PlaybookUploaded(PlaybookUploaded::new(
+                "roll_off_minutes = 5\n".to_string(),
+                Some(tag)
+            ))
+        );
     }
 }
