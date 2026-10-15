@@ -366,6 +366,32 @@ mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
+    /// A complete record this build cannot type, a retired event or a later schema version, stops the history.
+    #[test]
+    fn test_history_refuses_a_complete_record_it_cannot_type() {
+        let directory = temporary_directory();
+        let mut journal = Journal::open(&directory, RunId::new(Uuid::new_v4())).unwrap();
+        journal
+            .append("2026-07-31T14:30:00Z".parse().unwrap(), observation())
+            .unwrap();
+        let file = directory.join("session-2026-07-31.jsonl");
+        let written = std::fs::read_to_string(&file).unwrap();
+        let retired = written.replace("configuration_resolved", "retired_event");
+        let later = written.replace(r#""schema_version":1"#, r#""schema_version":2"#);
+        for (untyped, event_type) in [
+            (retired, "retired_event"),
+            (later, "configuration_resolved"),
+        ] {
+            std::fs::write(&file, format!("{written}{untyped}")).unwrap();
+            let error = journal.history().unwrap_err();
+            assert!(
+                matches!(&error, HistoryError::Untyped { event_type: found, .. } if found == event_type),
+                "{untyped}: {error}"
+            );
+        }
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
     fn temporary_directory() -> PathBuf {
         std::env::temp_dir().join(format!("fund-journal-{}", Uuid::new_v4()))
     }
