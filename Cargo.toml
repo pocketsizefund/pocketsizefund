@@ -33,10 +33,6 @@ chrono-tz = "0.10"
 # Reads the vendor's raw flat files, which are gzipped CSV.
 csv = "1.4.0"
 flate2 = "1.1"
-futures-util = { version = "0.3.34", default-features = false, features = [
-  "sink",
-  "std",
-] }
 parquet = { version = "60.0.0", default-features = false, features = [
   "arrow",
   "snap",
@@ -57,10 +53,6 @@ tokio = { version = "1.53.1", features = [
   "rt-multi-thread",
   "sync",
   "time",
-] }
-tokio-tungstenite = { version = "0.30.0", default-features = false, features = [
-  "connect",
-  "rustls-tls-webpki-roots",
 ] }
 toml = { version = "1.1.7", default-features = false, features = [
   "parse",

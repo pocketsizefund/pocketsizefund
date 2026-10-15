@@ -2,8 +2,6 @@
 //! published trading calendar.
 
 pub mod corporate_actions;
-pub mod feed;
-pub mod stream;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -48,7 +46,7 @@ impl Account {
     }
 }
 
-/// The key pair every Alpaca request and stream carries, and the only reader of its keys.
+/// The key pair every Alpaca request carries, and the only reader of its keys.
 #[derive(Debug)]
 struct Credentials {
     key_id: Secret,
@@ -60,11 +58,6 @@ impl Credentials {
         request
             .header("APCA-API-KEY-ID", self.key_id.expose())
             .header("APCA-API-SECRET-KEY", self.secret.expose())
-    }
-
-    /// The stream's authentication message.
-    fn authentication(&self) -> serde_json::Value {
-        serde_json::json!({"action": "auth", "key": self.key_id.expose(), "secret": self.secret.expose()})
     }
 }
 
@@ -330,6 +323,79 @@ impl Alpaca {
             }
         }
     }
+
+    /// Every SIP trade of `symbols` stamped in `[start, end)`, every page of it. The endpoint's end is inclusive, so the
+    /// request ends a nanosecond before `end`.
+    pub async fn trades_between(
+        &self,
+        symbols: &[Symbol],
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<Vec<AlpacaTradeOutcome>, FetchError> {
+        let names: Vec<&str> = symbols.iter().map(Symbol::as_str).collect();
+        let names = names.join(",");
+        let (start, end) = (
+            start.to_rfc3339(),
+            (end - TimeDelta::nanoseconds(1)).to_rfc3339(),
+        );
+        let mut trades = Vec::new();
+        let mut tokens = PageTokens::default();
+        let mut token: Option<String> = None;
+        loop {
+            let body = with_retries(|| {
+                let mut query = vec![
+                    ("symbols", names.as_str()),
+                    ("start", start.as_str()),
+                    ("end", end.as_str()),
+                    ("feed", "sip"),
+                    ("sort", "asc"),
+                    ("limit", PAGE_LIMIT),
+                ];
+                if let Some(token) = token.as_deref() {
+                    query.push(("page_token", token));
+                }
+                send(
+                    self.credentials
+                        .sign(self.http_client.get(TRADES_URL))
+                        .query(&query),
+                )
+            })
+            .await?;
+            let next = tokens.next(&body)?;
+            trades.extend(requested_trades(&body, symbols)?);
+            match next {
+                Some(next) => token = Some(next),
+                None => return Ok(trades),
+            }
+        }
+    }
+}
+
+/// One page of trades for `requested`, a row filed under any other ticker refused.
+fn requested_trades(
+    body: &[u8],
+    requested: &[Symbol],
+) -> Result<Vec<AlpacaTradeOutcome>, FetchError> {
+    let page: TradesPage = serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
+        reason: error.to_string(),
+    })?;
+    let mut trades = Vec::new();
+    for (ticker, rows) in page.trades.unwrap_or_default() {
+        for row in rows {
+            trades.push(match Symbol::new(&ticker) {
+                Ok(symbol) if requested.contains(&symbol) => trade_outcome(&symbol, &row),
+                Ok(_) => AlpacaTradeOutcome::Refused(RefusedRow {
+                    ticker: ticker.clone(),
+                    cause: RowRefusal::Unrequested,
+                }),
+                Err(cause) => AlpacaTradeOutcome::Refused(RefusedRow {
+                    ticker: ticker.clone(),
+                    cause: RowRefusal::Symbol(cause),
+                }),
+            });
+        }
+    }
+    Ok(trades)
 }
 
 /// One page of `symbol`'s quotes, refusing any row filed under a ticker that was not asked for.
@@ -635,7 +701,7 @@ mod tests {
         SessionDate::from_date(text.parse().unwrap())
     }
 
-    /// The keys reach a request's headers and the stream's authentication, and never a printed client.
+    /// The keys reach a request's headers and never a printed client.
     #[test]
     fn test_credentials_sign_a_request_and_print_no_key() {
         let credentials = Credentials {
@@ -661,10 +727,6 @@ mod tests {
                 ("apca-api-key-id", "key-id-value"),
                 ("apca-api-secret-key", "secret-value")
             ]
-        );
-        assert_eq!(
-            credentials.authentication(),
-            serde_json::json!({"action": "auth", "key": "key-id-value", "secret": "secret-value"})
         );
     }
 
@@ -825,6 +887,120 @@ mod tests {
                 "refused tape",
             ]
         );
+    }
+
+    /// A page of ABC trades for 2026-10-06 19:59:59 with invented values in the REST history's shape; the token
+    /// encodes the next row as Alpaca's tokens do.
+    const REQUESTED_PAGE: &str = r#"{"next_page_token":"QUJDfDE3OTEzMTY3OTkwMDAwMDA0MDB8UXw5MDA0","trades":{"ABC":[{"c":["@","F"],"i":9001,"p":50.255,"s":40,"t":"2026-10-06T19:59:59.000000100Z","x":"Q","z":"C"},{"c":["@","F"],"i":9002,"p":50.26,"s":100,"t":"2026-10-06T19:59:59.000000200Z","x":"Q","z":"C"},{"c":["@","F"],"i":9003,"p":50.26,"s":60,"t":"2026-10-06T19:59:59.000000300Z","x":"Q","z":"C"}]}}"#;
+
+    /// The page's rows read as prints in order, an empty page reads as none, and a repeated page token is refused
+    /// rather than followed forever.
+    #[test]
+    fn test_a_rest_page_reads_each_trade_of_the_requested_symbols() {
+        let abc = [Symbol::new("ABC").unwrap()];
+        let trades = requested_trades(REQUESTED_PAGE.as_bytes(), &abc).unwrap();
+        let stamped: Vec<String> = trades
+            .iter()
+            .map(|outcome| match outcome {
+                AlpacaTradeOutcome::Print { print, .. } => print.timestamp().to_rfc3339(),
+                AlpacaTradeOutcome::Refused(row) => panic!("{row:?}"),
+            })
+            .collect();
+        assert_eq!(
+            stamped,
+            [
+                "2026-10-06T19:59:59.000000100+00:00",
+                "2026-10-06T19:59:59.000000200+00:00",
+                "2026-10-06T19:59:59.000000300+00:00"
+            ]
+        );
+        assert_eq!(
+            requested_trades(br#"{"trades":null,"next_page_token":null}"#, &abc).unwrap(),
+            vec![]
+        );
+        let mut tokens = PageTokens::default();
+        assert_eq!(
+            tokens.next(REQUESTED_PAGE.as_bytes()).unwrap().as_deref(),
+            Some("QUJDfDE3OTEzMTY3OTkwMDAwMDA0MDB8UXw5MDA0")
+        );
+        assert!(matches!(
+            tokens.next(REQUESTED_PAGE.as_bytes()),
+            Err(FetchError::Malformed { .. })
+        ));
+    }
+
+    /// A row filed under a ticker the request did not name is refused, never handed out as a print.
+    #[test]
+    fn test_a_row_for_an_unrequested_ticker_is_refused() {
+        let trades =
+            requested_trades(REQUESTED_PAGE.as_bytes(), &[Symbol::new("SPY").unwrap()]).unwrap();
+        assert_eq!(trades.len(), 3);
+        assert!(trades.iter().all(|outcome| matches!(
+            outcome,
+            AlpacaTradeOutcome::Refused(row) if *row.cause() == RowRefusal::Unrequested
+        )));
+    }
+
+    /// Two adjacent minutes of the 2026-10-12 open hold exactly the trades of the two-minute window, every field
+    /// compared, and every print is inside the minute asked for.
+    #[tokio::test]
+    #[ignore = "reads Alpaca's REST trade history; run deliberately under secretspec"]
+    async fn live_adjacent_minutes_partition_their_window() {
+        let alpaca = Alpaca::from_environment(reqwest::Client::new()).unwrap();
+        let symbols = [Symbol::new("SPY").unwrap(), Symbol::new("QQQ").unwrap()];
+        let at = |text: &str| text.parse::<DateTime<Utc>>().unwrap();
+        let (open, minute, two) = (
+            at("2026-10-12T13:30:00Z"),
+            at("2026-10-12T13:31:00Z"),
+            at("2026-10-12T13:32:00Z"),
+        );
+        let printed = |trades: Vec<AlpacaTradeOutcome>, start, end| -> Vec<String> {
+            trades
+                .into_iter()
+                .map(|outcome| match outcome {
+                    AlpacaTradeOutcome::Print {
+                        print,
+                        tape,
+                        letters,
+                        correction,
+                    } => {
+                        assert!(
+                            start <= print.timestamp() && print.timestamp() < end,
+                            "{print:?}"
+                        );
+                        format!("{print:?} {tape:?} {letters:?} {correction:?}")
+                    }
+                    AlpacaTradeOutcome::Refused(row) => panic!("{row:?}"),
+                })
+                .collect()
+        };
+        let first = printed(
+            alpaca.trades_between(&symbols, open, minute).await.unwrap(),
+            open,
+            minute,
+        );
+        let second = printed(
+            alpaca.trades_between(&symbols, minute, two).await.unwrap(),
+            minute,
+            two,
+        );
+        let mut whole = printed(
+            alpaca.trades_between(&symbols, open, two).await.unwrap(),
+            open,
+            two,
+        );
+        println!(
+            "{} + {} = {} trades",
+            first.len(),
+            second.len(),
+            whole.len()
+        );
+        assert!(!first.is_empty() && !second.is_empty());
+        // Compared as multisets of every field, so a print dropped and another repeated cannot balance out.
+        let mut split = [first, second].concat();
+        split.sort();
+        whole.sort();
+        assert_eq!(split, whole);
     }
 
     #[test]

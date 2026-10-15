@@ -24,7 +24,7 @@ use crate::common::parameter::Parameter;
 use crate::common::playbook::{PlaybookRead, PlaybookUploaded};
 use crate::common::reconcile::BookReconciled;
 use crate::common::risk::TargetDecided;
-use crate::common::standing::{FeedChanged, SessionClosed, SessionHalted};
+use crate::common::standing::{SessionClosed, SessionHalted};
 use crate::common::storage::Key;
 use crate::common::time::SessionDate;
 
@@ -231,7 +231,6 @@ pub enum Observation {
     BarBuilt(BarBuilt),
     PlaybookRead(PlaybookRead),
     PlaybookUploaded(PlaybookUploaded),
-    FeedChanged(FeedChanged),
     SessionHalted(SessionHalted),
     SessionClosed(SessionClosed),
 }
@@ -1405,26 +1404,8 @@ mod tests {
     #[test]
     fn test_the_standing_records_encode_to_their_wire_format() {
         use crate::common::order::{BrokerFailure, ClientOrderId};
-        use crate::common::standing::{
-            FeedChanged, FeedContinuity, FeedTransition, HaltCause, SessionClosed, SessionEnding,
-            SessionHalted,
-        };
+        use crate::common::standing::{HaltCause, SessionClosed, SessionEnding, SessionHalted};
 
-        let changes = [
-            (FeedContinuity::Whole, FeedTransition::Lost),
-            (
-                FeedContinuity::Interrupted,
-                FeedTransition::Reopened { attempts: 2 },
-            ),
-            (
-                FeedContinuity::Reopened,
-                FeedTransition::Backfilled {
-                    since: "2026-10-07T14:04:00Z".parse().unwrap(),
-                    fresh: 3,
-                },
-            ),
-        ]
-        .map(|(from, transition)| FeedChanged::of(from, transition).unwrap());
         let causes = [
             HaltCause::JournalRefused {
                 error: "disk full".to_string(),
@@ -1444,14 +1425,9 @@ mod tests {
             SessionEnding::StoppedTrading,
         ];
         let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 7).unwrap());
-        let observations: Vec<Observation> = changes
+        let observations: Vec<Observation> = causes
             .into_iter()
-            .map(Observation::FeedChanged)
-            .chain(
-                causes
-                    .into_iter()
-                    .map(|cause| Observation::SessionHalted(SessionHalted::new(cause))),
-            )
+            .map(|cause| Observation::SessionHalted(SessionHalted::new(cause)))
             .chain(
                 endings
                     .into_iter()
@@ -1462,8 +1438,6 @@ mod tests {
             .iter()
             .map(|observation| serde_json::to_string(observation).unwrap())
             .collect();
-        let changed =
-            |payload: &str| format!(r#"{{"event_type":"feed_changed","payload":{payload}}}"#);
         let halted = |cause: &str| {
             format!(r#"{{"event_type":"session_halted","payload":{{"cause":{cause}}}}}"#)
         };
@@ -1475,11 +1449,6 @@ mod tests {
         assert_eq!(
             payloads,
             [
-                changed(r#"{"from":"whole","transition":"lost"}"#),
-                changed(r#"{"from":"interrupted","transition":{"reopened":{"attempts":2}}}"#),
-                changed(
-                    r#"{"from":"reopened","transition":{"backfilled":{"since":"2026-10-07T14:04:00Z","fresh":3}}}"#
-                ),
                 halted(r#"{"journal_refused":{"error":"disk full"}}"#),
                 halted(r#"{"reconcile_unread":"not_paper"}"#),
                 halted(r#""diverged""#),

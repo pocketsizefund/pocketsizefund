@@ -226,7 +226,6 @@ mod tests {
                         | Observation::SessionOpened(_)
                         | Observation::BarBuilt(_)
                         | Observation::TradabilityRead(_)
-                        | Observation::FeedChanged(_)
                         | Observation::SessionHalted(_)
                         | Observation::SessionClosed(_)
                         | Observation::PlaybookRead(_)

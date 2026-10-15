@@ -50,6 +50,8 @@ pub enum Parameter {
     FlatBeforeCloseMinutes,
     /// Seconds a price may age before the trader treats its symbol as unpriced.
     StaleAfterSeconds,
+    /// Seconds after a minute ends before the trader reads that minute's trades.
+    MinuteWaitSeconds,
     /// Milliseconds between reads of an open order.
     OrderPollMilliseconds,
     /// Seconds an order may stay open before it is canceled.
@@ -193,6 +195,7 @@ mod tests {
                 "FUND_DAILY_LOSS_LIMIT",
                 "FUND_FLAT_BEFORE_CLOSE_MINUTES",
                 "FUND_STALE_AFTER_SECONDS",
+                "FUND_MINUTE_WAIT_SECONDS",
                 "FUND_ORDER_POLL_MILLISECONDS",
                 "FUND_ORDER_OPEN_SECONDS",
             ]
