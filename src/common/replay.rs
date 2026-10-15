@@ -12,7 +12,7 @@ use crate::common::guard::{OrderGuarded, Tradability, guard};
 use crate::common::laboratory::cost::{BasisPoints, CostModel, CostRefusal, FillStyle};
 use crate::common::laboratory::series::{Series, SeriesRefusal};
 use crate::common::market::record::BarInterval;
-use crate::common::market::state::{MarketEvent, MarketState};
+use crate::common::market::state::{MarketEvent, MarketState, Staleness};
 use crate::common::market::trade_bars::TradeBar;
 use crate::common::market::{DollarVolume, Price, Symbol};
 use crate::common::monoid::{Monoid, concatenate};
@@ -139,7 +139,7 @@ pub struct Restraint {
     limits: Limits,
     calendar: TradingCalendar,
     tradability: BTreeMap<Symbol, Tradability>,
-    stale_after: TimeDelta,
+    stale_after: Staleness,
 }
 
 impl Restraint {
@@ -149,7 +149,7 @@ impl Restraint {
         limits: Limits,
         calendar: TradingCalendar,
         tradability: BTreeMap<Symbol, Tradability>,
-        stale_after: TimeDelta,
+        stale_after: Staleness,
     ) -> Self {
         Self {
             limits,
@@ -159,7 +159,7 @@ impl Restraint {
         }
     }
 
-    pub fn stale_after(&self) -> TimeDelta {
+    pub fn stale_after(&self) -> Staleness {
         self.stale_after
     }
 
@@ -736,7 +736,12 @@ mod tests {
         )
         .unwrap();
         let limits = Limits::new(cash(1_000), cash(1_000), cash(1_000), flat_before_close).unwrap();
-        Controls::Restrained(Restraint::new(limits, calendar, tradability, stale_after))
+        Controls::Restrained(Restraint::new(
+            limits,
+            calendar,
+            tradability,
+            Staleness::new(stale_after).unwrap(),
+        ))
     }
 
     /// One share of AAPL wanted at a minute bar's close and filled at the next one's open.

@@ -9,7 +9,7 @@ use crate::broker::Broker;
 use crate::common::book::{Book, Cash, Fill};
 use crate::common::journal::Observation;
 use crate::common::market::record::BarInterval;
-use crate::common::market::state::{MarketEvent, MarketState};
+use crate::common::market::state::{MarketEvent, MarketState, Staleness};
 use crate::common::market::trade_bars::{
     BarBuilt, LiveTradeFold, TradeBar, TradeConditions, Withdrawal,
 };
@@ -80,17 +80,7 @@ pub struct SessionSettings {
     decision: DecisionInterval,
     limits: Limits,
     patience: Patience,
-    stale_after: TimeDelta,
-}
-
-/// The least staleness a session accepts, since a bar is folded only after its minute ends.
-const LEAST_STALENESS: TimeDelta = TimeDelta::minutes(1);
-
-/// Why settings were refused.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum SettingsRefusal {
-    #[error("a staleness of {stale_after} is under a minute")]
-    StalenessUnderAMinute { stale_after: TimeDelta },
+    stale_after: Staleness,
 }
 
 impl SessionSettings {
@@ -98,17 +88,14 @@ impl SessionSettings {
         decision: DecisionInterval,
         limits: Limits,
         patience: Patience,
-        stale_after: TimeDelta,
-    ) -> Result<Self, SettingsRefusal> {
-        if stale_after < LEAST_STALENESS {
-            return Err(SettingsRefusal::StalenessUnderAMinute { stale_after });
-        }
-        Ok(Self {
+        stale_after: Staleness,
+    ) -> Self {
+        Self {
             decision,
             limits,
             patience,
             stale_after,
-        })
+        }
     }
 }
 
@@ -704,9 +691,12 @@ mod tests {
         )
         .unwrap();
         let patience = Patience::new(Duration::from_secs(1), Duration::from_secs(30)).unwrap();
-        let settings =
-            SessionSettings::new(DecisionInterval::FiveMinute, limits, patience, stale_after)
-                .unwrap();
+        let settings = SessionSettings::new(
+            DecisionInterval::FiveMinute,
+            limits,
+            patience,
+            Staleness::new(stale_after).unwrap(),
+        );
         let mut session = Session::new(
             Played::throughout(OneShare),
             settings,
@@ -1317,33 +1307,6 @@ mod tests {
             decision_after(at("14:59:59"), DecisionInterval::FiveMinute),
             at("15:00:00")
         );
-    }
-
-    #[test]
-    fn test_a_staleness_under_a_minute_is_refused() {
-        let limits = Limits::new(
-            Cash::from_units(DOLLAR),
-            Cash::from_units(DOLLAR),
-            Cash::from_units(DOLLAR),
-            TimeDelta::zero(),
-        )
-        .unwrap();
-        let patience = Patience::new(Duration::from_secs(1), Duration::from_secs(1)).unwrap();
-        let settings = |seconds| {
-            SessionSettings::new(
-                DecisionInterval::OneMinute,
-                limits,
-                patience,
-                TimeDelta::seconds(seconds),
-            )
-        };
-        assert_eq!(
-            settings(59).map(|_| ()),
-            Err(SettingsRefusal::StalenessUnderAMinute {
-                stale_after: TimeDelta::seconds(59)
-            })
-        );
-        assert!(settings(60).is_ok());
     }
 
     fn closing(raw: &str, minute: &str, ticks: i64) -> TradeBar {

@@ -30,6 +30,42 @@ struct Retained {
     close: Option<StampedPrice>,
 }
 
+/// How old a close may be before risk treats it as unpriced: whole seconds, so a journal records it exactly, and at least a
+/// minute, since a bar is folded only after its minute ends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Staleness(TimeDelta);
+
+/// Why a staleness was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum StalenessRefusal {
+    #[error("a staleness of {stale_after} is under a minute")]
+    UnderAMinute { stale_after: TimeDelta },
+    #[error("a staleness of {stale_after} is not whole seconds")]
+    Fractional { stale_after: TimeDelta },
+}
+
+impl Staleness {
+    pub fn new(stale_after: TimeDelta) -> Result<Self, StalenessRefusal> {
+        match (
+            stale_after < TimeDelta::minutes(1),
+            stale_after.subsec_nanos() != 0,
+        ) {
+            (true, _) => Err(StalenessRefusal::UnderAMinute { stale_after }),
+            (false, true) => Err(StalenessRefusal::Fractional { stale_after }),
+            (false, false) => Ok(Self(stale_after)),
+        }
+    }
+
+    pub fn get(self) -> TimeDelta {
+        self.0
+    }
+
+    /// The staleness in seconds, exact since it holds whole seconds.
+    pub fn seconds(self) -> i64 {
+        self.0.num_seconds()
+    }
+}
+
 /// The latest clock and each series' latest `RETAINED_BARS` bars.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MarketState {
@@ -87,10 +123,10 @@ impl MarketState {
         symbol: &Symbol,
         interval: BarInterval,
         now: DateTime<Utc>,
-        stale_after: TimeDelta,
+        stale_after: Staleness,
     ) -> Option<Price> {
         let close = self.last_close(symbol, interval)?;
-        (now - close.at() <= stale_after).then_some(close.price())
+        (now - close.at() <= stale_after.get()).then_some(close.price())
     }
 
     /// `last_price` with the instant its closing print was set, so a caller can judge how old it is.
@@ -247,7 +283,7 @@ mod tests {
                 &symbol("AAPL"),
                 BarInterval::OneMinute,
                 now,
-                TimeDelta::minutes(2),
+                Staleness::new(TimeDelta::minutes(2)).unwrap(),
             )
         };
         assert_eq!(
@@ -260,10 +296,43 @@ mod tests {
                 &symbol("MSFT"),
                 BarInterval::OneMinute,
                 set,
-                TimeDelta::minutes(2)
+                Staleness::new(TimeDelta::minutes(2)).unwrap()
             ),
             None
         );
+    }
+
+    /// A staleness is whole seconds of at least a minute, so the journal's seconds are exactly what risk applied.
+    #[test]
+    fn test_a_staleness_under_a_minute_or_in_part_seconds_is_refused() {
+        for (stale_after, expected) in [
+            (
+                TimeDelta::seconds(59),
+                Err(StalenessRefusal::UnderAMinute {
+                    stale_after: TimeDelta::seconds(59),
+                }),
+            ),
+            (
+                TimeDelta::milliseconds(-120_500),
+                Err(StalenessRefusal::UnderAMinute {
+                    stale_after: TimeDelta::milliseconds(-120_500),
+                }),
+            ),
+            (
+                TimeDelta::milliseconds(120_500),
+                Err(StalenessRefusal::Fractional {
+                    stale_after: TimeDelta::milliseconds(120_500),
+                }),
+            ),
+            (TimeDelta::seconds(60), Ok(60)),
+            (TimeDelta::seconds(120), Ok(120)),
+        ] {
+            assert_eq!(
+                Staleness::new(stale_after).map(Staleness::seconds),
+                expected,
+                "{stale_after}"
+            );
+        }
     }
 
     /// A minute of trades with no print allowed to price it leaves the last price where the last priced minute set it.

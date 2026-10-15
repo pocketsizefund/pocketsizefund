@@ -173,7 +173,7 @@ pub(crate) fn settings(
                 ),
                 (
                     ReplaySetting::StaleAfterSeconds,
-                    restraint.stale_after().num_seconds().to_string(),
+                    restraint.stale_after().seconds().to_string(),
                 ),
             ]);
         }
@@ -304,7 +304,7 @@ pub(crate) mod tests {
             limits,
             calendar(),
             tradability,
-            chrono::TimeDelta::minutes(2),
+            crate::common::market::state::Staleness::new(chrono::TimeDelta::minutes(2)).unwrap(),
         ))
     }
 
@@ -392,7 +392,7 @@ pub(crate) mod tests {
             limits,
             calendar,
             tradability,
-            chrono::TimeDelta::minutes(2),
+            crate::common::market::state::Staleness::new(chrono::TimeDelta::minutes(2)).unwrap(),
         ));
         let fill_model =
             FillModel::new(FillStyle::Aggressive, BasisPoints::new(10.0).unwrap()).unwrap();
