@@ -30,8 +30,12 @@ use crate::ingest::FetchError;
 use crate::ingest::alpaca::{Alpaca, AlpacaTradeOutcome};
 use crate::journal::Journal;
 
-/// How long after a built minute ends it is read once more, to measure what its first read missed.
+/// How long after a minute's first read falls due it is read once more, to measure what that read missed.
 const RECHECK_AFTER: TimeDelta = TimeDelta::minutes(2);
+
+/// How long after the session's first minute ends it waits before being built, since REST serves the opening auction's
+/// burst late; no decision runs before it ends, and the first falls on the latest boundary built then.
+const OPENING_WAIT: TimeDelta = RECHECK_AFTER;
 
 const MINUTE: TimeDelta = TimeDelta::minutes(1);
 
@@ -185,6 +189,8 @@ pub struct Session<S: Strategy> {
     calendar: TradingCalendar,
     fold: TradeFold,
     symbols: Vec<Symbol>,
+    /// The session's open, whose minute waits `OPENING_WAIT` rather than the settings' wait.
+    open: DateTime<Utc>,
     /// The end of the last minute built, every minute before it folded in.
     built_through: DateTime<Utc>,
     /// The session's close, past which no minute is built.
@@ -253,6 +259,7 @@ impl<S: Strategy> Session<S> {
             calendar,
             fold: TradeFold::new(session, conditions),
             symbols,
+            open,
             built_through: open,
             close,
             rechecks: VecDeque::new(),
@@ -299,6 +306,14 @@ impl<S: Strategy> Session<S> {
         decided
     }
 
+    /// How long the minute starting at `start` waits after it ends before it is first read.
+    fn wait(&self, start: DateTime<Utc>) -> TimeDelta {
+        match start == self.open {
+            true => OPENING_WAIT,
+            false => self.settings.minute_wait.get(),
+        }
+    }
+
     /// Reads and folds in each minute in turn whose wait has passed by `now`, journaling its bars as built; a minute
     /// that cannot be read stops the building until the next call retries it.
     async fn build(
@@ -308,7 +323,7 @@ impl<S: Strategy> Session<S> {
         journal: &mut Journal,
     ) -> Result<(), SessionError> {
         while self.built_through < self.close
-            && self.built_through + MINUTE + self.settings.minute_wait.get() <= now
+            && self.built_through + MINUTE + self.wait(self.built_through) <= now
         {
             let (start, end) = (self.built_through, self.built_through + MINUTE);
             let trades = match tape.trades_between(&self.symbols, start, end).await {
@@ -351,16 +366,13 @@ impl<S: Strategy> Session<S> {
         Ok(())
     }
 
-    /// Reads once more the oldest built minute that ended at least `RECHECK_AFTER` before `now`, logging both row
-    /// counts, so the logs show whether the wait let a minute be built before all its trades were served. One per call,
-    /// so a run started late does not stall building behind a recheck of every minute it caught up on.
+    /// Reads once more the oldest built minute whose first read fell due at least `RECHECK_AFTER` before `now`, logging
+    /// both row counts, so the logs show whether the wait let a minute be built before all its trades were served. One
+    /// per call, so a run started late does not stall building behind a recheck of every minute it caught up on.
     async fn recheck(&mut self, now: DateTime<Utc>, tape: &impl MinuteTape) {
-        if let Some(recheck) = self
-            .rechecks
-            .front()
-            .copied()
-            .filter(|recheck| recheck.start + MINUTE + RECHECK_AFTER <= now)
-        {
+        if let Some(recheck) = self.rechecks.front().copied().filter(|recheck| {
+            recheck.start + MINUTE + self.wait(recheck.start) + RECHECK_AFTER <= now
+        }) {
             self.rechecks.pop_front();
             let (start, first) = (recheck.start, recheck.rows);
             match tape
@@ -728,7 +740,13 @@ mod tests {
 
     /// `session` with each name capped at `per_name` cash units.
     fn session_capped(stale_after: TimeDelta, funded: Book, per_name: i128) -> Session<OneShare> {
-        session_from(stale_after, funded, per_name, at("14:00:00"))
+        session_from(
+            stale_after,
+            funded,
+            per_name,
+            at("14:00:00"),
+            DecisionInterval::FiveMinute,
+        )
     }
 
     /// A session of the 2026-10-07 calendar, which closes at 20:00 UTC, building from `open` with a two-second wait.
@@ -737,6 +755,7 @@ mod tests {
         funded: Book,
         per_name: i128,
         open: DateTime<Utc>,
+        decision: DecisionInterval,
     ) -> Session<OneShare> {
         let date = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 7).unwrap());
         let calendar = TradingCalendar::new(
@@ -761,7 +780,7 @@ mod tests {
         .unwrap();
         let patience = Patience::new(Duration::from_secs(1), Duration::from_secs(30)).unwrap();
         let settings = SessionSettings::new(
-            DecisionInterval::FiveMinute,
+            decision,
             limits,
             patience,
             Staleness::new(stale_after).unwrap(),
@@ -1387,25 +1406,98 @@ mod tests {
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
-        tape.file(print("14:01:10", 700_000_000));
+        tape.file(print("14:03:10", 700_000_000));
         session
-            .advance(&|| at("14:02:01"), &tape, &broker, &mut journal)
+            .advance(&|| at("14:04:01"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(journaled(&directory), Vec::<&str>::new());
+        assert_eq!(tape.times_asked("14:03:00", "14:04:00"), 0);
+        session
+            .advance(&|| at("14:04:02"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        assert_eq!(tape.times_asked("14:03:00", "14:04:00"), 1);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// The session's first minute waits as long as a recheck, since REST serves the opening auction late, every minute
+    /// after it waits behind it, and its own recheck waits as long again.
+    #[tokio::test(start_paused = true)]
+    async fn test_the_opening_minute_waits_as_long_as_a_recheck() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:00:10", 700_000_000));
+        session
+            .advance(&|| at("14:02:59"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
         assert_eq!(
             (
                 tape.times_asked("14:00:00", "14:01:00"),
                 tape.times_asked("14:01:00", "14:02:00")
             ),
-            (1, 0)
+            (0, 0)
         );
         session
-            .advance(&|| at("14:02:02"), &tape, &broker, &mut journal)
+            .advance(&|| at("14:03:00"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(journaled(&directory), ["bar_built"]);
-        assert_eq!(tape.times_asked("14:01:00", "14:02:00"), 1);
+        assert_eq!(
+            (
+                tape.times_asked("14:00:00", "14:01:00"),
+                tape.times_asked("14:01:00", "14:02:00")
+            ),
+            (1, 1)
+        );
+        // Its recheck comes `RECHECK_AFTER` after it was built, not in the same call that built it.
+        for (now, asked) in [("14:04:59", 1), ("14:05:00", 2)] {
+            session
+                .advance(&|| at(now), &tape, &broker, &mut journal)
+                .await
+                .unwrap();
+            assert_eq!(tape.times_asked("14:00:00", "14:01:00"), asked);
+        }
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A one-minute session holds the opening minute as long as a five-minute one, and decides once on the latest
+    /// boundary built when the hold ends rather than on each boundary it passed.
+    #[tokio::test(start_paused = true)]
+    async fn test_a_one_minute_session_first_decides_after_the_opening_wait() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session_from(
+            TimeDelta::minutes(5),
+            funded,
+            5_000 * DOLLAR,
+            at("14:00:00"),
+            DecisionInterval::OneMinute,
+        );
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:00:10", 700_000_000));
+        session
+            .advance(&|| at("14:02:59"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(tape.times_asked("14:00:00", "14:01:00"), 0);
+        session
+            .advance(&|| at("14:03:00"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(session.built_through, at("14:02:00"));
+        let decided = journaled(&directory)
+            .iter()
+            .filter(|event| *event == &"target_decided")
+            .count();
+        assert_eq!(decided, 1);
+        assert_eq!(session.next_decision, at("14:03:00"));
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
@@ -1454,6 +1546,7 @@ mod tests {
             funded,
             5_000 * DOLLAR,
             at("19:55:00"),
+            DecisionInterval::FiveMinute,
         );
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
@@ -1485,6 +1578,7 @@ mod tests {
             funded,
             5_000 * DOLLAR,
             at("19:50:00"),
+            DecisionInterval::FiveMinute,
         );
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
@@ -1517,6 +1611,7 @@ mod tests {
             funded,
             5_000 * DOLLAR,
             at("19:50:00"),
+            DecisionInterval::FiveMinute,
         );
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
@@ -1538,7 +1633,7 @@ mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
-    /// A built minute is read once more when `RECHECK_AFTER` has passed since it ended, and only once.
+    /// A built minute is read once more when `RECHECK_AFTER` has passed since its first read fell due, and only once.
     #[tokio::test(start_paused = true)]
     async fn test_a_built_minute_is_read_again_once_after_the_recheck_wait() {
         let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
@@ -1546,16 +1641,22 @@ mod tests {
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
-        tape.file(print("14:00:10", 700_000_000));
-        let mut asked = Vec::new();
-        for now in ["14:01:02", "14:02:59", "14:03:00", "14:04:30"] {
+        tape.file(print("14:05:10", 700_000_000));
+        // Advanced every ten seconds, so the earlier minutes' rechecks, one per call, are drained well before.
+        let mut asked = BTreeMap::new();
+        let mut now = at("14:06:10");
+        while now <= at("14:09:30") {
             session
-                .advance(&|| at(now), &tape, &broker, &mut journal)
+                .advance(&|| now, &tape, &broker, &mut journal)
                 .await
                 .unwrap();
-            asked.push(tape.times_asked("14:00:00", "14:01:00"));
+            asked.insert(now, tape.times_asked("14:05:00", "14:06:00"));
+            now += TimeDelta::seconds(10);
         }
-        assert_eq!(asked, [1, 1, 2, 2]);
+        let at_checkpoints: Vec<usize> = ["14:06:10", "14:08:00", "14:08:10", "14:09:30"]
+            .map(|checkpoint| asked[&at(checkpoint)])
+            .to_vec();
+        assert_eq!(at_checkpoints, [1, 1, 2, 2]);
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
