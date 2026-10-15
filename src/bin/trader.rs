@@ -1,14 +1,13 @@
-//! Trades one session on the paper account: warms the market state on the previous session's archived bars, waits for
-//! the open, then folds the tape and trades each decision bar until the close. Exits 0 when the session ran to the close
-//! or found none, and every record shipped; 1 when it halted, stopped or did not ship; 2 when it could not start.
+//! Trades one session on the paper account: warms the state on the previous session's archived bars, then builds each
+//! minute from REST trades once it has ended and trades each decision bar until the close. Exits 0 when it ran to the
+//! close or found none and every record shipped; 1 when it halted, stopped or did not ship; 2 when it could not start.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
-use tokio::sync::mpsc;
+use chrono::{DateTime, TimeDelta, Utc};
 use tokio::time::MissedTickBehavior;
 use tracing::Instrument;
 
@@ -26,8 +25,6 @@ use fund::common::storage::{ConfigurationKey, Host, Key, ObjectKey, Provider, Se
 use fund::common::time::calendar::TradingCalendar;
 use fund::common::time::{SessionDate, SessionRange};
 use fund::ingest::alpaca::Alpaca;
-use fund::ingest::alpaca::feed::{Feed, FeedEvent};
-use fund::ingest::alpaca::stream::StreamMessage;
 use fund::ingest::{FetchError, VariableRefusal};
 use fund::journal::Journal;
 use fund::records::{Exclusion, RefusedToStart, resolved, ship_logged, start};
@@ -37,8 +34,8 @@ use fund::trader::{Session, SessionError, Standing, last_closes, warm};
 const SERVICE: &str = "trader";
 /// Calendar days read back for the previous session, past any run of holidays and a weekend.
 const CALENDAR_DAYS_BACK: i64 = 14;
-/// Feed events held while the session is busy trading, so the socket keeps being read.
-const EVENTS_BUFFERED: usize = 100_000;
+/// How long past the close a run waits for the last minutes to be built before it reads the book regardless.
+const CLOSE_GRACE: TimeDelta = TimeDelta::minutes(5);
 const TICK: Duration = Duration::from_secs(1);
 
 #[tokio::main]
@@ -141,7 +138,7 @@ enum Ran {
     /// Ran to the close and the account held nothing there.
     ToTheClose,
     Halted(HaltCause),
-    /// Ran to the close but the account still held positions, as when a tape gap kept the session from going flat.
+    /// Ran to the close but the account still held positions, as when unread minutes kept the session from going flat.
     HeldAtTheClose {
         positions: usize,
     },
@@ -207,9 +204,6 @@ enum PreviousRefusal {
 enum TradingStop {
     #[error("{0}")]
     Session(SessionError),
-    /// The feed never ends, so a closed channel means its task panicked.
-    #[error("the feed task ended")]
-    FeedEnded,
     #[error("the book was not read at the close: {0}")]
     Book(BrokerError),
 }
@@ -329,54 +323,39 @@ async fn trade(
         calendar,
         today,
         conditions,
+        symbols.into_iter().collect(),
         previous,
         book,
         opening,
-        Utc::now(),
+        open,
     );
-    let (sender, mut events) = mpsc::channel(EVENTS_BUFFERED);
-    let mut feed = Feed::new(tape, symbols.into_iter().collect(), open);
-    let reading = tokio::spawn(async move {
-        loop {
-            if sender.send(feed.next().await).await.is_err() {
-                break;
-            }
-        }
-    });
     let mut ticks = tokio::time::interval(TICK);
     ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
-    let ran = loop {
-        tokio::select! {
-            event = events.recv() => match event {
-                Some(event) => {
-                    report(&event);
-                    if let Err(error) = session.observe(Utc::now(), &event, journal) {
-                        break Err(Stopped::Trading(TradingStop::Session(error)));
-                    }
-                }
-                None => break Err(Stopped::Trading(TradingStop::FeedEnded)),
-            },
-            _ = ticks.tick() => {
-                let now = Utc::now();
-                if now >= close {
-                    break match broker.book().await {
-                        Ok(held) if held.positions().is_empty() => Ok(Ran::ToTheClose),
-                        Ok(held) => Ok(Ran::HeldAtTheClose { positions: held.positions().len() }),
-                        Err(error) => Err(Stopped::Trading(TradingStop::Book(error))),
-                    };
-                }
-                if let Err(error) = session.advance(now, &broker, journal).await {
-                    break Err(Stopped::Trading(TradingStop::Session(error)));
-                }
-                match session.standing() {
-                    Standing::Trading => {}
-                    Standing::Halted(cause) => break Ok(Ran::Halted(cause.clone())),
-                }
-            }
+    loop {
+        ticks.tick().await;
+        let now = Utc::now();
+        if let Err(error) = session.advance(now, &tape, &broker, journal).await {
+            return Err(Stopped::Trading(TradingStop::Session(error)));
         }
-    };
-    reading.abort();
-    ran
+        match session.standing() {
+            Standing::Trading => {}
+            Standing::Halted(cause) => return Ok(Ran::Halted(cause.clone())),
+        }
+        if session.built_through_close() {
+            break;
+        }
+        if now >= close + CLOSE_GRACE {
+            tracing::warn!(%close, "Last minutes not built by the close grace");
+            break;
+        }
+    }
+    match broker.book().await {
+        Ok(held) if held.positions().is_empty() => Ok(Ran::ToTheClose),
+        Ok(held) => Ok(Ran::HeldAtTheClose {
+            positions: held.positions().len(),
+        }),
+        Err(error) => Err(Stopped::Trading(TradingStop::Book(error))),
+    }
 }
 
 /// The previous session's one-minute trade bars of `symbols` as the archive derived them, folded into a state, with each
@@ -410,37 +389,6 @@ async fn previous_bars(
         .collect();
     let closes = last_closes(&bars);
     Ok((warm(bars, symbols), closes))
-}
-
-/// Logs what the feed reports of its own gaps, which the session journals only as continuity changes, and of messages
-/// it could not read, which the journal does not hold.
-fn report(event: &FeedEvent) {
-    match event {
-        FeedEvent::Lost { cause } => tracing::warn!(%cause, "Stream lost"),
-        FeedEvent::Reopened { attempts } => tracing::info!(attempts, "Stream reopened"),
-        FeedEvent::Backfilled { since, fresh } => {
-            tracing::info!(%since, fresh, "Tape backfilled");
-        }
-        FeedEvent::BackfillFailed { cause } => tracing::warn!(%cause, "Backfill failed"),
-        FeedEvent::Message(StreamMessage::Refused { code, message }) => {
-            tracing::warn!(code, message, "Stream refused a request");
-        }
-        FeedEvent::Message(StreamMessage::Unrecognized { kind, raw }) => {
-            tracing::warn!(kind, raw, "Stream message unrecognized");
-        }
-        FeedEvent::Message(StreamMessage::Malformed { cause, raw }) => {
-            tracing::warn!(%cause, raw, "Stream message malformed");
-        }
-        FeedEvent::Message(
-            StreamMessage::Connected
-            | StreamMessage::Authenticated
-            | StreamMessage::Subscribed(_)
-            | StreamMessage::Trade { .. }
-            | StreamMessage::Corrected { .. }
-            | StreamMessage::Canceled { .. }
-            | StreamMessage::Quote(_),
-        ) => {}
-    }
 }
 
 /// Waits for `instant`, returning at once when it has passed.
@@ -567,7 +515,6 @@ mod tests {
             TradingStop::Session(SessionError::Reconcile(ReconcileFailure::Unread(
                 BrokerError::NotPaper,
             ))),
-            TradingStop::FeedEnded,
             TradingStop::Book(BrokerError::NotPaper),
         ]
         .map(|stop| stop.to_string());
@@ -577,7 +524,6 @@ mod tests {
                 "the journal refused a write after 0 orders: disk full",
                 "the journal refused a write after 0 orders: disk full",
                 "the broker's book was not read to reconcile: the Alpaca keys trade live, not on paper",
-                "the feed task ended",
                 "the book was not read at the close: the Alpaca keys trade live, not on paper",
             ]
         );
@@ -592,7 +538,7 @@ mod tests {
             Ok(Ran::Halted(HaltCause::Diverged)),
             Ok(Ran::HeldAtTheClose { positions: 3 }),
             Err(Stopped::BeforeTheOpen(StartRefusal::AfterClose { close })),
-            Err(Stopped::Trading(TradingStop::FeedEnded)),
+            Err(Stopped::Trading(TradingStop::Book(BrokerError::NotPaper))),
         ]
         .map(|traded| serde_json::to_string(&ending(&traded)).unwrap());
         assert_eq!(

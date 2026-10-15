@@ -1,7 +1,8 @@
-//! One trading session: the tape's prints folded into minute bars, the market state those bars build, and at each
-//! decision bar the strategy's target taken through risk, the guard and the broker, then reconciled, all journaled.
+//! One trading session: each minute's trades read once the minute has ended and folded into minute bars, the market
+//! state those bars build, and at each decision bar the strategy's target taken through risk, the guard and the broker,
+//! then reconciled, all journaled.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use chrono::{DateTime, TimeDelta, Timelike, Utc};
 
@@ -10,18 +11,14 @@ use crate::common::book::{Book, Cash, Fill};
 use crate::common::journal::Observation;
 use crate::common::market::record::BarInterval;
 use crate::common::market::state::{MarketEvent, MarketState, Staleness};
-use crate::common::market::trade_bars::{
-    BarBuilt, LiveTradeFold, TradeBar, TradeConditions, Withdrawal,
-};
+use crate::common::market::trade_bars::{BarBuilt, TradeBar, TradeConditions, TradeFold};
 use crate::common::market::{Price, StampedPrice, Symbol};
-use crate::common::monoid::{Monoid, concatenate};
+use crate::common::monoid::{Monoid, Tally, concatenate};
 use crate::common::order::{BrokerFailure, OrderSequence};
 use crate::common::playbook::Played;
 use crate::common::reconcile::rounding_allowance;
 use crate::common::risk::{Limits, TargetDecided, risk};
-use crate::common::standing::{
-    FeedChanged, FeedContinuity, FeedTransition, HaltCause, SessionHalted,
-};
+use crate::common::standing::{HaltCause, SessionHalted};
 use crate::common::strategy::Strategy;
 use crate::common::time::SessionDate;
 use crate::common::time::calendar::TradingCalendar;
@@ -29,13 +26,14 @@ use crate::execution::{
     JournalFailure, OrderOutcome, Patience, ReconcileFailure, Reconciliation, execute,
     reconcile_and_close,
 };
-use crate::ingest::alpaca::AlpacaTradeOutcome;
-use crate::ingest::alpaca::feed::FeedEvent;
-use crate::ingest::alpaca::stream::{StreamMessage, TradeId};
+use crate::ingest::FetchError;
+use crate::ingest::alpaca::{Alpaca, AlpacaTradeOutcome};
 use crate::journal::Journal;
 
-/// How long after a minute ends its bar waits for prints still on their way before it is folded in.
-const SETTLING: TimeDelta = TimeDelta::seconds(2);
+/// How long after a built minute ends it is read once more, to measure what its first read missed.
+const RECHECK_AFTER: TimeDelta = TimeDelta::minutes(2);
+
+const MINUTE: TimeDelta = TimeDelta::minutes(1);
 
 pub mod parameters;
 
@@ -73,14 +71,45 @@ impl DecisionInterval {
     }
 }
 
-/// How a session trades: how often it decides, its limits, how long an order may stay open, and how old a price may
-/// be before risk treats it as unpriced.
+/// How long after a minute ends a session waits before reading its trades: whole seconds, from one to sixty.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MinuteWait(TimeDelta);
+
+/// Why a minute wait was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum MinuteWaitRefusal {
+    #[error("a wait of {wait} is not between one and sixty seconds")]
+    OutOfRange { wait: TimeDelta },
+    #[error("a wait of {wait} is not whole seconds")]
+    Fractional { wait: TimeDelta },
+}
+
+impl MinuteWait {
+    pub fn new(wait: TimeDelta) -> Result<Self, MinuteWaitRefusal> {
+        match (
+            wait < TimeDelta::seconds(1) || wait > TimeDelta::seconds(60),
+            wait.subsec_nanos() != 0,
+        ) {
+            (true, _) => Err(MinuteWaitRefusal::OutOfRange { wait }),
+            (false, true) => Err(MinuteWaitRefusal::Fractional { wait }),
+            (false, false) => Ok(Self(wait)),
+        }
+    }
+
+    pub fn get(self) -> TimeDelta {
+        self.0
+    }
+}
+
+/// How a session trades: how often it decides, its limits, how long an order may stay open, how old a price may be
+/// before risk treats it as unpriced, and how long after a minute ends its trades are read.
 #[derive(Debug, Clone, Copy)]
 pub struct SessionSettings {
     decision: DecisionInterval,
     limits: Limits,
     patience: Patience,
     stale_after: Staleness,
+    minute_wait: MinuteWait,
 }
 
 impl SessionSettings {
@@ -89,13 +118,37 @@ impl SessionSettings {
         limits: Limits,
         patience: Patience,
         stale_after: Staleness,
+        minute_wait: MinuteWait,
     ) -> Self {
         Self {
             decision,
             limits,
             patience,
             stale_after,
+            minute_wait,
         }
+    }
+}
+
+/// Where a session reads each ended minute's trades.
+pub trait MinuteTape {
+    /// Every trade of `symbols` stamped in `[start, end)`.
+    fn trades_between(
+        &self,
+        symbols: &[Symbol],
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> impl Future<Output = Result<Vec<AlpacaTradeOutcome>, FetchError>> + Send;
+}
+
+impl MinuteTape for Alpaca {
+    async fn trades_between(
+        &self,
+        symbols: &[Symbol],
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<Vec<AlpacaTradeOutcome>, FetchError> {
+        Alpaca::trades_between(self, symbols, start, end).await
     }
 }
 
@@ -125,12 +178,19 @@ impl std::fmt::Display for SessionError {
     }
 }
 
-/// One session's trading state; `observe` folds the tape in and `advance` moves the session to an instant.
+/// One session's trading state; `advance` builds every minute whose wait has passed and decides on the bars built.
 pub struct Session<S: Strategy> {
     strategy: Played<S>,
     settings: SessionSettings,
     calendar: TradingCalendar,
-    fold: LiveTradeFold<(Symbol, TradeId)>,
+    fold: TradeFold,
+    symbols: Vec<Symbol>,
+    /// The end of the last minute built, every minute before it folded in.
+    built_through: DateTime<Utc>,
+    /// The session's close, past which no minute is built.
+    close: DateTime<Utc>,
+    /// Built minutes still to be read once more, oldest first.
+    rechecks: VecDeque<Recheck>,
     state: MarketState,
     book: Book,
     /// The book's worth when the session opened, from which the daily loss is measured.
@@ -139,9 +199,14 @@ pub struct Session<S: Strategy> {
     fills: Vec<Fill>,
     next_decision: DateTime<Utc>,
     sequence: OrderSequence,
-    /// Whether the tape is whole: draining and deciding wait out a gap until a backfill after a reopen covers it.
-    continuity: FeedContinuity,
     standing: Standing,
+}
+
+/// A built minute starting at `start` and the rows its first read returned.
+#[derive(Debug, Clone, Copy)]
+struct Recheck {
+    start: DateTime<Utc>,
+    rows: usize,
 }
 
 /// Whether a session still decides, or the cause of its first halt, after which it decides nothing more.
@@ -158,24 +223,10 @@ fn journal_refused(error: &std::io::Error) -> HaltCause {
     }
 }
 
-/// The transition a feed event makes, for the events that can move the continuity.
-fn transition(event: &FeedEvent) -> Option<FeedTransition> {
-    match event {
-        FeedEvent::Lost { .. } => Some(FeedTransition::Lost),
-        FeedEvent::Reopened { attempts } => Some(FeedTransition::Reopened {
-            attempts: *attempts,
-        }),
-        FeedEvent::Backfilled { since, fresh } => Some(FeedTransition::Backfilled {
-            since: *since,
-            fresh: *fresh,
-        }),
-        FeedEvent::BackfillFailed { .. } | FeedEvent::Message(_) => None,
-    }
-}
-
 impl<S: Strategy> Session<S> {
-    /// A session for `session`'s tape starting at `now`, from a state warmed on earlier sessions and the book the
-    /// broker reported at the open, worth `opening`.
+    /// A session for `session`'s tape of `symbols` building from `open`, from a state warmed on earlier sessions and
+    /// the book the broker reported at the open, worth `opening`. A session the calendar does not publish has its close
+    /// at `open`, so it builds nothing.
     #[expect(
         clippy::too_many_arguments,
         reason = "each is one independent input a session starts from"
@@ -186,24 +237,30 @@ impl<S: Strategy> Session<S> {
         calendar: TradingCalendar,
         session: SessionDate,
         conditions: TradeConditions,
+        symbols: Vec<Symbol>,
         warm: MarketState,
         book: Book,
         opening: Cash,
-        now: DateTime<Utc>,
+        open: DateTime<Utc>,
     ) -> Self {
+        let close = calendar
+            .session(session)
+            .map_or(open, |trading| trading.hours().1);
         Self {
-            next_decision: decision_after(now, settings.decision),
+            next_decision: decision_after(open, settings.decision),
             strategy,
             settings,
             calendar,
-            fold: LiveTradeFold::new(session, conditions),
+            fold: TradeFold::new(session, conditions),
+            symbols,
+            built_through: open,
+            close,
+            rechecks: VecDeque::new(),
             state: warm,
             book,
             opening,
             fills: Vec::new(),
             sequence: OrderSequence::default(),
-            // The feed's first backfill, from where the tape is wanted, makes it whole.
-            continuity: FeedContinuity::Reopened,
             standing: Standing::Trading,
         }
     }
@@ -216,132 +273,132 @@ impl<S: Strategy> Session<S> {
         &self.standing
     }
 
-    /// Folds one feed event in at `now`: a print goes to the fold, which decides what it may set, and the feed's own
-    /// events say whether the tape is whole, each change journaled as `feed_changed`.
-    pub fn observe(
+    /// Whether every minute before the close is built.
+    pub fn built_through_close(&self) -> bool {
+        self.built_through >= self.close
+    }
+
+    /// Builds every minute whose wait has passed by `now`, and once a decision bar is built, trades the book toward
+    /// the strategy's target within the limits and reconciles it with the broker's; then reads again each built minute
+    /// due a recheck. A late call decides once, for the latest bar built, rather than for each it passed.
+    pub async fn advance(
         &mut self,
         now: DateTime<Utc>,
-        event: &FeedEvent,
+        tape: &impl MinuteTape,
+        broker: &impl Broker,
         journal: &mut Journal,
     ) -> Result<(), SessionError> {
-        if let Some(changed) =
-            transition(event).and_then(|transition| FeedChanged::of(self.continuity, transition))
+        self.fold_in(MarketEvent::Clock(now));
+        self.build(now, tape, journal).await?;
+        let decided = self.decide(now, broker, journal).await;
+        self.recheck(now, tape).await;
+        decided
+    }
+
+    /// Reads and folds in each minute in turn whose wait has passed by `now`, journaling its bars as built; a minute
+    /// that cannot be read stops the building until the next call retries it.
+    async fn build(
+        &mut self,
+        now: DateTime<Utc>,
+        tape: &impl MinuteTape,
+        journal: &mut Journal,
+    ) -> Result<(), SessionError> {
+        while self.built_through < self.close
+            && self.built_through + MINUTE + self.settings.minute_wait.get() <= now
         {
-            self.continuity = changed.to();
-            if let Err(error) = journal.append(now, Observation::FeedChanged(changed)) {
-                self.halt(journal, journal_refused(&error));
-                return Err(SessionError::Journal(JournalFailure::before_any_order(
-                    error,
-                )));
-            }
-        }
-        match event {
-            FeedEvent::Message(StreamMessage::Trade {
-                outcome:
-                    AlpacaTradeOutcome::Print {
-                        print,
-                        tape,
-                        letters,
-                        correction,
-                    },
-                id,
-            }) => self.fold.push(
-                (print.symbol().clone(), *id),
-                print.clone(),
-                *tape,
-                letters.clone(),
-                *correction,
-            ),
-            FeedEvent::Message(StreamMessage::Corrected {
-                symbol,
-                original,
-                replacement,
-                outcome,
-            }) => {
-                self.withdraw(symbol, *original);
+            let (start, end) = (self.built_through, self.built_through + MINUTE);
+            let trades = match tape.trades_between(&self.symbols, start, end).await {
+                Ok(trades) => trades,
+                Err(cause) => {
+                    tracing::warn!(minute = %start, %cause, "Minute not read");
+                    return Ok(());
+                }
+            };
+            let mut refused = Tally::default();
+            for outcome in &trades {
                 match outcome {
                     AlpacaTradeOutcome::Print {
                         print,
                         tape,
                         letters,
                         correction,
-                    } => self.fold.push(
-                        (symbol.clone(), *replacement),
-                        print.clone(),
-                        *tape,
-                        letters.clone(),
-                        *correction,
-                    ),
-                    AlpacaTradeOutcome::Refused(_) => {}
+                    } => self.fold.push_lettered(print, *tape, letters, *correction),
+                    AlpacaTradeOutcome::Refused(row) => refused.add(row.cause().kind()),
                 }
             }
-            FeedEvent::Message(StreamMessage::Canceled {
-                symbol, original, ..
-            }) => self.withdraw(symbol, *original),
-            FeedEvent::Message(
-                StreamMessage::Trade {
-                    outcome: AlpacaTradeOutcome::Refused(_),
-                    ..
+            if refused.total() > 0 {
+                tracing::warn!(minute = %start, %refused, "Minute rows refused");
+            }
+            for bar in self.fold.drain_through(end) {
+                if let Err(error) = journal.append(now, Observation::BarBuilt(BarBuilt::of(&bar))) {
+                    self.halt(journal, journal_refused(&error));
+                    return Err(SessionError::Journal(JournalFailure::before_any_order(
+                        error,
+                    )));
                 }
-                | StreamMessage::Connected
-                | StreamMessage::Authenticated
-                | StreamMessage::Subscribed(_)
-                | StreamMessage::Quote(_)
-                | StreamMessage::Refused { .. }
-                | StreamMessage::Unrecognized { .. }
-                | StreamMessage::Malformed { .. },
-            )
-            | FeedEvent::Lost { .. }
-            | FeedEvent::Reopened { .. }
-            | FeedEvent::Backfilled { .. }
-            | FeedEvent::BackfillFailed { .. } => {}
+                self.fold_in(MarketEvent::Trades(bar));
+            }
+            self.built_through = end;
+            self.rechecks.push_back(Recheck {
+                start,
+                rows: trades.len(),
+            });
         }
         Ok(())
     }
 
-    /// Withdraws the print a correction or cancel names, logging one no open minute holds, which changes no bar.
-    fn withdraw(&mut self, symbol: &Symbol, original: TradeId) {
-        match self.fold.withdraw(&(symbol.clone(), original)) {
-            Withdrawal::Applied => {}
-            Withdrawal::NotHeld => {
-                tracing::warn!(%symbol, ?original, "Withdrawal not applied");
+    /// Reads once more the oldest built minute that ended at least `RECHECK_AFTER` before `now`, logging both row
+    /// counts, so the logs show whether the wait let a minute be built before all its trades were served. One per call,
+    /// so a run started late does not stall building behind a recheck of every minute it caught up on.
+    async fn recheck(&mut self, now: DateTime<Utc>, tape: &impl MinuteTape) {
+        if let Some(recheck) = self
+            .rechecks
+            .front()
+            .copied()
+            .filter(|recheck| recheck.start + MINUTE + RECHECK_AFTER <= now)
+        {
+            self.rechecks.pop_front();
+            let (start, first) = (recheck.start, recheck.rows);
+            match tape
+                .trades_between(&self.symbols, start, start + MINUTE)
+                .await
+            {
+                Ok(trades) if trades.len() > first => {
+                    tracing::warn!(minute = %start, first, later = trades.len(), "Minute rechecked");
+                }
+                Ok(trades) => {
+                    tracing::info!(minute = %start, first, later = trades.len(), "Minute rechecked");
+                }
+                Err(cause) => tracing::warn!(minute = %start, %cause, "Minute not rechecked"),
             }
         }
     }
 
-    /// Folds in every minute settled by `now`, and once a decision bar has settled, trades the book toward the
-    /// strategy's target within the limits and reconciles it with the broker's. While the tape has a gap nothing is
-    /// drained or decided, and a late call decides once, for the latest settled bar, rather than for each it passed.
-    pub async fn advance(
+    /// Once a decision bar before the close is built, trades the book toward the strategy's target and reconciles it.
+    async fn decide(
         &mut self,
         now: DateTime<Utc>,
         broker: &impl Broker,
         journal: &mut Journal,
     ) -> Result<(), SessionError> {
-        self.fold_in(MarketEvent::Clock(now));
-        match self.continuity {
-            FeedContinuity::Whole => {}
-            FeedContinuity::Interrupted | FeedContinuity::Reopened => return Ok(()),
-        }
-        let settled = now - SETTLING;
-        for bar in self.fold.drain_through(settled) {
-            if let Err(error) = journal.append(now, Observation::BarBuilt(BarBuilt::of(&bar))) {
-                self.halt(journal, journal_refused(&error));
-                return Err(SessionError::Journal(JournalFailure::before_any_order(
-                    error,
-                )));
-            }
-            self.fold_in(MarketEvent::Trades(bar));
-        }
         match self.standing {
             Standing::Trading => {}
             Standing::Halted(_) => return Ok(()),
         }
-        if settled < self.next_decision {
+        if self.built_through < self.next_decision {
             return Ok(());
         }
-        let bar = decision_before(settled, self.settings.decision);
-        self.next_decision = decision_after(settled, self.settings.decision);
+        let bar = decision_before(self.built_through, self.settings.decision);
+        self.next_decision = decision_after(self.built_through, self.settings.decision);
+        // Orders placed past the close would rest until the next session, so a bar built late decides nothing.
+        match (bar >= self.close, now >= self.close) {
+            (true, _) => return Ok(()),
+            (false, true) => {
+                tracing::warn!(%bar, "Decision skipped, its bar was built after the close");
+                return Ok(());
+            }
+            (false, false) => {}
+        }
         let wanted = self.strategy.decide(&self.state, &self.book);
         let phase = self.calendar.phase_at(now);
         let restrained = risk(
@@ -538,7 +595,6 @@ mod tests {
     use crate::common::journal::{ReadLine, Record, RunId, read};
     use crate::common::market::aggregate::TradeTotals;
     use crate::common::market::record::Trade;
-    use crate::common::market::trade_bars::TradeFold;
     use crate::common::market::trade_bars::{
         ConditionLetter, Correction, OpenClose, Print, Tape, TradeSums,
     };
@@ -549,7 +605,6 @@ mod tests {
     use crate::common::strategy::Target;
     use crate::common::time::SessionRange;
     use crate::common::time::calendar::TradingSession;
-    use crate::ingest::alpaca::stream::{TradeId, messages};
     use crate::ingest::alpaca::trade_page;
 
     const DOLLAR: i128 = 1_000_000_000_000;
@@ -669,6 +724,16 @@ mod tests {
 
     /// `session` with each name capped at `per_name` cash units.
     fn session_capped(stale_after: TimeDelta, funded: Book, per_name: i128) -> Session<OneShare> {
+        session_from(stale_after, funded, per_name, at("14:00:00"))
+    }
+
+    /// A session of the 2026-10-07 calendar, which closes at 20:00 UTC, building from `open` with a two-second wait.
+    fn session_from(
+        stale_after: TimeDelta,
+        funded: Book,
+        per_name: i128,
+        open: DateTime<Utc>,
+    ) -> Session<OneShare> {
         let date = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 7).unwrap());
         let calendar = TradingCalendar::new(
             vec![
@@ -696,36 +761,80 @@ mod tests {
             limits,
             patience,
             Staleness::new(stale_after).unwrap(),
+            MinuteWait::new(TimeDelta::seconds(2)).unwrap(),
         );
-        let mut session = Session::new(
+        Session::new(
             Played::throughout(OneShare),
             settings,
             calendar,
             date,
             TradeConditions::new(BTreeMap::new()),
+            vec![spy()],
             MarketState::default(),
             funded,
             dollars(10_000),
-            at("14:00:00"),
-        );
-        // The startup backfill's record goes to a journal of its own, so each test's journal holds only its own steps.
-        let (mut journal, directory) = journal();
-        session
-            .observe(
-                at("14:00:00"),
-                &FeedEvent::Backfilled {
-                    since: at("13:59:00"),
-                    fresh: 0,
-                },
-                &mut journal,
-            )
-            .unwrap();
-        std::fs::remove_dir_all(&directory).unwrap();
-        session
+            open,
+        )
+    }
+
+    /// A tape of filed prints that answers each window asked with the prints stamped in it, and fails the minutes
+    /// starting at an instant in `failing`, recording every window asked.
+    #[derive(Default)]
+    struct Scripted {
+        prints: Mutex<Vec<AlpacaTradeOutcome>>,
+        failing: Mutex<BTreeSet<DateTime<Utc>>>,
+        asked: Mutex<Vec<(DateTime<Utc>, DateTime<Utc>)>>,
+    }
+
+    impl Scripted {
+        fn file(&self, outcome: AlpacaTradeOutcome) {
+            self.prints.lock().unwrap().push(outcome);
+        }
+
+        /// How many times the window from `start` to `end` was asked for.
+        fn times_asked(&self, start: &str, end: &str) -> usize {
+            let window = (at(start), at(end));
+            self.asked
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|asked| **asked == window)
+                .count()
+        }
+    }
+
+    impl MinuteTape for Scripted {
+        async fn trades_between(
+            &self,
+            _: &[Symbol],
+            start: DateTime<Utc>,
+            end: DateTime<Utc>,
+        ) -> Result<Vec<AlpacaTradeOutcome>, FetchError> {
+            self.asked.lock().unwrap().push((start, end));
+            if self.failing.lock().unwrap().contains(&start) {
+                return Err(FetchError::Exhausted {
+                    attempts: 3,
+                    last: "timed out".to_string(),
+                });
+            }
+            Ok(self
+                .prints
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|outcome| match outcome {
+                    AlpacaTradeOutcome::Print { print, .. } => {
+                        start <= print.timestamp() && print.timestamp() < end
+                    }
+                    AlpacaTradeOutcome::Refused(_) => false,
+                })
+                .cloned()
+                .collect())
+        }
     }
 
     /// A one-share SPY print at `when` for `ticks`, a regular sale on the consolidated tape.
-    fn print(number: u64, when: &str, ticks: i64) -> FeedEvent {
+    fn print(when: &str, ticks: i64) -> AlpacaTradeOutcome {
         let trade = Trade::new(
             spy(),
             at(when),
@@ -733,15 +842,12 @@ mod tests {
             Shares::whole(1).unwrap(),
         )
         .unwrap();
-        FeedEvent::Message(StreamMessage::Trade {
-            id: TradeId::read(&serde_json::json!({"x": "P", "i": number})).unwrap(),
-            outcome: AlpacaTradeOutcome::Print {
-                print: Print::Trade(trade),
-                tape: Tape::ConsolidatedTape,
-                letters: vec![ConditionLetter::of(' ')],
-                correction: Correction::Stands,
-            },
-        })
+        AlpacaTradeOutcome::Print {
+            print: Print::Trade(trade),
+            tape: Tape::ConsolidatedTape,
+            letters: vec![ConditionLetter::of(' ')],
+            correction: Correction::Stands,
+        }
     }
 
     /// Every record's event type in the order the journal wrote them, across its session files, since the session's fixed
@@ -789,40 +895,29 @@ mod tests {
         )
     }
 
-    /// Prints fold into minute bars as they settle; nothing is decided before the 14:05 bar settles, and then the book
-    /// buys the share the strategy wants at a fresh price, the fill agreeing with the broker's book.
+    /// Prints fold into minute bars as each minute's wait passes; nothing is decided before the 14:05 bar is built, and
+    /// then the book buys the share the strategy wants at a fresh price, the fill agreeing with the broker's book.
     #[tokio::test(start_paused = true)]
-    async fn test_a_settled_decision_bar_trades_to_the_target_and_reconciles() {
+    async fn test_a_built_decision_bar_trades_to_the_target_and_reconciles() {
         let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
         let broker = Filling::new(701_000_000, funded.clone());
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:01:10", 700_000_000),
-                &mut journal,
-            )
+            .advance(at("14:03:00"), &tape, &broker, &mut journal)
+            .await
             .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        tape.file(print("14:04:30", 701_000_000));
         session
-            .advance(at("14:03:00"), &broker, &mut journal)
+            .advance(at("14:05:01"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(journaled(&directory), ["bar_built"]);
         session
-            .observe(
-                at("14:00:00"),
-                &print(2, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:01"), &broker, &mut journal)
-            .await
-            .unwrap();
-        assert_eq!(journaled(&directory), ["bar_built"]);
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(
@@ -844,7 +939,7 @@ mod tests {
         );
         assert_eq!(session.standing(), &Standing::Trading);
         session
-            .advance(at("14:09:00"), &broker, &mut journal)
+            .advance(at("14:09:00"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(journaled(&directory).len(), 7);
@@ -859,15 +954,10 @@ mod tests {
         let broker = Filling::new(701_000_000, funded.clone());
         let mut session = session(TimeDelta::minutes(1), funded.clone());
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:01:10", 700_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(journaled(&directory), ["bar_built", "target_decided"]);
@@ -887,15 +977,10 @@ mod tests {
         let broker = Filling::new(701_000_000, strayed);
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:04:30", 701_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(session.standing(), &Standing::Halted(HaltCause::Diverged));
@@ -907,15 +992,9 @@ mod tests {
         };
         assert_eq!(count(&directory, "target_decided"), 1);
         assert_eq!(journaled(&directory).last(), Some(&"session_halted"));
+        tape.file(print("14:09:30", 701_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(2, "14:09:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:10:02"), &broker, &mut journal)
+            .advance(at("14:10:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(count(&directory, "target_decided"), 1);
@@ -934,94 +1013,12 @@ mod tests {
         let broker = Filling::new(701_000_000, funded.clone());
         let mut session = session(TimeDelta::minutes(1), funded);
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:04:59", 701_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:59", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
-        assert_eq!(session.book().position(&spy()).units(), 1_000_000);
-        std::fs::remove_dir_all(&directory).unwrap();
-    }
-
-    /// From a lost stream until a backfill after its reopen, nothing is drained or decided; then the session catches
-    /// up and decides on the whole tape.
-    #[tokio::test(start_paused = true)]
-    async fn test_a_gap_in_the_tape_holds_the_session_until_backfilled() {
-        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
-        let broker = Filling::new(701_000_000, funded.clone());
-        let mut session = session(TimeDelta::minutes(5), funded);
-        let (mut journal, directory) = journal();
-        session
-            .observe(
-                at("14:00:00"),
-                &FeedEvent::Lost {
-                    cause: crate::ingest::alpaca::stream::StreamError::Ended,
-                },
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
-            .await
-            .unwrap();
-        session
-            .observe(
-                at("14:00:00"),
-                &FeedEvent::Reopened { attempts: 1 },
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:03"), &broker, &mut journal)
-            .await
-            .unwrap();
-        assert_eq!(journaled(&directory), ["feed_changed", "feed_changed"]);
-        session
-            .observe(
-                at("14:00:00"),
-                &FeedEvent::Backfilled {
-                    since: at("14:04:00"),
-                    fresh: 0,
-                },
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:04"), &broker, &mut journal)
-            .await
-            .unwrap();
-        assert_eq!(
-            journaled(&directory)[..5],
-            [
-                "feed_changed",
-                "feed_changed",
-                "feed_changed",
-                "bar_built",
-                "target_decided"
-            ]
-        );
-        let changes: Vec<serde_json::Value> = payloads(&directory)[..3].to_vec();
-        assert_eq!(
-            changes,
-            [
-                serde_json::json!({"from": "whole", "transition": "lost"}),
-                serde_json::json!({"from": "interrupted", "transition": {"reopened": {"attempts": 1}}}),
-                serde_json::json!({"from": "reopened", "transition": {"backfilled": {"since": "2026-10-07T14:04:00Z", "fresh": 0}}}),
-            ]
-        );
         assert_eq!(session.book().position(&spy()).units(), 1_000_000);
         std::fs::remove_dir_all(&directory).unwrap();
     }
@@ -1034,15 +1031,10 @@ mod tests {
         broker.fills = false;
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:04:30", 701_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         let Standing::Halted(HaltCause::Unresolved { client_order_id }) = session.standing() else {
@@ -1065,58 +1057,6 @@ mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
-    /// Nothing is drained or decided before the feed's startup backfill arrives.
-    #[tokio::test(start_paused = true)]
-    async fn test_a_session_waits_for_the_startup_backfill() {
-        let date = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 7).unwrap());
-        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
-        let broker = Filling::new(701_000_000, funded.clone());
-        let started = session(TimeDelta::minutes(5), funded.clone());
-        let mut session = Session::new(
-            Played::throughout(OneShare),
-            started.settings,
-            started.calendar,
-            date,
-            TradeConditions::new(BTreeMap::new()),
-            MarketState::default(),
-            funded,
-            Cash::from_units(10_000 * DOLLAR),
-            at("14:00:00"),
-        );
-        let (mut journal, directory) = journal();
-        session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
-            .await
-            .unwrap();
-        assert_eq!(journaled(&directory), Vec::<&str>::new());
-        session
-            .observe(
-                at("14:00:00"),
-                &FeedEvent::Backfilled {
-                    since: at("14:00:00"),
-                    fresh: 0,
-                },
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:03"), &broker, &mut journal)
-            .await
-            .unwrap();
-        assert_eq!(
-            journaled(&directory)[..3],
-            ["feed_changed", "bar_built", "target_decided"]
-        );
-        std::fs::remove_dir_all(&directory).unwrap();
-    }
-
     /// A journal that refuses a built bar halts the session as well as failing the call.
     #[tokio::test(start_paused = true)]
     async fn test_a_failed_step_halts_the_session() {
@@ -1124,35 +1064,12 @@ mod tests {
         let broker = Filling::new(701_000_000, funded.clone());
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
         std::fs::remove_dir_all(&directory).unwrap();
-        session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        let failed = session.advance(at("14:05:02"), &broker, &mut journal).await;
-        assert!(matches!(failed, Err(SessionError::Journal(_))));
-        assert!(matches!(
-            session.standing(),
-            Standing::Halted(HaltCause::JournalRefused { .. })
-        ));
-    }
-
-    /// A journal that refuses a feed change halts the session and fails the call.
-    #[test]
-    fn test_a_refused_feed_change_halts_the_session() {
-        let mut session = session(TimeDelta::minutes(5), Book::default());
-        let (mut journal, directory) = journal();
-        std::fs::remove_dir_all(&directory).unwrap();
-        let failed = session.observe(
-            at("14:00:00"),
-            &FeedEvent::Lost {
-                cause: crate::ingest::alpaca::stream::StreamError::Ended,
-            },
-            &mut journal,
-        );
+        tape.file(print("14:04:30", 701_000_000));
+        let failed = session
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
+            .await;
         assert!(matches!(failed, Err(SessionError::Journal(_))));
         assert!(matches!(
             session.standing(),
@@ -1168,14 +1085,11 @@ mod tests {
         broker.book_unreadable = true;
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
-        session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        let failed = session.advance(at("14:05:02"), &broker, &mut journal).await;
+        let tape = Scripted::default();
+        tape.file(print("14:04:30", 701_000_000));
+        let failed = session
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
+            .await;
         assert!(matches!(
             failed,
             Err(SessionError::Reconcile(ReconcileFailure::Unread(_)))
@@ -1205,15 +1119,10 @@ mod tests {
         let broker = Filling::new(701_000_000, strayed);
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:04:30", 701_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         let records = records(&directory);
@@ -1256,21 +1165,16 @@ mod tests {
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut refusing, gone) = journal();
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 701_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:01:10", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:03:00"), &broker, &mut journal)
+            .advance(at("14:03:00"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(journaled(&directory), ["bar_built"]);
         std::fs::remove_dir_all(&gone).unwrap();
         let failed = session
-            .advance(at("14:05:02"), &broker, &mut refusing)
+            .advance(at("14:05:02"), &tape, &broker, &mut refusing)
             .await;
         assert!(matches!(failed, Err(SessionError::Journal(_))));
         assert!(matches!(
@@ -1398,15 +1302,10 @@ mod tests {
         let broker = Filling::new(701_000_000, funded.clone());
         let mut session = session_capped(TimeDelta::minutes(5), funded.clone(), DOLLAR / 100);
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:04:30", 701_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:04:30", 701_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:05:02"), &broker, &mut journal)
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         assert_eq!(
@@ -1424,29 +1323,18 @@ mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
-    /// Each settled minute is journaled as the bar the fold built, before anything decides on it.
+    /// Each built minute is journaled as the bar the fold built, before anything decides on it.
     #[tokio::test(start_paused = true)]
-    async fn test_a_settled_minute_is_journaled_as_built() {
+    async fn test_a_built_minute_is_journaled_as_built() {
         let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
         let broker = Filling::new(701_000_000, funded.clone());
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        tape.file(print("14:01:40", 702_000_000));
         session
-            .observe(
-                at("14:00:00"),
-                &print(1, "14:01:10", 700_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .observe(
-                at("14:00:00"),
-                &print(2, "14:01:40", 702_000_000),
-                &mut journal,
-            )
-            .unwrap();
-        session
-            .advance(at("14:03:00"), &broker, &mut journal)
+            .advance(at("14:03:00"), &tape, &broker, &mut journal)
             .await
             .unwrap();
         let payloads: Vec<serde_json::Value> = std::fs::read_dir(&directory)
@@ -1486,16 +1374,188 @@ mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
-    /// A correction of an ABC print and a cancel of an XYZ print, shaped as the stream sends them.
-    const CORRECTED_PRINT: &str = r#"{"T":"t","S":"ABC","i":4101,"x":"Q","p":50.25,"s":200,"c":["@","I"],"t":"2026-10-07T15:12:07.5Z","z":"C"}"#;
-    const CORRECTION: &str = r#"{"S":"ABC","T":"c","cc":["@","I"],"ci":4188,"cp":50.3,"cs":250,"oc":["@"],"oi":4101,"op":50.25,"os":200,"t":"2026-10-07T16:40:02.25Z","x":"Q","z":"C"}"#;
-    const STANDING_PRINT: &str = r#"{"T":"t","S":"XYZ","i":1,"x":"P","p":20.1,"s":100,"c":[" "],"t":"2026-10-07T16:50:10Z","z":"B"}"#;
-    const CANCELED_PRINT: &str = r#"{"T":"t","S":"XYZ","i":900001,"x":"N","p":20.05,"s":700,"c":[" ","I"],"t":"2026-10-07T16:50:30.25Z","z":"B"}"#;
-    const CANCEL: &str = r#"{"S":"XYZ","T":"x","a":"C","i":900001,"p":20.05,"s":700,"t":"2026-10-07T16:52:00Z","x":"N","z":"B"}"#;
+    /// A minute is read only once its wait has passed after it ends: the 14:01 minute is not asked for a second early
+    /// and is built on the second its wait passes.
+    #[tokio::test(start_paused = true)]
+    async fn test_a_minute_is_built_only_once_its_wait_has_passed() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        session
+            .advance(at("14:02:01"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), Vec::<&str>::new());
+        assert_eq!(
+            (
+                tape.times_asked("14:00:00", "14:01:00"),
+                tape.times_asked("14:01:00", "14:02:00")
+            ),
+            (1, 0)
+        );
+        session
+            .advance(at("14:02:02"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        assert_eq!(tape.times_asked("14:01:00", "14:02:00"), 1);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
 
-    /// The same prints as the REST history labels them, the replacement keeping its original's number, folded as the
-    /// archive folds them.
-    fn archive_bars() -> Vec<serde_json::Value> {
+    /// A minute that cannot be read holds every minute after it, and the decision behind them, until a later call
+    /// reads it.
+    #[tokio::test(start_paused = true)]
+    async fn test_a_failed_minute_is_retried_and_holds_everything_after_it() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        tape.file(print("14:04:30", 701_000_000));
+        tape.failing.lock().unwrap().insert(at("14:02:00"));
+        session
+            .advance(at("14:05:02"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        assert_eq!(session.built_through, at("14:02:00"));
+        assert_eq!(tape.times_asked("14:04:00", "14:05:00"), 0);
+        tape.failing.lock().unwrap().clear();
+        session
+            .advance(at("14:05:03"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        // Failed, then read once; its recheck waits behind the older minutes'.
+        assert_eq!(tape.times_asked("14:02:00", "14:03:00"), 2);
+        assert_eq!(
+            journaled(&directory)[..3],
+            ["bar_built", "bar_built", "target_decided"]
+        );
+        assert_eq!(session.book().position(&spy()).units(), 1_000_000);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// The minute before the close is built, nothing past the close is asked for, and no decision is made for the bar
+    /// that ends at the close.
+    #[tokio::test(start_paused = true)]
+    async fn test_the_last_minute_is_built_and_no_decision_ends_at_the_close() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session_from(
+            TimeDelta::minutes(5),
+            funded,
+            5_000 * DOLLAR,
+            at("19:55:00"),
+        );
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("19:59:30", 701_000_000));
+        session
+            .advance(at("20:00:01"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert!(!session.built_through_close());
+        session
+            .advance(at("20:10:00"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert!(session.built_through_close());
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        assert_eq!(payloads(&directory)[0]["timestamp"], "2026-10-07T19:59:00Z");
+        assert_eq!(tape.times_asked("20:00:00", "20:01:00"), 0);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A decision bar that ends before the close but is only built after it decides nothing, since its orders would
+    /// rest until the next session.
+    #[tokio::test(start_paused = true)]
+    async fn test_a_decision_bar_built_after_the_close_decides_nothing() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session_from(
+            TimeDelta::minutes(5),
+            funded,
+            5_000 * DOLLAR,
+            at("19:50:00"),
+        );
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("19:54:30", 701_000_000));
+        // The 19:55 decision bar's last minute fails until past the close, then the minute after it fails instead.
+        tape.failing.lock().unwrap().insert(at("19:54:00"));
+        session
+            .advance(at("19:59:00"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert!(journaled(&directory).is_empty());
+        tape.failing.lock().unwrap().clear();
+        tape.failing.lock().unwrap().insert(at("19:56:00"));
+        session
+            .advance(at("20:00:30"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A built minute is read once more when `RECHECK_AFTER` has passed since it ended, and only once.
+    #[tokio::test(start_paused = true)]
+    async fn test_a_built_minute_is_read_again_once_after_the_recheck_wait() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:00:10", 700_000_000));
+        let mut asked = Vec::new();
+        for now in ["14:01:02", "14:02:59", "14:03:00", "14:04:30"] {
+            session
+                .advance(at(now), &tape, &broker, &mut journal)
+                .await
+                .unwrap();
+            asked.push(tape.times_asked("14:00:00", "14:01:00"));
+        }
+        assert_eq!(asked, [1, 1, 2, 2]);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A run that catches up on many minutes at once rechecks only the oldest due per call, so it never stalls behind
+    /// rereading all of them.
+    #[tokio::test(start_paused = true)]
+    async fn test_a_caught_up_run_rechecks_one_minute_per_call() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        session
+            .advance(at("14:10:00"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        let reads = |tape: &Scripted| {
+            [
+                ("14:00:00", "14:01:00"),
+                ("14:01:00", "14:02:00"),
+                ("14:02:00", "14:03:00"),
+            ]
+            .map(|(start, end)| tape.times_asked(start, end))
+        };
+        assert_eq!(reads(&tape), [2, 1, 1]);
+        session
+            .advance(at("14:10:01"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(reads(&tape), [2, 2, 1]);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A corrected ABC print and an XYZ print canceled beside a standing one, as the REST history labels them, the
+    /// replacement keeping its original's number.
+    fn corrected_and_canceled() -> Vec<AlpacaTradeOutcome> {
         let pages = [
             (
                 "ABC",
@@ -1506,77 +1566,63 @@ mod tests {
                 r#"[{"c":[" "],"i":1,"p":20.1,"s":100,"t":"2026-10-07T16:50:10Z","x":"P","z":"B"},{"c":[" ","I"],"i":900001,"p":20.05,"s":700,"t":"2026-10-07T16:50:30.25Z","u":"canceled","x":"N","z":"B"}]"#,
             ),
         ];
-        let date = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 7).unwrap());
-        let mut fold = TradeFold::new(date, TradeConditions::new(BTreeMap::new()));
-        for (ticker, rows) in pages {
-            let body = format!(r#"{{"trades":{{"{ticker}":{rows}}},"next_page_token":null}}"#);
-            let (outcomes, _) = trade_page(&Symbol::new(ticker).unwrap(), body.as_bytes()).unwrap();
-            for outcome in outcomes {
-                match outcome {
-                    AlpacaTradeOutcome::Print {
-                        print,
-                        tape,
-                        letters,
-                        correction,
-                    } => fold.push_lettered(&print, tape, &letters, correction),
-                    AlpacaTradeOutcome::Refused(row) => panic!("{row:?}"),
-                }
-            }
-        }
-        let (bars, counts) = fold.finish();
-        assert_eq!(counts.withdrawn(), 2);
-        bars.iter()
-            .map(|bar| {
-                serde_json::to_value(Observation::BarBuilt(BarBuilt::of(bar))).unwrap()["payload"]
-                    .clone()
+        pages
+            .into_iter()
+            .flat_map(|(ticker, rows)| {
+                let body = format!(r#"{{"trades":{{"{ticker}":{rows}}},"next_page_token":null}}"#);
+                trade_page(&Symbol::new(ticker).unwrap(), body.as_bytes())
+                    .unwrap()
+                    .0
             })
             .collect()
     }
 
-    /// The bars a session journals from `steps`, each frame observed after advancing to the instant beside it, if any.
-    async fn live_bars(steps: &[(Option<&str>, &str)]) -> Vec<serde_json::Value> {
+    fn bar_payload(bar: &TradeBar) -> serde_json::Value {
+        serde_json::to_value(Observation::BarBuilt(BarBuilt::of(bar))).unwrap()["payload"].clone()
+    }
+
+    /// The corrected and canceled prints folded whole, as the archive folds them.
+    fn archive_bars() -> Vec<serde_json::Value> {
+        let date = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 7).unwrap());
+        let mut fold = TradeFold::new(date, TradeConditions::new(BTreeMap::new()));
+        for outcome in corrected_and_canceled() {
+            match outcome {
+                AlpacaTradeOutcome::Print {
+                    print,
+                    tape,
+                    letters,
+                    correction,
+                } => fold.push_lettered(&print, tape, &letters, correction),
+                AlpacaTradeOutcome::Refused(row) => panic!("{row:?}"),
+            }
+        }
+        let (bars, counts) = fold.finish();
+        assert_eq!(counts.withdrawn(), 2);
+        bars.iter().map(bar_payload).collect()
+    }
+
+    /// The same prints read minute by minute by a session leave the live bars the archive's: the original withdrawn,
+    /// its replacement standing at the correction's instant, and the canceled print gone.
+    #[tokio::test(start_paused = true)]
+    async fn test_live_bars_agree_with_the_archive_on_a_correction_and_a_cancel() {
         let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
         let broker = Filling::new(701_000_000, funded.clone());
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
-        for (advance_to, frame) in steps {
-            if let Some(advance_to) = advance_to {
-                session
-                    .advance(at(advance_to), &broker, &mut journal)
-                    .await
-                    .unwrap();
-            }
-            for message in messages(&format!("[{frame}]")).unwrap() {
-                session
-                    .observe(at("14:00:00"), &FeedEvent::Message(message), &mut journal)
-                    .unwrap();
-            }
+        let tape = Scripted::default();
+        for outcome in corrected_and_canceled() {
+            tape.file(outcome);
         }
         session
-            .advance(at("19:00:00"), &broker, &mut journal)
+            .advance(at("19:00:00"), &tape, &broker, &mut journal)
             .await
             .unwrap();
-        let bars = records(&directory)
+        let live: Vec<serde_json::Value> = records(&directory)
             .iter()
             .filter(|record| record.observation().event_type() == "bar_built")
             .map(|record| serde_json::to_value(record.observation()).unwrap()["payload"].clone())
             .collect();
         std::fs::remove_dir_all(&directory).unwrap();
-        bars
-    }
-
-    /// A correction and a cancel arriving while their prints' minutes are open leave the live bars the archive's: the
-    /// original withdrawn, its replacement standing at the correction's instant, and the canceled print gone.
-    #[tokio::test(start_paused = true)]
-    async fn test_live_bars_agree_with_the_archive_on_a_correction_and_a_cancel() {
-        let live = live_bars(&[
-            (None, CORRECTED_PRINT),
-            (None, CORRECTION),
-            (None, STANDING_PRINT),
-            (None, CANCELED_PRINT),
-            (None, CANCEL),
-        ])
-        .await;
         let minutes: Vec<(&str, &str)> = live
             .iter()
             .map(|bar| {
@@ -1594,37 +1640,5 @@ mod tests {
             ]
         );
         assert_eq!(live, archive_bars());
-    }
-
-    /// A correction or cancel arriving after its print's bar was built leaves that bar as built; the replacement still
-    /// stands at the correction's instant.
-    #[tokio::test(start_paused = true)]
-    async fn test_a_late_correction_or_cancel_leaves_the_built_bar() {
-        let live = live_bars(&[
-            (None, CORRECTED_PRINT),
-            (Some("15:14:00"), CORRECTION),
-            (None, STANDING_PRINT),
-            (None, CANCELED_PRINT),
-            (Some("16:52:00"), CANCEL),
-        ])
-        .await;
-        let volumes: Vec<(&str, &str, i64)> = live
-            .iter()
-            .map(|bar| {
-                (
-                    bar["symbol"].as_str().unwrap(),
-                    bar["timestamp"].as_str().unwrap(),
-                    bar["volume"].as_i64().unwrap(),
-                )
-            })
-            .collect();
-        assert_eq!(
-            volumes,
-            [
-                ("ABC", "2026-10-07T15:12:00Z", 200_000_000),
-                ("ABC", "2026-10-07T16:40:00Z", 250_000_000),
-                ("XYZ", "2026-10-07T16:50:00Z", 800_000_000),
-            ]
-        );
     }
 }

@@ -18,10 +18,11 @@ use crate::common::parameter::{Parameter, ParameterRefusal, record, record_requi
 use crate::common::risk::{Limits, LimitsRefusal};
 use crate::execution::{Patience, PatienceRefusal};
 use crate::parameter::{Directories, environment_variable};
-use crate::trader::{DecisionInterval, SessionSettings};
+use crate::trader::{DecisionInterval, MinuteWait, MinuteWaitRefusal, SessionSettings};
 
 const DEFAULT_DECISION_INTERVAL: DecisionInterval = DecisionInterval::FiveMinute;
 const DEFAULT_STALE_AFTER: StaleAfter = StaleAfter(120);
+const DEFAULT_MINUTE_WAIT: MinuteWaitSeconds = MinuteWaitSeconds(10);
 const DEFAULT_ORDER_POLL: OrderPoll = OrderPoll(NonZeroU16::new(500).expect("500 is not zero"));
 const DEFAULT_ORDER_OPEN: OrderOpen = OrderOpen(NonZeroU16::new(30).expect("30 is not zero"));
 
@@ -125,6 +126,24 @@ impl From<StaleAfter> for TimeDelta {
     }
 }
 
+/// Seconds after a minute ends before its trades are read, any whole count, which the session's `MinuteWait` bounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MinuteWaitSeconds(u16);
+
+impl FromStr for MinuteWaitSeconds {
+    type Err = CountRefusal;
+
+    fn from_str(raw: &str) -> Result<Self, Self::Err> {
+        count(raw, u16::MAX).map(Self)
+    }
+}
+
+impl From<MinuteWaitSeconds> for TimeDelta {
+    fn from(seconds: MinuteWaitSeconds) -> Self {
+        TimeDelta::seconds(i64::from(seconds.0))
+    }
+}
+
 /// Milliseconds between reads of an open order, positive and at most a minute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct OrderPoll(NonZeroU16);
@@ -171,7 +190,13 @@ macro_rules! display_count {
     )*};
 }
 
-display_count!(FlatBeforeClose, StaleAfter, OrderPoll, OrderOpen);
+display_count!(
+    FlatBeforeClose,
+    StaleAfter,
+    MinuteWaitSeconds,
+    OrderPoll,
+    OrderOpen
+);
 
 /// Why the trader's settings were refused: one parameter, or settings that do not hold together.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -184,6 +209,8 @@ pub enum ParametersRefusal {
     Patience(PatienceRefusal),
     #[error("the staleness is refused: {0}")]
     Staleness(StalenessRefusal),
+    #[error("the minute wait is refused: {0}")]
+    MinuteWait(MinuteWaitRefusal),
 }
 
 impl From<ParameterRefusal> for ParametersRefusal {
@@ -233,6 +260,11 @@ impl Parameters {
             DEFAULT_STALE_AFTER,
             &mut resolved,
         )?;
+        let minute_wait = record(
+            read(Parameter::MinuteWaitSeconds)?,
+            DEFAULT_MINUTE_WAIT,
+            &mut resolved,
+        )?;
         let poll = record(
             read(Parameter::OrderPollMilliseconds)?,
             DEFAULT_ORDER_POLL,
@@ -247,7 +279,9 @@ impl Parameters {
             Patience::new(poll.into(), open_for.into()).map_err(ParametersRefusal::Patience)?;
         let stale_after =
             Staleness::new(stale_after.into()).map_err(ParametersRefusal::Staleness)?;
-        let settings = SessionSettings::new(decision, limits, patience, stale_after);
+        let minute_wait =
+            MinuteWait::new(minute_wait.into()).map_err(ParametersRefusal::MinuteWait)?;
+        let settings = SessionSettings::new(decision, limits, patience, stale_after, minute_wait);
         let parameters = Self {
             universe,
             settings,
@@ -335,6 +369,7 @@ mod tests {
                     ParameterSource::Environment
                 ),
                 ("stale_after_seconds", "120", ParameterSource::Default),
+                ("minute_wait_seconds", "10", ParameterSource::Default),
                 ("order_poll_milliseconds", "500", ParameterSource::Default),
                 ("order_open_seconds", "30", ParameterSource::Default),
             ]
@@ -420,6 +455,10 @@ mod tests {
         assert_eq!(
             DEFAULT_STALE_AFTER.to_string().parse(),
             Ok(DEFAULT_STALE_AFTER)
+        );
+        assert_eq!(
+            DEFAULT_MINUTE_WAIT.to_string().parse(),
+            Ok(DEFAULT_MINUTE_WAIT)
         );
         assert_eq!(
             DEFAULT_ORDER_POLL.to_string().parse(),
@@ -515,6 +554,42 @@ mod tests {
                     stale_after: TimeDelta::seconds(59)
                 }
             ))
+        );
+    }
+
+    /// A wait of one to sixty whole seconds is the session's; zero and sixty-one are refused by the session's type.
+    #[test]
+    fn test_a_minute_wait_resolves_within_a_minute_and_is_refused_past_it() {
+        let wait = |raw: &'static str| {
+            let mut values = REQUIRED.to_vec();
+            values.push((Parameter::MinuteWaitSeconds, raw));
+            Parameters::resolved(&supplied(&values)).map(|(parameters, configuration)| {
+                (
+                    parameters.settings().minute_wait.get(),
+                    configuration.parameters()[&Parameter::MinuteWaitSeconds]
+                        .value()
+                        .to_string(),
+                )
+            })
+        };
+        assert_eq!(wait("1"), Ok((TimeDelta::seconds(1), "1".to_string())));
+        assert_eq!(wait("60"), Ok((TimeDelta::seconds(60), "60".to_string())));
+        for (raw, seconds) in [("0", 0), ("61", 61)] {
+            assert_eq!(
+                wait(raw),
+                Err(ParametersRefusal::MinuteWait(
+                    MinuteWaitRefusal::OutOfRange {
+                        wait: TimeDelta::seconds(seconds)
+                    }
+                )),
+                "{raw}"
+            );
+        }
+        assert_eq!(
+            MinuteWait::new(TimeDelta::milliseconds(1_500)),
+            Err(MinuteWaitRefusal::Fractional {
+                wait: TimeDelta::milliseconds(1_500)
+            })
         );
     }
 }
