@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 
 use super::record::BarInterval;
 use super::trade_bars::TradeBar;
@@ -79,6 +79,18 @@ impl MarketState {
     /// The close of the series' latest priced bar, `None` when no retained bar of it has a close.
     pub fn last_price(&self, symbol: &Symbol, interval: BarInterval) -> Option<Price> {
         self.last_close(symbol, interval).map(StampedPrice::price)
+    }
+
+    /// `last_price`, unless the print that set it is more than `stale_after` before `now`.
+    pub fn fresh_price(
+        &self,
+        symbol: &Symbol,
+        interval: BarInterval,
+        now: DateTime<Utc>,
+        stale_after: TimeDelta,
+    ) -> Option<Price> {
+        let close = self.last_close(symbol, interval)?;
+        (now - close.at() <= stale_after).then_some(close.price())
     }
 
     /// `last_price` with the instant its closing print was set, so a caller can judge how old it is.
@@ -223,6 +235,35 @@ mod tests {
             ))
         }));
         assert_eq!(state, latest);
+    }
+
+    /// A close prices until it is exactly `stale_after` old and not a second after.
+    #[test]
+    fn test_a_close_older_than_the_staleness_prices_nothing() {
+        let state = MarketState::of(MarketEvent::Trades(minute_bar("AAPL", 0, 1000, 100)));
+        let set = "2026-09-25T13:30:00Z".parse::<DateTime<Utc>>().unwrap();
+        let fresh = |now| {
+            state.fresh_price(
+                &symbol("AAPL"),
+                BarInterval::OneMinute,
+                now,
+                TimeDelta::minutes(2),
+            )
+        };
+        assert_eq!(
+            fresh(set + TimeDelta::minutes(2)),
+            Some(Price::from_ticks(1000).unwrap())
+        );
+        assert_eq!(fresh(set + TimeDelta::seconds(121)), None);
+        assert_eq!(
+            state.fresh_price(
+                &symbol("MSFT"),
+                BarInterval::OneMinute,
+                set,
+                TimeDelta::minutes(2)
+            ),
+            None
+        );
     }
 
     /// A minute of trades with no print allowed to price it leaves the last price where the last priced minute set it.

@@ -482,8 +482,12 @@ impl<S: Strategy> Session<S> {
 
     /// The symbol's last one-minute close, unless the print that set it is older than the settings allow.
     fn fresh_price(&self, symbol: &Symbol, now: DateTime<Utc>) -> Option<Price> {
-        let close = self.state.last_close(symbol, BarInterval::OneMinute)?;
-        (now - close.at() <= self.settings.stale_after).then_some(close.price())
+        self.state.fresh_price(
+            symbol,
+            BarInterval::OneMinute,
+            now,
+            self.settings.stale_after,
+        )
     }
 }
 
