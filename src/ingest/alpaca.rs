@@ -941,8 +941,8 @@ mod tests {
         )));
     }
 
-    /// Two adjacent minutes of the 2026-10-12 open split the two-minute window exactly: every print is inside the minute
-    /// asked for, none is counted in both, and none falls between them at the shared boundary.
+    /// Two adjacent minutes of the 2026-10-12 open hold exactly the trades of the two-minute window, every field
+    /// compared, and every print is inside the minute asked for.
     #[tokio::test]
     #[ignore = "reads Alpaca's REST trade history; run deliberately under secretspec"]
     async fn live_adjacent_minutes_partition_their_window() {
@@ -954,26 +954,26 @@ mod tests {
             at("2026-10-12T13:31:00Z"),
             at("2026-10-12T13:32:00Z"),
         );
-        let printed =
-            |trades: Vec<AlpacaTradeOutcome>, start, end| -> Vec<(String, DateTime<Utc>, i64)> {
-                trades
-                    .into_iter()
-                    .map(|outcome| match outcome {
-                        AlpacaTradeOutcome::Print { print, .. } => {
-                            assert!(
-                                start <= print.timestamp() && print.timestamp() < end,
-                                "{print:?}"
-                            );
-                            (
-                                print.symbol().to_string(),
-                                print.timestamp(),
-                                print.price().ticks(),
-                            )
-                        }
-                        AlpacaTradeOutcome::Refused(row) => panic!("{row:?}"),
-                    })
-                    .collect()
-            };
+        let printed = |trades: Vec<AlpacaTradeOutcome>, start, end| -> Vec<String> {
+            trades
+                .into_iter()
+                .map(|outcome| match outcome {
+                    AlpacaTradeOutcome::Print {
+                        print,
+                        tape,
+                        letters,
+                        correction,
+                    } => {
+                        assert!(
+                            start <= print.timestamp() && print.timestamp() < end,
+                            "{print:?}"
+                        );
+                        format!("{print:?} {tape:?} {letters:?} {correction:?}")
+                    }
+                    AlpacaTradeOutcome::Refused(row) => panic!("{row:?}"),
+                })
+                .collect()
+        };
         let first = printed(
             alpaca.trades_between(&symbols, open, minute).await.unwrap(),
             open,
@@ -984,7 +984,7 @@ mod tests {
             minute,
             two,
         );
-        let whole = printed(
+        let mut whole = printed(
             alpaca.trades_between(&symbols, open, two).await.unwrap(),
             open,
             two,
@@ -996,7 +996,11 @@ mod tests {
             whole.len()
         );
         assert!(!first.is_empty() && !second.is_empty());
-        assert_eq!([first, second].concat().len(), whole.len());
+        // Compared as multisets of every field, so a print dropped and another repeated cannot balance out.
+        let mut split = [first, second].concat();
+        split.sort();
+        whole.sort();
+        assert_eq!(split, whole);
     }
 
     #[test]

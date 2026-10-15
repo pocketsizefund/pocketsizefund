@@ -331,10 +331,30 @@ async fn trade(
     );
     let mut ticks = tokio::time::interval(TICK);
     ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let deadline = close + CLOSE_GRACE;
     loop {
         ticks.tick().await;
         let now = Utc::now();
-        if let Err(error) = session.advance(now, &tape, &broker, journal).await {
+        let remaining = (deadline - now)
+            .to_std()
+            .ok()
+            .filter(|remaining| !remaining.is_zero());
+        // Nothing is decided once the clock is past the close, so bounding a later advance cuts off only its reads.
+        let advanced = match (remaining, now >= close) {
+            (None, _) => None,
+            (Some(_), false) => Some(session.advance(&Utc::now, &tape, &broker, journal).await),
+            (Some(remaining), true) => tokio::time::timeout(
+                remaining,
+                session.advance(&Utc::now, &tape, &broker, journal),
+            )
+            .await
+            .ok(),
+        };
+        let Some(advanced) = advanced else {
+            tracing::warn!(%close, "Last minutes not built by the close grace");
+            break;
+        };
+        if let Err(error) = advanced {
             return Err(Stopped::Trading(TradingStop::Session(error)));
         }
         match session.standing() {
@@ -342,10 +362,6 @@ async fn trade(
             Standing::Halted(cause) => return Ok(Ran::Halted(cause.clone())),
         }
         if session.built_through_close() {
-            break;
-        }
-        if now >= close + CLOSE_GRACE {
-            tracing::warn!(%close, "Last minutes not built by the close grace");
             break;
         }
     }
