@@ -33,8 +33,8 @@ use crate::journal::Journal;
 /// How long after a minute's first read falls due it is read once more, to measure what that read missed.
 const RECHECK_AFTER: TimeDelta = TimeDelta::minutes(2);
 
-/// How long after the session's first minute ends it waits before being built; REST serves the opening auction's burst
-/// late, so it waits as long as a recheck, which costs nothing before the first decision bar ends.
+/// How long after the session's first minute ends it waits before being built, since REST serves the opening auction's
+/// burst late; `Session::wait` caps it so the first decision bar is never read later than its own wait.
 const OPENING_WAIT: TimeDelta = RECHECK_AFTER;
 
 const MINUTE: TimeDelta = TimeDelta::minutes(1);
@@ -189,7 +189,7 @@ pub struct Session<S: Strategy> {
     calendar: TradingCalendar,
     fold: TradeFold,
     symbols: Vec<Symbol>,
-    /// The session's open, whose minute waits `OPENING_WAIT` rather than the settings' wait.
+    /// The session's open, whose minute waits `OPENING_WAIT` (capped by `Session::wait`) rather than the settings' wait.
     open: DateTime<Utc>,
     /// The end of the last minute built, every minute before it folded in.
     built_through: DateTime<Utc>,
@@ -308,9 +308,10 @@ impl<S: Strategy> Session<S> {
 
     /// How long the minute starting at `start` waits after it ends before it is first read.
     fn wait(&self, start: DateTime<Utc>) -> TimeDelta {
+        let minute_wait = self.settings.minute_wait.get();
         match start == self.open {
-            true => OPENING_WAIT,
-            false => self.settings.minute_wait.get(),
+            true => OPENING_WAIT.min(self.settings.decision.length() - MINUTE + minute_wait),
+            false => minute_wait,
         }
     }
 
@@ -740,7 +741,13 @@ mod tests {
 
     /// `session` with each name capped at `per_name` cash units.
     fn session_capped(stale_after: TimeDelta, funded: Book, per_name: i128) -> Session<OneShare> {
-        session_from(stale_after, funded, per_name, at("14:00:00"))
+        session_from(
+            stale_after,
+            funded,
+            per_name,
+            at("14:00:00"),
+            DecisionInterval::FiveMinute,
+        )
     }
 
     /// A session of the 2026-10-07 calendar, which closes at 20:00 UTC, building from `open` with a two-second wait.
@@ -749,6 +756,7 @@ mod tests {
         funded: Book,
         per_name: i128,
         open: DateTime<Utc>,
+        decision: DecisionInterval,
     ) -> Session<OneShare> {
         let date = SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 7).unwrap());
         let calendar = TradingCalendar::new(
@@ -773,7 +781,7 @@ mod tests {
         .unwrap();
         let patience = Patience::new(Duration::from_secs(1), Duration::from_secs(30)).unwrap();
         let settings = SessionSettings::new(
-            DecisionInterval::FiveMinute,
+            decision,
             limits,
             patience,
             Staleness::new(stale_after).unwrap(),
@@ -1459,6 +1467,40 @@ mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
+    /// When the opening minute is itself a decision bar, it waits only the settings' wait, so the first decision runs.
+    #[tokio::test(start_paused = true)]
+    async fn test_an_opening_decision_bar_waits_only_the_settings_wait() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session_from(
+            TimeDelta::minutes(5),
+            funded,
+            5_000 * DOLLAR,
+            at("14:00:00"),
+            DecisionInterval::OneMinute,
+        );
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:00:10", 700_000_000));
+        for (now, asked) in [("14:01:01", 0), ("14:01:02", 1)] {
+            session
+                .advance(&|| at(now), &tape, &broker, &mut journal)
+                .await
+                .unwrap();
+            assert_eq!(tape.times_asked("14:00:00", "14:01:00"), asked);
+        }
+        assert_eq!(journaled(&directory)[..2], ["bar_built", "target_decided"]);
+        // Its recheck follows the capped wait, not `OPENING_WAIT`.
+        for (now, asked) in [("14:03:01", 1), ("14:03:02", 2)] {
+            session
+                .advance(&|| at(now), &tape, &broker, &mut journal)
+                .await
+                .unwrap();
+            assert_eq!(tape.times_asked("14:00:00", "14:01:00"), asked);
+        }
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
     /// A minute that cannot be read holds every minute after it, and the decision behind them, until a later call
     /// reads it.
     #[tokio::test(start_paused = true)]
@@ -1504,6 +1546,7 @@ mod tests {
             funded,
             5_000 * DOLLAR,
             at("19:55:00"),
+            DecisionInterval::FiveMinute,
         );
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
@@ -1535,6 +1578,7 @@ mod tests {
             funded,
             5_000 * DOLLAR,
             at("19:50:00"),
+            DecisionInterval::FiveMinute,
         );
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
@@ -1567,6 +1611,7 @@ mod tests {
             funded,
             5_000 * DOLLAR,
             at("19:50:00"),
+            DecisionInterval::FiveMinute,
         );
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
