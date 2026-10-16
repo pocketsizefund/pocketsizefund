@@ -10,6 +10,7 @@
 .claude/settings.local.json*
 .scratchpad/
 /studies/src/bin/
+/jobs/
 /journal/
 playbook*.toml
 capital_flows.toml

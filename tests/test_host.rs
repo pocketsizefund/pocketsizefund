@@ -78,14 +78,15 @@ fn test_each_role_is_answered_before_any_aws_call() {
             ),
             (
                 "researcher".to_string(),
-                0,
-                "The researcher role is reserved: studies run on demand and nothing provisions a box for them yet"
+                1,
+                "Error: --profile must be production or development/<name>; got \"not-a-profile\""
                     .to_string()
             ),
             (
                 "accountant".to_string(),
                 1,
-                "Error: --role must be archiver, trader or researcher; got \"accountant\"".to_string()
+                "Error: --role must be archiver, trader or researcher; got \"accountant\""
+                    .to_string()
             ),
         ]
     );
@@ -110,8 +111,8 @@ fn test_each_role_is_answered_before_any_build() {
             ),
             (
                 "researcher".to_string(),
-                0,
-                "The researcher role is reserved: studies run on demand and nothing schedules one yet"
+                1,
+                "Error: FUND_PROFILE is not set; it names the profile whose secrets the researcher reads"
                     .to_string()
             ),
             (
@@ -121,6 +122,46 @@ fn test_each_role_is_answered_before_any_build() {
             ),
         ]
     );
+}
+
+#[test]
+fn test_a_researcher_job_is_refused_before_any_build_unless_named_limited_and_present() {
+    let name = |job: &str| {
+        format!(
+            "Error: the job is \"{job}\", not a name of lowercase letters, digits and underscores"
+        )
+    };
+    let hours = |hours: &str| {
+        format!("Error: the job's hours are \"{hours}\", not a whole number from 1 to 24")
+    };
+    let absent = "Error: there is no jobs/no_such_job.sh".to_string();
+    for (job, limit, refusal) in [
+        ("", "6", name("")),
+        ("../bin/trader", "6", name("../bin/trader")),
+        ("Study", "6", name("Study")),
+        ("a b", "6", name("a b")),
+        ("no_such_job", "0", hours("0")),
+        ("no_such_job", "25", hours("25")),
+        ("no_such_job", "06", hours("06")),
+        ("no_such_job", "1.5", hours("1.5")),
+        ("no_such_job", "-1", hours("-1")),
+        ("no_such_job", "1", absent.clone()),
+        ("no_such_job", "24", absent.clone()),
+        ("no_such_job", "", absent),
+    ] {
+        let output = Command::new("bash")
+            .arg(script("run-role"))
+            .args(["researcher", job, limit])
+            .env("FUND_PROFILE", "development/a.b")
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{job} {limit}");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            format!("{refusal}\n"),
+            "{job} {limit}"
+        );
+    }
 }
 
 #[test]
@@ -139,6 +180,103 @@ fn test_every_host_is_a_role_of_both_scripts() {
     }
 }
 
+/// A run of `run-role` for the researcher's job `body` limited to one hour of two seconds, with `cargo` and
+/// `secretspec` stubbed on `PATH` and the job in its own directory.
+struct JobRun {
+    code: i32,
+    output: String,
+    directory: PathBuf,
+}
+
+impl JobRun {
+    fn run(body: &str) -> Self {
+        let directory = std::env::temp_dir().join(format!("run-role-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        for (name, stub) in [
+            ("cargo", "#!/usr/bin/env bash\nexit 0\n"),
+            (
+                "secretspec",
+                "#!/usr/bin/env bash\nwhile [[ \"$1\" != -- ]]; do shift; done\nshift\nexec \"$@\"\n",
+            ),
+        ] {
+            let path = directory.join(name);
+            std::fs::write(&path, stub).unwrap();
+            let mut permissions = std::fs::metadata(&path).unwrap().permissions();
+            std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o755);
+            std::fs::set_permissions(&path, permissions).unwrap();
+        }
+        std::fs::write(directory.join("probe.sh"), body).unwrap();
+        let path = format!("{}:{}", directory.display(), std::env::var("PATH").unwrap());
+        let output = Command::new("bash")
+            .arg(script("run-role"))
+            .args(["researcher", "probe", "1"])
+            .env("PATH", path)
+            .env("FUND_PROFILE", "development/a.b")
+            .env("FUND_JOBS_DIRECTORY", &directory)
+            .env("FUND_JOB_POLL_SECONDS", "1")
+            .env("FUND_JOB_GRACE_SECONDS", "1")
+            .env("FUND_JOB_SECONDS_PER_HOUR", "2")
+            .output()
+            .unwrap();
+        Self {
+            code: output.status.code().unwrap(),
+            output: format!(
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ),
+            directory,
+        }
+    }
+}
+
+impl Drop for JobRun {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.directory);
+    }
+}
+
+#[test]
+fn test_a_researcher_job_exits_with_its_own_status() {
+    let sha = String::from_utf8(
+        Command::new("git")
+            .args(["rev-parse", "--short", "HEAD"])
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let sha = sha.trim();
+    for (body, code) in [("exit 0\n", 0), ("exit 3\n", 3)] {
+        let ran = JobRun::run(body);
+        assert_eq!(ran.code, code, "{}", ran.output);
+        assert_eq!(
+            ran.output,
+            format!("Job probe at {sha} exited {code}\n"),
+            "{body}"
+        );
+    }
+}
+
+#[test]
+fn test_a_researcher_job_past_its_limit_is_killed_with_every_process_it_started() {
+    let ran = JobRun::run(
+        "sleep 300 >/dev/null 2>&1 &\necho $! > \"$FUND_JOBS_DIRECTORY/child\"\nsleep 20\n",
+    );
+    assert_eq!(ran.code, 124, "{}", ran.output);
+    assert_eq!(ran.output, "Job probe timed out after 1 h\n");
+    let child = std::fs::read_to_string(ran.directory.join("child")).unwrap();
+    let alive = Command::new("bash")
+        .args([
+            "-c",
+            &format!("kill -0 {0} 2>/dev/null && kill {0}", child.trim()),
+        ])
+        .status()
+        .unwrap();
+    assert!(!alive.success(), "child {} outlived the job", child.trim());
+}
+
 /// Stands in for the `aws` CLI: answers each call from `STUB_*`, saves every policy, schedule target and lifecycle
 /// configuration it is handed under `STUB_DIRECTORY`, and logs each call's service and operation to `calls`.
 const STUB: &str = r#"#!/usr/bin/env bash
@@ -151,7 +289,12 @@ case "$1 $2" in
   "sts get-caller-identity") echo 123456789012 ;;
   "iam get-role") [[ -n "${STUB_ROLE_OWNER+set}" ]] || exit 254 ;;
   "iam list-role-tags") echo "${STUB_ROLE_OWNER}" ;;
-  "iam get-instance-profile" | "scheduler get-schedule") exit 254 ;;
+  "iam get-instance-profile") exit 254 ;;
+  "scheduler get-schedule")
+    case "${STUB_SCHEDULE:-}" in
+      "") echo "An error occurred (ResourceNotFoundException) when calling the GetSchedule operation" >&2; exit 254 ;;
+      denied) echo "An error occurred (AccessDeniedException) when calling the GetSchedule operation" >&2; exit 254 ;;
+    esac ;;
   "ec2 describe-vpcs") echo vpc-1 ;;
   "ec2 describe-security-groups") echo None ;;
   "ec2 create-security-group") echo sg-1 ;;
@@ -562,16 +705,13 @@ fn test_a_refused_box_is_never_scheduled_and_only_a_bootstrapping_one_is_granted
     }
 }
 
-#[test]
-fn test_a_new_trader_reads_its_playbook_and_writes_only_its_own_records() {
-    let provisioned = Provisioned::run_role("trader", "development/a.b", &[]);
-    assert_eq!(provisioned.code, 0, "{}", provisioned.output);
-    let grant = provisioned.json("policy-trader.json");
-    let records = "arn:aws:s3:::oscm-fund-development-a-b";
-    let mut granted: Vec<(String, String, String)> = grant["Statement"]
+/// Every `(action, resource, condition)` an `Allow` statement of `policy` grants on S3, sorted, the condition as JSON.
+fn s3_grants(policy: &serde_json::Value) -> Vec<(String, String, String)> {
+    let mut granted: Vec<(String, String, String)> = policy["Statement"]
         .as_array()
         .unwrap()
         .iter()
+        .filter(|statement| statement["Effect"] == "Allow")
         .flat_map(|statement| {
             let listed = |field: &str| match &statement[field] {
                 serde_json::Value::Array(values) => values
@@ -598,9 +738,116 @@ fn test_a_new_trader_reads_its_playbook_and_writes_only_its_own_records() {
         })
         .collect();
     granted.sort();
+    granted
+}
+
+#[test]
+fn test_a_new_researcher_reads_the_archive_writes_its_records_and_scratch_and_is_never_scheduled() {
+    let provisioned = Provisioned::run_role("researcher", "development/john.forstmeier", &[]);
+    assert_eq!(provisioned.code, 0, "{}", provisioned.output);
+    let mut written: Vec<String> = std::fs::read_dir(&provisioned.directory)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.ends_with(".json"))
+        .collect();
+    written.sort();
+    assert_eq!(written, ["policy-researcher.json"]);
+
+    let records = "arn:aws:s3:::oscm-fund-development-john-forstmeier";
+    let grant = |action: &str, resource: String| (action.to_string(), resource, "null".to_string());
+    assert_eq!(
+        s3_grants(&provisioned.json("policy-researcher.json")),
+        [
+            grant("s3:AbortMultipartUpload", format!("{records}/scratch/*")),
+            grant("s3:DeleteObject", format!("{records}/scratch/*")),
+            grant(
+                "s3:GetObject",
+                "arn:aws:s3:::oscm-fund-archive/data/*".to_string()
+            ),
+            grant(
+                "s3:GetObject",
+                format!("{records}/records/journal/producer=researcher/*")
+            ),
+            grant(
+                "s3:GetObject",
+                format!("{records}/records/logs/producer=researcher/*")
+            ),
+            grant("s3:GetObject", format!("{records}/scratch/*")),
+            grant(
+                "s3:ListBucket",
+                "arn:aws:s3:::oscm-fund-archive".to_string()
+            ),
+            grant("s3:ListBucket", records.to_string()),
+            grant(
+                "s3:PutObject",
+                format!("{records}/records/journal/producer=researcher/*")
+            ),
+            grant(
+                "s3:PutObject",
+                format!("{records}/records/logs/producer=researcher/*")
+            ),
+            grant("s3:PutObject", format!("{records}/scratch/*")),
+        ]
+    );
+
+    let calls = provisioned.calls();
+    assert!(
+        calls.iter().any(|call| call == "ec2 run-instances"),
+        "{calls:?}"
+    );
+    for call in &calls {
+        assert!(
+            !call.starts_with("scheduler ") || call == "scheduler get-schedule",
+            "{call}: {calls:?}"
+        );
+    }
+    assert!(
+        provisioned.output.contains("Start:    on demand"),
+        "{}",
+        provisioned.output
+    );
+
+    let stale = Provisioned::run_role("researcher", "production", &[("STUB_SCHEDULE", "found")]);
+    assert_eq!(stale.code, 0, "{}", stale.output);
+    let deleted = stale
+        .calls()
+        .iter()
+        .filter(|call| *call == "scheduler delete-schedule")
+        .count();
+    assert_eq!(deleted, 2, "{:?}", stale.calls());
+}
+
+#[test]
+fn test_an_unreadable_schedule_stops_the_researcher_before_any_delete() {
+    let denied = Provisioned::run_role("researcher", "production", &[("STUB_SCHEDULE", "denied")]);
+    assert_eq!(denied.code, 1, "{}", denied.output);
+    assert!(
+        denied.output.contains(
+            "Error: could not read schedule fund-researcher-production-start: An error occurred \
+             (AccessDeniedException)"
+        ),
+        "{}",
+        denied.output
+    );
+    assert!(
+        !denied
+            .calls()
+            .iter()
+            .any(|call| call == "scheduler delete-schedule"),
+        "{:?}",
+        denied.calls()
+    );
+}
+
+#[test]
+fn test_a_new_trader_reads_its_playbook_and_writes_only_its_own_records() {
+    let provisioned = Provisioned::run_role("trader", "development/a.b", &[]);
+    assert_eq!(provisioned.code, 0, "{}", provisioned.output);
+    let grant = provisioned.json("policy-trader.json");
+    let records = "arn:aws:s3:::oscm-fund-development-a-b";
     let unconditioned = "null".to_string();
     assert_eq!(
-        granted,
+        s3_grants(&grant),
         [
             (
                 "s3:GetObject".to_string(),
@@ -688,8 +935,8 @@ fn s3_operations(directory: &std::path::Path) -> Vec<(String, String)> {
     operations
 }
 
-#[test]
-fn test_every_s3_operation_the_archive_calls_is_granted_to_the_archiver() {
+/// Each distinct `(file, operation)` the crate's S3 clients call on our own buckets.
+fn our_s3_operations() -> Vec<(String, String)> {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut operations: Vec<(String, String)> = s3_operations(&source)
         .into_iter()
@@ -698,6 +945,12 @@ fn test_every_s3_operation_the_archive_calls_is_granted_to_the_archiver() {
         .collect();
     operations.sort();
     operations.dedup();
+    operations
+}
+
+#[test]
+fn test_every_s3_operation_the_archive_calls_is_granted_to_the_archiver() {
+    let operations = our_s3_operations();
     let mut found: Vec<&str> = operations
         .iter()
         .map(|(_, operation)| operation.as_str())
@@ -722,31 +975,93 @@ fn test_every_s3_operation_the_archive_calls_is_granted_to_the_archiver() {
     let provisioned = Provisioned::run("production", &[]);
     assert_eq!(provisioned.code, 0, "{}", provisioned.output);
     let grant = provisioned.json("policy-archiver.json");
-    assert_eq!(ungranted(&grant, &operations), Vec::<String>::new());
+    assert_eq!(
+        ungranted(&grant, &operations, archiver_reach),
+        Vec::<String>::new()
+    );
 }
 
-/// Each `(file, operation)` whose IAM action `policy` does not grant on every archive resource the operation reaches.
-fn ungranted(policy: &serde_json::Value, operations: &[(String, String)]) -> Vec<String> {
-    let raw = "arn:aws:s3:::oscm-fund-archive/data/equity/stage=raw/key";
-    let parsed = "arn:aws:s3:::oscm-fund-archive/data/equity/stage=parsed/key";
-    let bucket = "arn:aws:s3:::oscm-fund-archive";
+#[test]
+fn test_every_s3_operation_a_study_can_call_is_granted_to_the_researcher() {
+    let operations = our_s3_operations();
+    assert!(!operations.is_empty());
+    let provisioned = Provisioned::run_role("researcher", "production", &[]);
+    assert_eq!(provisioned.code, 0, "{}", provisioned.output);
+    let grant = provisioned.json("policy-researcher.json");
+    assert_eq!(
+        ungranted(&grant, &operations, researcher_reach),
+        Vec::<String>::new()
+    );
+    // Of everything the archiver does to the archive, the researcher may only read and list.
+    let refused = ungranted(&grant, &operations, archiver_reach);
+    for (file, operation) in &operations {
+        let (action, _) = archiver_reach(file, operation);
+        assert_eq!(
+            refused.contains(&format!("{file} {operation}")),
+            !["s3:GetObject", "s3:ListBucket"].contains(&action),
+            "{file} {operation}: {grant}"
+        );
+    }
+}
+
+const ARCHIVE_RAW: &str = "arn:aws:s3:::oscm-fund-archive/data/equity/stage=raw/key";
+const ARCHIVE_PARSED: &str = "arn:aws:s3:::oscm-fund-archive/data/equity/stage=parsed/key";
+const ARCHIVE_BUCKET: &str = "arn:aws:s3:::oscm-fund-archive";
+const RESEARCHER_JOURNAL: &str =
+    "arn:aws:s3:::oscm-fund-production/records/journal/producer=researcher/key";
+const PRODUCTION_SCRATCH: &str = "arn:aws:s3:::oscm-fund-production/scratch/key";
+const PRODUCTION_RECORDS_BUCKET: &str = "arn:aws:s3:::oscm-fund-production";
+
+/// The IAM action `operation` needs and every resource the archiver reaches with it; the heal deletes only parsed keys.
+fn archiver_reach(file: &str, operation: &str) -> (&'static str, &'static [&'static str]) {
+    match operation {
+        "get_object" | "head_object" => ("s3:GetObject", &[ARCHIVE_RAW, ARCHIVE_PARSED]),
+        "put_object" | "create_multipart_upload" | "upload_part" | "complete_multipart_upload" => {
+            ("s3:PutObject", &[ARCHIVE_RAW, ARCHIVE_PARSED])
+        }
+        "abort_multipart_upload" => ("s3:AbortMultipartUpload", &[ARCHIVE_RAW, ARCHIVE_PARSED]),
+        "delete_object" => ("s3:DeleteObject", &[ARCHIVE_PARSED]),
+        "list_objects_v2" => ("s3:ListBucket", &[ARCHIVE_BUCKET]),
+        unmapped => panic!("{file} calls `{unmapped}`, which needs its IAM action named here"),
+    }
+}
+
+/// The IAM action `operation` needs and every resource a production study reaches with it: it reads the archive and
+/// writes only its journal and the scratch prefix.
+fn researcher_reach(file: &str, operation: &str) -> (&'static str, &'static [&'static str]) {
+    match operation {
+        "get_object" | "head_object" => (
+            "s3:GetObject",
+            &[
+                ARCHIVE_RAW,
+                ARCHIVE_PARSED,
+                RESEARCHER_JOURNAL,
+                PRODUCTION_SCRATCH,
+            ],
+        ),
+        "put_object" | "create_multipart_upload" | "upload_part" | "complete_multipart_upload" => {
+            ("s3:PutObject", &[RESEARCHER_JOURNAL, PRODUCTION_SCRATCH])
+        }
+        "abort_multipart_upload" => ("s3:AbortMultipartUpload", &[PRODUCTION_SCRATCH]),
+        "delete_object" => ("s3:DeleteObject", &[PRODUCTION_SCRATCH]),
+        "list_objects_v2" => (
+            "s3:ListBucket",
+            &[ARCHIVE_BUCKET, PRODUCTION_RECORDS_BUCKET],
+        ),
+        unmapped => panic!("{file} calls `{unmapped}`, which needs its IAM action named here"),
+    }
+}
+
+/// Each `(file, operation)` whose IAM action `policy` does not grant on every resource `reach` names for it.
+fn ungranted(
+    policy: &serde_json::Value,
+    operations: &[(String, String)],
+    reach: fn(&str, &str) -> (&'static str, &'static [&'static str]),
+) -> Vec<String> {
     operations
         .iter()
         .filter(|(file, operation)| {
-            // The heal deletes only parsed keys.
-            let (action, resources): (&str, &[&str]) = match operation.as_str() {
-                "get_object" | "head_object" => ("s3:GetObject", &[raw, parsed]),
-                "put_object"
-                | "create_multipart_upload"
-                | "upload_part"
-                | "complete_multipart_upload" => ("s3:PutObject", &[raw, parsed]),
-                "abort_multipart_upload" => ("s3:AbortMultipartUpload", &[raw, parsed]),
-                "delete_object" => ("s3:DeleteObject", &[parsed]),
-                "list_objects_v2" => ("s3:ListBucket", &[bucket]),
-                unmapped => {
-                    panic!("{file} calls `{unmapped}`, which needs its IAM action named here")
-                }
-            };
+            let (action, resources) = reach(file, operation);
             let granted = allowed_resources(policy, action);
             !resources.iter().all(|resource| {
                 granted
@@ -768,14 +1083,16 @@ fn test_a_grant_on_another_prefix_leaves_the_operation_ungranted() {
     assert_eq!(
         ungranted(
             &policy("arn:aws:s3:::oscm-fund-archive/data/equity/*"),
-            &operations
+            &operations,
+            archiver_reach
         ),
         Vec::<String>::new()
     );
     assert_eq!(
         ungranted(
             &policy("arn:aws:s3:::oscm-fund-archive/data/equity/stage=parsed/*"),
-            &operations
+            &operations,
+            archiver_reach
         ),
         ["src/archive/raw.rs abort_multipart_upload"]
     );
@@ -788,13 +1105,18 @@ fn test_a_conditioned_grant_leaves_the_operation_ungranted() {
     let mut conditioned = statement.clone();
     conditioned["Condition"] = serde_json::json!({"StringLike": {"s3:prefix": ["records/*"]}});
     assert_eq!(
-        ungranted(&serde_json::json!({"Statement": [statement]}), &operations),
+        ungranted(
+            &serde_json::json!({"Statement": [statement]}),
+            &operations,
+            archiver_reach
+        ),
         Vec::<String>::new()
     );
     assert_eq!(
         ungranted(
             &serde_json::json!({"Statement": [conditioned]}),
-            &operations
+            &operations,
+            archiver_reach
         ),
         ["src/archive.rs list_objects_v2"]
     );
