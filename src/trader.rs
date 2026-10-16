@@ -372,6 +372,7 @@ impl<S: Strategy> Session<S> {
                         tape,
                         letters,
                         correction,
+                        ..
                     } => self.fold.push_lettered(print, *tape, letters, *correction),
                     AlpacaTradeOutcome::Refused(row) => refused.add(row.cause().kind()),
                 }
@@ -653,7 +654,7 @@ mod tests {
     use crate::common::time::SessionRange;
     use crate::common::time::calendar::TradingSession;
     use crate::ingest::alpaca::trade_page;
-    use crate::ingest::{RefusedRow, RowRefusal};
+    use crate::ingest::{PrintOrigin, RefusedRow, RowRefusal};
 
     const DOLLAR: i128 = 1_000_000_000_000;
 
@@ -902,6 +903,14 @@ mod tests {
             tape: Tape::ConsolidatedTape,
             letters: vec![ConditionLetter::of(' ')],
             correction: Correction::Stands,
+            origin: PrintOrigin {
+                exchange: Some("Z".to_string()),
+                tape: "A".to_string(),
+                id: Some("1".to_string()),
+                participant_timestamp: None,
+                trade_reporting_facility_timestamp: None,
+                sequence: None,
+            },
         }
     }
 
@@ -1914,6 +1923,7 @@ mod tests {
                     tape,
                     letters,
                     correction,
+                    ..
                 } => fold.push_lettered(&print, tape, &letters, correction),
                 AlpacaTradeOutcome::Refused(row) => panic!("{row:?}"),
             }

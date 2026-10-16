@@ -12,7 +12,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub use crate::common::market::refusal::{RowRefusal, RowRefusalKind};
 
+use chrono::{DateTime, Utc};
+
 use crate::common::market::record::Bar;
+use crate::common::market::{Price, Shares, Symbol};
 use crate::common::monoid::Tally;
 
 /// Why an environment variable a client needs was not used.
@@ -101,6 +104,81 @@ impl RefusedRow {
 
     pub fn cause(&self) -> &RowRefusal {
         &self.cause
+    }
+}
+
+/// Where and when a print was reported, in the vendor's own codes; no fold reads it, so research can.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrintOrigin {
+    /// Absent where the vendor served none.
+    pub exchange: Option<String>,
+    pub tape: String,
+    /// Absent where the vendor served none.
+    pub id: Option<String>,
+    /// When the reporting venue stamped the print; Alpaca serves none.
+    pub participant_timestamp: Option<DateTime<Utc>>,
+    /// When a trade reporting facility stamped the print; Alpaca serves none.
+    pub trade_reporting_facility_timestamp: Option<DateTime<Utc>>,
+    /// Massive's sequence number, increasing within a ticker's session; Alpaca serves none.
+    pub sequence: Option<u64>,
+}
+
+/// Where and when a quote was published, in the vendor's own codes; no fold reads it, so research can.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuoteOrigin {
+    /// Each absent where the vendor served none.
+    pub bid_exchange: Option<String>,
+    pub ask_exchange: Option<String>,
+    pub tape: Option<String>,
+    pub conditions: Vec<String>,
+    /// Massive's quote indicators; Alpaca serves none.
+    pub indicators: Vec<String>,
+    /// When the quoting venue stamped the quote; Alpaca serves none.
+    pub participant_timestamp: Option<DateTime<Utc>>,
+    /// Massive's sequence number, increasing within a ticker's session; Alpaca serves none.
+    pub sequence: Option<u64>,
+}
+
+/// Which side of a one-sided quote is priced; both priced is a two-sided quote, so it is no variant here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PricedSide {
+    Neither,
+    Bid(Price, Shares),
+    Ask(Price, Shares),
+}
+
+/// A quote with one side or both unpriced, which is no top of book.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OneSidedQuote {
+    pub symbol: Symbol,
+    pub timestamp: DateTime<Utc>,
+    pub priced: PricedSide,
+}
+
+/// The priced side of a quote `one_sided` accepts, none for any other quote; the priced side is refused when its
+/// price or size is.
+pub(crate) fn priced_side(
+    (bid_price, bid_size): (f64, f64),
+    (ask_price, ask_size): (f64, f64),
+) -> Option<Result<PricedSide, RowRefusal>> {
+    if !one_sided(bid_price, ask_price) {
+        return None;
+    }
+    let priced = |price: f64, size: f64| {
+        Ok::<_, RowRefusal>((
+            Price::from_dollars(price).map_err(RowRefusal::Price)?,
+            Shares::from_float(size).map_err(RowRefusal::Shares)?,
+        ))
+    };
+    match (bid_price == 0.0, ask_price == 0.0) {
+        (true, true) => Some(Ok(PricedSide::Neither)),
+        (false, true) => {
+            Some(priced(bid_price, bid_size).map(|(price, size)| PricedSide::Bid(price, size)))
+        }
+        (true, false) => {
+            Some(priced(ask_price, ask_size).map(|(price, size)| PricedSide::Ask(price, size)))
+        }
+        (false, false) => None,
     }
 }
 

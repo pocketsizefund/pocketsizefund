@@ -810,8 +810,8 @@ async fn write_quotes(
             async move { alpaca.quotes(&symbol, session, &pages).await }
         },
         |outcome| match outcome {
-            AlpacaQuoteOutcome::Quote(quote) => fold.push(&quote),
-            AlpacaQuoteOutcome::OneSided => one_sided += 1,
+            AlpacaQuoteOutcome::Quote { quote, .. } => fold.push(&quote),
+            AlpacaQuoteOutcome::OneSided { .. } => one_sided += 1,
             AlpacaQuoteOutcome::Refused(row) => refused.push(row),
         },
     )
@@ -868,6 +868,7 @@ async fn write_trades(
                 tape,
                 letters,
                 correction,
+                ..
             } => fold.push_lettered(&print, tape, &letters, correction),
             AlpacaTradeOutcome::Refused(row) => refused.push(row),
         },
