@@ -180,6 +180,103 @@ fn test_every_host_is_a_role_of_both_scripts() {
     }
 }
 
+/// A run of `run-role` for the researcher's job `body` limited to one hour of two seconds, with `cargo` and
+/// `secretspec` stubbed on `PATH` and the job in its own directory.
+struct JobRun {
+    code: i32,
+    output: String,
+    directory: PathBuf,
+}
+
+impl JobRun {
+    fn run(body: &str) -> Self {
+        let directory = std::env::temp_dir().join(format!("run-role-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        for (name, stub) in [
+            ("cargo", "#!/usr/bin/env bash\nexit 0\n"),
+            (
+                "secretspec",
+                "#!/usr/bin/env bash\nwhile [[ \"$1\" != -- ]]; do shift; done\nshift\nexec \"$@\"\n",
+            ),
+        ] {
+            let path = directory.join(name);
+            std::fs::write(&path, stub).unwrap();
+            let mut permissions = std::fs::metadata(&path).unwrap().permissions();
+            std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o755);
+            std::fs::set_permissions(&path, permissions).unwrap();
+        }
+        std::fs::write(directory.join("probe.sh"), body).unwrap();
+        let path = format!("{}:{}", directory.display(), std::env::var("PATH").unwrap());
+        let output = Command::new("bash")
+            .arg(script("run-role"))
+            .args(["researcher", "probe", "1"])
+            .env("PATH", path)
+            .env("FUND_PROFILE", "development/a.b")
+            .env("FUND_JOBS_DIRECTORY", &directory)
+            .env("FUND_JOB_POLL_SECONDS", "1")
+            .env("FUND_JOB_GRACE_SECONDS", "1")
+            .env("FUND_JOB_SECONDS_PER_HOUR", "2")
+            .output()
+            .unwrap();
+        Self {
+            code: output.status.code().unwrap(),
+            output: format!(
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ),
+            directory,
+        }
+    }
+}
+
+impl Drop for JobRun {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.directory);
+    }
+}
+
+#[test]
+fn test_a_researcher_job_exits_with_its_own_status() {
+    let sha = String::from_utf8(
+        Command::new("git")
+            .args(["rev-parse", "--short", "HEAD"])
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let sha = sha.trim();
+    for (body, code) in [("exit 0\n", 0), ("exit 3\n", 3)] {
+        let ran = JobRun::run(body);
+        assert_eq!(ran.code, code, "{}", ran.output);
+        assert_eq!(
+            ran.output,
+            format!("Job probe at {sha} exited {code}\n"),
+            "{body}"
+        );
+    }
+}
+
+#[test]
+fn test_a_researcher_job_past_its_limit_is_killed_with_every_process_it_started() {
+    let ran = JobRun::run(
+        "sleep 300 >/dev/null 2>&1 &\necho $! > \"$FUND_JOBS_DIRECTORY/child\"\nsleep 20\n",
+    );
+    assert_eq!(ran.code, 124, "{}", ran.output);
+    assert_eq!(ran.output, "Job probe timed out after 1 h\n");
+    let child = std::fs::read_to_string(ran.directory.join("child")).unwrap();
+    let alive = Command::new("bash")
+        .args([
+            "-c",
+            &format!("kill -0 {0} 2>/dev/null && kill {0}", child.trim()),
+        ])
+        .status()
+        .unwrap();
+    assert!(!alive.success(), "child {} outlived the job", child.trim());
+}
+
 /// Stands in for the `aws` CLI: answers each call from `STUB_*`, saves every policy, schedule target and lifecycle
 /// configuration it is handed under `STUB_DIRECTORY`, and logs each call's service and operation to `calls`.
 const STUB: &str = r#"#!/usr/bin/env bash
@@ -193,7 +290,11 @@ case "$1 $2" in
   "iam get-role") [[ -n "${STUB_ROLE_OWNER+set}" ]] || exit 254 ;;
   "iam list-role-tags") echo "${STUB_ROLE_OWNER}" ;;
   "iam get-instance-profile") exit 254 ;;
-  "scheduler get-schedule") [[ -n "${STUB_SCHEDULE:-}" ]] || exit 254 ;;
+  "scheduler get-schedule")
+    case "${STUB_SCHEDULE:-}" in
+      "") echo "An error occurred (ResourceNotFoundException) when calling the GetSchedule operation" >&2; exit 254 ;;
+      denied) echo "An error occurred (AccessDeniedException) when calling the GetSchedule operation" >&2; exit 254 ;;
+    esac ;;
   "ec2 describe-vpcs") echo vpc-1 ;;
   "ec2 describe-security-groups") echo None ;;
   "ec2 create-security-group") echo sg-1 ;;
@@ -714,6 +815,28 @@ fn test_a_new_researcher_reads_the_archive_writes_its_records_and_scratch_and_is
         .filter(|call| *call == "scheduler delete-schedule")
         .count();
     assert_eq!(deleted, 2, "{:?}", stale.calls());
+}
+
+#[test]
+fn test_an_unreadable_schedule_stops_the_researcher_before_any_delete() {
+    let denied = Provisioned::run_role("researcher", "production", &[("STUB_SCHEDULE", "denied")]);
+    assert_eq!(denied.code, 1, "{}", denied.output);
+    assert!(
+        denied.output.contains(
+            "Error: could not read schedule fund-researcher-production-start: An error occurred \
+             (AccessDeniedException)"
+        ),
+        "{}",
+        denied.output
+    );
+    assert!(
+        !denied
+            .calls()
+            .iter()
+            .any(|call| call == "scheduler delete-schedule"),
+        "{:?}",
+        denied.calls()
+    );
 }
 
 #[test]

@@ -32,13 +32,17 @@ metadata() {
   curl -sf -H "X-aws-ec2-metadata-token: $token" "http://169.254.169.254/latest/meta-data/$1"
 }
 
-# Left up rather than powered off: an unreadable hold may be an operator's, and the stop schedule still bounds the box.
+# A hang anywhere powers the box off two hours past the longest job; a scheduled role is stopped well before.
+sudo shutdown -P +1560 || echo "Error: the 26-hour backstop power-off could not be scheduled"
+
+# Left up rather than powered off: an unreadable hold may be an operator's, and the backstop still bounds the box.
 if ! tags="$(metadata tags/instance)"; then
-  echo "Error: instance tags are unreadable; leaving the box up for the stop schedule"
+  echo "Error: instance tags are unreadable; leaving the box up for the backstop"
   exit 1
 fi
 if grep -qx fund-hold <<<"$tags"; then
   echo "Held by fund-hold ($(metadata tags/instance/fund-hold || true)); running nothing and staying up"
+  sudo shutdown -c || echo "Error: the 26-hour backstop power-off could not be cancelled"
   exit 0
 fi
 
@@ -51,10 +55,6 @@ hours="$(metadata tags/instance/fund-job-hours || true)"
 AWS_REGION="$(metadata placement/region)"
 export AWS_REGION FUND_PROFILE="$profile" SECRETSPEC_PROFILE="$profile"
 echo "Running role ${role:-<none>} under profile ${profile:-<none>}"
-# No stop schedule bounds an on-demand box, so a hang anywhere powers it off two hours past the longest job.
-if [[ "$role" == researcher ]]; then
-  sudo shutdown -P +1560 || echo "Error: the 26-hour backstop power-off could not be scheduled"
-fi
 
 # One compound command, so bash has parsed the rest before the reset rewrites this file underneath it.
 {

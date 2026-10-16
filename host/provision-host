@@ -11,6 +11,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/versions"
 # How long a new box's cold bootstrap (Nix, devenv, the toolchain and a release build) may take: 90 minutes.
 BOOTSTRAP_POLLS="${BOOTSTRAP_POLLS:-180}"
 BOOTSTRAP_POLL_SECONDS="${BOOTSTRAP_POLL_SECONDS:-30}"
+# A hung bootstrap powers off only after the wait has given up, so a stop inside the wait still means success.
+BOOTSTRAP_BACKSTOP_MINUTES=$((BOOTSTRAP_POLLS * BOOTSTRAP_POLL_SECONDS / 60 + 90))
 ROLE=""
 PROFILE=""
 APPLY=false
@@ -342,10 +344,11 @@ if [[ "$INSTANCE_ID" == "None" || -z "$INSTANCE_ID" ]]; then
     --query 'Parameter.Value' --output text)"
 
   # First boot only, as root: git and curl, then Nix and devenv for the toolchain, then a warm build; it powers off at
-  # the end so the first run is the next start.
+  # the end, or at the backstop if it hangs or fails, so the first run is the next start.
   USER_DATA="$(cat <<CLOUDINIT
 #!/bin/bash
 set -euxo pipefail
+shutdown -P +${BOOTSTRAP_BACKSTOP_MINUTES} || echo "Error: the bootstrap backstop power-off could not be scheduled"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y git curl xz-utils
@@ -417,13 +420,16 @@ fi
 if [[ -z "$START_EXPRESSION" ]]; then
   step "No schedules for $NAME"
   for schedule in "$NAME-start" "$NAME-stop"; do
-    if aws scheduler get-schedule --region "$REGION" --name "$schedule" >/dev/null 2>&1; then
+    if lookup="$(aws scheduler get-schedule --region "$REGION" --name "$schedule" 2>&1 >/dev/null)"; then
       changed "delete $schedule"
       if [[ "$APPLY" == true ]]; then
         aws scheduler delete-schedule --region "$REGION" --name "$schedule"
       fi
-    else
+    elif [[ "$lookup" == *ResourceNotFoundException* ]]; then
       unchanged "no $schedule"
+    else
+      echo "Error: could not read schedule $schedule: $lookup" >&2
+      exit 1
     fi
   done
   step "Done"
@@ -466,14 +472,17 @@ if [[ "$APPLY" == true ]]; then
 fi
 
 put_schedule() {
-  local name="$1" expression="$2" action="$3" description="$4" verb target
+  local name="$1" expression="$2" action="$3" description="$4" verb target lookup
   changed "ensure $name at $expression ($action)"
   [[ "$APPLY" == true ]] || return 0
   target="{\"Arn\":\"arn:aws:scheduler:::aws-sdk:ec2:${action}\",\"RoleArn\":\"arn:aws:iam::${ACCOUNT_ID}:role/${SCHEDULER_ROLE}\",\"Input\":\"{\\\"InstanceIds\\\":[\\\"${INSTANCE_ID}\\\"]}\"}"
-  if aws scheduler get-schedule --region "$REGION" --name "$name" >/dev/null 2>&1; then
+  if lookup="$(aws scheduler get-schedule --region "$REGION" --name "$name" 2>&1 >/dev/null)"; then
     verb=update-schedule
-  else
+  elif [[ "$lookup" == *ResourceNotFoundException* ]]; then
     verb=create-schedule
+  else
+    echo "Error: could not read schedule $name: $lookup" >&2
+    exit 1
   fi
   # Scheduler checks it can assume the role, and a fresh trust policy reaches it late.
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
