@@ -8,11 +8,14 @@ use aws_sdk_s3::config::{
     Credentials, Region, RequestChecksumCalculation, ResponseChecksumValidation,
 };
 use bytes::Bytes;
-use chrono::{DateTime, NaiveDate};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::Deserialize;
 
 use super::massive::{alpaca_symbol, is_exchange_test_ticker};
-use super::{RefusedRow, RowRefusal, VariableRefusal, one_sided, variable};
+use super::{
+    OneSidedQuote, PrintOrigin, QuoteOrigin, RefusedRow, RowRefusal, VariableRefusal, priced_side,
+    variable,
+};
 use crate::common::market::record::Quote;
 use crate::common::market::trade_bars::{ConditionCode, Correction, Print};
 use crate::common::market::{Price, Shares};
@@ -311,7 +314,7 @@ impl std::io::Read for FlatFileStream {
     }
 }
 
-/// A flat quote file's row; only the consolidated tape's timestamp and the top of book are read.
+/// A flat quote file's row; codes and lists come comma-joined in one field each.
 #[derive(Deserialize)]
 struct QuoteRow {
     ticker: String,
@@ -321,15 +324,31 @@ struct QuoteRow {
     ask_size: f64,
     /// Nanoseconds since the epoch at which the SIP published the quote.
     sip_timestamp: i64,
+    bid_exchange: String,
+    ask_exchange: String,
+    tape: String,
+    #[serde(default)]
+    conditions: String,
+    #[serde(default)]
+    indicators: String,
+    /// Nanoseconds since the epoch at which the venue stamped the quote, zero when unstamped.
+    participant_timestamp: Option<i64>,
+    sequence_number: Option<u64>,
 }
 
 /// What one quote row became.
 #[derive(Debug, Clone, PartialEq)]
 pub enum QuoteRowOutcome {
-    Quote(Quote),
+    Quote {
+        quote: Quote,
+        origin: QuoteOrigin,
+    },
     TestTicker,
     /// A side with no price, which is no top of book; the quote standing before it keeps standing.
-    OneSided,
+    OneSided {
+        quote: OneSidedQuote,
+        origin: QuoteOrigin,
+    },
     Refused(RefusedRow),
 }
 
@@ -353,9 +372,6 @@ fn quote_outcome(row: QuoteRow) -> QuoteRowOutcome {
     if is_exchange_test_ticker(&row.ticker) {
         return QuoteRowOutcome::TestTicker;
     }
-    if one_sided(row.bid_price, row.ask_price) {
-        return QuoteRowOutcome::OneSided;
-    }
     let refused = |cause: RowRefusal| {
         QuoteRowOutcome::Refused(RefusedRow {
             ticker: row.ticker.clone(),
@@ -366,6 +382,30 @@ fn quote_outcome(row: QuoteRow) -> QuoteRowOutcome {
         Ok(symbol) => symbol,
         Err(cause) => return refused(RowRefusal::Symbol(cause)),
     };
+    let origin = QuoteOrigin {
+        bid_exchange: Some(row.bid_exchange.clone()),
+        ask_exchange: Some(row.ask_exchange.clone()),
+        tape: Some(row.tape.clone()),
+        conditions: listed(&row.conditions),
+        indicators: listed(&row.indicators),
+        participant_timestamp: stamped(row.participant_timestamp),
+        sequence: row.sequence_number,
+    };
+    let timestamp = DateTime::from_timestamp_nanos(row.sip_timestamp);
+    match priced_side((row.bid_price, row.bid_size), (row.ask_price, row.ask_size)) {
+        Some(Ok(priced)) => {
+            return QuoteRowOutcome::OneSided {
+                quote: OneSidedQuote {
+                    symbol,
+                    timestamp,
+                    priced,
+                },
+                origin,
+            };
+        }
+        Some(Err(cause)) => return refused(cause),
+        None => {}
+    }
     let price = |dollars: f64| Price::from_dollars(dollars).map_err(RowRefusal::Price);
     let size = |shares: f64| Shares::from_float(shares).map_err(RowRefusal::Shares);
     let parts = (|| {
@@ -378,9 +418,8 @@ fn quote_outcome(row: QuoteRow) -> QuoteRowOutcome {
     })();
     match parts {
         Ok((bid, ask, bid_size, ask_size)) => {
-            let timestamp = DateTime::from_timestamp_nanos(row.sip_timestamp);
             match Quote::new(symbol, timestamp, bid, ask, bid_size, ask_size) {
-                Ok(quote) => QuoteRowOutcome::Quote(quote),
+                Ok(quote) => QuoteRowOutcome::Quote { quote, origin },
                 Err(cause) => refused(RowRefusal::Quote(cause)),
             }
         }
@@ -399,6 +438,14 @@ struct TradeRow {
     size: f64,
     /// Nanoseconds since the epoch at which the SIP published the print.
     sip_timestamp: i64,
+    exchange: String,
+    id: String,
+    tape: String,
+    /// Nanoseconds since the epoch at which the venue stamped the print, zero when unstamped.
+    participant_timestamp: Option<i64>,
+    /// Nanoseconds since the epoch at which a trade reporting facility stamped the print, zero when none did.
+    trf_timestamp: Option<i64>,
+    sequence_number: Option<u64>,
 }
 
 /// What one trade row became.
@@ -408,6 +455,7 @@ pub enum TradeRowOutcome {
         print: Print,
         conditions: Vec<ConditionCode>,
         correction: Correction,
+        origin: PrintOrigin,
     },
     TestTicker,
     Refused(RefusedRow),
@@ -469,11 +517,37 @@ fn trade_outcome(row: TradeRow) -> TradeRowOutcome {
         Err(cause) => return refused(cause),
     };
     let print = Print::new(symbol, timestamp, price, size);
+    let origin = PrintOrigin {
+        exchange: Some(row.exchange),
+        tape: row.tape,
+        id: Some(row.id),
+        participant_timestamp: stamped(row.participant_timestamp),
+        trade_reporting_facility_timestamp: stamped(row.trf_timestamp),
+        sequence: row.sequence_number,
+    };
     TradeRowOutcome::Print {
         print,
         conditions,
         correction,
+        origin,
     }
+}
+
+/// A nanosecond stamp, where zero or blank means the vendor stamped nothing.
+fn stamped(nanoseconds: Option<i64>) -> Option<DateTime<Utc>> {
+    nanoseconds
+        .filter(|nanoseconds| *nanoseconds != 0)
+        .map(DateTime::from_timestamp_nanos)
+}
+
+/// A comma-joined field's elements, with blanks left out.
+fn listed(joined: &str) -> Vec<String> {
+    joined
+        .split(',')
+        .map(str::trim)
+        .filter(|element| !element.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 /// Reads the SIP's correction indicator: 12 is the record that replaces a corrected print; 1 marks an original later
@@ -491,6 +565,7 @@ fn correction(indicator: Option<u32>) -> Result<Correction, RowRefusal> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ingest::PricedSide;
 
     fn session() -> SessionDate {
         SessionDate::from_date(NaiveDate::from_ymd_opt(2021, 8, 23).unwrap())
@@ -538,7 +613,7 @@ ZTST,11,10.0,100,8,9.0,100,\"1,81\",,1629716446000000256,2001,162971644600000051
         read_quotes(gzipped(rows).as_slice(), |outcome| outcomes.push(outcome)).unwrap();
         assert_eq!(outcomes.len(), 5);
         match &outcomes[0] {
-            QuoteRowOutcome::Quote(quote) => {
+            QuoteRowOutcome::Quote { quote, origin } => {
                 assert_eq!(quote.symbol().as_str(), "ABC");
                 assert_eq!(quote.bid().ticks(), 50_250_000);
                 assert_eq!(quote.ask_size().units(), 100_000_000);
@@ -546,12 +621,34 @@ ZTST,11,10.0,100,8,9.0,100,\"1,81\",,1629716446000000256,2001,162971644600000051
                     quote.timestamp().to_rfc3339(),
                     "2021-08-23T11:00:00.012345600+00:00"
                 );
+                assert_eq!(
+                    origin,
+                    &QuoteOrigin {
+                        bid_exchange: Some("11".to_string()),
+                        ask_exchange: Some("8".to_string()),
+                        tape: Some("1".to_string()),
+                        conditions: vec!["1".to_string(), "81".to_string()],
+                        indicators: vec![],
+                        participant_timestamp: Some(DateTime::from_timestamp_nanos(
+                            1_629_716_400_001_234_500
+                        )),
+                        sequence: Some(1001),
+                    }
+                );
             }
             other @ (QuoteRowOutcome::TestTicker
-            | QuoteRowOutcome::OneSided
+            | QuoteRowOutcome::OneSided { .. }
             | QuoteRowOutcome::Refused(_)) => panic!("{other:?}"),
         }
-        assert_eq!(outcomes[1], QuoteRowOutcome::OneSided);
+        match &outcomes[1] {
+            QuoteRowOutcome::OneSided { quote, .. } => {
+                assert_eq!(quote.symbol.as_str(), "ABC");
+                assert_eq!(quote.priced, PricedSide::Neither);
+            }
+            other @ (QuoteRowOutcome::Quote { .. }
+            | QuoteRowOutcome::TestTicker
+            | QuoteRowOutcome::Refused(_)) => panic!("{other:?}"),
+        }
         assert!(matches!(
             &outcomes[2],
             QuoteRowOutcome::Refused(row) if row.ticker() == "ABFpA"
@@ -582,7 +679,23 @@ ABC,,,4,70000000000004,1789706400000000500,50.000000,1004,1789718406000000789,0,
                 print: Print::Trade(trade),
                 conditions,
                 correction,
+                origin,
             } => {
+                assert_eq!(
+                    origin,
+                    &PrintOrigin {
+                        exchange: Some("4".to_string()),
+                        tape: "1".to_string(),
+                        id: Some("70000000000001".to_string()),
+                        participant_timestamp: Some(DateTime::from_timestamp_nanos(
+                            1_789_718_400_000_000_123
+                        )),
+                        trade_reporting_facility_timestamp: Some(DateTime::from_timestamp_nanos(
+                            1_789_718_400_000_000_400
+                        )),
+                        sequence: Some(1001),
+                    }
+                );
                 assert_eq!(trade.price().ticks(), 50_250_000);
                 assert_eq!(trade.size().units(), 10_000_000);
                 assert_eq!(
@@ -611,6 +724,19 @@ ABC,,,4,70000000000004,1789706400000000500,50.000000,1004,1789718406000000789,0,
                 ..
             }
         ));
+    }
+
+    /// A zero or blank stamp is no stamp rather than the epoch, and a joined list drops its blank elements.
+    #[test]
+    fn test_an_unstamped_time_is_absent_and_blank_codes_are_dropped() {
+        assert_eq!(stamped(Some(0)), None);
+        assert_eq!(stamped(None), None);
+        assert_eq!(
+            stamped(Some(1_789_718_400_000_000_123)).map(|instant| instant.to_rfc3339()),
+            Some("2026-09-18T08:00:00.000000123+00:00".to_string())
+        );
+        assert_eq!(listed(""), Vec::<String>::new());
+        assert_eq!(listed("1, 81,,"), ["1", "81"]);
     }
 
     #[test]

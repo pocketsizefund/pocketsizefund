@@ -10,7 +10,10 @@ use serde::Deserialize;
 use tokio::sync::mpsc::Sender;
 
 use super::retry::{FetchError, send, with_retries};
-use super::{RefusedRow, RowRefusal, Secret, VariableRefusal, one_sided, variable};
+use super::{
+    OneSidedQuote, PrintOrigin, QuoteOrigin, RefusedRow, RowRefusal, Secret, VariableRefusal,
+    priced_side, variable,
+};
 use crate::common::market::record::Quote;
 use crate::common::market::trade_bars::{ConditionLetter, Correction, Print, Tape};
 use crate::common::market::{Price, Shares, Symbol};
@@ -161,6 +164,14 @@ struct AlpacaQuote {
     ask_price: f64,
     #[serde(rename = "as")]
     ask_size: f64,
+    #[serde(rename = "bx")]
+    bid_exchange: Option<String>,
+    #[serde(rename = "ax")]
+    ask_exchange: Option<String>,
+    #[serde(rename = "z")]
+    tape: Option<String>,
+    #[serde(rename = "c", default)]
+    conditions: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -186,6 +197,10 @@ struct AlpacaTrade {
     /// The print's correction status, absent on a regular print.
     #[serde(rename = "u")]
     update: Option<String>,
+    #[serde(rename = "x")]
+    exchange: Option<String>,
+    #[serde(rename = "i")]
+    id: Option<u64>,
 }
 
 /// The tape letter a trade is reported under, as Alpaca spells it.
@@ -209,9 +224,15 @@ enum TapeLetter {
 /// What one Alpaca quote became.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AlpacaQuoteOutcome {
-    Quote(Quote),
+    Quote {
+        quote: Quote,
+        origin: QuoteOrigin,
+    },
     /// A side with no price, which is no top of book.
-    OneSided,
+    OneSided {
+        quote: OneSidedQuote,
+        origin: QuoteOrigin,
+    },
     Refused(RefusedRow),
 }
 
@@ -223,6 +244,7 @@ pub enum AlpacaTradeOutcome {
         tape: Tape,
         letters: Vec<ConditionLetter>,
         correction: Correction,
+        origin: PrintOrigin,
     },
     Refused(RefusedRow),
 }
@@ -421,15 +443,35 @@ fn quote_page(symbol: &Symbol, body: &[u8]) -> Result<(Vec<AlpacaQuoteOutcome>, 
 }
 
 fn quote_outcome(symbol: &Symbol, row: &AlpacaQuote) -> AlpacaQuoteOutcome {
-    if one_sided(row.bid_price, row.ask_price) {
-        return AlpacaQuoteOutcome::OneSided;
-    }
     let refused = |cause| {
         AlpacaQuoteOutcome::Refused(RefusedRow {
             ticker: symbol.as_str().to_string(),
             cause,
         })
     };
+    let origin = QuoteOrigin {
+        bid_exchange: row.bid_exchange.clone(),
+        ask_exchange: row.ask_exchange.clone(),
+        tape: row.tape.clone(),
+        conditions: row.conditions.clone(),
+        indicators: vec![],
+        participant_timestamp: None,
+        sequence: None,
+    };
+    match priced_side((row.bid_price, row.bid_size), (row.ask_price, row.ask_size)) {
+        Some(Ok(priced)) => {
+            return AlpacaQuoteOutcome::OneSided {
+                quote: OneSidedQuote {
+                    symbol: symbol.clone(),
+                    timestamp: row.timestamp,
+                    priced,
+                },
+                origin,
+            };
+        }
+        Some(Err(cause)) => return refused(cause),
+        None => {}
+    }
     let parts = (|| {
         Ok::<_, RowRefusal>((
             Price::from_dollars(row.bid_price).map_err(RowRefusal::Price)?,
@@ -441,7 +483,7 @@ fn quote_outcome(symbol: &Symbol, row: &AlpacaQuote) -> AlpacaQuoteOutcome {
     match parts {
         Ok((bid, ask, bid_size, ask_size)) => {
             match Quote::new(symbol.clone(), row.timestamp, bid, ask, bid_size, ask_size) {
-                Ok(quote) => AlpacaQuoteOutcome::Quote(quote),
+                Ok(quote) => AlpacaQuoteOutcome::Quote { quote, origin },
                 Err(cause) => refused(RowRefusal::Quote(cause)),
             }
         }
@@ -481,10 +523,9 @@ fn trade_outcome(symbol: &Symbol, row: &AlpacaTrade) -> AlpacaTradeOutcome {
             cause,
         })
     };
-    let tape = match row.tape.parse::<TapeLetter>() {
-        Ok(TapeLetter::A | TapeLetter::B) => Tape::ConsolidatedTape,
-        Ok(TapeLetter::C) => Tape::UnlistedTrading,
-        Err(strum::ParseError::VariantNotFound) => {
+    let tape = match tape_of(&row.tape) {
+        Some(tape) => tape,
+        None => {
             return refused(RowRefusal::Tape {
                 raw: row.tape.clone(),
             });
@@ -508,12 +549,74 @@ fn trade_outcome(symbol: &Symbol, row: &AlpacaTrade) -> AlpacaTradeOutcome {
         Err(cause) => return refused(cause),
     };
     let print = Print::new(symbol.clone(), row.timestamp, price, size);
+    let origin = PrintOrigin {
+        exchange: row.exchange.clone(),
+        tape: row.tape.clone(),
+        id: row.id.map(|id| id.to_string()),
+        participant_timestamp: None,
+        trade_reporting_facility_timestamp: None,
+        sequence: None,
+    };
     AlpacaTradeOutcome::Print {
         print,
         tape,
         letters,
         correction,
+        origin,
     }
+}
+
+/// The tape a letter as Alpaca spells it reports under, or none for any other spelling.
+pub fn tape_of(letter: &str) -> Option<Tape> {
+    match letter.parse::<TapeLetter>() {
+        Ok(TapeLetter::A | TapeLetter::B) => Some(Tape::ConsolidatedTape),
+        Ok(TapeLetter::C) => Some(Tape::UnlistedTrading),
+        Err(strum::ParseError::VariantNotFound) => None,
+    }
+}
+
+/// Every quote of one raw page, as the tee stored it, each read under the ticker it is filed under.
+pub fn raw_quote_page(body: &[u8]) -> Result<Vec<AlpacaQuoteOutcome>, FetchError> {
+    let page: QuotesPage = serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
+        reason: error.to_string(),
+    })?;
+    Ok(page
+        .quotes
+        .unwrap_or_default()
+        .into_iter()
+        .flat_map(|(ticker, rows)| {
+            let symbol = Symbol::new(&ticker);
+            rows.into_iter().map(move |row| match &symbol {
+                Ok(symbol) => quote_outcome(symbol, &row),
+                Err(cause) => AlpacaQuoteOutcome::Refused(RefusedRow {
+                    ticker: ticker.clone(),
+                    cause: RowRefusal::Symbol(cause.clone()),
+                }),
+            })
+        })
+        .collect())
+}
+
+/// Every trade of one raw page, as the tee stored it, each read under the ticker it is filed under.
+pub fn raw_trade_page(body: &[u8]) -> Result<Vec<AlpacaTradeOutcome>, FetchError> {
+    let page: TradesPage = serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
+        reason: error.to_string(),
+    })?;
+    Ok(page
+        .trades
+        .unwrap_or_default()
+        .into_iter()
+        .flat_map(|(ticker, rows)| {
+            let symbol = Symbol::new(&ticker);
+            rows.into_iter().map(move |row| match &symbol {
+                Ok(symbol) => trade_outcome(symbol, &row),
+                Err(cause) => AlpacaTradeOutcome::Refused(RefusedRow {
+                    ticker: ticker.clone(),
+                    cause: RowRefusal::Symbol(cause.clone()),
+                }),
+            })
+        })
+        .collect())
 }
 
 /// Reads Alpaca's update label: `incorrect` marks the record that replaces a corrected print, the one that stands, while
@@ -614,6 +717,7 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use super::*;
+    use crate::ingest::PricedSide;
 
     #[test]
     fn test_an_invalid_symbol_is_read_from_the_live_error_body() {
@@ -803,19 +907,44 @@ mod tests {
         assert!(answered);
         assert_eq!(outcomes.len(), 2);
         match &outcomes[0] {
-            AlpacaQuoteOutcome::Quote(quote) => {
+            AlpacaQuoteOutcome::Quote { quote, origin } => {
                 assert_eq!(quote.bid().ticks(), 50_250_000);
                 assert_eq!(quote.bid_size().units(), 1_530_000_000);
                 assert_eq!(
                     quote.timestamp().to_rfc3339(),
                     "2026-10-02T19:59:58.000000123+00:00"
                 );
+                assert_eq!(
+                    origin,
+                    &QuoteOrigin {
+                        bid_exchange: Some("Q".to_string()),
+                        ask_exchange: Some("Q".to_string()),
+                        tape: Some("C".to_string()),
+                        conditions: vec!["R".to_string()],
+                        indicators: vec![],
+                        participant_timestamp: None,
+                        sequence: None,
+                    }
+                );
             }
-            other @ (AlpacaQuoteOutcome::OneSided | AlpacaQuoteOutcome::Refused(_)) => {
+            other @ (AlpacaQuoteOutcome::OneSided { .. } | AlpacaQuoteOutcome::Refused(_)) => {
                 panic!("{other:?}")
             }
         }
-        assert_eq!(outcomes[1], AlpacaQuoteOutcome::OneSided);
+        match &outcomes[1] {
+            AlpacaQuoteOutcome::OneSided { quote, .. } => {
+                assert_eq!(
+                    quote.priced,
+                    PricedSide::Bid(
+                        Price::from_ticks(50_250_000).unwrap(),
+                        Shares::from_units(100_000_000)
+                    )
+                );
+            }
+            other @ (AlpacaQuoteOutcome::Quote { .. } | AlpacaQuoteOutcome::Refused(_)) => {
+                panic!("{other:?}")
+            }
+        }
     }
 
     #[test]
@@ -852,6 +981,43 @@ mod tests {
         assert!("a".parse::<TapeLetter>().is_err());
     }
 
+    /// A raw page holds many tickers, so each row reads under its own, and a ticker that is no symbol is refused.
+    #[test]
+    fn test_a_raw_page_reads_every_ticker_it_holds() {
+        let trades = r#"{"next_page_token": "x", "trades": {"ABC": [{"c": ["@"], "i": 1, "p": 50.26, "s": 100, "t": "2026-10-09T14:00:00Z", "x": "Q", "z": "C"}], "XYZ": [{"c": [" "], "i": 2, "p": 10.5, "s": 5, "t": "2026-10-09T14:00:01Z", "x": "N", "z": "A"}], "abc1": [{"c": [" "], "i": 3, "p": 1.0, "s": 1, "t": "2026-10-09T14:00:02Z", "x": "N", "z": "A"}]}}"#;
+        let read: Vec<String> = raw_trade_page(trades.as_bytes())
+            .unwrap()
+            .iter()
+            .map(|outcome| match outcome {
+                AlpacaTradeOutcome::Print { print, origin, .. } => {
+                    format!("{} {:?}", print.symbol().as_str(), origin.exchange)
+                }
+                AlpacaTradeOutcome::Refused(row) => format!("refused {}", row.ticker()),
+            })
+            .collect();
+        assert_eq!(read, ["ABC Some(\"Q\")", "XYZ Some(\"N\")", "refused abc1"]);
+        let quotes = r#"{"next_page_token": null, "quotes": {"ABC": [{"ap": 50.27, "as": 200, "ax": "Q", "bp": 50.25, "bs": 100, "bx": "P", "c": ["R"], "t": "2026-10-09T14:00:00Z", "z": "C"}], "XYZ": [{"ap": 0, "as": 0, "ax": " ", "bp": 10.5, "bs": 100, "bx": "N", "c": ["R"], "t": "2026-10-09T14:00:01Z", "z": "A"}]}}"#;
+        let read: Vec<String> = raw_quote_page(quotes.as_bytes())
+            .unwrap()
+            .iter()
+            .map(|outcome| match outcome {
+                AlpacaQuoteOutcome::Quote { quote, origin } => {
+                    format!(
+                        "{} {}/{}",
+                        quote.symbol().as_str(),
+                        origin.bid_exchange.as_deref().unwrap_or("-"),
+                        origin.ask_exchange.as_deref().unwrap_or("-")
+                    )
+                }
+                AlpacaQuoteOutcome::OneSided { quote, .. } => {
+                    format!("{} one-sided", quote.symbol.as_str())
+                }
+                AlpacaQuoteOutcome::Refused(row) => format!("refused {}", row.ticker()),
+            })
+            .collect();
+        assert_eq!(read, ["ABC P/Q", "XYZ one-sided"]);
+    }
+
     #[test]
     fn test_alpaca_trades_carry_their_tape_letters_and_corrections() {
         let symbol = Symbol::new("ABC").unwrap();
@@ -865,13 +1031,17 @@ mod tests {
                     tape,
                     letters,
                     correction,
+                    origin,
                 } => format!(
-                    "{tape:?} {:?} {correction:?} unsized={}",
+                    "{tape:?} {:?} {correction:?} unsized={} {}/{}/{}",
                     letters
                         .iter()
                         .map(|letter| letter.get())
                         .collect::<Vec<char>>(),
-                    matches!(print, Print::Unsized { .. })
+                    matches!(print, Print::Unsized { .. }),
+                    origin.exchange.as_deref().unwrap_or("-"),
+                    origin.tape,
+                    origin.id.as_deref().unwrap_or("-")
                 ),
                 AlpacaTradeOutcome::Refused(row) => {
                     format!("refused {}", <&'static str>::from(row.cause().kind()))
@@ -881,9 +1051,9 @@ mod tests {
         assert_eq!(
             summary,
             [
-                "UnlistedTrading ['@', '6', 'X'] Stands unsized=false",
-                "UnlistedTrading ['@', 'T', 'P'] Withdrawn unsized=false",
-                "ConsolidatedTape [' ', '9'] Stands unsized=true",
+                "UnlistedTrading ['@', '6', 'X'] Stands unsized=false Q/C/1",
+                "UnlistedTrading ['@', 'T', 'P'] Withdrawn unsized=false D/C/300001",
+                "ConsolidatedTape [' ', '9'] Stands unsized=true N/A/7",
                 "refused tape",
             ]
         );
@@ -963,6 +1133,7 @@ mod tests {
                         tape,
                         letters,
                         correction,
+                        ..
                     } => {
                         assert!(
                             start <= print.timestamp() && print.timestamp() < end,

@@ -701,9 +701,9 @@ async fn fold_quotes_one(
             QuoteFold::new(open, close).expect("a trading session closes after it opens");
         let mut rows = QuoteRowCounts::default();
         read_quotes(stream, |outcome| match outcome {
-            QuoteRowOutcome::Quote(quote) => fold.push(&quote),
+            QuoteRowOutcome::Quote { quote, .. } => fold.push(&quote),
             QuoteRowOutcome::TestTicker => rows.test_tickers += 1,
-            QuoteRowOutcome::OneSided => rows.one_sided += 1,
+            QuoteRowOutcome::OneSided { .. } => rows.one_sided += 1,
             QuoteRowOutcome::Refused(row) => rows.refused.add(row.cause().kind()),
         })
         .map_err(FoldFailure::Parse)?;
@@ -916,6 +916,7 @@ async fn fold_trades_one(
                 print,
                 conditions,
                 correction,
+                ..
             } => fold.push(&print, &conditions, correction),
             TradeRowOutcome::TestTicker => test_tickers += 1,
             TradeRowOutcome::Refused(row) => refused.add(row.cause().kind()),
