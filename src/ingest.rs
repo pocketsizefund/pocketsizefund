@@ -278,6 +278,38 @@ pub(crate) fn one_sided(bid: f64, ask: f64) -> bool {
 mod tests {
     use super::*;
 
+    /// Each one-sided shape keeps only its priced side, whatever size the unpriced side carries; a priced side with a
+    /// bad price or size is refused, and a two-sided quote is not one-sided at all.
+    #[test]
+    fn test_a_one_sided_quote_keeps_exactly_its_priced_side() {
+        let side = |ticks, units| (Price::from_ticks(ticks).unwrap(), Shares::from_units(units));
+        let read =
+            |bid, ask| priced_side(bid, ask).map(|priced| priced.map_err(|cause| cause.kind()));
+        assert_eq!(
+            read((0.0, 300.0), (0.0, 0.0)),
+            Some(Ok(PricedSide::Neither))
+        );
+        let (price, size) = side(10_500_000, 100_000_000);
+        assert_eq!(
+            read((10.5, 100.0), (0.0, 700.0)),
+            Some(Ok(PricedSide::Bid(price, size)))
+        );
+        let (price, size) = side(50_270_000, 200_000_000);
+        assert_eq!(
+            read((0.0, 900.0), (50.27, 200.0)),
+            Some(Ok(PricedSide::Ask(price, size)))
+        );
+        assert_eq!(
+            read((0.0, 0.0), (50.27, -1.0)),
+            Some(Err(RowRefusalKind::Shares))
+        );
+        assert_eq!(
+            read((20_000_000.0, 100.0), (0.0, 0.0)),
+            Some(Err(RowRefusalKind::Price))
+        );
+        assert_eq!(read((50.25, 100.0), (50.27, 200.0)), None);
+    }
+
     /// A variable set to bytes that are not Unicode is set, not missing, and is refused without its value, which may
     /// be a secret.
     #[cfg(unix)]
