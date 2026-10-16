@@ -1,5 +1,5 @@
 //! Parsed ticks as Parquet: one file per session, provider and kind, written a row group at a time in the raw file's
-//! order, with every vendor code kept as the vendor served it.
+//! order, with every vendor code kept in the vendor's own spelling.
 
 use std::sync::Arc;
 
@@ -53,6 +53,7 @@ pub fn trade_schema() -> SchemaRef {
         Field::new("price", PRICE_TYPE, false),
         Field::new("size", SHARES_TYPE, false),
         Field::new("correction", DataType::Utf8, false),
+        Field::new("correction_code", DataType::Utf8, true),
         listed("conditions"),
         Field::new("exchange", DataType::Utf8, true),
         Field::new("tape", DataType::Utf8, false),
@@ -109,6 +110,7 @@ pub struct TradeTicks {
     price: Decimal128Builder,
     size: Decimal128Builder,
     correction: StringBuilder,
+    correction_code: StringBuilder,
     conditions: ListBuilder<StringBuilder>,
     exchange: StringBuilder,
     tape: StringBuilder,
@@ -127,6 +129,7 @@ impl Default for TradeTicks {
             price: Decimal128Builder::new(),
             size: Decimal128Builder::new(),
             correction: StringBuilder::new(),
+            correction_code: StringBuilder::new(),
             conditions: ListBuilder::new(StringBuilder::new()),
             exchange: StringBuilder::new(),
             tape: StringBuilder::new(),
@@ -140,11 +143,10 @@ impl Default for TradeTicks {
 }
 
 impl TradeTicks {
-    /// Buffers one print with its conditions spelled as the vendor spells them; an unsized print has size zero.
+    /// Buffers one print with the fold's reading of its correction beside the vendor's; an unsized print has size zero.
     pub fn push(
         &mut self,
         print: &Print,
-        conditions: impl IntoIterator<Item = String>,
         correction: Correction,
         origin: &PrintOrigin,
     ) -> Result<(), TickRefusal> {
@@ -161,7 +163,9 @@ impl TradeTicks {
         self.price.append_value(i128::from(print.price().ticks()));
         self.size.append_value(i128::from(size));
         self.correction.append_value(correction_name(correction));
-        for condition in conditions {
+        self.correction_code
+            .append_option(origin.correction.as_deref());
+        for condition in &origin.conditions {
             self.conditions.values().append_value(condition);
         }
         self.conditions.append(true);
@@ -189,6 +193,7 @@ impl TradeTicks {
             Arc::new(self.price.finish().with_data_type(PRICE_TYPE)),
             Arc::new(self.size.finish().with_data_type(SHARES_TYPE)),
             Arc::new(self.correction.finish()),
+            Arc::new(self.correction_code.finish()),
             Arc::new(self.conditions.finish()),
             Arc::new(self.exchange.finish()),
             Arc::new(self.tape.finish()),
@@ -329,6 +334,7 @@ pub struct TradeTick {
     pub print: Print,
     pub conditions: Vec<String>,
     pub correction: Correction,
+    pub correction_code: Option<String>,
     pub tape: String,
 }
 
@@ -391,6 +397,7 @@ pub fn trade_ticks(batch: &RecordBatch) -> Result<Vec<TradeTick>, TickRefusal> {
     let prices = column::<Decimal128Array>(batch, "price")?;
     let sizes = column::<Decimal128Array>(batch, "size")?;
     let corrections = column::<StringArray>(batch, "correction")?;
+    let correction_codes = column::<StringArray>(batch, "correction_code")?;
     let conditions = column::<ListArray>(batch, "conditions")?;
     let tapes = column::<StringArray>(batch, "tape")?;
     (0..batch.num_rows())
@@ -411,6 +418,8 @@ pub fn trade_ticks(batch: &RecordBatch) -> Result<Vec<TradeTick>, TickRefusal> {
                 ),
                 conditions: strings_at(conditions, row)?,
                 correction,
+                correction_code: (!correction_codes.is_null(row))
+                    .then(|| correction_codes.value(row).to_string()),
                 tape: tapes.value(row).to_string(),
             })
         })
@@ -455,79 +464,166 @@ pub fn two_sided_quotes(batch: &RecordBatch) -> Result<Vec<Quote>, TickRefusal> 
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
+
     use super::*;
+    use crate::ingest::PricedSide;
 
     fn at(text: &str) -> DateTime<Utc> {
         text.parse().unwrap()
     }
 
-    fn origin() -> PrintOrigin {
-        PrintOrigin {
-            exchange: Some("4".to_string()),
-            tape: "1".to_string(),
-            id: Some("71675256330320".to_string()),
-            participant_timestamp: Some(at("2026-10-09T14:00:00.000000123Z")),
-            trade_reporting_facility_timestamp: None,
-            sequence: Some(4186),
-        }
+    fn symbols() -> impl Strategy<Value = Symbol> {
+        prop::sample::select(vec!["A", "ABC", "BRK.B", "QQQ"])
+            .prop_map(|raw| Symbol::new(raw).unwrap())
     }
 
-    /// A trade, an unsized print and a withdrawn print read back as the prints, conditions and corrections written.
-    #[test]
-    fn test_trade_ticks_read_back_as_written() {
-        let symbol = Symbol::new("ABC").unwrap();
-        let price = Price::from_ticks(168_890_000).unwrap();
-        let written = [
-            (
-                Print::new(
-                    symbol.clone(),
-                    at("2026-10-09T14:00:01.5Z"),
-                    price,
-                    Shares::from_units(49_000_000),
-                ),
-                vec!["12".to_string(), "37".to_string()],
-                Correction::Stands,
-            ),
-            (
-                Print::new(
-                    symbol.clone(),
-                    at("2026-10-09T20:00:00Z"),
-                    price,
-                    Shares::from_units(0),
-                ),
-                vec![],
-                Correction::Stands,
-            ),
-            (
-                Print::new(
-                    symbol,
-                    at("2026-10-09T15:00:00Z"),
-                    price,
-                    Shares::from_units(2_500),
-                ),
-                vec!["@".to_string()],
-                Correction::Withdrawn,
-            ),
-        ];
-        let mut ticks = TradeTicks::default();
-        for (print, conditions, correction) in &written {
-            ticks
-                .push(print, conditions.clone(), *correction, &origin())
-                .unwrap();
+    fn instants() -> impl Strategy<Value = DateTime<Utc>> {
+        (0_i64..4_102_444_800_000_000_000).prop_map(DateTime::from_timestamp_nanos)
+    }
+
+    fn prices() -> impl Strategy<Value = Price> {
+        prop_oneof![
+            Just(1_i64),
+            Just(10_000_000_000_000),
+            1_i64..=10_000_000_000_000
+        ]
+        .prop_map(|ticks| Price::from_ticks(ticks).unwrap())
+    }
+
+    fn sizes() -> impl Strategy<Value = Shares> {
+        prop_oneof![Just(0_u64), Just(u64::MAX), any::<u64>()].prop_map(Shares::from_units)
+    }
+
+    fn codes() -> impl Strategy<Value = String> {
+        "[ -~]{0,3}"
+    }
+
+    fn origins() -> impl Strategy<Value = PrintOrigin> {
+        (
+            prop::option::of(codes()),
+            codes(),
+            prop::option::of(codes()),
+            prop::option::of(instants()),
+            prop::option::of(instants()),
+            prop::option::of(any::<u64>()),
+            prop::collection::vec(codes(), 0..4),
+            prop::option::of(codes()),
+        )
+            .prop_map(
+                |(exchange, tape, id, participant, facility, sequence, conditions, correction)| {
+                    PrintOrigin {
+                        exchange,
+                        tape,
+                        id,
+                        participant_timestamp: participant,
+                        trade_reporting_facility_timestamp: facility,
+                        sequence,
+                        conditions,
+                        correction,
+                    }
+                },
+            )
+    }
+
+    fn quote_origins() -> impl Strategy<Value = QuoteOrigin> {
+        (
+            prop::option::of(codes()),
+            prop::option::of(codes()),
+            prop::option::of(codes()),
+            prop::collection::vec(codes(), 0..4),
+            prop::collection::vec(codes(), 0..4),
+            prop::option::of(instants()),
+            prop::option::of(any::<u64>()),
+        )
+            .prop_map(
+                |(
+                    bid_exchange,
+                    ask_exchange,
+                    tape,
+                    conditions,
+                    indicators,
+                    participant,
+                    sequence,
+                )| {
+                    QuoteOrigin {
+                        bid_exchange,
+                        ask_exchange,
+                        tape,
+                        conditions,
+                        indicators,
+                        participant_timestamp: participant,
+                        sequence,
+                    }
+                },
+            )
+    }
+
+    proptest! {
+        /// Every print, sized or not, reads back with the fold's correction and the vendor's codes it was written with.
+        #[test]
+        fn test_trade_ticks_read_back_as_written(
+            written in prop::collection::vec(
+                (symbols(), instants(), prices(), sizes(), any::<bool>(), origins()),
+                0..20,
+            )
+        ) {
+            let mut ticks = TradeTicks::default();
+            let mut expected = Vec::new();
+            for (symbol, instant, price, size, withdrawn, origin) in written {
+                let print = Print::new(symbol, instant, price, size);
+                let correction = match withdrawn {
+                    true => Correction::Withdrawn,
+                    false => Correction::Stands,
+                };
+                ticks.push(&print, correction, &origin).unwrap();
+                expected.push(TradeTick {
+                    print,
+                    conditions: origin.conditions,
+                    correction,
+                    correction_code: origin.correction,
+                    tape: origin.tape,
+                });
+            }
+            prop_assert_eq!(ticks.rows(), expected.len());
+            let batch = ticks.take();
+            prop_assert_eq!(ticks.rows(), 0);
+            prop_assert_eq!(trade_ticks(&batch).unwrap(), expected);
         }
-        assert_eq!(ticks.rows(), 3);
-        let batch = ticks.take();
-        assert_eq!(ticks.rows(), 0);
-        let read: Vec<_> = trade_ticks(&batch)
-            .unwrap()
-            .into_iter()
-            .map(|tick| (tick.print, tick.conditions, tick.correction, tick.tape))
-            .collect();
-        let expected: Vec<_> = written
-            .into_iter()
-            .map(|(print, conditions, correction)| (print, conditions, correction, "1".to_string()))
-            .collect();
-        assert_eq!(read, expected);
+
+        /// Every two-sided quote reads back whole, and a one-sided row between them reads as no quote.
+        #[test]
+        fn test_two_sided_quotes_read_back_as_written(
+            written in prop::collection::vec(
+                (symbols(), instants(), prices(), 0_i64..1_000_000, sizes(), sizes(), quote_origins()),
+                0..20,
+            )
+        ) {
+            let mut ticks = QuoteTicks::default();
+            let mut expected = Vec::new();
+            for (symbol, instant, bid, spread, bid_size, ask_size, origin) in written {
+                let ask = Price::from_ticks((bid.ticks() + spread).min(10_000_000_000_000)).unwrap();
+                let quote = Quote::new(
+                    symbol.clone(),
+                    instant,
+                    bid,
+                    ask,
+                    bid_size,
+                    ask_size,
+                )
+                .unwrap();
+                ticks.push_quote(&quote, &origin).unwrap();
+                let one_sided = OneSidedQuote {
+                    symbol,
+                    timestamp: instant,
+                    priced: PricedSide::Bid(bid, bid_size),
+                };
+                ticks.push_one_sided(&one_sided, &origin).unwrap();
+                expected.push(quote);
+            }
+            prop_assert_eq!(ticks.rows(), 2 * expected.len());
+            prop_assert_eq!(two_sided_quotes(&ticks.take()).unwrap(), expected);
+        }
     }
 
     /// A two-sided quote reads back whole, and a one-sided one is written with its unpriced side null and read as none.

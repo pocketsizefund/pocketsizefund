@@ -534,7 +534,7 @@ fn trade_outcome(symbol: &Symbol, row: &AlpacaTrade) -> AlpacaTradeOutcome {
     let letters = row
         .conditions
         .iter()
-        .map(|element| ConditionLetter::new(element).unwrap_or(UNSPELLABLE))
+        .map(|element| letter_of(element))
         .collect();
     let price = match Price::from_dollars(row.price) {
         Ok(price) => price,
@@ -556,6 +556,8 @@ fn trade_outcome(symbol: &Symbol, row: &AlpacaTrade) -> AlpacaTradeOutcome {
         participant_timestamp: None,
         trade_reporting_facility_timestamp: None,
         sequence: None,
+        conditions: row.conditions.clone(),
+        correction: row.update.clone(),
     };
     AlpacaTradeOutcome::Print {
         print,
@@ -564,6 +566,11 @@ fn trade_outcome(symbol: &Symbol, row: &AlpacaTrade) -> AlpacaTradeOutcome {
         correction,
         origin,
     }
+}
+
+/// The condition letter an element as Alpaca serves it spells, or `UNSPELLABLE` when it is not one letter.
+pub fn letter_of(element: &str) -> ConditionLetter {
+    ConditionLetter::new(element).unwrap_or(UNSPELLABLE)
 }
 
 /// The tape a letter as Alpaca spells it reports under, or none for any other spelling.
@@ -979,6 +986,35 @@ mod tests {
             assert_eq!(letter.to_string().parse::<TapeLetter>(), Ok(letter));
         }
         assert!("a".parse::<TapeLetter>().is_err());
+    }
+
+    /// A condition that is not one letter folds as unspellable, while the origin keeps it and the update label as served.
+    #[test]
+    fn test_a_print_keeps_its_conditions_and_correction_as_served() {
+        let page = r#"{"next_page_token": null, "trades": {"ABC": [{"c": ["@", "XY"], "i": 9, "p": 50.26, "s": 100, "t": "2026-10-09T14:00:00Z", "u": "corrected", "x": "D", "z": "C"}]}}"#;
+        let outcomes = raw_trade_page(page.as_bytes()).unwrap();
+        match outcomes.as_slice() {
+            [
+                AlpacaTradeOutcome::Print {
+                    letters,
+                    correction,
+                    origin,
+                    ..
+                },
+            ] => {
+                assert_eq!(
+                    letters
+                        .iter()
+                        .map(|letter| letter.get())
+                        .collect::<String>(),
+                    "@\u{FFFD}"
+                );
+                assert_eq!(correction, &Correction::Withdrawn);
+                assert_eq!(origin.conditions, ["@", "XY"]);
+                assert_eq!(origin.correction.as_deref(), Some("corrected"));
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     /// A raw page holds many tickers, so each row reads under its own, and a ticker that is no symbol is refused.

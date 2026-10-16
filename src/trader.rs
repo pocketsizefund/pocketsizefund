@@ -910,6 +910,8 @@ mod tests {
                 participant_timestamp: None,
                 trade_reporting_facility_timestamp: None,
                 sequence: None,
+                conditions: vec![" ".to_string()],
+                correction: None,
             },
         }
     }

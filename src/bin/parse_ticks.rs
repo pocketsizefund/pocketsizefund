@@ -30,7 +30,8 @@ use fund::common::storage::{Key, Provider, QuotesKey, TradesKey};
 use fund::common::time::{SessionDate, SessionRange};
 use fund::ingest::RowRefusalKind;
 use fund::ingest::alpaca::{
-    Alpaca, AlpacaQuoteOutcome, AlpacaTradeOutcome, raw_quote_page, raw_trade_page, tape_of,
+    Alpaca, AlpacaQuoteOutcome, AlpacaTradeOutcome, letter_of, raw_quote_page, raw_trade_page,
+    tape_of,
 };
 use fund::ingest::flat_files::{QuoteRowOutcome, TradeRowOutcome, read_quotes, read_trades};
 use fund::records::RefusedToStart;
@@ -121,7 +122,7 @@ fn writer(path: &Path, kind: Kind) -> Result<ArrowWriter<File>, Failure> {
         .set_max_row_group_row_count(Some(ROW_GROUP_ROWS))
         .build();
     Ok(ArrowWriter::try_new(
-        File::create(path)?,
+        File::create_new(path)?,
         schema,
         Some(properties),
     )?)
@@ -133,8 +134,8 @@ fn pages(raw: &Path) -> Result<impl Iterator<Item = std::io::Result<String>>, Fa
     Ok(BufReader::new(decoded).lines())
 }
 
-fn parse_trades(provider: Provider, raw: &Path, out: &Path) -> Result<Rows, Failure> {
-    let mut output = writer(out, Kind::Trades)?;
+fn parse_trades(provider: Provider, raw: &Path, output_path: &Path) -> Result<Rows, Failure> {
+    let mut output = writer(output_path, Kind::Trades)?;
     let mut ticks = TradeTicks::default();
     let mut rows = Rows::default();
     let mut failure: Option<Failure> = None;
@@ -153,16 +154,11 @@ fn parse_trades(provider: Provider, raw: &Path, out: &Path) -> Result<Rows, Fail
                 let pushed = match outcome {
                     TradeRowOutcome::Print {
                         print,
-                        conditions,
                         correction,
                         origin,
+                        ..
                     } => ticks
-                        .push(
-                            &print,
-                            conditions.iter().map(|code| code.get().to_string()),
-                            correction,
-                            &origin,
-                        )
+                        .push(&print, correction, &origin)
                         .map_err(Failure::from)
                         .and_then(|()| flush(&mut ticks, &mut output))
                         .map(|()| rows.written += 1),
@@ -190,17 +186,11 @@ fn parse_trades(provider: Provider, raw: &Path, out: &Path) -> Result<Rows, Fail
                     match outcome {
                         AlpacaTradeOutcome::Print {
                             print,
-                            letters,
                             correction,
                             origin,
                             ..
                         } => {
-                            ticks.push(
-                                &print,
-                                letters.iter().map(|letter| letter.get().to_string()),
-                                correction,
-                                &origin,
-                            )?;
+                            ticks.push(&print, correction, &origin)?;
                             flush(&mut ticks, &mut output)?;
                             rows.written += 1;
                         }
@@ -215,8 +205,8 @@ fn parse_trades(provider: Provider, raw: &Path, out: &Path) -> Result<Rows, Fail
     Ok(rows)
 }
 
-fn parse_quotes(provider: Provider, raw: &Path, out: &Path) -> Result<Rows, Failure> {
-    let mut output = writer(out, Kind::Quotes)?;
+fn parse_quotes(provider: Provider, raw: &Path, output_path: &Path) -> Result<Rows, Failure> {
+    let mut output = writer(output_path, Kind::Quotes)?;
     let mut ticks = QuoteTicks::default();
     let mut rows = Rows::default();
     let mut failure: Option<Failure> = None;
@@ -302,7 +292,7 @@ async fn trade_seam(
     archive: &Archive,
     provider: Provider,
     session: SessionDate,
-    out: &Path,
+    output_path: &Path,
 ) -> Result<Option<Seam>, Failure> {
     let key = TradesKey::new(provider, BarInterval::OneMinute, session);
     let Some(bytes) = archive
@@ -319,7 +309,7 @@ async fn trade_seam(
         .map_err(|error| Failure::Archive(error.to_string()))?;
     let mut fold = TradeFold::new(session, conditions);
     let mut unfoldable = 0_u64;
-    for batch in batches(out)? {
+    for batch in batches(output_path)? {
         for tick in trade_ticks(&batch?)? {
             match provider {
                 Provider::Massive => {
@@ -334,22 +324,29 @@ async fn trade_seam(
                     }
                 }
                 Provider::Alpaca => {
-                    let letters: Result<Vec<ConditionLetter>, _> = tick
+                    let letters: Vec<ConditionLetter> = tick
                         .conditions
                         .iter()
-                        .map(|letter| ConditionLetter::new(letter))
+                        .map(|element| letter_of(element))
                         .collect();
-                    match (tape_of(&tick.tape), letters) {
-                        (Some(tape), Ok(letters)) => {
+                    match tape_of(&tick.tape) {
+                        Some(tape) => {
                             fold.push_lettered(&tick.print, tape, &letters, tick.correction);
                         }
-                        (None, _) | (_, Err(_)) => unfoldable += 1,
+                        None => unfoldable += 1,
                     }
                 }
             }
         }
     }
-    let (folded, _) = fold.finish();
+    let (folded, counts) = fold.finish();
+    tracing::info!(
+        folded = counts.folded(),
+        withdrawn = counts.withdrawn(),
+        unresolved = counts.unresolved().total(),
+        unsized_prints = counts.unsized_prints(),
+        "Trade ticks folded"
+    );
     let seam = Seam::of(folded, archived.rows(), |bar| {
         (bar.symbol().clone(), bar.timestamp())
     });
@@ -362,7 +359,7 @@ async fn quote_seam(
     archive: &Archive,
     provider: Provider,
     session: SessionDate,
-    out: &Path,
+    output_path: &Path,
 ) -> Result<Option<Seam>, Failure> {
     let key = QuotesKey::new(provider, BarInterval::OneMinute, session);
     let Some(bytes) = archive
@@ -386,12 +383,18 @@ async fn quote_seam(
         .ok_or_else(|| Failure::Calendar(format!("{session} is not a trading day")))?;
     let mut fold =
         QuoteFold::new(open, close).map_err(|refusal| Failure::Calendar(refusal.to_string()))?;
-    for batch in batches(out)? {
+    for batch in batches(output_path)? {
         for quote in two_sided_quotes(&batch?)? {
             fold.push(&quote);
         }
     }
-    let (folded, _) = fold.finish();
+    let (folded, counts) = fold.finish();
+    // The archive's fold drops an out-of-order quote by the same rule, so the count is read, not failed on.
+    tracing::info!(
+        accepted = counts.accepted(),
+        out_of_order = counts.out_of_order(),
+        "Quote ticks folded"
+    );
     Ok(Some(Seam::of(folded, archived.rows(), |bar| {
         (bar.symbol().clone(), bar.timestamp())
     })))
@@ -402,13 +405,13 @@ async fn run(
     kind: Kind,
     session: SessionDate,
     raw: PathBuf,
-    out: PathBuf,
+    output_path: PathBuf,
 ) -> Result<bool, Failure> {
     let parsed = {
-        let (raw, out) = (raw.clone(), out.clone());
+        let (raw, output_path) = (raw.clone(), output_path.clone());
         tokio::task::spawn_blocking(move || match kind {
-            Kind::Trades => parse_trades(provider, &raw, &out),
-            Kind::Quotes => parse_quotes(provider, &raw, &out),
+            Kind::Trades => parse_trades(provider, &raw, &output_path),
+            Kind::Quotes => parse_quotes(provider, &raw, &output_path),
         })
         .await
         .expect("the parse does not panic")?
@@ -417,8 +420,8 @@ async fn run(
     let archive = Archive::market_data(&aws_config::load_from_env().await)
         .map_err(|refusal| Failure::Archive(refusal.to_string()))?;
     let seam = match kind {
-        Kind::Trades => trade_seam(&archive, provider, session, &out).await?,
-        Kind::Quotes => quote_seam(&archive, provider, session, &out).await?,
+        Kind::Trades => trade_seam(&archive, provider, session, &output_path).await?,
+        Kind::Quotes => quote_seam(&archive, provider, session, &output_path).await?,
     };
     match seam {
         Some(seam) => {
@@ -449,7 +452,7 @@ async fn main() -> ExitCode {
         .init();
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     let parsed = match arguments.as_slice() {
-        [provider, kind, session, raw, out] => {
+        [provider, kind, session, raw, output_path] => {
             let provider = provider.parse::<Provider>().ok();
             let kind = kind.parse::<Kind>().ok();
             let session = session
@@ -462,18 +465,18 @@ async fn main() -> ExitCode {
                     kind,
                     session,
                     PathBuf::from(raw),
-                    PathBuf::from(out),
+                    PathBuf::from(output_path),
                 )),
                 (None, _, _) | (_, None, _) | (_, _, None) => None,
             }
         }
         _ => None,
     };
-    let Some((provider, kind, session, raw, out)) = parsed else {
+    let Some((provider, kind, session, raw, output_path)) = parsed else {
         tracing::error!(?arguments, usage = USAGE, "Usage refused");
         return RefusedToStart.into();
     };
-    match run(provider, kind, session, raw, out).await {
+    match run(provider, kind, session, raw, output_path).await {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => {
             tracing::error!("Ticks do not fold to the archive's bars");
@@ -495,6 +498,16 @@ mod tests {
             Symbol::new(bar.0).unwrap(),
             DateTime::from_timestamp(bar.1, 0).unwrap(),
         )
+    }
+
+    /// An output path that already names a file, such as the raw input itself, is refused before anything is written.
+    #[test]
+    fn test_an_existing_output_is_never_overwritten() {
+        let path = std::env::temp_dir().join(format!("parse_ticks-{}.raw", std::process::id()));
+        std::fs::write(&path, b"raw bytes").unwrap();
+        assert!(matches!(writer(&path, Kind::Trades), Err(Failure::Io(_))));
+        assert_eq!(std::fs::read(&path).unwrap(), b"raw bytes");
+        std::fs::remove_file(&path).unwrap();
     }
 
     /// A bar on one side only, or differing, is counted beside the bars both sides hold, and any of them or a tick

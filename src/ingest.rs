@@ -121,6 +121,10 @@ pub struct PrintOrigin {
     pub trade_reporting_facility_timestamp: Option<DateTime<Utc>>,
     /// Massive's sequence number, increasing within a ticker's session; Alpaca serves none.
     pub sequence: Option<u64>,
+    /// The sale conditions in the vendor's own codes, before any is read for the fold.
+    pub conditions: Vec<String>,
+    /// The vendor's correction indicator or update label, absent where the vendor served none.
+    pub correction: Option<String>,
 }
 
 /// Where and when a quote was published, in the vendor's own codes; no fold reads it, so research can.

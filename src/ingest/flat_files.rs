@@ -487,11 +487,9 @@ fn trade_outcome(row: TradeRow) -> TradeRowOutcome {
             cause,
         })
     };
-    let conditions: Result<Vec<ConditionCode>, _> = row
-        .conditions
-        .split(',')
-        .map(str::trim)
-        .filter(|code| !code.is_empty())
+    let served = listed(&row.conditions);
+    let conditions: Result<Vec<ConditionCode>, _> = served
+        .iter()
         .map(|code| code.parse().map(ConditionCode::new))
         .collect();
     let Ok(conditions) = conditions else {
@@ -524,6 +522,8 @@ fn trade_outcome(row: TradeRow) -> TradeRowOutcome {
         participant_timestamp: stamped(row.participant_timestamp),
         trade_reporting_facility_timestamp: stamped(row.trf_timestamp),
         sequence: row.sequence_number,
+        conditions: served,
+        correction: row.correction.map(|indicator| indicator.to_string()),
     };
     TradeRowOutcome::Print {
         print,
@@ -694,6 +694,8 @@ ABC,,,4,70000000000004,1789706400000000500,50.000000,1004,1789718406000000789,0,
                             1_789_718_400_000_000_400
                         )),
                         sequence: Some(1001),
+                        conditions: vec!["12".to_string(), "37".to_string()],
+                        correction: Some("0".to_string()),
                     }
                 );
                 assert_eq!(trade.price().ticks(), 50_250_000);
