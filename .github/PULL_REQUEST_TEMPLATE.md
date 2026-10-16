@@ -13,11 +13,5 @@ Note what undoes this change, or that nothing does.
 
 <!-- 
 Provide additional information as needed.
--->
-
-## Measurement
-
-<!--
-Provide the number this produced and the population it was measured over.
-State "None" where nothing was measured.
+Include measurements and test results as appropriate.
 -->
