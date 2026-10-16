@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The EC2 wrapper around `run-role`: syncs to master, runs the role inside devenv once at boot, then powers off.
-# The role and profile are the instance's `fund-role` and `fund-profile` tags; a `fund-hold` tag runs nothing.
+# The role and profile are the instance's `fund-role` and `fund-profile` tags, a researcher's job and its limit
+# its `fund-job` and `fund-job-hours` tags; a `fund-hold` tag runs nothing.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH"
@@ -45,9 +46,15 @@ trap 'echo "Powering off"; sudo systemctl poweroff' EXIT
 
 role="$(metadata tags/instance/fund-role || true)"
 profile="$(metadata tags/instance/fund-profile || true)"
+job="$(metadata tags/instance/fund-job || true)"
+hours="$(metadata tags/instance/fund-job-hours || true)"
 AWS_REGION="$(metadata placement/region)"
 export AWS_REGION FUND_PROFILE="$profile" SECRETSPEC_PROFILE="$profile"
 echo "Running role ${role:-<none>} under profile ${profile:-<none>}"
+# No stop schedule bounds an on-demand box, so a hang anywhere powers it off two hours past the longest job.
+if [[ "$role" == researcher ]]; then
+  sudo shutdown -P +1560 || echo "Error: the 26-hour backstop power-off could not be scheduled"
+fi
 
 # One compound command, so bash has parsed the rest before the reset rewrites this file underneath it.
 {
@@ -57,6 +64,15 @@ echo "Running role ${role:-<none>} under profile ${profile:-<none>}"
     echo "Error: git fetch failed; keeping $(git rev-parse --short HEAD)"
   fi
   converge
-  devenv shell -- host/run-role "$role"
+  # Jobs and study sources are gitignored, so the operator ships them to the profile's scratch prefix and the box
+  # mirrors it.
+  if [[ "$role" == researcher ]]; then
+    # shellcheck disable=SC2016
+    devenv shell -- secretspec run --profile "$profile" --reason "Fetching the researcher's jobs" -- bash -c '
+      set -euo pipefail
+      aws s3 sync --delete --only-show-errors "s3://$AWS_S3_RECORDS_BUCKET_NAME/scratch/jobs/" jobs/
+      aws s3 sync --delete --only-show-errors "s3://$AWS_S3_RECORDS_BUCKET_NAME/scratch/studies/" studies/src/bin/'
+  fi
+  devenv shell -- host/run-role "$role" "$job" "$hours"
   exit
 }

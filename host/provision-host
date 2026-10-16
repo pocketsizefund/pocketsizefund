@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Reconciles one host's EC2 instance, IAM, security group and start and stop schedules for a role and a profile, and
-# for the archiver the archive bucket's lifecycle rules.
+# Reconciles one host's EC2 instance, IAM and security group for a role and a profile, a scheduled role's start and stop
+# schedules, and for the archiver the archive bucket's lifecycle rules.
 # Dry run unless --apply; a setting that cannot change in place is reported as drift and refused, never adopted.
 set -euo pipefail
 
@@ -36,12 +36,13 @@ done
 
 # Schedules are UTC: the archiver folds the session that closed the previous Eastern day, and its stop bounds the heal;
 # the trader starts at least an hour before the 09:30 Eastern open and stops past the 16:00 close in either offset.
+# The researcher has no schedule: an operator starts it for one job and the job's end powers it off.
 case "$ROLE" in
   archiver)
     INSTANCE_TYPE="r6i.2xlarge"
     ARCHITECTURE="amd64"
     VOLUME_SIZE_GB=100
-    BINARY="archive_nightly"
+    BUILD="--bin archive_nightly"
     START_EXPRESSION="cron(0 7 * * ? *)"
     STOP_EXPRESSION="cron(0 12 * * ? *)"
     ;;
@@ -49,13 +50,17 @@ case "$ROLE" in
     INSTANCE_TYPE="m7g.large"
     ARCHITECTURE="arm64"
     VOLUME_SIZE_GB=50
-    BINARY="trader"
+    BUILD="--bin trader"
     START_EXPRESSION="cron(30 12 ? * MON-FRI *)"
     STOP_EXPRESSION="cron(30 21 ? * MON-FRI *)"
     ;;
   researcher)
-    echo "The researcher role is reserved: studies run on demand and nothing provisions a box for them yet"
-    exit 0
+    INSTANCE_TYPE="r6i.2xlarge"
+    ARCHITECTURE="amd64"
+    VOLUME_SIZE_GB=200
+    BUILD="--workspace"
+    START_EXPRESSION=""
+    STOP_EXPRESSION=""
     ;;
   *)
     echo "Error: --role must be archiver, trader or researcher; got \"$ROLE\"" >&2
@@ -269,6 +274,24 @@ JSON
 JSON
 )"
     ;;
+  researcher)
+    # ListBucket is unconditioned so S3 answers a missing key 404, which the archive client reads as absent.
+    ROLE_STATEMENTS="$(cat <<JSON
+    {"Sid": "ReadArchiveData", "Effect": "Allow", "Action": ["s3:GetObject"],
+     "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}/data/*"},
+    {"Sid": "ListArchive", "Effect": "Allow", "Action": ["s3:ListBucket"],
+     "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}"},
+    {"Sid": "ReadBackOwnRecords", "Effect": "Allow", "Action": ["s3:GetObject"],
+     "Resource": ["arn:aws:s3:::${RECORDS_BUCKET}/records/journal/producer=${ROLE}/*",
+                  "arn:aws:s3:::${RECORDS_BUCKET}/records/logs/producer=${ROLE}/*"]},
+    {"Sid": "ListRecords", "Effect": "Allow", "Action": ["s3:ListBucket"],
+     "Resource": "arn:aws:s3:::${RECORDS_BUCKET}"},
+    {"Sid": "ReadWriteScratch", "Effect": "Allow",
+     "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload"],
+     "Resource": "arn:aws:s3:::${RECORDS_BUCKET}/scratch/*"},
+JSON
+)"
+    ;;
 esac
 
 # Writes are scoped to this host's producer prefixes, since the records bucket is shared by every host of the profile.
@@ -319,7 +342,7 @@ if [[ "$INSTANCE_ID" == "None" || -z "$INSTANCE_ID" ]]; then
     --query 'Parameter.Value' --output text)"
 
   # First boot only, as root: git and curl, then Nix and devenv for the toolchain, then a warm build; it powers off at
-  # the end so the first run is the first scheduled start.
+  # the end so the first run is the next start.
   USER_DATA="$(cat <<CLOUDINIT
 #!/bin/bash
 set -euxo pipefail
@@ -337,7 +360,7 @@ sudo -u ubuntu -H bash -c '
   nix profile install --accept-flake-config github:cachix/devenv/v${DEVENV_VERSION}
   git clone --branch master https://github.com/oscmcompany/fund.git "\$HOME/fund"
   cd "\$HOME/fund"
-  FUND_PROFILE=${PROFILE} SECRETSPEC_PROFILE=${PROFILE} devenv shell -- cargo build --release --bin ${BINARY}
+  FUND_PROFILE=${PROFILE} SECRETSPEC_PROFILE=${PROFILE} devenv shell -- cargo build --release ${BUILD}
 '
 install -m 0644 /home/ubuntu/fund/host/fund-host.service /etc/systemd/system/fund-host.service
 systemctl daemon-reload
@@ -346,7 +369,7 @@ systemctl poweroff
 CLOUDINIT
 )"
 
-  changed "run instance $INSTANCE_TYPE from $AMI_ID, bootstrapping the checkout, toolchain and $BINARY"
+  changed "run instance $INSTANCE_TYPE from $AMI_ID, bootstrapping the checkout, toolchain and cargo build $BUILD"
   if [[ "$APPLY" == true ]]; then
     # One token for every attempt, so a lost response is retried rather than duplicated into a second box.
     CLIENT_TOKEN="$(uuidgen)"
@@ -388,6 +411,26 @@ CLOUDINIT
     aws ec2 create-tags --region "$REGION" --resources "$INSTANCE_ID" \
       --tags "Key=fund-bootstrapped,Value=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   fi
+fi
+
+# An on-demand role keeps no schedule, so one an earlier provisioning left is removed.
+if [[ -z "$START_EXPRESSION" ]]; then
+  step "No schedules for $NAME"
+  for schedule in "$NAME-start" "$NAME-stop"; do
+    if aws scheduler get-schedule --region "$REGION" --name "$schedule" >/dev/null 2>&1; then
+      changed "delete $schedule"
+      if [[ "$APPLY" == true ]]; then
+        aws scheduler delete-schedule --region "$REGION" --name "$schedule"
+      fi
+    else
+      unchanged "no $schedule"
+    fi
+  done
+  step "Done"
+  echo "  Instance: ${INSTANCE_ID}"
+  echo "  Start:    on demand, for the job its fund-job tag names"
+  [[ "$APPLY" == true ]] || echo "  Dry run. Re-run with --apply to make these changes."
+  exit 0
 fi
 
 if [[ "$APPLY" == true && ( -z "$INSTANCE_ID" || "$INSTANCE_ID" == "None" ) ]]; then

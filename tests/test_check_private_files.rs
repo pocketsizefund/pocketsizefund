@@ -81,6 +81,7 @@ fn test_each_private_file_fails_and_is_named() {
         "data/capital_flows.toml",
         "journal/README.md",
         "studies/src/bin/null_check.rs",
+        "jobs/parse_ticks.sh",
         ".scratchpad/plan.md",
         "journal/échange.md",
         "data/équité.parquet",

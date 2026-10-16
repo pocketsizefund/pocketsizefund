@@ -1,5 +1,5 @@
 [Unit]
-# Runs this host's role on every boot; the run powers the box off, and the role's stop schedule bounds a hang.
+# Runs this host's role on every boot; the run powers the box off, and a stop schedule or a backstop bounds a hang.
 Description=Run this host's role once, then power off
 After=network-online.target
 Wants=network-online.target
