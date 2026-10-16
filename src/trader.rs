@@ -156,6 +156,17 @@ impl MinuteTape for Alpaca {
     }
 }
 
+/// The earliest print among `trades`, ignoring refused rows.
+fn first_print(trades: &[AlpacaTradeOutcome]) -> Option<DateTime<Utc>> {
+    trades
+        .iter()
+        .filter_map(|outcome| match outcome {
+            AlpacaTradeOutcome::Print { print, .. } => Some(print.timestamp()),
+            AlpacaTradeOutcome::Refused(_) => None,
+        })
+        .min()
+}
+
 /// Why a session stopped: the journal refused a write, or the broker's book could not be reconciled.
 #[derive(Debug)]
 pub enum SessionError {
@@ -306,7 +317,8 @@ impl<S: Strategy> Session<S> {
         decided
     }
 
-    /// How long the minute starting at `start` waits after it ends before it is first read.
+    /// How long the minute starting at `start` waits after it ends before it is first read. The closing minute waits no
+    /// longer than any other, since no decision reads it, so its bar may lack closing auction prints REST serves later.
     fn wait(&self, start: DateTime<Utc>) -> TimeDelta {
         match start == self.open {
             true => OPENING_WAIT,
@@ -315,13 +327,16 @@ impl<S: Strategy> Session<S> {
     }
 
     /// Reads and folds in each minute in turn whose wait has passed by `now`, journaling its bars as built; a minute
-    /// that cannot be read stops the building until the next call retries it.
+    /// that cannot be read, or that no name printed in with no print served after it, stops the building until the next
+    /// call retries it.
     async fn build(
         &mut self,
         now: DateTime<Utc>,
         tape: &impl MinuteTape,
         journal: &mut Journal,
     ) -> Result<(), SessionError> {
+        // The first print a probe found, which shows every silent minute ending by it was silent rather than unserved.
+        let mut served_from: Option<DateTime<Utc>> = None;
         while self.built_through < self.close
             && self.built_through + MINUTE + self.wait(self.built_through) <= now
         {
@@ -333,6 +348,22 @@ impl<S: Strategy> Session<S> {
                     return Ok(());
                 }
             };
+            // A minute no name printed in is held unless the tape serves a print after it, as a halt would leave it.
+            if first_print(&trades).is_none() && served_from.is_none_or(|first| first < end) {
+                match tape.trades_between(&self.symbols, end, now).await {
+                    Ok(after) => match first_print(&after) {
+                        Some(first) => served_from = Some(first),
+                        None => {
+                            tracing::warn!(minute = %start, "Minute read empty");
+                            return Ok(());
+                        }
+                    },
+                    Err(cause) => {
+                        tracing::warn!(minute = %start, %cause, "Minute read empty, nothing after it read");
+                        return Ok(());
+                    }
+                }
+            }
             let mut refused = Tally::default();
             for outcome in &trades {
                 match outcome {
@@ -622,6 +653,7 @@ mod tests {
     use crate::common::time::SessionRange;
     use crate::common::time::calendar::TradingSession;
     use crate::ingest::alpaca::trade_page;
+    use crate::ingest::{RefusedRow, RowRefusal};
 
     const DOLLAR: i128 = 1_000_000_000_000;
 
@@ -800,8 +832,8 @@ mod tests {
         )
     }
 
-    /// A tape of filed prints that answers each window asked with the prints stamped in it, and fails the minutes
-    /// starting at an instant in `failing`, recording every window asked.
+    /// A tape of filed prints that answers each window asked with the prints stamped in it and every refused row filed,
+    /// and fails the minutes starting at an instant in `failing`, recording every window asked.
     #[derive(Default)]
     struct Scripted {
         prints: Mutex<Vec<AlpacaTradeOutcome>>,
@@ -849,7 +881,7 @@ mod tests {
                     AlpacaTradeOutcome::Print { print, .. } => {
                         start <= print.timestamp() && print.timestamp() < end
                     }
-                    AlpacaTradeOutcome::Refused(_) => false,
+                    AlpacaTradeOutcome::Refused(_) => true,
                 })
                 .cloned()
                 .collect())
@@ -979,6 +1011,7 @@ mod tests {
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
         tape.file(print("14:01:10", 700_000_000));
+        tape.file(print("14:05:01", 700_000_000));
         session
             .advance(&|| at("14:05:02"), &tape, &broker, &mut journal)
             .await
@@ -1190,6 +1223,7 @@ mod tests {
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
         tape.file(print("14:01:10", 701_000_000));
+        tape.file(print("14:05:01", 701_000_000));
         session
             .advance(&|| at("14:03:00"), &tape, &broker, &mut journal)
             .await
@@ -1482,6 +1516,7 @@ mod tests {
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
         tape.file(print("14:00:10", 700_000_000));
+        tape.file(print("14:02:30", 700_000_000));
         session
             .advance(&|| at("14:02:59"), &tape, &broker, &mut journal)
             .await
@@ -1532,6 +1567,155 @@ mod tests {
             ["bar_built", "bar_built", "target_decided"]
         );
         assert_eq!(session.book().position(&spy()).units(), 1_000_000);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A minute every name is silent in, with nothing served after it, is a feed serving nothing: it holds every minute
+    /// after it until a later call reads its trades, as on 2026-10-15 when REST served 74 minutes empty.
+    #[tokio::test(start_paused = true)]
+    async fn test_an_empty_minute_with_nothing_served_after_it_is_retried() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        session
+            .advance(&|| at("14:04:05"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        assert_eq!(session.built_through, at("14:02:00"));
+        assert_eq!(tape.times_asked("14:03:00", "14:04:00"), 0);
+        tape.file(print("14:02:30", 700_500_000));
+        tape.file(print("14:03:30", 701_000_000));
+        session
+            .advance(&|| at("14:04:06"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(
+            journaled(&directory),
+            ["bar_built", "bar_built", "bar_built"]
+        );
+        assert_eq!(session.built_through, at("14:04:00"));
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A minute every name is silent in is built empty once the tape serves a trade after it, as a market-wide halt
+    /// would leave it.
+    #[tokio::test(start_paused = true)]
+    async fn test_an_empty_minute_is_built_once_a_trade_is_served_after_it() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        tape.file(print("14:03:30", 701_000_000));
+        session
+            .advance(&|| at("14:04:05"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built", "bar_built"]);
+        assert_eq!(session.built_through, at("14:04:00"));
+        assert_eq!(tape.times_asked("14:02:00", "14:03:00"), 1);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// One probe serves every silent minute ending by the print it found, so a halt costs one read of what followed it
+    /// rather than one per minute.
+    #[tokio::test(start_paused = true)]
+    async fn test_one_probe_serves_every_silent_minute_before_its_print() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        tape.file(print("14:05:00", 701_000_000));
+        session
+            .advance(&|| at("14:06:05"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(session.built_through, at("14:06:00"));
+        assert_eq!(tape.times_asked("14:03:00", "14:06:05"), 1);
+        assert_eq!(tape.times_asked("14:04:00", "14:06:05"), 0);
+        assert_eq!(tape.times_asked("14:05:00", "14:06:05"), 0);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// Refused rows are no print: a minute holding only them, with only them served after it, is held.
+    #[tokio::test(start_paused = true)]
+    async fn test_refused_rows_alone_do_not_release_a_silent_minute() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        tape.file(AlpacaTradeOutcome::Refused(RefusedRow::new(
+            "QQQ",
+            RowRefusal::Unrequested,
+        )));
+        session
+            .advance(&|| at("14:04:05"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        assert_eq!(session.built_through, at("14:02:00"));
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A minute every name is silent in is held, not built, when the read of what was served after it fails.
+    #[tokio::test(start_paused = true)]
+    async fn test_an_empty_minute_is_held_when_the_read_after_it_fails() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session(TimeDelta::minutes(5), funded);
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        tape.file(print("14:03:30", 701_000_000));
+        tape.failing.lock().unwrap().insert(at("14:03:00"));
+        session
+            .advance(&|| at("14:04:05"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built"]);
+        assert_eq!(session.built_through, at("14:02:00"));
+        assert_eq!(tape.times_asked("14:03:00", "14:04:05"), 1);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// An empty closing minute is built once a print is served after the close, so the session still builds through it.
+    #[tokio::test(start_paused = true)]
+    async fn test_an_empty_closing_minute_is_built_from_a_print_after_the_close() {
+        let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
+        let broker = Filling::new(701_000_000, funded.clone());
+        let mut session = session_from(
+            TimeDelta::minutes(5),
+            funded,
+            5_000 * DOLLAR,
+            at("19:57:00"),
+            DecisionInterval::FiveMinute,
+        );
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("19:57:30", 701_000_000));
+        tape.file(print("19:58:30", 701_000_000));
+        session
+            .advance(&|| at("20:00:20"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert!(!session.built_through_close());
+        tape.file(print("20:00:30", 701_000_000));
+        session
+            .advance(&|| at("20:00:40"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert!(session.built_through_close());
+        assert_eq!(journaled(&directory), ["bar_built", "bar_built"]);
+        assert_eq!(tape.times_asked("20:00:00", "20:00:40"), 1);
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
@@ -1669,6 +1853,7 @@ mod tests {
         let mut session = session(TimeDelta::minutes(5), funded);
         let (mut journal, directory) = journal();
         let tape = Scripted::default();
+        tape.file(print("14:09:30", 700_000_000));
         session
             .advance(&|| at("14:10:00"), &tape, &broker, &mut journal)
             .await
