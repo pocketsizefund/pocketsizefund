@@ -111,10 +111,10 @@ async fn main() -> ExitCode {
                     .filter(|(_, coverage)| !coverage.is_whole())
                     .map(|(series, _)| series)
                     .collect();
-                if broken.is_empty() && surveyed.unrecognized() == 0 {
+                if broken.is_empty() && surveyed.raw_uncovered().is_empty() && surveyed.unrecognized() == 0 {
                     tracing::info!(series = surveyed.series().len(), "Archive surveyed");
                 } else {
-                    tracing::warn!(?broken, unrecognized = surveyed.unrecognized(), "Archive has gaps");
+                    tracing::warn!(?broken, raw_uncovered = ?surveyed.raw_uncovered(), unrecognized = surveyed.unrecognized(), "Archive has gaps");
                 }
                 if let Err(error) = journal.append(Utc::now(), Observation::ArchiveSurveyed(surveyed)) {
                     tracing::warn!(%error, "Archive survey was not journaled");
