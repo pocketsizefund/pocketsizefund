@@ -25,8 +25,9 @@ use crate::archive::{self, Archive, ArchiveError};
 use crate::archive::{quote_bars, trade_bars};
 use crate::common::heal::{
     Coverage, CoverageRefusal, Held, KeepsRefusal, Leg, PartitionFailureKind, SeriesListing,
-    SessionOutcome, WindowRefusal, alpaca_quotes, alpaca_series_boundaries, alpaca_trades,
-    fetched_range, massive_security_details, massive_splits, massive_traded_symbols, owed, window,
+    SessionOutcome, WindowRefusal, alpaca_option_contracts, alpaca_quotes,
+    alpaca_series_boundaries, alpaca_trades, fetched_range, massive_security_details,
+    massive_splits, massive_traded_symbols, owed, window,
 };
 use crate::common::journal::{
     ArchiveSurveyed, ConditionsWritten, ConfigurationResolved, HealFinished, Observation,
@@ -39,7 +40,7 @@ use crate::common::market::quote_bars::{QuoteFold, QuoteFoldRefusal};
 use crate::common::market::record::{Bar, BarInterval, Partition, PartitionRefusal};
 use crate::common::market::security_details::SecurityDetails;
 use crate::common::market::trade_bars::{TradeConditions, TradeFold};
-use crate::common::monoid::{Monoid, concatenate};
+use crate::common::monoid::{Monoid, Tally, concatenate};
 use crate::common::parameter::{Parameter, ParameterRefusal, at_most, record};
 use crate::common::storage::{Key, Provider, ReferenceKey, ReferenceTable, SeriesPrefix};
 use crate::common::time::calendar::TradingCalendar;
@@ -416,6 +417,7 @@ async fn write(
         Leg::AlpacaTrades => write_trades(session, parameters, clients, journal).await,
         Leg::MassiveSplits => write_splits(session, clients, journal).await,
         Leg::AlpacaSeriesBoundaries => write_series_boundaries(session, clients, journal).await,
+        Leg::AlpacaOptionContracts => write_option_contracts(session, clients, journal).await,
         Leg::MassiveSecurityDetails => {
             write_security_details(session, parameters, clients, journal).await
         }
@@ -536,6 +538,35 @@ fn listed(
             key: Key::RawReference(massive_traded_symbols(session)),
         }),
         false => Ok(daily),
+    }
+}
+
+/// Stores the active option contracts as the session's snapshot; open interest is shown only as of now, so a night
+/// missed is never recovered.
+async fn write_option_contracts(
+    session: SessionDate,
+    clients: &Clients,
+    journal: &Journal,
+) -> Result<PartitionWritten, PartitionFailure> {
+    let provenance = fetched_now(Subscription::AlgoTraderPlus, journal);
+    let (listed, pages) = clients.alpaca.option_contracts(session).await.into_parts();
+    let contracts = contracts_listed(listed)?;
+    clients.store()(alpaca_option_contracts(session), &provenance, pages).await?;
+    Ok(PartitionWritten::new(
+        Leg::AlpacaOptionContracts,
+        session,
+        contracts,
+        Tally::empty(),
+        BTreeMap::new(),
+        BTreeMap::new(),
+    ))
+}
+
+/// The contracts a listing names, refused when it names none: the stored object alone marks the session held.
+fn contracts_listed(listed: Result<u64, FetchError>) -> Result<u64, PartitionFailure> {
+    match listed? {
+        0 => Err(PartitionFailure::NoRows),
+        contracts => Ok(contracts),
     }
 }
 
@@ -1912,6 +1943,39 @@ mod tests {
         assert!(symbols.len() > 10_000);
     }
 
+    /// Stores the whole active contracts listing raw in this profile's records bucket and counts its contracts.
+    #[tokio::test]
+    #[ignore = "pages the whole option market from Alpaca (about 200 calls, 7 minutes) and writes one Deep Archive object to the profile's records bucket, then deletes it"]
+    async fn live_option_contracts_store_raw_and_list_the_market() {
+        let session = SessionDate::at(Utc::now());
+        let configuration = aws_config::load_from_env().await;
+        let clients = Clients::new(
+            Archive::records(&configuration).unwrap(),
+            Massive::from_environment(reqwest::Client::new()).unwrap(),
+            Alpaca::from_environment(reqwest::Client::new()).unwrap(),
+        );
+        let provenance = Provenance::new(
+            Subscription::AlgoTraderPlus,
+            Utc::now(),
+            RunId::new(uuid::Uuid::new_v4()),
+            None,
+        );
+        let key = alpaca_option_contracts(session);
+        let (listed, pages) = clients.alpaca.option_contracts(session).await.into_parts();
+        let page_count = pages.len();
+        let contracts = contracts_listed(listed).unwrap();
+        clients.store()(key, &provenance, pages).await.unwrap();
+        let raw = Key::RawReference(key);
+        let stored = clients.archive.stored(&raw).await.unwrap().unwrap();
+        println!(
+            "{contracts} contracts, {page_count} pages, {} bytes, {}",
+            stored.length(),
+            raw.path()
+        );
+        clients.archive.delete(&raw).await.unwrap();
+        assert!(contracts > 1_000_000);
+    }
+
     /// Stores Massive's split pages raw in this profile's records bucket, clearing the parsed snapshot first.
     #[tokio::test]
     #[ignore = "fetches from Massive and writes one Deep Archive object to the profile's records bucket, then deletes it"]
@@ -2066,5 +2130,22 @@ mod tests {
         })
         .await;
         assert_eq!(answer, Ok(Names(Vec::new())));
+    }
+
+    /// A listing of no contracts is refused as no rows rather than stored, a failed fetch keeps its cause, and any
+    /// other listing passes its count through.
+    #[test]
+    fn test_a_contracts_listing_of_none_is_refused() {
+        assert!(matches!(
+            contracts_listed(Ok(0)),
+            Err(PartitionFailure::NoRows)
+        ));
+        assert!(matches!(
+            contracts_listed(Err(FetchError::Malformed {
+                reason: "unauthorized".to_string()
+            })),
+            Err(PartitionFailure::Fetch(FetchError::Malformed { .. }))
+        ));
+        assert!(matches!(contracts_listed(Ok(1_973_970)), Ok(1_973_970)));
     }
 }

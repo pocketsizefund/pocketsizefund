@@ -2,6 +2,7 @@
 //! published trading calendar.
 
 pub mod corporate_actions;
+pub mod option_contracts;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -37,7 +38,7 @@ pub enum Account {
 }
 
 impl Account {
-    /// The trading API, which also serves the calendar.
+    /// The trading API, which also serves the calendar and the option contracts listing.
     fn trading_url(self) -> &'static str {
         match self {
             Self::Paper => "https://paper-api.alpaca.markets",

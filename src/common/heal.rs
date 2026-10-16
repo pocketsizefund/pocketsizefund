@@ -43,6 +43,8 @@ pub enum Leg {
     AlpacaSeriesBoundaries,
     AlpacaQuotes,
     AlpacaTrades,
+    /// The active option contracts stored raw, for their open interest.
+    AlpacaOptionContracts,
 }
 
 impl Leg {
@@ -67,6 +69,9 @@ impl Leg {
             Self::MassiveSecurityDetails => snapshot(massive_security_details(session)),
             Self::MassiveSplits => snapshot(massive_splits(session)),
             Self::AlpacaSeriesBoundaries => snapshot(alpaca_series_boundaries(session)),
+            Self::AlpacaOptionContracts => {
+                vec![Key::RawReference(alpaca_option_contracts(session))]
+            }
         }
     }
 
@@ -83,7 +88,9 @@ impl Leg {
             Self::MassiveTradedSymbols | Self::AlpacaQuotes | Self::AlpacaTrades => {
                 Ok(window.sessions().to_vec())
             }
-            Self::MassiveSplits | Self::AlpacaSeriesBoundaries => Ok(vec![window.last()]),
+            Self::MassiveSplits | Self::AlpacaSeriesBoundaries | Self::AlpacaOptionContracts => {
+                Ok(vec![window.last()])
+            }
             Self::MassiveSecurityDetails => {
                 quarter_opening(calendar, window.last()).map(|opening| vec![opening])
             }
@@ -121,6 +128,11 @@ pub fn massive_splits(session: SessionDate) -> ReferenceKey {
 
 pub fn alpaca_series_boundaries(session: SessionDate) -> ReferenceKey {
     ReferenceKey::new(Provider::Alpaca, ReferenceTable::SeriesBoundaries, session)
+}
+
+/// The contracts listing kept only for the open interest it carries; it has no parsed snapshot.
+pub fn alpaca_option_contracts(session: SessionDate) -> ReferenceKey {
+    ReferenceKey::new(Provider::Alpaca, ReferenceTable::OptionContracts, session)
 }
 
 /// Why a leg's sessions could not be read off the calendar.
@@ -813,6 +825,7 @@ mod tests {
                 "data/equity/stage=raw/quotes/provider=alpaca/",
                 "data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/",
                 "data/equity/stage=raw/trades/provider=alpaca/",
+                "data/equity/stage=raw/reference/provider=alpaca/table=option_contracts/",
             ]
         );
     }
@@ -841,6 +854,7 @@ mod tests {
         );
         assert_eq!(kept(Leg::MassiveSplits), ["2027-01-06"]);
         assert_eq!(kept(Leg::AlpacaSeriesBoundaries), ["2027-01-06"]);
+        assert_eq!(kept(Leg::AlpacaOptionContracts), ["2027-01-06"]);
         assert_eq!(kept(Leg::MassiveSecurityDetails), ["2027-01-04"]);
         // Weeks later the quarter's opening is long out of the window and still owed until it is held.
         let later = window(&winter, date("2027-01-28"), sessions(5)).unwrap();
