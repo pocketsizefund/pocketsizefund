@@ -381,40 +381,72 @@ pub enum CoverageRefusal {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeriesListing {
     series: BTreeMap<String, BTreeSet<SessionDate>>,
+    parsed_by_raw: BTreeMap<String, BTreeSet<SessionDate>>,
     unrecognized: u64,
 }
 
 impl SeriesListing {
     pub fn of<'a>(paths: impl IntoIterator<Item = &'a str>) -> Self {
         let mut series: BTreeMap<String, BTreeSet<SessionDate>> = BTreeMap::new();
+        let mut parsed_by_raw: BTreeMap<String, BTreeSet<SessionDate>> = BTreeMap::new();
         let mut unrecognized = 0_u64;
         for path in paths {
-            match path.parse::<Key>() {
-                Ok(Key::Reference(_) | Key::RawReference(_)) => {}
-                Ok(
-                    key @ (Key::Quotes(_)
-                    | Key::Trades(_)
-                    | Key::RawQuotes { .. }
-                    | Key::RawTrades { .. }
-                    | Key::Journal(_)
-                    | Key::Logs(_)),
-                ) => {
-                    series
-                        .entry(key.series().to_string())
-                        .or_default()
-                        .insert(key.session());
+            let key = match path.parse::<Key>() {
+                Ok(key) => key,
+                Err(_) => {
+                    unrecognized += 1;
+                    continue;
                 }
-                Err(_) => unrecognized += 1,
+            };
+            let raw = match &key {
+                Key::Reference(_) | Key::RawReference(_) => continue,
+                Key::Quotes(parsed) => Some(Key::RawQuotes {
+                    provider: parsed.provider(),
+                    session: parsed.session(),
+                }),
+                Key::Trades(parsed) => Some(Key::RawTrades {
+                    provider: parsed.provider(),
+                    session: parsed.session(),
+                }),
+                Key::RawQuotes { .. } | Key::RawTrades { .. } | Key::Journal(_) | Key::Logs(_) => {
+                    None
+                }
+            };
+            if let Some(raw) = raw {
+                parsed_by_raw
+                    .entry(raw.series().to_string())
+                    .or_default()
+                    .insert(raw.session());
             }
+            series
+                .entry(key.series().to_string())
+                .or_default()
+                .insert(key.session());
         }
         Self {
             series,
+            parsed_by_raw,
             unrecognized,
         }
     }
 
     pub fn series(&self) -> &BTreeMap<String, BTreeSet<SessionDate>> {
         &self.series
+    }
+
+    /// Each raw series' missing sessions that a parsed series of its family and provider holds, at any interval;
+    /// a raw series missing none is left out.
+    pub fn raw_uncovered(&self) -> BTreeMap<String, Vec<SessionDate>> {
+        self.parsed_by_raw
+            .iter()
+            .filter_map(|(raw, parsed)| {
+                let missing: Vec<SessionDate> = match self.series.get(raw) {
+                    Some(held) => parsed.difference(held).copied().collect(),
+                    None => parsed.iter().copied().collect(),
+                };
+                (!missing.is_empty()).then(|| (raw.clone(), missing))
+            })
+            .collect()
     }
 
     pub fn unrecognized(&self) -> u64 {
@@ -584,6 +616,74 @@ mod tests {
             Some((date("2026-10-05"), date("2026-10-05")))
         );
         assert_eq!(SeriesListing::of([]).reach(date("2026-10-09")), None);
+    }
+
+    /// A raw series lacks the sessions its parsed counterpart holds at any interval and no others: Alpaca trades are
+    /// missing 10-06 (one-minute only) and 10-07 (five-minute only), Alpaca quotes are whole, and Massive trades
+    /// hold no raw series at all, so every parsed session of theirs is missing.
+    #[test]
+    fn test_a_listing_names_the_parsed_sessions_its_raw_series_lacks() {
+        let parsed = "data/equity/stage=parsed";
+        let raw = "data/equity/stage=raw";
+        let day = |series: &str, day: &str, file: &str| {
+            format!("{series}year=2026/month=10/day={day}/{file}")
+        };
+        let paths = [
+            day(
+                &format!("{parsed}/trades/provider=alpaca/interval=one_minute/"),
+                "06",
+                "data.parquet",
+            ),
+            day(
+                &format!("{parsed}/trades/provider=alpaca/interval=one_minute/"),
+                "08",
+                "data.parquet",
+            ),
+            day(
+                &format!("{parsed}/trades/provider=alpaca/interval=five_minute/"),
+                "07",
+                "data.parquet",
+            ),
+            day(
+                &format!("{raw}/trades/provider=alpaca/"),
+                "08",
+                "data.jsonl.gz",
+            ),
+            day(
+                &format!("{raw}/trades/provider=alpaca/"),
+                "05",
+                "data.jsonl.gz",
+            ),
+            day(
+                &format!("{parsed}/quotes/provider=alpaca/interval=one_minute/"),
+                "08",
+                "data.parquet",
+            ),
+            day(
+                &format!("{raw}/quotes/provider=alpaca/"),
+                "08",
+                "data.jsonl.gz",
+            ),
+            day(
+                &format!("{parsed}/trades/provider=massive/interval=one_minute/"),
+                "02",
+                "data.parquet",
+            ),
+        ];
+        let listing = SeriesListing::of(paths.iter().map(String::as_str));
+        assert_eq!(
+            listing.raw_uncovered(),
+            BTreeMap::from([
+                (
+                    "data/equity/stage=raw/trades/provider=alpaca/".to_string(),
+                    vec![date("2026-10-06"), date("2026-10-07")]
+                ),
+                (
+                    "data/equity/stage=raw/trades/provider=massive/".to_string(),
+                    vec![date("2026-10-02")]
+                ),
+            ])
+        );
     }
 
     /// Over 2026-11-23 to 11-30 with Thanksgiving off: a held span missing the 24th has that one gap, a Saturday held

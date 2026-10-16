@@ -492,24 +492,34 @@ impl HealFinished {
     }
 }
 
-/// Every dated archive series' coverage against the trading calendar, keyed by its prefix, and how many listed paths
-/// were not read as keys.
+/// Every dated archive series' coverage against the trading calendar, keyed by its prefix, each raw series' sessions
+/// its parsed counterpart holds and it lacks, and how many listed paths were not read as keys.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArchiveSurveyed {
     series: BTreeMap<String, Coverage>,
+    raw_uncovered: BTreeMap<String, Vec<SessionDate>>,
     unrecognized: u64,
 }
 
 impl ArchiveSurveyed {
-    pub fn new(series: BTreeMap<String, Coverage>, unrecognized: u64) -> Self {
+    pub fn new(
+        series: BTreeMap<String, Coverage>,
+        raw_uncovered: BTreeMap<String, Vec<SessionDate>>,
+        unrecognized: u64,
+    ) -> Self {
         Self {
             series,
+            raw_uncovered,
             unrecognized,
         }
     }
 
     pub fn series(&self) -> &BTreeMap<String, Coverage> {
         &self.series
+    }
+
+    pub fn raw_uncovered(&self) -> &BTreeMap<String, Vec<SessionDate>> {
+        &self.raw_uncovered
     }
 
     pub fn unrecognized(&self) -> u64 {
@@ -1471,10 +1481,11 @@ mod tests {
         }
     }
 
-    /// The survey's wire format reads back to itself, one series with one gap and nothing off the calendar.
+    /// The survey's wire format reads back to itself: one series with one gap and nothing off the calendar, and one
+    /// raw series missing a session its parsed counterpart holds.
     #[test]
     fn test_an_archive_survey_encodes_to_its_wire_format() {
-        let line = r#"{"event_type":"archive_surveyed","payload":{"series":{"data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/":{"first":"2026-09-28","last":"2026-10-09","held":9,"gaps":["2026-10-01"],"off_calendar":[]}},"unrecognized":2}}"#;
+        let line = r#"{"event_type":"archive_surveyed","payload":{"series":{"data/equity/stage=parsed/bars/provider=alpaca/origin=vendor/interval=one_minute/":{"first":"2026-09-28","last":"2026-10-09","held":9,"gaps":["2026-10-01"],"off_calendar":[]}},"raw_uncovered":{"data/equity/stage=raw/trades/provider=alpaca/":["2026-09-24"]},"unrecognized":2}}"#;
         let observation: Observation = serde_json::from_str(line).unwrap();
         assert_eq!(observation.event_type(), "archive_surveyed");
         assert_eq!(serde_json::to_string(&observation).unwrap(), line);

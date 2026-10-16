@@ -321,8 +321,9 @@ pub async fn run(
     Ok(HealFinished::new(window, outcomes, unrecognized))
 }
 
-/// Measures every dated series of market data, raw and parsed, against the trading calendar from its first session.
-/// Reference snapshots are left out, since a snapshot leg keeps only some sessions by design.
+/// Measures every dated series of market data, raw and parsed, against the trading calendar from its first session,
+/// and each raw series against the sessions its parsed counterpart holds. Reference snapshots are left out, since a
+/// snapshot leg keeps only some sessions by design.
 pub async fn survey(clients: &Clients, today: SessionDate) -> Result<ArchiveSurveyed, HealError> {
     let paths = clients
         .archive
@@ -332,6 +333,7 @@ pub async fn survey(clients: &Clients, today: SessionDate) -> Result<ArchiveSurv
     let listing = SeriesListing::of(paths.iter().map(String::as_str));
     let Some(reach) = listing.reach(today) else {
         return Ok(ArchiveSurveyed::new(
+            BTreeMap::new(),
             BTreeMap::new(),
             listing.unrecognized(),
         ));
@@ -352,7 +354,11 @@ pub async fn survey(clients: &Clients, today: SessionDate) -> Result<ArchiveSurv
             }),
         })
         .collect::<Result<_, _>>()?;
-    Ok(ArchiveSurveyed::new(coverage, listing.unrecognized()))
+    Ok(ArchiveSurveyed::new(
+        coverage,
+        listing.raw_uncovered(),
+        listing.unrecognized(),
+    ))
 }
 
 /// Writes each of `leg`'s owed sessions with `write` until `deadline`, journaling each outcome as it lands; a journal
