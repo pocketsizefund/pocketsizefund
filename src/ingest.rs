@@ -107,6 +107,14 @@ impl RefusedRow {
     }
 }
 
+/// Why a raw file was not read at all.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ParseRefusal {
+    /// A gzip, CSV or JSON error, with the line it stopped on where the reader knows it.
+    #[error("malformed at line {line:?}: {reason}")]
+    Malformed { line: Option<u64>, reason: String },
+}
+
 /// Where and when a print was reported, in the vendor's own codes; no fold reads it, so research can.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrintOrigin {

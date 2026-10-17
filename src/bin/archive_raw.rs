@@ -28,13 +28,13 @@ use fund::common::storage::{
 };
 use fund::common::time::calendar::TradingCalendar;
 use fund::common::time::{SessionDate, SessionRange};
-use fund::ingest::RowRefusalKind;
 use fund::ingest::alpaca::Alpaca;
 use fund::ingest::flat_files::{
-    FlatFileDataset, FlatFileStream, FlatFiles, ParseRefusal, QuoteRowOutcome, TradeRowOutcome,
-    read_quotes, read_trades,
+    FlatFileDataset, FlatFileStream, FlatFiles, QuoteRowOutcome, TradeRowOutcome, read_quotes,
+    read_trades,
 };
 use fund::ingest::massive::Massive;
+use fund::ingest::{ParseRefusal, RowRefusalKind};
 use fund::journal::Journal;
 use fund::parameter::Directories;
 use fund::records::{Exclusion, RefusedToStart, resolved, ship_logged, start};
