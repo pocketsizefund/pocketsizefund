@@ -29,7 +29,7 @@ fn statement(views: &str, opening: &str) -> String {
 fn pointed(records: &Path, archive: &Path) -> String {
     let views = std::fs::read_to_string(root().join("views.sql")).unwrap();
     let script = format!(
-        "SET VARIABLE records_bucket = '{}';\nSET VARIABLE market_data_bucket = '{}';\n{}\n{}\n{}\n{}\n{}\n{}\n",
+        "SET VARIABLE profile_bucket = '{}';\nSET VARIABLE archive_bucket = '{}';\n{}\n{}\n{}\n{}\n{}\n{}\n",
         records.display(),
         archive.display(),
         statement(&views, "CREATE OR REPLACE MACRO partitions("),

@@ -13,10 +13,6 @@ use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tracing::Instrument;
 
-use fund::archive::provenance::{Provenance, Subscription};
-use fund::archive::raw::CopyError;
-use fund::archive::{self, Archive, ArchiveError};
-use fund::archive::{quote_bars, reference, trade_bars};
 use fund::common::journal::{ObjectDeleted, ObjectWritten, Observation};
 use fund::common::market::aggregate::session_bars;
 use fund::common::market::quote_bars::QuoteFold;
@@ -38,6 +34,10 @@ use fund::ingest::{ParseRefusal, RowRefusalKind};
 use fund::journal::Journal;
 use fund::parameter::Directories;
 use fund::records::{Exclusion, RefusedToStart, resolved, ship_logged, start};
+use fund::storage::provenance::{Provenance, Subscription};
+use fund::storage::raw::CopyError;
+use fund::storage::{self, Bucket, BucketError};
+use fund::storage::{quote_bars, reference, trade_bars};
 
 const SERVICE: &str = "archive_raw";
 
@@ -204,11 +204,11 @@ async fn main() -> ExitCode {
                 Err(refused) => return refused.into(),
             };
         let sdk_configuration = aws_config::load_from_env().await;
-        let (archive, records) = match (
-            Archive::market_data(&sdk_configuration),
-            Archive::records(&sdk_configuration),
+        let (archive, profile) = match (
+            Bucket::archive(&sdk_configuration),
+            Bucket::profile(&sdk_configuration),
         ) {
-            (Ok(archive), Ok(records)) => (archive, records),
+            (Ok(archive), Ok(profile)) => (archive, profile),
             (Err(refusal), _) | (_, Err(refusal)) => {
                 tracing::error!(%refusal, "Archive configuration refused");
                 return RefusedToStart.into();
@@ -216,7 +216,7 @@ async fn main() -> ExitCode {
         };
         let outcome = run(command, archive, &journal).await;
         let all_shipped = ship_logged(
-            &records,
+            &profile,
             Host::Archiver,
             &service,
             directories.journal(),
@@ -233,7 +233,7 @@ async fn main() -> ExitCode {
 }
 
 /// Runs one command, journaling every object it writes or deletes.
-async fn run(command: Command, archive: Archive, journal: &SharedJournal) -> ExitCode {
+async fn run(command: Command, archive: Bucket, journal: &SharedJournal) -> ExitCode {
     match command {
         Command::Copy {
             dataset,
@@ -273,7 +273,7 @@ async fn run(command: Command, archive: Archive, journal: &SharedJournal) -> Exi
 }
 
 /// Deletes each key in turn, journaling each deletion as it lands.
-async fn delete(archive: &Archive, keys: &[Key], journal: &Mutex<Journal>) -> ExitCode {
+async fn delete(archive: &Bucket, keys: &[Key], journal: &Mutex<Journal>) -> ExitCode {
     let mut failed = 0;
     for key in keys {
         match archive.delete(key).await {
@@ -309,7 +309,7 @@ enum CopyFailure {
 }
 
 async fn copy(
-    archive: &Archive,
+    archive: &Bucket,
     flat_files: &FlatFiles,
     dataset: FlatFileDataset,
     range: SessionRange,
@@ -417,8 +417,8 @@ async fn copy(
         .filter(|outcome| {
             matches!(
                 outcome,
-                Err(CopyFailure::Copy(CopyError::Archive(
-                    ArchiveError::Contended { .. }
+                Err(CopyFailure::Copy(CopyError::Bucket(
+                    BucketError::Contended { .. }
                 )))
             )
         })
@@ -441,9 +441,9 @@ async fn copy(
 
 /// The sessions the raw stage holds for `dataset`.
 async fn held(
-    archive: &Archive,
+    archive: &Bucket,
     dataset: FlatFileDataset,
-) -> Result<BTreeSet<SessionDate>, ArchiveError> {
+) -> Result<BTreeSet<SessionDate>, BucketError> {
     let series = dataset.key(SessionDate::from_date(NaiveDate::MIN)).series();
     Ok(archive
         .list(&series)
@@ -505,9 +505,9 @@ enum FoldFailure {
     #[error("{0}")]
     Parse(ParseRefusal),
     #[error("{0}")]
-    Encode(archive::EncodeRefusal),
+    Encode(storage::EncodeRefusal),
     #[error("{0}")]
-    Archive(ArchiveError),
+    Bucket(BucketError),
     #[error("the fold did not finish: {0}")]
     Interrupted(String),
     #[error("nothing the fold could keep fell in the session")]
@@ -519,7 +519,7 @@ enum FoldFailure {
     #[error("{} held but unreadable: {refusal}", .key.path())]
     Unreadable {
         key: Key,
-        refusal: Box<archive::DecodeRefusal>,
+        refusal: Box<storage::DecodeRefusal>,
     },
     /// Written, but the write went unrecorded.
     #[error("journaling a write failed: {0}")]
@@ -530,7 +530,7 @@ enum FoldFailure {
 /// yet written, and hands it to `fold`; `noun` names the bars in the log.
 #[allow(clippy::too_many_arguments)]
 async fn fold_sessions<Fold, Folding>(
-    archive: &Archive,
+    archive: &Bucket,
     flat_files: &FlatFiles,
     calendar: &TradingCalendar,
     dataset: FlatFileDataset,
@@ -648,7 +648,7 @@ where
 
 /// Streams each listed quote file not yet folded from Massive and writes its one-minute, five-minute and daily bars.
 async fn fold_quotes(
-    archive: &Archive,
+    archive: &Bucket,
     flat_files: &FlatFiles,
     alpaca: &Alpaca,
     range: SessionRange,
@@ -689,7 +689,7 @@ async fn fold_quotes(
 }
 /// Folds one streamed quote file and creates its three files, the daily last.
 async fn fold_quotes_one(
-    archive: &Archive,
+    archive: &Bucket,
     stream: FlatFileStream,
     session: SessionDate,
     (open, close): (DateTime<Utc>, DateTime<Utc>),
@@ -745,8 +745,8 @@ async fn fold_quotes_one(
 
 /// Creates `key` and journals it, or, when an interrupted run already wrote it, accepts it only if it holds the same
 /// bars, so a rerun finishes a session's missing files without replacing what it cannot tell is identical.
-async fn create_or_confirm<Refusal: Into<archive::DecodeRefusal>>(
-    archive: &Archive,
+async fn create_or_confirm<Refusal: Into<storage::DecodeRefusal>>(
+    archive: &Bucket,
     key: &Key,
     body: Vec<u8>,
     journal: &Mutex<Journal>,
@@ -755,13 +755,13 @@ async fn create_or_confirm<Refusal: Into<archive::DecodeRefusal>>(
     let bytes = length(&body);
     match archive.create(key, body).await {
         Ok(()) => written(journal, key.clone(), bytes).map_err(FoldFailure::Journal),
-        Err(ArchiveError::Contended { path }) => {
+        Err(BucketError::Contended { path }) => {
             let held = archive
                 .get(key)
                 .await
-                .map_err(FoldFailure::Archive)?
+                .map_err(FoldFailure::Bucket)?
                 .ok_or_else(|| {
-                    FoldFailure::Archive(ArchiveError::Contended { path: path.clone() })
+                    FoldFailure::Bucket(BucketError::Contended { path: path.clone() })
                 })?;
             match same_bars(held) {
                 Ok(true) => {
@@ -775,7 +775,7 @@ async fn create_or_confirm<Refusal: Into<archive::DecodeRefusal>>(
                 }),
             }
         }
-        Err(error) => Err(FoldFailure::Archive(error)),
+        Err(error) => Err(FoldFailure::Bucket(error)),
     }
 }
 
@@ -790,7 +790,7 @@ struct QuoteRowCounts {
 
 /// Fetches Massive's condition table and writes it as today's snapshot.
 async fn fetch_conditions(
-    archive: &Archive,
+    archive: &Bucket,
     massive: &Massive,
     journal: &Mutex<Journal>,
 ) -> ExitCode {
@@ -817,7 +817,7 @@ async fn fetch_conditions(
         }
     };
     let encoded = reference::encode_conditions(&key, &conditions, &provenance)
-        .map_err(archive::EncodeRefusal::from)
+        .map_err(storage::EncodeRefusal::from)
         .map(|body| (length(&body), archive.create(&object, body)));
     match encoded {
         Ok((bytes, write)) => match write.await {
@@ -849,7 +849,7 @@ async fn fetch_conditions(
 
 /// Streams each listed trade file not yet folded from Massive and writes its one-minute, five-minute and daily bars.
 async fn fold_trades(
-    archive: &Archive,
+    archive: &Bucket,
     flat_files: &FlatFiles,
     alpaca: &Alpaca,
     range: SessionRange,
@@ -900,7 +900,7 @@ async fn fold_trades(
 
 /// Folds one streamed trade file and creates its three files, the daily last.
 async fn fold_trades_one(
-    archive: &Archive,
+    archive: &Bucket,
     stream: FlatFileStream,
     session: SessionDate,
     conditions: TradeConditions,

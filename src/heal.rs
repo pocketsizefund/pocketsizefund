@@ -15,14 +15,6 @@ use tokio::sync::mpsc::{self, Sender};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use crate::archive::provenance::{Provenance, Subscription};
-use crate::archive::raw::TeeError;
-use crate::archive::reference::{
-    conditions_key, decode_series_boundaries, encode_conditions, encode_security_details,
-    encode_series_boundaries, encode_splits, latest_conditions, latest_snapshot,
-};
-use crate::archive::{self, Archive, ArchiveError};
-use crate::archive::{quote_bars, trade_bars};
 use crate::common::heal::{
     Coverage, CoverageRefusal, Held, KeepsRefusal, Leg, PartitionFailureKind, SeriesListing,
     SessionOutcome, WindowRefusal, alpaca_quotes, alpaca_series_boundaries, alpaca_trades,
@@ -50,6 +42,14 @@ use crate::ingest::massive::{DetailsAnswer, Massive};
 use crate::ingest::{FetchError, Fetched, RefusedRow, SessionBars, refused_by_cause};
 use crate::journal::Journal;
 use crate::parameter::{Directories, environment_variable};
+use crate::storage::provenance::{Provenance, Subscription};
+use crate::storage::raw::TeeError;
+use crate::storage::reference::{
+    conditions_key, decode_series_boundaries, encode_conditions, encode_security_details,
+    encode_series_boundaries, encode_splits, latest_conditions, latest_snapshot,
+};
+use crate::storage::{self, Bucket, BucketError};
+use crate::storage::{quote_bars, trade_bars};
 
 const DEFAULT_LOOKBACK_SESSIONS: NonZeroUsize = NonZeroUsize::new(5).expect("5 is not zero");
 const DEFAULT_BUDGET_MINUTES: NonZeroU64 = NonZeroU64::new(240).expect("240 is not zero");
@@ -132,7 +132,7 @@ pub enum HealError {
     #[error("the {leg} leg: {refusal}")]
     Keeps { leg: Leg, refusal: KeepsRefusal },
     #[error("{0}")]
-    List(ArchiveError),
+    List(BucketError),
     /// A series spans sessions the fetched calendar does not reach.
     #[error("the {series} series: {refusal}")]
     Coverage {
@@ -155,11 +155,11 @@ pub enum PartitionFailure {
     #[error("{session} is not in the calendar")]
     NotInCalendar { session: SessionDate },
     #[error("{0}")]
-    Encode(archive::EncodeRefusal),
+    Encode(storage::EncodeRefusal),
     #[error("{0}")]
-    Decode(archive::DecodeRefusal),
+    Decode(storage::DecodeRefusal),
     #[error("{0}")]
-    Archive(ArchiveError),
+    Bucket(BucketError),
     /// Listed, then gone when read.
     #[error("{} vanished", .key.path())]
     Vanished { key: Key },
@@ -183,7 +183,7 @@ impl PartitionFailure {
             Self::NotInCalendar { .. } => PartitionFailureKind::NotInCalendar,
             Self::Encode(_) => PartitionFailureKind::Encode,
             Self::Decode(_) => PartitionFailureKind::Decode,
-            Self::Archive(_) => PartitionFailureKind::Archive,
+            Self::Bucket(_) => PartitionFailureKind::Bucket,
             Self::Vanished { .. } => PartitionFailureKind::Vanished,
             Self::NoSymbols { .. } => PartitionFailureKind::NoSymbols,
             Self::Fold(_) => PartitionFailureKind::Fold,
@@ -212,27 +212,27 @@ impl From<FetchError> for PartitionFailure {
     }
 }
 
-impl From<ArchiveError> for PartitionFailure {
-    fn from(error: ArchiveError) -> Self {
-        Self::Archive(error)
+impl From<BucketError> for PartitionFailure {
+    fn from(error: BucketError) -> Self {
+        Self::Bucket(error)
     }
 }
 
-impl From<archive::EncodeRefusal> for PartitionFailure {
-    fn from(refusal: archive::EncodeRefusal) -> Self {
+impl From<storage::EncodeRefusal> for PartitionFailure {
+    fn from(refusal: storage::EncodeRefusal) -> Self {
         Self::Encode(refusal)
     }
 }
 
-impl From<archive::DecodeRefusal> for PartitionFailure {
-    fn from(refusal: archive::DecodeRefusal) -> Self {
+impl From<storage::DecodeRefusal> for PartitionFailure {
+    fn from(refusal: storage::DecodeRefusal) -> Self {
         Self::Decode(refusal)
     }
 }
 
 /// The clients the heal reads from and writes to.
 pub struct Clients {
-    archive: Archive,
+    archive: Bucket,
     /// Shared by the concurrent security details requests.
     massive: Arc<Massive>,
     /// Shared by the concurrent one-minute batches, so its secret is held once rather than copied into each.
@@ -240,7 +240,7 @@ pub struct Clients {
 }
 
 impl Clients {
-    pub fn new(archive: Archive, massive: Massive, alpaca: Alpaca) -> Self {
+    pub fn new(archive: Bucket, massive: Massive, alpaca: Alpaca) -> Self {
         Self {
             archive,
             massive: Arc::new(massive),
@@ -249,7 +249,7 @@ impl Clients {
     }
 
     /// Writes one object to the archive, as `publish` and `write_conditions` take it.
-    fn put(&self) -> impl AsyncFn(&Key, Vec<u8>) -> Result<(), ArchiveError> {
+    fn put(&self) -> impl AsyncFn(&Key, Vec<u8>) -> Result<(), BucketError> {
         async |key: &Key, body| self.archive.put(key, body).await
     }
 
@@ -440,8 +440,8 @@ fn fetched_now(subscription: Subscription, journal: &Journal) -> Provenance {
 
 /// Encodes `rows` under `key` and writes them with `put`, returning how many were written. An empty answer is refused,
 /// since for a trading day it is a vendor gap that written would mark the session held for good.
-async fn publish<K: Into<Key>, Row, Refusal: Into<archive::EncodeRefusal>>(
-    put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), ArchiveError>,
+async fn publish<K: Into<Key>, Row, Refusal: Into<storage::EncodeRefusal>>(
+    put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), BucketError>,
     key: K,
     rows: &[Row],
     provenance: &Provenance,
@@ -463,8 +463,8 @@ fn partition<Row>(rows: Vec<Row>) -> Result<Partition<Row>, PartitionFailure> {
 }
 
 /// Encodes `rows` under `key` and writes them with `put`, returning how many were written.
-async fn publish_partition<K: Into<Key>, Row, Refusal: Into<archive::EncodeRefusal>>(
-    put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), ArchiveError>,
+async fn publish_partition<K: Into<Key>, Row, Refusal: Into<storage::EncodeRefusal>>(
+    put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), BucketError>,
     key: K,
     rows: &Partition<Row>,
     provenance: &Provenance,
@@ -477,8 +477,8 @@ async fn publish_partition<K: Into<Key>, Row, Refusal: Into<archive::EncodeRefus
 
 /// Publishes a fold's minute bars and their rollups under `key` at each interval, the daily last so a session reads as
 /// held only once all three are, returning how many minute bars were written.
-async fn publish_ticks<K: Into<Key>, B: RollsUp, Refusal: Into<archive::EncodeRefusal>>(
-    put: impl AsyncFn(&Key, Vec<u8>) -> Result<(), ArchiveError>,
+async fn publish_ticks<K: Into<Key>, B: RollsUp, Refusal: Into<storage::EncodeRefusal>>(
+    put: impl AsyncFn(&Key, Vec<u8>) -> Result<(), BucketError>,
     minutes: Vec<B>,
     key: impl Fn(BarInterval) -> K,
     provenance: &Provenance,
@@ -625,7 +625,7 @@ async fn write_series_boundaries(
                 .await?
                 .ok_or(PartitionFailure::Vanished { key: key.into() })?;
             let (held, _) =
-                decode_series_boundaries(&key, bytes).map_err(archive::DecodeRefusal::Reference)?;
+                decode_series_boundaries(&key, bytes).map_err(storage::DecodeRefusal::Reference)?;
             (
                 held,
                 key.as_of()
@@ -921,7 +921,7 @@ async fn write_conditions(
     journal: &mut Journal,
     fetch: impl AsyncFnOnce() -> Fetched<TradeConditions>,
     store: impl AsyncFnOnce(ReferenceKey, &Provenance, Vec<Vec<u8>>) -> Result<(), PartitionFailure>,
-    put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), ArchiveError>,
+    put: impl AsyncFnOnce(&Key, Vec<u8>) -> Result<(), BucketError>,
 ) -> Result<TradeConditions, PartitionFailure> {
     let fetched_at = Utc::now();
     let key = conditions_key(SessionDate::at(fetched_at));
@@ -933,7 +933,7 @@ async fn write_conditions(
     );
     let conditions = kept(store, key, &provenance, fetch().await).await?;
     let body =
-        encode_conditions(&key, &conditions, &provenance).map_err(archive::EncodeRefusal::from)?;
+        encode_conditions(&key, &conditions, &provenance).map_err(storage::EncodeRefusal::from)?;
     put(&key.into(), body).await?;
     let written = ConditionsWritten::new(
         key.as_of(),
@@ -951,7 +951,7 @@ async fn write_conditions(
 /// is deleted first, so a session that fails after its new raw object is written reads as owed rather than held.
 #[allow(clippy::too_many_arguments)]
 async fn per_symbol_raw<Fetch, Pending, Row>(
-    archive: &Archive,
+    archive: &Bucket,
     held_by: Key,
     key: Key,
     provenance: &Provenance,
@@ -1539,7 +1539,7 @@ mod tests {
                 stored.push((Key::RawReference(key).series().to_string(), bodies));
                 Ok(())
             },
-            async |_: &Key, _body| -> Result<(), ArchiveError> {
+            async |_: &Key, _body| -> Result<(), BucketError> {
                 panic!("nothing parsed is written")
             },
         )
@@ -1879,14 +1879,14 @@ mod tests {
         assert!(rows.is_empty());
     }
 
-    /// Stores a session's grouped daily raw in this profile's records bucket and reads its symbols from Massive.
+    /// Stores a session's grouped daily raw in the profile bucket and reads its symbols from Massive.
     #[tokio::test]
-    #[ignore = "fetches from Massive and writes one Deep Archive object to the profile's records bucket, then deletes it"]
+    #[ignore = "fetches from Massive and writes one Deep Archive object to the profile bucket, then deletes it"]
     async fn live_traded_symbols_store_raw_and_name_the_session() {
         let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 9).unwrap());
         let configuration = aws_config::load_from_env().await;
         let clients = Clients::new(
-            Archive::records(&configuration).unwrap(),
+            Bucket::profile(&configuration).unwrap(),
             Massive::from_environment(reqwest::Client::new()).unwrap(),
             Alpaca::from_environment(reqwest::Client::new()).unwrap(),
         );
@@ -1919,14 +1919,14 @@ mod tests {
         assert!(symbols.len() > 10_000);
     }
 
-    /// Stores Massive's split pages raw in this profile's records bucket, clearing the parsed snapshot first.
+    /// Stores Massive's split pages raw in the profile bucket, clearing the parsed snapshot first.
     #[tokio::test]
-    #[ignore = "fetches from Massive and writes one Deep Archive object to the profile's records bucket, then deletes it"]
+    #[ignore = "fetches from Massive and writes one Deep Archive object to the profile bucket, then deletes it"]
     async fn live_split_pages_store_raw_after_clearing_the_snapshot() {
         let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 9).unwrap());
         let configuration = aws_config::load_from_env().await;
         let clients = Clients::new(
-            Archive::records(&configuration).unwrap(),
+            Bucket::profile(&configuration).unwrap(),
             Massive::from_environment(reqwest::Client::new()).unwrap(),
             Alpaca::from_environment(reqwest::Client::new()).unwrap(),
         );
@@ -1960,10 +1960,10 @@ mod tests {
         assert_eq!(stored.fetched_at(), Some(provenance.fetched_at()));
     }
 
-    /// Stores five busy symbols' quotes for one session, enough to span several parts, in this profile's records bucket,
+    /// Stores five busy symbols' quotes for one session, enough to span several parts, in the profile bucket,
     /// clearing the earlier fetch's daily fold first.
     #[tokio::test]
-    #[ignore = "fetches from Alpaca and writes one Deep Archive object to the profile's records bucket, then deletes it"]
+    #[ignore = "fetches from Alpaca and writes one Deep Archive object to the profile bucket, then deletes it"]
     async fn live_raw_quote_pages_store_across_parts() {
         let session = SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 9).unwrap());
         let symbols: Vec<Symbol> = ["SPY", "QQQ", "AAPL", "NVDA", "TSLA"]
@@ -1971,7 +1971,7 @@ mod tests {
             .map(|name| Symbol::new(name).unwrap())
             .collect();
         let configuration = aws_config::load_from_env().await;
-        let archive = Archive::records(&configuration).unwrap();
+        let profile = Bucket::profile(&configuration).unwrap();
         let alpaca = Arc::new(Alpaca::from_environment(reqwest::Client::new()).unwrap());
         let key = Key::RawQuotes {
             provider: Provider::Alpaca,
@@ -1984,13 +1984,13 @@ mod tests {
             None,
         );
         let held_by: Key = alpaca_quotes(session).into();
-        archive
+        profile
             .put(&held_by, b"an earlier fetch".to_vec())
             .await
             .unwrap();
         let mut quotes = 0_u64;
         let unanswered = per_symbol_raw(
-            &archive,
+            &profile,
             held_by.clone(),
             key.clone(),
             &provenance,
@@ -2004,20 +2004,20 @@ mod tests {
         )
         .await
         .unwrap();
-        let stored = archive.stored(&key).await.unwrap().unwrap();
+        let stored = profile.stored(&key).await.unwrap().unwrap();
         println!(
             "{quotes} quotes, {} bytes, {:?}, {}",
             stored.length(),
             stored.checksum(),
             key.path()
         );
-        archive.delete(&key).await.unwrap();
-        assert_eq!(archive.get(&held_by).await.unwrap(), None);
+        profile.delete(&key).await.unwrap();
+        assert_eq!(profile.get(&held_by).await.unwrap(), None);
         assert!(unanswered.is_empty());
         assert!(stored.length() > 64 * 1024 * 1024);
         assert!(matches!(
             stored.checksum(),
-            crate::archive::raw::Checksum::FullObject(_)
+            crate::storage::raw::Checksum::FullObject(_)
         ));
         assert_eq!(stored.fetched_at(), Some(provenance.fetched_at()));
     }

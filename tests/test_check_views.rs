@@ -64,7 +64,7 @@ fn check(script: &Path, answers: &[(&str, Answer)], profile: &str) -> (i32, Stri
         .env("DUCKDB", root().join("tests/fixtures/fake-duckdb"))
         .env("FAKE_DUCKDB_ANSWERS", &answers_file)
         .env("AWS_S3_ARCHIVE_BUCKET_NAME", "archive")
-        .env("AWS_S3_RECORDS_BUCKET_NAME", "records")
+        .env("AWS_S3_PROFILE_BUCKET_NAME", "records")
         .env("FUND_PROFILE", profile)
         .output()
         .unwrap();
@@ -370,8 +370,8 @@ fn macro_series() -> Vec<(String, String)> {
     for (name, bucket) in [
         ("sessions('", None),
         ("partitions('", None),
-        ("snapshots('", Some("market_data_bucket")),
-        ("preferred(\n    '", Some("market_data_bucket")),
+        ("snapshots('", Some("archive_bucket")),
+        ("preferred(\n    '", Some("archive_bucket")),
     ] {
         for (start, _) in views.match_indices(name) {
             let arguments = &views[start + name.len() - 1..];
@@ -446,9 +446,9 @@ fn test_every_series_views_sql_reads_is_a_key_series() {
     assert_eq!(called.len(), 33, "{called:?}");
     for (bucket, series) in &called {
         let expected_bucket = if series.starts_with("records/") {
-            "records_bucket"
+            "profile_bucket"
         } else {
-            "market_data_bucket"
+            "archive_bucket"
         };
         assert_eq!(bucket, expected_bucket, "{series}");
         assert!(

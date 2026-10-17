@@ -1,4 +1,4 @@
-//! Starts a run's log file, journal and lock, and ships a host's local journal and log files to its records bucket.
+//! Starts a run's log file, journal and lock, and ships a host's local journal and log files to its profile bucket.
 //! Recent sessions ship again on every run, so a file that grew since its last shipment replaces its object whole.
 
 use std::fs::File;
@@ -15,12 +15,12 @@ use tracing_subscriber::layer::{Layer, SubscriberExt};
 use tracing_subscriber::util::SubscriberInitExt;
 use uuid::Uuid;
 
-use crate::archive::{self, Archive, ArchiveError, logs};
 use crate::common::journal::{ConfigurationResolved, Observation, RunId, merge, read};
 use crate::common::storage::{Host, JournalKey, Key, LogsKey, Service};
 use crate::common::time::SessionDate;
 use crate::journal::{Journal, UNKNOWN_COMMIT, built_commit, lock};
 use crate::parameter::log_directory_from_environment;
+use crate::storage::{self, Bucket, BucketError, logs};
 
 /// The exit code of a run that could not start.
 const REFUSED_TO_START: u8 = 2;
@@ -175,11 +175,11 @@ pub enum ShipFailure {
         error: std::io::Error,
     },
     #[error("{0}")]
-    Encode(archive::EncodeRefusal),
+    Encode(storage::EncodeRefusal),
     #[error("{0}")]
-    Decode(archive::DecodeRefusal),
+    Decode(storage::DecodeRefusal),
     #[error("{0}")]
-    Archive(ArchiveError),
+    Bucket(BucketError),
     /// Another writer changed the object on each of this many attempts.
     #[error("another writer changed the object on each of {attempts} attempts")]
     Contended { attempts: u32 },
@@ -200,7 +200,7 @@ fn shipments(
         let journal_path = journal_directory.join(crate::journal::file_name(session));
         if let Some(contents) = contents(&journal_path) {
             let encoded = contents.and_then(|text| {
-                archive::journal::encode(&journal_key, &read(&text))
+                storage::journal::encode(&journal_key, &read(&text))
                     .map_err(|refusal| ShipFailure::Encode(refusal.into()))
             });
             shipments.push((journal_key.into(), encoded));
@@ -231,7 +231,7 @@ pub(crate) fn contents(path: &Path) -> Option<Result<String, ShipFailure>> {
 
 /// Ships every recent file, returning each key with whether it landed.
 pub async fn ship(
-    archive: &Archive,
+    profile: &Bucket,
     host: Host,
     service: &Service,
     journal_directory: &Path,
@@ -241,7 +241,7 @@ pub async fn ship(
     let mut shipped = Vec::new();
     for (key, encoded) in shipments(host, service, journal_directory, log_directory, today) {
         let outcome = match encoded {
-            Ok(body) => archive.put(&key, body).await.map_err(ShipFailure::Archive),
+            Ok(body) => profile.put(&key, body).await.map_err(ShipFailure::Bucket),
             Err(failure) => Err(failure),
         };
         shipped.push((key, outcome));
@@ -252,7 +252,7 @@ pub async fn ship(
 /// Ships every recent file whatever the run did, since a failed run's records are the ones most worth reading, and
 /// logs each key's outcome; true when every file landed.
 pub async fn ship_logged(
-    records: &Archive,
+    profile: &Bucket,
     host: Host,
     service: &Service,
     journal_directory: &Path,
@@ -261,7 +261,7 @@ pub async fn ship_logged(
     // Taken now, so a run that crossed midnight ships the journal file its last records went to.
     let today = SessionDate::at(Utc::now());
     let shipped = ship(
-        records,
+        profile,
         host,
         service,
         journal_directory,
@@ -286,32 +286,32 @@ pub async fn ship_logged(
 const MERGE_ATTEMPTS: u32 = 5;
 
 /// Reads `key`'s object, adds the lines of `text` it lacks, and writes it back only over the version read.
-pub async fn merge_into(records: &Archive, key: JournalKey, text: &str) -> Result<(), ShipFailure> {
+pub async fn merge_into(profile: &Bucket, key: JournalKey, text: &str) -> Result<(), ShipFailure> {
     let object = Key::from(key);
     for _ in 0..MERGE_ATTEMPTS {
-        let (held, tag) = match records
+        let (held, tag) = match profile
             .get_tagged(&object)
             .await
-            .map_err(ShipFailure::Archive)?
+            .map_err(ShipFailure::Bucket)?
         {
             Some((body, tag)) => (
-                archive::journal::decode(&key, body).map_err(|refusal| {
-                    ShipFailure::Decode(archive::DecodeRefusal::from(refusal))
+                storage::journal::decode(&key, body).map_err(|refusal| {
+                    ShipFailure::Decode(storage::DecodeRefusal::from(refusal))
                 })?,
                 Some(tag),
             ),
             None => (Vec::new(), None),
         };
-        let body = archive::journal::encode(&key, &merge(held, read(text)))
-            .map_err(|refusal| ShipFailure::Encode(archive::EncodeRefusal::from(refusal)))?;
+        let body = storage::journal::encode(&key, &merge(held, read(text)))
+            .map_err(|refusal| ShipFailure::Encode(storage::EncodeRefusal::from(refusal)))?;
         let written = match tag {
-            Some(tag) => records.replace(&object, body, &tag).await,
-            None => records.create(&object, body).await,
+            Some(tag) => profile.replace(&object, body, &tag).await,
+            None => profile.create(&object, body).await,
         };
         match written {
             Ok(()) => return Ok(()),
-            Err(ArchiveError::Contended { .. }) => continue,
-            Err(error) => return Err(ShipFailure::Archive(error)),
+            Err(BucketError::Contended { .. }) => continue,
+            Err(error) => return Err(ShipFailure::Bucket(error)),
         }
     }
     Err(ShipFailure::Contended {

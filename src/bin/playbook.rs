@@ -1,5 +1,5 @@
-//! Uploads a playbook to the profile's records bucket, where the trader reads it at startup, and journals the upload
-//! under `producer=operator`: `playbook upload <path>`.
+//! Uploads a playbook to the profile bucket, where the trader reads it at startup, and journals the upload under
+//! `producer=operator`: `playbook upload <path>`.
 
 use std::num::NonZeroU64;
 use std::path::PathBuf;
@@ -9,13 +9,13 @@ use chrono::{DateTime, Utc};
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
-use fund::archive::Archive;
 use fund::common::journal::{Observation, Record, RunId};
 use fund::common::playbook::{Playbook, PlaybookUploaded};
 use fund::common::storage::{ConfigurationKey, EntityTag, JournalKey, Key, ObjectKey};
 use fund::common::time::SessionDate;
 use fund::journal::built_commit;
 use fund::records::{RefusedToStart, merge_into};
+use fund::storage::Bucket;
 
 const USAGE: &str = "playbook upload <path>";
 
@@ -84,15 +84,15 @@ async fn main() -> ExitCode {
         tracing::error!(path = %path.display(), %refusal, "Playbook refused");
         return RefusedToStart.into();
     }
-    let records = match Archive::records(&aws_config::load_from_env().await) {
-        Ok(records) => records,
+    let profile = match Bucket::profile(&aws_config::load_from_env().await) {
+        Ok(profile) => profile,
         Err(refusal) => {
             tracing::error!(%refusal, "Records configuration refused");
             return RefusedToStart.into();
         }
     };
     let key = ConfigurationKey::Playbook;
-    let held = match records.get_tagged(&key).await {
+    let held = match profile.get_tagged(&key).await {
         Ok(held) => held,
         Err(error) => {
             tracing::error!(%error, "Uploaded playbook not read");
@@ -105,8 +105,8 @@ async fn main() -> ExitCode {
             tracing::info!(path = key.path(), "Playbook unchanged");
             return ExitCode::SUCCESS;
         }
-        Upload::Create => records.create(&key, body).await,
-        Upload::Replace(tag) => records.replace(&key, body, tag).await,
+        Upload::Create => profile.create(&key, body).await,
+        Upload::Replace(tag) => profile.replace(&key, body, tag).await,
     };
     match written {
         Ok(()) => {}
@@ -123,7 +123,7 @@ async fn main() -> ExitCode {
     );
     let (journal, record) = uploaded(contents, replaced, RunId::new(Uuid::new_v4()), Utc::now());
     let journal_path = Key::from(journal).path();
-    match merge_into(&records, journal, &record.encode()).await {
+    match merge_into(&profile, journal, &record.encode()).await {
         Ok(()) => {
             tracing::info!(path = journal_path, "Upload journaled");
             ExitCode::SUCCESS

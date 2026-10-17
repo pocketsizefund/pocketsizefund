@@ -14,7 +14,7 @@ use arrow_schema::{DataType, Field, Schema};
 
 use super::parquet::{ReadRefusal, RowCause};
 use super::provenance::{Provenance, provenance_from};
-use super::{Archive, ArchiveError, parquet};
+use super::{Bucket, BucketError, parquet};
 use crate::common::market::corporate_actions::{
     ActionId, BoundaryChange, BoundaryKind, SeriesBoundary, Split, SplitRatio,
 };
@@ -217,11 +217,11 @@ pub fn conditions_key(as_of: SessionDate) -> ReferenceKey {
 /// The newest snapshot of `provider`'s `table` dated before `before`, or of any date when `before` is `None`, if the
 /// archive holds one.
 pub async fn latest_snapshot(
-    archive: &Archive,
+    archive: &Bucket,
     provider: Provider,
     table: ReferenceTable,
     before: Option<SessionDate>,
-) -> Result<Option<ReferenceKey>, ArchiveError> {
+) -> Result<Option<ReferenceKey>, BucketError> {
     let paths = archive
         .list(&SeriesPrefix::reference(provider, table))
         .await?;
@@ -242,7 +242,7 @@ fn newest_before(paths: &[String], before: Option<SessionDate>) -> Option<Refere
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum SnapshotError {
     #[error("{0}")]
-    Archive(ArchiveError),
+    Bucket(BucketError),
     #[error("no conditions table in the archive")]
     Absent,
     /// Listed, then gone when read.
@@ -254,16 +254,16 @@ pub enum SnapshotError {
 
 /// The newest conditions snapshot the archive holds, with its key.
 pub async fn latest_conditions(
-    archive: &Archive,
+    archive: &Bucket,
 ) -> Result<(ReferenceKey, TradeConditions), SnapshotError> {
     let latest = latest_snapshot(archive, Provider::Massive, ReferenceTable::Conditions, None)
         .await
-        .map_err(SnapshotError::Archive)?
+        .map_err(SnapshotError::Bucket)?
         .ok_or(SnapshotError::Absent)?;
     let bytes = archive
         .get(&Key::from(latest))
         .await
-        .map_err(SnapshotError::Archive)?
+        .map_err(SnapshotError::Bucket)?
         .ok_or(SnapshotError::Vanished { key: latest })?;
     let (conditions, _) = decode_conditions(&latest, bytes).map_err(SnapshotError::Decode)?;
     Ok((latest, conditions))
@@ -663,9 +663,9 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::archive::provenance::Subscription;
     use crate::common::journal::RunId;
     use crate::common::time::SessionDate;
+    use crate::storage::provenance::Subscription;
 
     fn session() -> SessionDate {
         SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 5).unwrap())

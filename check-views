@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 duckdb="${DUCKDB:-duckdb}"
-for variable in AWS_S3_ARCHIVE_BUCKET_NAME AWS_S3_RECORDS_BUCKET_NAME; do
+for variable in AWS_S3_ARCHIVE_BUCKET_NAME AWS_S3_PROFILE_BUCKET_NAME; do
   if [[ -z "${!variable:-}" ]]; then
     echo "Error: ${variable} is not set" >&2
     exit 1

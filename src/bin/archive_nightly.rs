@@ -1,5 +1,5 @@
 //! Heals the archive over the last trading days, journals each owed session, every series' gaps and how its views
-//! read, and ships the journal and logs to the records bucket. Exits 0 when every owed session was written and every
+//! read, and ships the journal and logs to the profile bucket. Exits 0 when every owed session was written and every
 //! file shipped, 1 when anything was not, and 2 when the run could not start; gaps and views only warn.
 
 use std::process::{Command, ExitCode};
@@ -7,7 +7,6 @@ use std::process::{Command, ExitCode};
 use chrono::Utc;
 use tracing::Instrument;
 
-use fund::archive::Archive;
 use fund::common::heal::is_complete;
 use fund::common::journal::{Observation, ViewsCheck, ViewsChecked};
 use fund::common::storage::{Host, Service};
@@ -16,6 +15,7 @@ use fund::heal;
 use fund::ingest::alpaca::Alpaca;
 use fund::ingest::massive::Massive;
 use fund::records::{Exclusion, RefusedToStart, resolved, ship_logged, start};
+use fund::storage::Bucket;
 
 const SERVICE: &str = "archive_nightly";
 const CHECK_VIEWS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/check-views");
@@ -68,14 +68,14 @@ async fn main() -> ExitCode {
         };
         let http_client = reqwest::Client::new();
         let sdk_configuration = aws_config::load_from_env().await;
-        let (clients, records) = match (
-            Archive::market_data(&sdk_configuration),
-            Archive::records(&sdk_configuration),
+        let (clients, profile) = match (
+            Bucket::archive(&sdk_configuration),
+            Bucket::profile(&sdk_configuration),
             Massive::from_environment(http_client.clone()),
             Alpaca::from_environment(http_client),
         ) {
-            (Ok(archive), Ok(records), Ok(massive), Ok(alpaca)) => {
-                (heal::Clients::new(archive, massive, alpaca), records)
+            (Ok(archive), Ok(profile), Ok(massive), Ok(alpaca)) => {
+                (heal::Clients::new(archive, massive, alpaca), profile)
             }
             (Err(refusal), _, _, _)
             | (_, Err(refusal), _, _)
@@ -133,7 +133,7 @@ async fn main() -> ExitCode {
             tracing::warn!(%error, "Views check was not journaled");
         }
         let all_shipped = ship_logged(
-            &records,
+            &profile,
             Host::Archiver,
             &service,
             parameters.journal_directory(),

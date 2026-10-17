@@ -11,8 +11,6 @@ use chrono::{DateTime, TimeDelta, Utc};
 use tokio::time::MissedTickBehavior;
 use tracing::Instrument;
 
-use fund::archive::reference::{SnapshotError, latest_conditions};
-use fund::archive::{Archive, ArchiveError, parquet, trade_bars};
 use fund::broker::{Broker, BrokerError, PaperAccount};
 use fund::common::book::ValuationRefusal;
 use fund::common::journal::{Observation, SessionOpened};
@@ -28,6 +26,8 @@ use fund::ingest::alpaca::Alpaca;
 use fund::ingest::{FetchError, VariableRefusal};
 use fund::journal::Journal;
 use fund::records::{Exclusion, RefusedToStart, resolved, ship_logged, start};
+use fund::storage::reference::{SnapshotError, latest_conditions};
+use fund::storage::{Bucket, BucketError, parquet, trade_bars};
 use fund::trader::parameters::Parameters;
 use fund::trader::{Session, SessionError, Standing, last_closes, warm};
 
@@ -61,14 +61,14 @@ async fn main() -> ExitCode {
         };
         // From here every exit runs through the closing step below, so the journal always holds the session's end.
         let sdk_configuration = aws_config::load_from_env().await;
-        let records = Archive::records(&sdk_configuration);
-        let archive = Archive::market_data(&sdk_configuration);
-        let traded = match (&records, &archive) {
-            (Ok(records), Ok(archive)) => {
-                trade(&parameters, records, archive, &mut journal, today).await
+        let profile = Bucket::profile(&sdk_configuration);
+        let archive = Bucket::archive(&sdk_configuration);
+        let traded = match (&profile, &archive) {
+            (Ok(profile), Ok(archive)) => {
+                trade(&parameters, profile, archive, &mut journal, today).await
             }
             (Err(refusal), _) | (_, Err(refusal)) => Err(Stopped::BeforeTheOpen(
-                StartRefusal::Archive(refusal.clone()),
+                StartRefusal::Bucket(refusal.clone()),
             )),
         };
         let closed = SessionClosed::new(today, ending(&traded));
@@ -110,13 +110,13 @@ async fn main() -> ExitCode {
                 }
             }
         };
-        let records = match records {
-            Ok(records) => records,
+        let profile = match profile {
+            Ok(profile) => profile,
             // The refusal was logged as the reason the session did not start.
             Err(_) => return outcome,
         };
         let all_shipped = ship_logged(
-            &records,
+            &profile,
             Host::Trader,
             &service,
             parameters.journal_directory(),
@@ -154,11 +154,11 @@ enum Stopped {
 #[derive(Debug, thiserror::Error)]
 enum StartRefusal {
     #[error("the archive client refused: {0}")]
-    Archive(VariableRefusal),
+    Bucket(VariableRefusal),
     #[error("the Alpaca client refused: {0}")]
     Alpaca(VariableRefusal),
     #[error("the playbook was not read: {0}")]
-    PlaybookUnread(ArchiveError),
+    PlaybookUnread(BucketError),
     #[error("no playbook is uploaded at {}", .key.path())]
     PlaybookAbsent { key: ConfigurationKey },
     #[error("the playbook is not UTF-8 text: {0}")]
@@ -189,7 +189,7 @@ enum PreviousRefusal {
     #[error("no trading day in the {CALENDAR_DAYS_BACK} days before {today}")]
     NoTradingDay { today: SessionDate },
     #[error("the previous session was not read: {0}")]
-    Archive(ArchiveError),
+    Bucket(BucketError),
     #[error("{} is not archived", Key::from(*.key).path())]
     NotArchived { key: TradesKey },
     #[error("{} not decoded: {refusal}", Key::from(*.key).path())]
@@ -225,11 +225,11 @@ fn ending(traded: &Result<Ran, Stopped>) -> SessionEnding {
 /// Reads the profile's uploaded playbook and journals it, so the session's records name the playbook it traded under.
 async fn read_playbook(
     parameters: &Parameters,
-    records: &Archive,
+    profile: &Bucket,
     journal: &mut Journal,
 ) -> Result<Played, StartRefusal> {
     let key = ConfigurationKey::Playbook;
-    let bytes = match records.get(&key).await {
+    let bytes = match profile.get(&key).await {
         Ok(Some(bytes)) => bytes,
         Ok(None) => return Err(StartRefusal::PlaybookAbsent { key }),
         Err(error) => return Err(StartRefusal::PlaybookUnread(error)),
@@ -247,13 +247,13 @@ async fn read_playbook(
 
 async fn trade(
     parameters: &Parameters,
-    records: &Archive,
-    archive: &Archive,
+    profile: &Bucket,
+    archive: &Bucket,
     journal: &mut Journal,
     today: SessionDate,
 ) -> Result<Ran, Stopped> {
     let refused = Stopped::BeforeTheOpen;
-    let strategy = read_playbook(parameters, records, journal)
+    let strategy = read_playbook(parameters, profile, journal)
         .await
         .map_err(refused)?;
     let http_client = reqwest::Client::new();
@@ -377,7 +377,7 @@ async fn trade(
 /// The previous session's one-minute trade bars of `symbols` as the archive derived them, folded into a state, with each
 /// symbol's last close among them.
 async fn previous_bars(
-    archive: &Archive,
+    archive: &Bucket,
     calendar: &TradingCalendar,
     today: SessionDate,
     symbols: &BTreeSet<Symbol>,
@@ -389,7 +389,7 @@ async fn previous_bars(
     let bytes = match archive
         .get(&Key::from(key))
         .await
-        .map_err(PreviousRefusal::Archive)?
+        .map_err(PreviousRefusal::Bucket)?
     {
         Some(bytes) => bytes,
         None => return Err(PreviousRefusal::NotArchived { key }),
@@ -438,9 +438,9 @@ mod tests {
     fn test_each_start_refusal_displays_its_cause() {
         let close: DateTime<Utc> = "2026-10-08T20:00:00Z".parse().unwrap();
         let displayed = [
-            StartRefusal::Archive(VariableRefusal::Missing { name: "BUCKET" }),
+            StartRefusal::Bucket(VariableRefusal::Missing { name: "BUCKET" }),
             StartRefusal::Alpaca(VariableRefusal::Missing { name: "KEY" }),
-            StartRefusal::PlaybookUnread(ArchiveError::Get {
+            StartRefusal::PlaybookUnread(BucketError::Get {
                 path: "configuration/playbook.toml".to_string(),
                 reason: "throttled".to_string(),
             }),
@@ -493,7 +493,7 @@ mod tests {
             PreviousRefusal::NoTradingDay {
                 today: SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 10, 8).unwrap()),
             },
-            PreviousRefusal::Archive(ArchiveError::Get {
+            PreviousRefusal::Bucket(BucketError::Get {
                 path: "a/b".to_string(),
                 reason: "timed out".to_string(),
             }),

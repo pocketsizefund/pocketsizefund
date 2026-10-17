@@ -70,8 +70,8 @@ echo "Running role ${role:-<none>} under profile ${profile:-<none>}"
     # shellcheck disable=SC2016
     devenv shell -- secretspec run --profile "$profile" --reason "Fetching the researcher's jobs" -- bash -c '
       set -euo pipefail
-      aws s3 sync --delete --only-show-errors "s3://$AWS_S3_RECORDS_BUCKET_NAME/scratch/jobs/" jobs/
-      aws s3 sync --delete --only-show-errors "s3://$AWS_S3_RECORDS_BUCKET_NAME/scratch/studies/" studies/src/bin/'
+      aws s3 sync --delete --only-show-errors "s3://$AWS_S3_PROFILE_BUCKET_NAME/scratch/jobs/" jobs/
+      aws s3 sync --delete --only-show-errors "s3://$AWS_S3_PROFILE_BUCKET_NAME/scratch/studies/" studies/src/bin/'
   fi
   devenv shell -- host/run-role "$role" "$job" "$hours"
   exit

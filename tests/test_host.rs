@@ -649,6 +649,19 @@ fn test_an_untagged_role_is_tagged_and_an_owned_one_is_left_alone() {
 }
 
 #[test]
+fn test_only_production_provisions_an_archiver() {
+    let development = Provisioned::run("development/a.b", &[]);
+    assert_eq!(development.code, 1, "{}", development.output);
+    assert_eq!(
+        development.output,
+        "Error: --role archiver writes the archive bucket, which only --profile production may; got \"development/a.b\"\n"
+    );
+    assert_eq!(development.calls(), Vec::<String>::new());
+    let researcher = Provisioned::run_role("researcher", "development/a.b", &[]);
+    assert!(!researcher.calls().is_empty(), "{}", researcher.output);
+}
+
+#[test]
 fn test_a_refused_box_is_never_scheduled_and_only_a_bootstrapping_one_is_granted() {
     let unfinished = Provisioned::run(
         "production",
@@ -661,7 +674,11 @@ fn test_a_refused_box_is_never_scheduled_and_only_a_bootstrapping_one_is_granted
         "production",
         &[("STUB_STATE", "running"), ("BOOTSTRAP_POLLS", "2")],
     );
-    let collided = Provisioned::run("development/a.b", &[("STUB_ROLE_OWNER", "development/a-b")]);
+    let collided = Provisioned::run_role(
+        "trader",
+        "development/a.b",
+        &[("STUB_ROLE_OWNER", "development/a-b")],
+    );
     // A box still bootstrapping holds its grant already, since its bootstrap enters devenv and reads secrets.
     let every_write = [
         "iam put-role-policy",
@@ -1009,7 +1026,7 @@ const ARCHIVE_BUCKET: &str = "arn:aws:s3:::oscm-fund-archive";
 const RESEARCHER_JOURNAL: &str =
     "arn:aws:s3:::oscm-fund-production/records/journal/producer=researcher/key";
 const PRODUCTION_SCRATCH: &str = "arn:aws:s3:::oscm-fund-production/scratch/key";
-const PRODUCTION_RECORDS_BUCKET: &str = "arn:aws:s3:::oscm-fund-production";
+const PRODUCTION_PROFILE_BUCKET: &str = "arn:aws:s3:::oscm-fund-production";
 
 /// The IAM action `operation` needs and every resource the archiver reaches with it; the heal deletes only parsed keys.
 fn archiver_reach(file: &str, operation: &str) -> (&'static str, &'static [&'static str]) {
@@ -1045,7 +1062,7 @@ fn researcher_reach(file: &str, operation: &str) -> (&'static str, &'static [&'s
         "delete_object" => ("s3:DeleteObject", &[PRODUCTION_SCRATCH]),
         "list_objects_v2" => (
             "s3:ListBucket",
-            &[ARCHIVE_BUCKET, PRODUCTION_RECORDS_BUCKET],
+            &[ARCHIVE_BUCKET, PRODUCTION_PROFILE_BUCKET],
         ),
         unmapped => panic!("{file} calls `{unmapped}`, which needs its IAM action named here"),
     }
@@ -1075,7 +1092,7 @@ fn ungranted(
 #[test]
 fn test_a_grant_on_another_prefix_leaves_the_operation_ungranted() {
     let operations = [(
-        "src/archive/raw.rs".to_string(),
+        "src/storage/raw.rs".to_string(),
         "abort_multipart_upload".to_string(),
     )];
     let policy = |resource: &str| serde_json::json!({"Statement": [{"Effect": "Allow", "Action": ["s3:AbortMultipartUpload"], "Resource": resource}]});
@@ -1093,13 +1110,13 @@ fn test_a_grant_on_another_prefix_leaves_the_operation_ungranted() {
             &operations,
             archiver_reach
         ),
-        ["src/archive/raw.rs abort_multipart_upload"]
+        ["src/storage/raw.rs abort_multipart_upload"]
     );
 }
 
 #[test]
 fn test_a_conditioned_grant_leaves_the_operation_ungranted() {
-    let operations = [("src/archive.rs".to_string(), "list_objects_v2".to_string())];
+    let operations = [("src/storage.rs".to_string(), "list_objects_v2".to_string())];
     let statement = serde_json::json!({"Effect": "Allow", "Action": "S3:listbucket", "Resource": "arn:aws:s3:::oscm-fund-archive"});
     let mut conditioned = statement.clone();
     conditioned["Condition"] = serde_json::json!({"StringLike": {"s3:prefix": ["records/*"]}});
@@ -1117,7 +1134,7 @@ fn test_a_conditioned_grant_leaves_the_operation_ungranted() {
             &operations,
             archiver_reach
         ),
-        ["src/archive.rs list_objects_v2"]
+        ["src/storage.rs list_objects_v2"]
     );
 }
 

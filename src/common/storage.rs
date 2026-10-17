@@ -75,7 +75,7 @@ pub trait ObjectKey {
     fn storage_class(&self) -> StorageClass;
 }
 
-/// A host's configuration in the profile's records bucket, written by an operator rather than a host.
+/// A host's configuration in the profile bucket, written by an operator rather than a host.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigurationKey {
     /// The trader's playbook, as TOML.
