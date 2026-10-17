@@ -76,9 +76,14 @@ if [[ ! "$PROFILE" =~ ^(production|development/[a-z0-9][a-z0-9.-]*)$ ]]; then
   exit 1
 fi
 
+if [[ "$ROLE" == archiver && "$PROFILE" != production ]]; then
+  echo "Error: --role archiver writes the archive bucket, which only --profile production may; got \"$PROFILE\"" >&2
+  exit 1
+fi
+
 SLUG="${PROFILE//[\/.]/-}"
 NAME="fund-${ROLE}-${SLUG}"
-RECORDS_BUCKET="oscm-fund-${SLUG}"
+PROFILE_BUCKET="oscm-fund-${SLUG}"
 if [[ ${#NAME} -gt 54 ]]; then
   echo "Error: \"$NAME\" is ${#NAME} characters; ${NAME}-scheduler would exceed IAM's 64" >&2
   exit 1
@@ -243,6 +248,7 @@ step "Inline policy $ROLE"
 
 case "$ROLE" in
   archiver)
+    # Archive writes are granted here; a family another role writes gets its own production-only prefix grant.
     ROLE_STATEMENTS="$(cat <<JSON
     {"Sid": "ReadWriteArchiveData", "Effect": "Allow",
      "Action": ["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload"],
@@ -253,15 +259,15 @@ case "$ROLE" in
      "Action": ["s3:ListBucket", "s3:ListBucketMultipartUploads"],
      "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}"},
     {"Sid": "ReadRecordsForTheViewCheck", "Effect": "Allow", "Action": ["s3:GetObject"],
-     "Resource": "arn:aws:s3:::${RECORDS_BUCKET}/records/*"},
+     "Resource": "arn:aws:s3:::${PROFILE_BUCKET}/records/*"},
     {"Sid": "ListRecordsForTheViewCheck", "Effect": "Allow", "Action": ["s3:ListBucket"],
-     "Resource": "arn:aws:s3:::${RECORDS_BUCKET}",
+     "Resource": "arn:aws:s3:::${PROFILE_BUCKET}",
      "Condition": {"StringLike": {"s3:prefix": ["records/*"]}}},
 JSON
 )"
     ;;
   trader)
-    # No ListBucket on the records bucket, so on a host S3 answers a missing playbook 403 and the trader reports it unread.
+    # No ListBucket on the profile bucket, so on a host S3 answers a missing playbook 403 and the trader reports it unread.
     ROLE_STATEMENTS="$(cat <<JSON
     {"Sid": "ReadArchiveData", "Effect": "Allow", "Action": ["s3:GetObject"],
      "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}/data/equity/*"},
@@ -269,10 +275,10 @@ JSON
      "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}",
      "Condition": {"StringLike": {"s3:prefix": ["data/equity/*"]}}},
     {"Sid": "ReadPlaybook", "Effect": "Allow", "Action": ["s3:GetObject"],
-     "Resource": "arn:aws:s3:::${RECORDS_BUCKET}/configuration/playbook.toml"},
+     "Resource": "arn:aws:s3:::${PROFILE_BUCKET}/configuration/playbook.toml"},
     {"Sid": "ReadBackOwnRecords", "Effect": "Allow", "Action": ["s3:GetObject"],
-     "Resource": ["arn:aws:s3:::${RECORDS_BUCKET}/records/journal/producer=${ROLE}/*",
-                  "arn:aws:s3:::${RECORDS_BUCKET}/records/logs/producer=${ROLE}/*"]},
+     "Resource": ["arn:aws:s3:::${PROFILE_BUCKET}/records/journal/producer=${ROLE}/*",
+                  "arn:aws:s3:::${PROFILE_BUCKET}/records/logs/producer=${ROLE}/*"]},
 JSON
 )"
     ;;
@@ -284,19 +290,19 @@ JSON
     {"Sid": "ListArchive", "Effect": "Allow", "Action": ["s3:ListBucket"],
      "Resource": "arn:aws:s3:::${ARCHIVE_BUCKET}"},
     {"Sid": "ReadBackOwnRecords", "Effect": "Allow", "Action": ["s3:GetObject"],
-     "Resource": ["arn:aws:s3:::${RECORDS_BUCKET}/records/journal/producer=${ROLE}/*",
-                  "arn:aws:s3:::${RECORDS_BUCKET}/records/logs/producer=${ROLE}/*"]},
+     "Resource": ["arn:aws:s3:::${PROFILE_BUCKET}/records/journal/producer=${ROLE}/*",
+                  "arn:aws:s3:::${PROFILE_BUCKET}/records/logs/producer=${ROLE}/*"]},
     {"Sid": "ListRecords", "Effect": "Allow", "Action": ["s3:ListBucket"],
-     "Resource": "arn:aws:s3:::${RECORDS_BUCKET}"},
+     "Resource": "arn:aws:s3:::${PROFILE_BUCKET}"},
     {"Sid": "ReadWriteScratch", "Effect": "Allow",
      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload"],
-     "Resource": "arn:aws:s3:::${RECORDS_BUCKET}/scratch/*"},
+     "Resource": "arn:aws:s3:::${PROFILE_BUCKET}/scratch/*"},
 JSON
 )"
     ;;
 esac
 
-# Writes are scoped to this host's producer prefixes, since the records bucket is shared by every host of the profile.
+# Writes are scoped to this host's producer prefixes, since the profile bucket is shared by every host of the profile.
 # AmazonSSMManagedInstanceCore allows parameter reads on `*`, so only the deny keeps a host out of another profile's keys.
 ROLE_POLICY="$(cat <<JSON
 {"Version": "2012-10-17", "Statement": [
@@ -307,8 +313,8 @@ ${ROLE_STATEMENTS}
      "Action": ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath", "ssm:GetParameterHistory"],
      "NotResource": "arn:aws:ssm:${REGION}:${ACCOUNT_ID}:parameter/secretspec/fund/${PROFILE}/*"},
     {"Sid": "WriteOwnRecords", "Effect": "Allow", "Action": ["s3:PutObject"],
-     "Resource": ["arn:aws:s3:::${RECORDS_BUCKET}/records/journal/producer=${ROLE}/*",
-                  "arn:aws:s3:::${RECORDS_BUCKET}/records/logs/producer=${ROLE}/*"]}
+     "Resource": ["arn:aws:s3:::${PROFILE_BUCKET}/records/journal/producer=${ROLE}/*",
+                  "arn:aws:s3:::${PROFILE_BUCKET}/records/logs/producer=${ROLE}/*"]}
 ]}
 JSON
 )"

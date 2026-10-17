@@ -17,7 +17,7 @@ use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
 use super::provenance::{MetadataEntry, Provenance};
-use super::{Archive, ArchiveError};
+use super::{Bucket, BucketError};
 use crate::common::storage::{EntityTag, Key, ReferenceKey, StorageClass};
 use crate::ingest::flat_files::{FlatFileDataset, FlatFileError, FlatFiles, Listed};
 
@@ -27,7 +27,7 @@ const PART_LENGTH: u64 = 64 * 1024 * 1024;
 /// Attempts at one part, each fetching and uploading it afresh, before the file is abandoned.
 const PART_ATTEMPTS: u32 = 5;
 
-/// What the archive holds under a key: its length and the checksum S3 holds for it.
+/// What the bucket holds under a key: its length and the checksum S3 holds for it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stored {
     length: u64,
@@ -93,7 +93,7 @@ pub enum CopyError {
     #[error("{0}")]
     Source(FlatFileError),
     #[error("{0}")]
-    Archive(ArchiveError),
+    Bucket(BucketError),
     /// The vendor lists the file with no bytes, which a multipart upload cannot hold.
     #[error("{path} is listed with no bytes")]
     Empty { path: String },
@@ -106,7 +106,7 @@ pub enum CopyError {
     },
 }
 
-impl Archive {
+impl Bucket {
     /// Copies `dataset`'s file for `listed` under its key, only if nothing is there yet; `permits` bounds the parts in
     /// flight across every copy sharing it.
     pub async fn copy_flat_file(
@@ -125,7 +125,7 @@ impl Archive {
         let upload_id = self
             .create_upload(&key, provenance)
             .await
-            .map_err(CopyError::Archive)?;
+            .map_err(CopyError::Bucket)?;
         let uploaded = self
             .upload_parts(flat_files, dataset, listed, &upload_id, permits)
             .await;
@@ -137,7 +137,7 @@ impl Archive {
             self.abort_upload(&path, &upload_id).await;
             return Err(error);
         }
-        match self.stored(&key).await.map_err(CopyError::Archive)? {
+        match self.stored(&key).await.map_err(CopyError::Bucket)? {
             Some(stored) if stored.length == listed.length() => Ok(stored),
             stored => Err(CopyError::Length {
                 path,
@@ -153,9 +153,9 @@ impl Archive {
         &self,
         key: &Key,
         provenance: &Provenance,
-    ) -> Result<String, ArchiveError> {
+    ) -> Result<String, BucketError> {
         let path = key.path();
-        let failed = |reason: String| ArchiveError::Put {
+        let failed = |reason: String| BucketError::Put {
             path: path.clone(),
             reason,
         };
@@ -229,7 +229,7 @@ impl Archive {
         let mut parts = Vec::new();
         while let Some(joined) = tasks.join_next().await {
             let part = joined.map_err(|error| {
-                CopyError::Archive(ArchiveError::Put {
+                CopyError::Bucket(BucketError::Put {
                     path: path.clone(),
                     reason: error.to_string(),
                 })
@@ -262,15 +262,15 @@ impl Archive {
             .await
             .map_err(|error| {
                 // 412 is a key already written; 409 is a conditional write that raced another.
-                CopyError::Archive(
+                CopyError::Bucket(
                     match error
                         .raw_response()
                         .map(|response| response.status().as_u16())
                     {
-                        Some(409 | 412) => ArchiveError::Contended {
+                        Some(409 | 412) => BucketError::Contended {
                             path: path.to_string(),
                         },
-                        Some(_) | None => ArchiveError::Put {
+                        Some(_) | None => BucketError::Put {
                             path: path.to_string(),
                             reason: aws_sdk_s3::error::DisplayErrorContext(error).to_string(),
                         },
@@ -281,9 +281,9 @@ impl Archive {
     }
 
     /// What is stored under `key`, read from its metadata alone, so a Deep Archive object needs no restore.
-    pub async fn stored(&self, key: &Key) -> Result<Option<Stored>, ArchiveError> {
+    pub async fn stored(&self, key: &Key) -> Result<Option<Stored>, BucketError> {
         let path = key.path();
-        let failed = |reason: String| ArchiveError::Get {
+        let failed = |reason: String| BucketError::Get {
             path: path.clone(),
             reason,
         };
@@ -335,7 +335,7 @@ impl Archive {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum TeeError {
     #[error("{0}")]
-    Archive(ArchiveError),
+    Bucket(BucketError),
     /// A page holding a line break would split into two lines that are neither the page.
     #[error("{path} was sent a page holding a line break")]
     LineBreak { path: String },
@@ -398,7 +398,7 @@ struct LineBreak;
 
 /// A session's fetched pages being stored under one raw key, a line each, replacing whatever the key held.
 pub struct RawWriter {
-    archive: Archive,
+    archive: Bucket,
     key: Key,
     upload_id: String,
     lines: GzipLines,
@@ -406,7 +406,7 @@ pub struct RawWriter {
     written: u64,
 }
 
-impl Archive {
+impl Bucket {
     /// Opens an upload under `key` stamped with `provenance`; finish or abort it, or its parts keep billing.
     pub async fn begin_raw(
         &self,
@@ -416,7 +416,7 @@ impl Archive {
         let upload_id = self
             .create_upload(&key, provenance)
             .await
-            .map_err(TeeError::Archive)?;
+            .map_err(TeeError::Bucket)?;
         Ok(RawWriter {
             archive: self.clone(),
             key,
@@ -428,7 +428,7 @@ impl Archive {
     }
 }
 
-impl Archive {
+impl Bucket {
     /// Stores a reference snapshot's response bodies as served, one per line, under its raw key.
     pub async fn store_responses(
         &self,
@@ -478,7 +478,7 @@ impl RawWriter {
             .archive
             .stored(&self.key)
             .await
-            .map_err(TeeError::Archive)?
+            .map_err(TeeError::Bucket)?
         {
             Some(stored) if stored.length == self.written => Ok(stored),
             stored => Err(TeeError::Length {
@@ -559,7 +559,7 @@ impl RawWriter {
 }
 
 fn put_failed<E: std::error::Error + 'static>(path: &str, error: E) -> TeeError {
-    TeeError::Archive(ArchiveError::Put {
+    TeeError::Bucket(BucketError::Put {
         path: path.to_string(),
         reason: aws_sdk_s3::error::DisplayErrorContext(error).to_string(),
     })
@@ -671,7 +671,7 @@ impl Part {
             .send()
             .await
             .map_err(|error| {
-                CopyError::Archive(ArchiveError::Put {
+                CopyError::Bucket(BucketError::Put {
                     path: self.path.clone(),
                     reason: aws_sdk_s3::error::DisplayErrorContext(error).to_string(),
                 })

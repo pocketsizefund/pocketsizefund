@@ -421,11 +421,11 @@ mod tests {
 
     #[test]
     fn test_a_trades_file_is_refused_by_its_schema() {
-        use crate::archive::provenance::{Provenance, Subscription};
         use crate::common::market::aggregate::TradeTotals;
         use crate::common::market::record::{BarInterval, Partition, Trade};
         use crate::common::market::trade_bars::{TradeBar, TradeSums};
         use crate::common::market::{Price, Shares, Symbol};
+        use crate::storage::provenance::{Provenance, Subscription};
         let trade = Trade::new(
             Symbol::new("AAPL").unwrap(),
             session().regular_close(),
@@ -440,7 +440,7 @@ mod tests {
             TradeSums::new(TradeTotals::of(&trade), None, None),
         )
         .unwrap();
-        let bars = crate::archive::trade_bars::encode(
+        let bars = crate::storage::trade_bars::encode(
             &crate::common::heal::alpaca_trades(session()),
             &Partition::try_from(vec![bar]).unwrap(),
             &Provenance::new(

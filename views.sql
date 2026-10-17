@@ -1,6 +1,6 @@
 -- Views over the archive layout of `src/common/storage.rs`: one series per provider view, and provider-neutral views
 -- that take one provider per session, so no session mixes two cadences or two providers. Reads the buckets named by
--- AWS_S3_ARCHIVE_BUCKET_NAME and AWS_S3_RECORDS_BUCKET_NAME with the local AWS credential chain.
+-- AWS_S3_ARCHIVE_BUCKET_NAME and AWS_S3_PROFILE_BUCKET_NAME with the local AWS credential chain.
 
 -- The setup must hold before any view is defined; a view that fails afterwards leaves the others usable.
 .bail on
@@ -12,13 +12,13 @@ INSTALL aws;
 LOAD aws;
 CREATE OR REPLACE SECRET archive (TYPE s3, PROVIDER credential_chain);
 -- An unset variable reads as empty, which would point every view at `s3:///`.
-SET VARIABLE market_data_bucket = CASE
+SET VARIABLE archive_bucket = CASE
     WHEN getenv('AWS_S3_ARCHIVE_BUCKET_NAME') = '' THEN error('AWS_S3_ARCHIVE_BUCKET_NAME is not set')
     ELSE getenv('AWS_S3_ARCHIVE_BUCKET_NAME')
 END;
-SET VARIABLE records_bucket = CASE
-    WHEN getenv('AWS_S3_RECORDS_BUCKET_NAME') = '' THEN error('AWS_S3_RECORDS_BUCKET_NAME is not set')
-    ELSE getenv('AWS_S3_RECORDS_BUCKET_NAME')
+SET VARIABLE profile_bucket = CASE
+    WHEN getenv('AWS_S3_PROFILE_BUCKET_NAME') = '' THEN error('AWS_S3_PROFILE_BUCKET_NAME is not set')
+    ELSE getenv('AWS_S3_PROFILE_BUCKET_NAME')
 END;
 
 -- The partitions of a session-partitioned series that `days` globs, `year`/`month`/`day` folded into `session`.
@@ -38,7 +38,7 @@ SELECT * FROM partitions(bucket, series, 'year=*/month=*/day=*');
 CREATE OR REPLACE MACRO snapshots(series) AS TABLE
 SELECT *
 FROM read_parquet(
-    's3://' || getvariable('market_data_bucket') || '/' || series || 'as_of=*/data.parquet',
+    's3://' || getvariable('archive_bucket') || '/' || series || 'as_of=*/data.parquet',
     hive_partitioning = true,
     hive_types = {'as_of': DATE}
 );
@@ -48,14 +48,14 @@ CREATE OR REPLACE MACRO held_sessions(series) AS TABLE
 SELECT make_date(parts.year::BIGINT, parts.month::BIGINT, parts.day::BIGINT) AS session
 FROM (
     SELECT regexp_extract(file, 'year=(\d+)/month=(\d+)/day=(\d+)/', ['year', 'month', 'day']) AS parts
-    FROM glob('s3://' || getvariable('market_data_bucket') || '/' || series || 'year=*/month=*/day=*/data.parquet')
+    FROM glob('s3://' || getvariable('archive_bucket') || '/' || series || 'year=*/month=*/day=*/data.parquet')
 );
 
 -- One series both providers carry, Massive's where it holds the session and Alpaca's otherwise; `provider` says which.
 CREATE OR REPLACE MACRO preferred(massive, alpaca) AS TABLE
-SELECT * FROM sessions('market_data_bucket', massive)
+SELECT * FROM sessions('archive_bucket', massive)
 UNION ALL
-SELECT * FROM sessions('market_data_bucket', alpaca)
+SELECT * FROM sessions('archive_bucket', alpaca)
 WHERE session NOT IN (SELECT session FROM held_sessions(massive));
 
 -- A journaled count of millionths, a `Price` or `Shares`, in units.
@@ -71,7 +71,7 @@ CREATE OR REPLACE MACRO trillionths(value) AS CAST(value AS DECIMAL(38, 0)) * 0.
 -- the value.
 CREATE OR REPLACE MACRO bar_seam_over(days) AS TABLE
 WITH trader_journal AS (
-    SELECT * FROM partitions('records_bucket', 'records/journal/producer=trader/', days)
+    SELECT * FROM partitions('profile_bucket', 'records/journal/producer=trader/', days)
 ),
 trader AS (
     SELECT
@@ -104,7 +104,7 @@ watched AS (
 ),
 archive AS (
     SELECT runs.run_id, bars.*
-    FROM partitions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/', days) AS bars
+    FROM partitions('archive_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/', days) AS bars
     JOIN runs ON runs.session = bars.session
     JOIN watched ON watched.run_id = runs.run_id AND watched.symbol = bars.symbol
     WHERE bars.timestamp BETWEEN runs.first AND runs.last
@@ -138,51 +138,51 @@ SELECT * FROM bar_seam_over(strftime(day, 'year=%Y/month=%m/day=%d'));
 
 -- One-minute quote bars the nightly folds from Alpaca's SIP quotes.
 CREATE OR REPLACE VIEW alpaca_minute_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=one_minute/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=one_minute/');
 
 -- Five-minute quote bars rolled up from Alpaca's one-minute quote bars.
 CREATE OR REPLACE VIEW alpaca_five_minute_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=five_minute/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=five_minute/');
 
 -- Daily quote bars rolled up from Alpaca's one-minute quote bars.
 CREATE OR REPLACE VIEW alpaca_daily_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=one_day/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/quotes/provider=alpaca/interval=one_day/');
 
 -- One-minute trade bars derived from Alpaca's SIP trades over the whole Eastern day by the trader's own fold.
 CREATE OR REPLACE VIEW alpaca_minute_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_minute/');
 
 -- Five-minute trade bars rolled up from Alpaca's one-minute trade bars.
 CREATE OR REPLACE VIEW alpaca_five_minute_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=five_minute/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=five_minute/');
 
 -- Daily trade bars rolled up from Alpaca's one-minute trade bars.
 CREATE OR REPLACE VIEW alpaca_daily_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/trades/provider=alpaca/interval=one_day/');
 
 -- One-minute quote bars folded from Massive's quote flat files, time-weighted over regular hours.
 CREATE OR REPLACE VIEW massive_minute_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=one_minute/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=one_minute/');
 
 -- Five-minute quote bars rolled up from Massive's one-minute quote bars.
 CREATE OR REPLACE VIEW massive_five_minute_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=five_minute/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=five_minute/');
 
 -- Daily quote bars rolled up from Massive's one-minute quote bars.
 CREATE OR REPLACE VIEW massive_daily_quote_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=one_day/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/quotes/provider=massive/interval=one_day/');
 
 -- One-minute trade bars folded from Massive's trade flat files over the whole Eastern day.
 CREATE OR REPLACE VIEW massive_minute_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=one_minute/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=one_minute/');
 
 -- Five-minute trade bars rolled up from Massive's one-minute trade bars.
 CREATE OR REPLACE VIEW massive_five_minute_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=five_minute/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=five_minute/');
 
 -- Daily trade bars rolled up from Massive's one-minute trade bars.
 CREATE OR REPLACE VIEW massive_daily_trade_bars AS
-SELECT * FROM sessions('market_data_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=one_day/');
+SELECT * FROM sessions('archive_bucket', 'data/equity/stage=parsed/trades/provider=massive/interval=one_day/');
 
 -- One-minute quote bars from either provider, one provider per session.
 CREATE OR REPLACE VIEW minute_quote_bars AS
@@ -244,11 +244,11 @@ SELECT * FROM snapshots('data/equity/stage=parsed/reference/provider=alpaca/tabl
 
 -- Every producer's journal, the hosts' and the operator's, one row per line; `payload` is JSON text for `json_extract`.
 CREATE OR REPLACE VIEW journal AS
-SELECT * FROM sessions('records_bucket', 'records/journal/producer=*/');
+SELECT * FROM sessions('profile_bucket', 'records/journal/producer=*/');
 
 -- Every service's logs, one row per line; a file holds the runs that started in its session.
 CREATE OR REPLACE VIEW logs AS
-SELECT * FROM sessions('records_bucket', 'records/logs/producer=*/service=*/');
+SELECT * FROM sessions('profile_bucket', 'records/logs/producer=*/service=*/');
 
 -- Every experiment a study journaled, one row each; settings and outputs stay JSON for `json_extract`.
 CREATE OR REPLACE VIEW experiments AS
@@ -274,7 +274,7 @@ SELECT
     CAST(payload ->> '$.machine.cores' AS BIGINT) AS cores,
     CAST(payload ->> '$.since_opened' AS BIGINT) AS milliseconds_since_opened,
     run_id
-FROM sessions('records_bucket', 'records/journal/producer=researcher/')
+FROM sessions('profile_bucket', 'records/journal/producer=researcher/')
 WHERE event_type = 'experiment_ran';
 
 -- The seam over every session, which reads every partition of both series; `bar_seam_on` reads one.

@@ -228,8 +228,6 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::archive::parquet::PlacementRefusal;
-    use crate::archive::provenance::Subscription;
     use crate::common::journal::{Commit, RunId};
     use crate::common::market::Price;
     use crate::common::market::quote_bars::QuoteFold;
@@ -237,6 +235,8 @@ mod tests {
     use crate::common::market::record::{PartitionRefusal, Quote};
     use crate::common::storage::Provider;
     use crate::common::time::SessionDate;
+    use crate::storage::parquet::PlacementRefusal;
+    use crate::storage::provenance::Subscription;
 
     fn session() -> SessionDate {
         SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap())

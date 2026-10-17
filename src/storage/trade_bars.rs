@@ -224,7 +224,6 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::archive::provenance::Subscription;
     use crate::common::journal::RunId;
     use crate::common::market::record::BarInterval;
     use crate::common::market::record::{PartitionRefusal, Trade};
@@ -235,6 +234,7 @@ mod tests {
     use crate::common::market::{Price, PriceRefusal};
     use crate::common::storage::Provider;
     use crate::common::time::SessionDate;
+    use crate::storage::provenance::Subscription;
 
     #[test]
     fn test_a_file_with_no_rows_is_refused() {
@@ -296,7 +296,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            crate::archive::DecodeRefusal::Bars(parquet::DecodeRefusal::File(
+            crate::storage::DecodeRefusal::Bars(parquet::DecodeRefusal::File(
                 ReadRefusal::Layout {
                     version: "9".to_string(),
                 }

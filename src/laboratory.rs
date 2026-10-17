@@ -1,5 +1,5 @@
 //! Loads what studies read and catalogs what they do: a `Study` journals every dataset its loaders read and every
-//! experiment it reports, then merges the journal into the records bucket.
+//! experiment it reports, then merges the journal into the profile bucket.
 
 pub mod compare;
 pub mod dataset;
@@ -13,7 +13,6 @@ use chrono::Utc;
 use tokio::time::Instant;
 use uuid::Uuid;
 
-use crate::archive::Archive;
 use crate::common::journal::{Observation, RunId};
 use crate::common::laboratory::dataset::Fingerprint;
 use crate::common::laboratory::experiment::{
@@ -24,6 +23,7 @@ use crate::common::time::SessionDate;
 use crate::journal::{Journal, file_name};
 use crate::laboratory::dataset::Lineage;
 use crate::records::{RESHIPPED_DAYS, ShipFailure, contents, merge_into};
+use crate::storage::Bucket;
 
 /// One run of study code: its journal, what it is about, the machine it runs on, and when it opened.
 pub struct Study {
@@ -115,16 +115,16 @@ impl Study {
             .map_err(StudyError::Journal)
     }
 
-    /// Merges each recent session file in the journal directory into its researcher object in `records`, so studies
+    /// Merges each recent session file in the journal directory into its researcher object in `profile`, so studies
     /// from other directories or machines that shipped the same session keep their records.
-    pub async fn finish(self, records: &Archive) -> Vec<(Key, Result<(), ShipFailure>)> {
+    pub async fn finish(self, profile: &Bucket) -> Vec<(Key, Result<(), ShipFailure>)> {
         let today = SessionDate::at(Utc::now());
         let mut shipped = Vec::new();
         for days in 0..RESHIPPED_DAYS {
             let session = today.plus_calendar_days(-days);
             let key = JournalKey::new(Host::Researcher, session);
             let outcome = match contents(&self.journal.directory().join(file_name(session))) {
-                Some(Ok(text)) => merge_into(records, key, &text).await,
+                Some(Ok(text)) => merge_into(profile, key, &text).await,
                 Some(Err(failure)) => Err(failure),
                 None => continue,
             };
@@ -140,16 +140,16 @@ mod tests {
 
     /// Two studies in different directories ship the same session; the object keeps both runs' records.
     #[tokio::test]
-    #[ignore = "writes researcher journal objects to the bucket AWS_S3_RECORDS_BUCKET_NAME names, which must be a \
+    #[ignore = "writes researcher journal objects to the bucket AWS_S3_PROFILE_BUCKET_NAME names, which must be a \
                 development bucket"]
     async fn live_two_studies_shipping_one_session_keep_both() {
-        let bucket = std::env::var("AWS_S3_RECORDS_BUCKET_NAME").unwrap();
+        let bucket = std::env::var("AWS_S3_PROFILE_BUCKET_NAME").unwrap();
         assert!(
             bucket.contains("development"),
             "refusing to write test journals into {bucket}"
         );
         let configuration = aws_config::load_from_env().await;
-        let records = Archive::records(&configuration).unwrap();
+        let profile = Bucket::profile(&configuration).unwrap();
         let mut runs = Vec::new();
         for _ in 0..2 {
             let directory = std::env::temp_dir().join(format!("fund-study-{}", Uuid::new_v4()));
@@ -159,15 +159,15 @@ mod tests {
                 .experiment(Parameters::default(), &[], Outputs::default())
                 .unwrap();
             runs.push(study.run_id());
-            for (key, outcome) in study.finish(&records).await {
+            for (key, outcome) in study.finish(&profile).await {
                 assert!(outcome.is_ok(), "{}: {outcome:?}", key.path());
             }
             std::fs::remove_dir_all(&directory).unwrap();
         }
         let key = JournalKey::new(Host::Researcher, SessionDate::at(Utc::now()));
-        let held = crate::archive::journal::decode(
+        let held = crate::storage::journal::decode(
             &key,
-            records.get(&Key::from(key)).await.unwrap().unwrap(),
+            profile.get(&Key::from(key)).await.unwrap().unwrap(),
         )
         .unwrap();
         for run in runs {

@@ -2,8 +2,6 @@
 
 use std::collections::BTreeMap;
 
-use crate::archive::provenance::Provenance;
-use crate::archive::{Archive, ArchiveError, parquet, trade_bars};
 use crate::common::journal::RunId;
 use crate::common::laboratory::dataset::{
     Contamination, DatasetLeg, Fingerprint, FingerprintRefusal, PartitionRead, Symbols,
@@ -15,6 +13,8 @@ use crate::common::storage::{Key, Provider, TradesKey};
 use crate::common::time::calendar::TradingCalendar;
 use crate::common::time::{SessionDate, SessionRange};
 use crate::laboratory::Study;
+use crate::storage::provenance::Provenance;
+use crate::storage::{Bucket, BucketError, parquet, trade_bars};
 
 /// Trade bars by session and the lineage of the partitions they came from.
 #[derive(Debug)]
@@ -74,7 +74,7 @@ pub enum DatasetError {
     #[error("the read could not be journaled: {0}")]
     Journal(std::io::Error),
     #[error("{0}")]
-    Archive(ArchiveError),
+    Bucket(BucketError),
     #[error("the partition for {session} did not decode: {refusal:?}")]
     Decode {
         session: SessionDate,
@@ -86,7 +86,7 @@ pub enum DatasetError {
 /// holds one and Alpaca otherwise, journaled to `study` before it is returned with the provider of each session and the
 /// symbols kept in its fingerprint.
 pub async fn trade_bars(
-    archive: &Archive,
+    archive: &Bucket,
     calendar: &TradingCalendar,
     range: SessionRange,
     interval: BarInterval,
@@ -190,7 +190,7 @@ async fn load(
 
 /// `provider`'s partition under `key` with the version read, or `None` when it has none.
 async fn read<K: Copy + Into<Key>, B>(
-    archive: &Archive,
+    archive: &Bucket,
     provider: Provider,
     key: K,
     session: SessionDate,
@@ -199,7 +199,7 @@ async fn read<K: Copy + Into<Key>, B>(
     let Some((body, tag)) = archive
         .get_tagged(&key.into())
         .await
-        .map_err(DatasetError::Archive)?
+        .map_err(DatasetError::Bucket)?
     else {
         return Ok(None);
     };
@@ -211,16 +211,16 @@ async fn read<K: Copy + Into<Key>, B>(
 /// Every session `fingerprint` read that now reads as another provider or version, or not at all, each looked up as
 /// its loader would read it now.
 pub async fn lineage(
-    archive: &Archive,
+    archive: &Bucket,
     fingerprint: &Fingerprint,
-) -> Result<Vec<Contamination>, ArchiveError> {
+) -> Result<Vec<Contamination>, BucketError> {
     let mut current = BTreeMap::new();
     for session in fingerprint.partitions().keys() {
         let candidates: Vec<(Provider, Key)> = trade_keys(fingerprint.leg().interval(), *session)
             .map(|(provider, key)| (provider, key.into()))
             .into();
         let found = preferred(candidates, async |provider, key| {
-            Ok::<_, ArchiveError>(
+            Ok::<_, BucketError>(
                 archive
                     .tag(&key)
                     .await?
@@ -500,7 +500,7 @@ pub(crate) mod tests {
     }
 
     /// A study's reads and experiments land in its journal in order, name exactly the data read, and survive the
-    /// parquet encoding the records bucket stores.
+    /// parquet encoding the profile bucket stores.
     #[test]
     fn test_a_study_catalogs_what_it_read_and_ran() {
         let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
@@ -571,9 +571,9 @@ pub(crate) mod tests {
             }
         };
         let key = JournalKey::new(Host::Researcher, session);
-        let encoded = crate::archive::journal::encode(&key, &lines).unwrap();
+        let encoded = crate::storage::journal::encode(&key, &lines).unwrap();
         assert_eq!(
-            crate::archive::journal::decode(&key, encoded).unwrap(),
+            crate::storage::journal::decode(&key, encoded).unwrap(),
             lines
         );
         std::fs::remove_dir_all(&directory).unwrap();
@@ -606,7 +606,7 @@ pub(crate) mod tests {
     #[ignore = "reads the live archive and the Alpaca calendar; run deliberately under secretspec"]
     async fn live_trade_bars_read_each_session_from_its_preferred_provider() {
         let configuration = aws_config::load_from_env().await;
-        let archive = Archive::market_data(&configuration).unwrap();
+        let archive = Bucket::archive(&configuration).unwrap();
         let alpaca = Alpaca::from_environment(reqwest::Client::new()).unwrap();
         let session =
             |month, day| SessionDate::from_date(NaiveDate::from_ymd_opt(2026, month, day).unwrap());

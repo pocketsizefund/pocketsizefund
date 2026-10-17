@@ -1,5 +1,5 @@
-//! The fund's S3 buckets: the shared market-data archive and each profile's records, with objects written under their
-//! `Key`, checked by S3 against a SHA-256 on upload and read back byte for byte before a write counts as done.
+//! The fund's S3 buckets: the shared market-data archive and each profile's own bucket, with objects written under
+//! their `Key`, checked by S3 against a SHA-256 on upload and read back byte for byte before a write counts as done.
 
 pub mod journal;
 pub mod logs;
@@ -16,16 +16,16 @@ use aws_sdk_s3::types::{ChecksumAlgorithm, ChecksumMode};
 use crate::common::storage::{EntityTag, ObjectKey, SeriesPrefix, StorageClass};
 use crate::ingest::VariableRefusal;
 
-/// One S3 bucket the fund writes: the shared market data or a profile's records.
+/// One S3 bucket the fund writes: the shared market data or a profile's own.
 #[derive(Clone)]
-pub struct Archive {
+pub struct Bucket {
     s3_client: aws_sdk_s3::Client,
     bucket_name: String,
 }
 
 /// Why a write or read did not complete.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum ArchiveError {
+pub enum BucketError {
     #[error("writing {path} failed: {reason}")]
     Put { path: String, reason: String },
     #[error("reading {path} failed: {reason}")]
@@ -100,15 +100,15 @@ wrap_refusal!(
     DecodeRefusal::Journal(journal::DecodeRefusal),
 );
 
-impl Archive {
+impl Bucket {
     /// The shared market-data archive named by `AWS_S3_ARCHIVE_BUCKET_NAME`, which only the archiver writes.
-    pub fn market_data(configuration: &aws_config::SdkConfig) -> Result<Self, VariableRefusal> {
+    pub fn archive(configuration: &aws_config::SdkConfig) -> Result<Self, VariableRefusal> {
         Self::named(configuration, "AWS_S3_ARCHIVE_BUCKET_NAME")
     }
 
-    /// This profile's journals and logs, named by `AWS_S3_RECORDS_BUCKET_NAME`.
-    pub fn records(configuration: &aws_config::SdkConfig) -> Result<Self, VariableRefusal> {
-        Self::named(configuration, "AWS_S3_RECORDS_BUCKET_NAME")
+    /// This profile's journals, logs, configuration and scratch, named by `AWS_S3_PROFILE_BUCKET_NAME`.
+    pub fn profile(configuration: &aws_config::SdkConfig) -> Result<Self, VariableRefusal> {
+        Self::named(configuration, "AWS_S3_PROFILE_BUCKET_NAME")
     }
 
     fn named(
@@ -122,12 +122,12 @@ impl Archive {
     }
 
     /// Writes `body` under `key` and returns once the same bytes have been read back.
-    pub async fn put(&self, key: &impl ObjectKey, body: Vec<u8>) -> Result<(), ArchiveError> {
+    pub async fn put(&self, key: &impl ObjectKey, body: Vec<u8>) -> Result<(), BucketError> {
         self.write(key, body, Condition::Any).await
     }
 
     /// Writes `body` only if nothing is under `key` yet, so two writers can never both take it.
-    pub async fn create(&self, key: &impl ObjectKey, body: Vec<u8>) -> Result<(), ArchiveError> {
+    pub async fn create(&self, key: &impl ObjectKey, body: Vec<u8>) -> Result<(), BucketError> {
         self.write(key, body, Condition::Absent).await
     }
 
@@ -137,7 +137,7 @@ impl Archive {
         key: &impl ObjectKey,
         body: Vec<u8>,
         tag: &EntityTag,
-    ) -> Result<(), ArchiveError> {
+    ) -> Result<(), BucketError> {
         self.write(key, body, Condition::Unchanged(tag)).await
     }
 
@@ -147,7 +147,7 @@ impl Archive {
         key: &impl ObjectKey,
         body: Vec<u8>,
         condition: Condition<'_>,
-    ) -> Result<(), ArchiveError> {
+    ) -> Result<(), BucketError> {
         let bytes = body.len();
         let condition_name: &'static str = condition.into();
         let written = self.write_verified(key, body, condition).await;
@@ -172,11 +172,11 @@ impl Archive {
         key: &impl ObjectKey,
         body: Vec<u8>,
         condition: Condition<'_>,
-    ) -> Result<(), ArchiveError> {
+    ) -> Result<(), BucketError> {
         let path = key.path();
         match key.storage_class() {
             StorageClass::Standard => {}
-            StorageClass::DeepArchive => return Err(ArchiveError::Unverifiable { path }),
+            StorageClass::DeepArchive => return Err(BucketError::Unverifiable { path }),
         }
         let request = self
             .s3_client
@@ -196,8 +196,8 @@ impl Archive {
                 .raw_response()
                 .map(|response| response.status().as_u16())
             {
-                Some(409 | 412) => ArchiveError::Contended { path: path.clone() },
-                Some(_) | None => ArchiveError::Put {
+                Some(409 | 412) => BucketError::Contended { path: path.clone() },
+                Some(_) | None => BucketError::Put {
                     path: path.clone(),
                     reason: aws_sdk_s3::error::DisplayErrorContext(error).to_string(),
                 },
@@ -207,7 +207,7 @@ impl Archive {
     }
 
     /// Deletes the object under `key`; deleting one already gone succeeds, as S3 answers it.
-    pub async fn delete(&self, key: &impl ObjectKey) -> Result<(), ArchiveError> {
+    pub async fn delete(&self, key: &impl ObjectKey) -> Result<(), BucketError> {
         let path = key.path();
         match self
             .s3_client
@@ -222,7 +222,7 @@ impl Archive {
                 Ok(())
             }
             Err(error) => {
-                let error = ArchiveError::Delete {
+                let error = BucketError::Delete {
                     path: path.clone(),
                     reason: aws_sdk_s3::error::DisplayErrorContext(error).to_string(),
                 };
@@ -233,7 +233,7 @@ impl Archive {
     }
 
     /// Every path under `series`, across as many pages as S3 answers with.
-    pub async fn list(&self, series: &SeriesPrefix) -> Result<Vec<String>, ArchiveError> {
+    pub async fn list(&self, series: &SeriesPrefix) -> Result<Vec<String>, BucketError> {
         let mut pages = self
             .s3_client
             .list_objects_v2()
@@ -243,7 +243,7 @@ impl Archive {
             .send();
         let mut paths = Vec::new();
         while let Some(page) = pages.next().await {
-            let page = page.map_err(|error| ArchiveError::List {
+            let page = page.map_err(|error| BucketError::List {
                 series: series.clone(),
                 reason: aws_sdk_s3::error::DisplayErrorContext(error).to_string(),
             })?;
@@ -257,14 +257,14 @@ impl Archive {
     }
 
     /// The object under `key`, or `None` when nothing is there; S3 verifies the stored checksum as it streams.
-    pub async fn get(&self, key: &impl ObjectKey) -> Result<Option<Vec<u8>>, ArchiveError> {
+    pub async fn get(&self, key: &impl ObjectKey) -> Result<Option<Vec<u8>>, BucketError> {
         Ok(self.get_tagged(key).await?.map(|(body, _)| body))
     }
 
     /// The tag of the version under `key` now, without reading it; `None` when the object is gone.
-    pub async fn tag(&self, key: &impl ObjectKey) -> Result<Option<EntityTag>, ArchiveError> {
+    pub async fn tag(&self, key: &impl ObjectKey) -> Result<Option<EntityTag>, BucketError> {
         let path = key.path();
-        let failed = |reason: String| ArchiveError::Get {
+        let failed = |reason: String| BucketError::Get {
             path: path.clone(),
             reason,
         };
@@ -298,9 +298,9 @@ impl Archive {
     pub async fn get_tagged(
         &self,
         key: &impl ObjectKey,
-    ) -> Result<Option<(Vec<u8>, EntityTag)>, ArchiveError> {
+    ) -> Result<Option<(Vec<u8>, EntityTag)>, BucketError> {
         let path = key.path();
-        let failed = |reason: String| ArchiveError::Get {
+        let failed = |reason: String| BucketError::Get {
             path: path.clone(),
             reason,
         };
@@ -342,15 +342,15 @@ impl Archive {
 }
 
 /// Whether `read` is the `written` body, with an absent object told apart from a short one.
-fn read_back(path: String, written: &[u8], read: Option<Vec<u8>>) -> Result<(), ArchiveError> {
+fn read_back(path: String, written: &[u8], read: Option<Vec<u8>>) -> Result<(), BucketError> {
     match read {
         Some(read) if read == written => Ok(()),
-        Some(read) => Err(ArchiveError::ReadBackMismatch {
+        Some(read) => Err(BucketError::ReadBackMismatch {
             path,
             written: written.len(),
             read: read.len(),
         }),
-        None => Err(ArchiveError::VanishedAfterWrite {
+        None => Err(BucketError::VanishedAfterWrite {
             path,
             written: written.len(),
         }),
@@ -379,7 +379,7 @@ mod tests {
             .behavior_version_latest()
             .region(aws_sdk_s3::config::Region::new("us-east-1"))
             .build();
-        let archive = Archive {
+        let archive = Bucket {
             s3_client: aws_sdk_s3::Client::from_conf(configuration),
             bucket_name: "unused".to_string(),
         };
@@ -389,7 +389,7 @@ mod tests {
         };
         assert_eq!(
             archive.put(&key, vec![1]).await,
-            Err(ArchiveError::Unverifiable {
+            Err(BucketError::Unverifiable {
                 path: "data/equity/stage=raw/quotes/provider=massive/year=2021/month=08/day=23/data.csv.gz"
                     .to_string()
             })
@@ -402,7 +402,7 @@ mod tests {
         assert_eq!(read_back(path(), &[1, 2], Some(vec![1, 2])), Ok(()));
         assert_eq!(
             read_back(path(), &[1, 2], Some(vec![])),
-            Err(ArchiveError::ReadBackMismatch {
+            Err(BucketError::ReadBackMismatch {
                 path: path(),
                 written: 2,
                 read: 0
@@ -410,7 +410,7 @@ mod tests {
         );
         assert_eq!(
             read_back(path(), &[1, 2], None),
-            Err(ArchiveError::VanishedAfterWrite {
+            Err(BucketError::VanishedAfterWrite {
                 path: path(),
                 written: 2
             })

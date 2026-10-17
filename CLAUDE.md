@@ -20,11 +20,10 @@ This is a collection of guidelines and references.
   out of git, and fixtures are synthetic because vendor licences forbid redistributing their data;
   `check-private-files` refuses only the patterns it names, so a new private format needs adding there
 - Read the `experiments` view (`start-duckdb`) before starting a study to see what has already been tried, under each
-  profile or with `SET VARIABLE records_bucket` set to the other bucket, and journal every experiment through a `Study`;
+  profile or with `SET VARIABLE profile_bucket` set to the other bucket, and journal every experiment through a `Study`;
   the catalog records the work and gates none of it, so holdouts are designed per study
 - Studies are throwaway binaries in the gitignored `studies/src/bin/`, run with `cargo run -p studies --bin <name>`,
-  and a `Study` journals into the gitignored `journal/` at the root, which `finish` ships to the profile's records
-  bucket
+  and a `Study` journals into the gitignored `journal/` at the root, which `finish` ships to the profile bucket
 - Measure a replaceable component through `laboratory::compare` against its trivial arm (the null strategy or the
   component it replaces) over the same replayed sessions, so the paired difference lands in one experiment
 - Introduce new dependencies only after approval
@@ -148,9 +147,21 @@ This is a collection of guidelines and references.
   than a raw score
 - Start a study as simply as you can provided the main effects are in, get the insights, then evolve
   it to the fully detailed run — a full-scale simulation disguises the system
-- Build nothing permanent for a data source until a study shows it adds value: explore on its raw bytes (a restored
-  archive object, a gitignored directory, or a scratch prefix no lifecycle rule touches), clean them inside the study,
-  and only then write fetchers, write paths, storage and parsers, as strict (nightly) or loose (landed once)
+- A data source stays a study's own until a study shows it adds value: fetch it raw (from the provider, or a restored
+  archive object) into a gitignored directory or the profile bucket's `scratch/` prefix, clean it as often as the
+  study needs, and write nothing to the archive bucket
+- Promoting a source makes it permanent in the archive bucket: its raw bytes are kept in Deep Archive unless a licence
+  forbids it or they are re-derivable from what we hold, and its parsed form is a fixed transform of those bytes by
+  code in the repo, so it can be rebuilt from raw at any time; a new source adds its `Key` variant
+- Give every archive family exactly one writer, the `archiver`, the `researcher` or an `operator`, and grant it only
+  that family's prefix; a development profile never writes the archive bucket
+- At promotion, record the source's facts (recurring or fixed, perishable or still on sale, whether rows carry a
+  publication time for `known_at`, and its consumer) and let them set the rest: schedule a fetch only for a recurring
+  source that is perishable or read at decision time, parse at write time only what execution reads, and parse at
+  read time otherwise
+- A source has one of three consumers: execution (risk, the guard, fills), which must be exact and typed;
+  decision-time features, which must be available live and point-in-time; and training-only inputs, which shape a
+  model's parameters but are never read when deciding, and which must be reproducible but never live
 - Volume of output is a poor substitute for an intimate feeling for the situation being simulated —
   prefer fewer runs read carefully over many runs summarized
 - Unusually low variance across seeds is a warning rather than a quality signal — it means the metric is
