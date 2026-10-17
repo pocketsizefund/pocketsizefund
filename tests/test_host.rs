@@ -184,7 +184,9 @@ fn test_every_host_is_a_role_of_both_scripts() {
 /// `secretspec` stubbed on `PATH` and the job in its own directory.
 struct JobRun {
     code: i32,
+    /// Standard output alone, where run-role reports; bash's job-control warnings go to standard error.
     output: String,
+    errors: String,
     directory: PathBuf,
 }
 
@@ -220,11 +222,8 @@ impl JobRun {
             .unwrap();
         Self {
             code: output.status.code().unwrap(),
-            output: format!(
-                "{}{}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            ),
+            output: String::from_utf8_lossy(&output.stdout).into_owned(),
+            errors: String::from_utf8_lossy(&output.stderr).into_owned(),
             directory,
         }
     }
@@ -250,7 +249,7 @@ fn test_a_researcher_job_exits_with_its_own_status() {
     let sha = sha.trim();
     for (body, code) in [("exit 0\n", 0), ("exit 3\n", 3)] {
         let ran = JobRun::run(body);
-        assert_eq!(ran.code, code, "{}", ran.output);
+        assert_eq!(ran.code, code, "{}{}", ran.output, ran.errors);
         assert_eq!(
             ran.output,
             format!("Job probe at {sha} exited {code}\n"),
@@ -264,7 +263,7 @@ fn test_a_researcher_job_past_its_limit_is_killed_with_every_process_it_started(
     let ran = JobRun::run(
         "sleep 300 >/dev/null 2>&1 &\necho $! > \"$FUND_JOBS_DIRECTORY/child\"\nsleep 20\n",
     );
-    assert_eq!(ran.code, 124, "{}", ran.output);
+    assert_eq!(ran.code, 124, "{}{}", ran.output, ran.errors);
     assert_eq!(ran.output, "Job probe timed out after 1 h\n");
     let child = std::fs::read_to_string(ran.directory.join("child")).unwrap();
     let alive = Command::new("bash")

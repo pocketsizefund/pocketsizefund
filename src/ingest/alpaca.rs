@@ -11,8 +11,8 @@ use tokio::sync::mpsc::Sender;
 
 use super::retry::{FetchError, send, with_retries};
 use super::{
-    OneSidedQuote, PrintOrigin, QuoteOrigin, RefusedRow, RowRefusal, Secret, VariableRefusal,
-    priced_side, variable,
+    OneSidedQuote, ParseRefusal, PrintOrigin, QuoteOrigin, RefusedRow, RowRefusal, Secret,
+    VariableRefusal, priced_side, variable,
 };
 use crate::common::market::record::Quote;
 use crate::common::market::trade_bars::{ConditionLetter, Correction, Print, Tape};
@@ -575,48 +575,78 @@ pub fn tape_of(letter: &str) -> Option<Tape> {
     }
 }
 
-/// Every quote of one raw page, as the tee stored it, each read under the ticker it is filed under.
-pub fn raw_quote_page(body: &[u8]) -> Result<Vec<AlpacaQuoteOutcome>, FetchError> {
-    let page: QuotesPage = serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
-        reason: error.to_string(),
-    })?;
-    Ok(page
-        .quotes
-        .unwrap_or_default()
-        .into_iter()
-        .flat_map(|(ticker, rows)| {
-            let symbol = Symbol::new(&ticker);
-            rows.into_iter().map(move |row| match &symbol {
-                Ok(symbol) => quote_outcome(symbol, &row),
-                Err(cause) => AlpacaQuoteOutcome::Refused(RefusedRow {
-                    ticker: ticker.clone(),
-                    cause: RowRefusal::Symbol(cause.clone()),
-                }),
-            })
+/// The raw tee's lines from a gzipped object, one response page each, each paired with its line number from one.
+fn raw_pages(
+    gzipped: impl std::io::Read,
+) -> impl Iterator<Item = Result<(u64, String), ParseRefusal>> {
+    let decoded = flate2::read::MultiGzDecoder::new(gzipped);
+    (1..)
+        .zip(std::io::BufRead::lines(std::io::BufReader::new(decoded)))
+        .map(|(line, text)| {
+            text.map(|text| (line, text))
+                .map_err(|error| ParseRefusal::Malformed {
+                    line: Some(line),
+                    reason: error.to_string(),
+                })
         })
-        .collect())
 }
 
-/// Every trade of one raw page, as the tee stored it, each read under the ticker it is filed under.
-pub fn raw_trade_page(body: &[u8]) -> Result<Vec<AlpacaTradeOutcome>, FetchError> {
-    let page: TradesPage = serde_json::from_slice(body).map_err(|error| FetchError::Malformed {
-        reason: error.to_string(),
-    })?;
-    Ok(page
-        .trades
-        .unwrap_or_default()
-        .into_iter()
-        .flat_map(|(ticker, rows)| {
+/// Reads a gzipped raw tee object of Alpaca quotes, handing each row's outcome to `each` in file order, read under the
+/// ticker it is filed under.
+pub fn read_raw_quotes(
+    gzipped: impl std::io::Read,
+    mut each: impl FnMut(AlpacaQuoteOutcome),
+) -> Result<(), ParseRefusal> {
+    for page in raw_pages(gzipped) {
+        let (line, text) = page?;
+        let page: QuotesPage =
+            serde_json::from_str(&text).map_err(|error| ParseRefusal::Malformed {
+                line: Some(line),
+                reason: error.to_string(),
+            })?;
+        for (ticker, rows) in page.quotes.unwrap_or_default() {
             let symbol = Symbol::new(&ticker);
-            rows.into_iter().map(move |row| match &symbol {
-                Ok(symbol) => trade_outcome(symbol, &row),
-                Err(cause) => AlpacaTradeOutcome::Refused(RefusedRow {
-                    ticker: ticker.clone(),
-                    cause: RowRefusal::Symbol(cause.clone()),
-                }),
-            })
-        })
-        .collect())
+            for row in rows {
+                each(match &symbol {
+                    Ok(symbol) => quote_outcome(symbol, &row),
+                    Err(cause) => AlpacaQuoteOutcome::Refused(RefusedRow {
+                        ticker: ticker.clone(),
+                        cause: RowRefusal::Symbol(cause.clone()),
+                    }),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Reads a gzipped raw tee object of Alpaca trades, handing each row's outcome to `each` in file order, read under the
+/// ticker it is filed under.
+pub fn read_raw_trades(
+    gzipped: impl std::io::Read,
+    mut each: impl FnMut(AlpacaTradeOutcome),
+) -> Result<(), ParseRefusal> {
+    for page in raw_pages(gzipped) {
+        let (line, text) = page?;
+        let page: TradesPage =
+            serde_json::from_str(&text).map_err(|error| ParseRefusal::Malformed {
+                line: Some(line),
+                reason: error.to_string(),
+            })?;
+        for (ticker, rows) in page.trades.unwrap_or_default() {
+            let symbol = Symbol::new(&ticker);
+            for row in rows {
+                each(match &symbol {
+                    Ok(symbol) => trade_outcome(symbol, &row),
+                    Err(cause) => AlpacaTradeOutcome::Refused(RefusedRow {
+                        ticker: ticker.clone(),
+                        cause: RowRefusal::Symbol(cause.clone()),
+                    }),
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Reads Alpaca's update label: `incorrect` marks the record that replaces a corrected print, the one that stands, while
@@ -981,41 +1011,80 @@ mod tests {
         assert!("a".parse::<TapeLetter>().is_err());
     }
 
-    /// A raw page holds many tickers, so each row reads under its own, and a ticker that is no symbol is refused.
+    /// The raw tee as `RawWriter` stores it: one gzip stream holding a line per page.
+    fn tee(pages: &[&str]) -> Vec<u8> {
+        use std::io::Write;
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        for page in pages {
+            writeln!(encoder, "{page}").unwrap();
+        }
+        encoder.finish().unwrap()
+    }
+
+    /// A raw object holds many pages of many tickers, so each row reads under its own and a ticker that is no symbol is
+    /// refused.
     #[test]
-    fn test_a_raw_page_reads_every_ticker_it_holds() {
-        let trades = r#"{"next_page_token": "x", "trades": {"ABC": [{"c": ["@"], "i": 1, "p": 50.26, "s": 100, "t": "2026-10-09T14:00:00Z", "x": "Q", "z": "C"}], "XYZ": [{"c": [" "], "i": 2, "p": 10.5, "s": 5, "t": "2026-10-09T14:00:01Z", "x": "N", "z": "A"}], "abc1": [{"c": [" "], "i": 3, "p": 1.0, "s": 1, "t": "2026-10-09T14:00:02Z", "x": "N", "z": "A"}]}}"#;
-        let read: Vec<String> = raw_trade_page(trades.as_bytes())
-            .unwrap()
-            .iter()
-            .map(|outcome| match outcome {
+    fn test_a_raw_object_reads_every_ticker_of_every_page() {
+        let trades = tee(&[
+            r#"{"next_page_token": "x", "trades": {"ABC": [{"c": ["@"], "i": 1, "p": 50.26, "s": 100, "t": "2026-10-09T14:00:00Z", "x": "Q", "z": "C"}], "XYZ": [{"c": [" "], "i": 2, "p": 10.5, "s": 5, "t": "2026-10-09T14:00:01Z", "x": "N", "z": "A"}]}}"#,
+            r#"{"next_page_token": null, "trades": {"abc1": [{"c": [" "], "i": 3, "p": 1.0, "s": 1, "t": "2026-10-09T14:00:02Z", "x": "N", "z": "A"}]}}"#,
+        ]);
+        let mut read = Vec::new();
+        read_raw_trades(trades.as_slice(), |outcome| {
+            read.push(match outcome {
                 AlpacaTradeOutcome::Print { print, origin, .. } => {
                     format!("{} {:?}", print.symbol().as_str(), origin.exchange)
                 }
                 AlpacaTradeOutcome::Refused(row) => format!("refused {}", row.ticker()),
-            })
-            .collect();
+            });
+        })
+        .unwrap();
         assert_eq!(read, ["ABC Some(\"Q\")", "XYZ Some(\"N\")", "refused abc1"]);
-        let quotes = r#"{"next_page_token": null, "quotes": {"ABC": [{"ap": 50.27, "as": 200, "ax": "Q", "bp": 50.25, "bs": 100, "bx": "P", "c": ["R"], "t": "2026-10-09T14:00:00Z", "z": "C"}], "XYZ": [{"ap": 0, "as": 0, "ax": " ", "bp": 10.5, "bs": 100, "bx": "N", "c": ["R"], "t": "2026-10-09T14:00:01Z", "z": "A"}]}}"#;
-        let read: Vec<String> = raw_quote_page(quotes.as_bytes())
-            .unwrap()
-            .iter()
-            .map(|outcome| match outcome {
-                AlpacaQuoteOutcome::Quote { quote, origin } => {
-                    format!(
-                        "{} {}/{}",
-                        quote.symbol().as_str(),
-                        origin.bid_exchange.as_deref().unwrap_or("-"),
-                        origin.ask_exchange.as_deref().unwrap_or("-")
-                    )
-                }
+        let quotes = tee(&[
+            r#"{"next_page_token": null, "quotes": {"ABC": [{"ap": 50.27, "as": 200, "ax": "Q", "bp": 50.25, "bs": 100, "bx": "P", "c": ["R"], "t": "2026-10-09T14:00:00Z", "z": "C"}], "XYZ": [{"ap": 0, "as": 0, "ax": " ", "bp": 10.5, "bs": 100, "bx": "N", "c": ["R"], "t": "2026-10-09T14:00:01Z", "z": "A"}]}}"#,
+        ]);
+        let mut read = Vec::new();
+        read_raw_quotes(quotes.as_slice(), |outcome| {
+            read.push(match outcome {
+                AlpacaQuoteOutcome::Quote { quote, origin } => format!(
+                    "{} {}/{}",
+                    quote.symbol().as_str(),
+                    origin.bid_exchange.as_deref().unwrap_or("-"),
+                    origin.ask_exchange.as_deref().unwrap_or("-")
+                ),
                 AlpacaQuoteOutcome::OneSided { quote, .. } => {
                     format!("{} one-sided", quote.symbol.as_str())
                 }
                 AlpacaQuoteOutcome::Refused(row) => format!("refused {}", row.ticker()),
-            })
-            .collect();
+            });
+        })
+        .unwrap();
         assert_eq!(read, ["ABC P/Q", "XYZ one-sided"]);
+    }
+
+    /// A page that is not JSON refuses the object at its line, after the pages before it were handed out.
+    #[test]
+    fn test_a_malformed_page_is_refused_at_its_line() {
+        let trades = tee(&[
+            r#"{"next_page_token": "x", "trades": {"ABC": [{"c": ["@"], "i": 1, "p": 50.26, "s": 100, "t": "2026-10-09T14:00:00Z", "x": "Q", "z": "C"}]}}"#,
+            "not a page",
+        ]);
+        let mut rows = 0;
+        let refusal = read_raw_trades(trades.as_slice(), |_| rows += 1).unwrap_err();
+        assert_eq!(rows, 1);
+        assert!(matches!(
+            refusal,
+            ParseRefusal::Malformed { line: Some(2), .. }
+        ));
+    }
+
+    /// An object cut short in transfer is refused rather than read as a shorter session.
+    #[test]
+    fn test_a_truncated_object_is_refused() {
+        let page = r#"{"next_page_token": null, "trades": {"ABC": [{"c": ["@"], "i": 1, "p": 50.26, "s": 100, "t": "2026-10-09T14:00:00Z", "x": "Q", "z": "C"}]}}"#;
+        let whole = tee(&[page, page]);
+        let refusal = read_raw_trades(&whole[..whole.len() - 4], |_| {}).unwrap_err();
+        assert!(matches!(refusal, ParseRefusal::Malformed { .. }));
     }
 
     #[test]

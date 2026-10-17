@@ -148,6 +148,9 @@ This is a collection of guidelines and references.
   than a raw score
 - Start a study as simply as you can provided the main effects are in, get the insights, then evolve
   it to the fully detailed run — a full-scale simulation disguises the system
+- Build nothing permanent for a data source until a study shows it adds value: explore on its raw bytes (a restored
+  archive object, a gitignored directory, or a scratch prefix no lifecycle rule touches), clean them inside the study,
+  and only then write fetchers, write paths, storage and parsers, as strict (nightly) or loose (landed once)
 - Volume of output is a poor substitute for an intimate feeling for the situation being simulated —
   prefer fewer runs read carefully over many runs summarized
 - Unusually low variance across seeds is a warning rather than a quality signal — it means the metric is

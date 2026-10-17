@@ -13,8 +13,8 @@ use serde::Deserialize;
 
 use super::massive::{alpaca_symbol, is_exchange_test_ticker};
 use super::{
-    OneSidedQuote, PrintOrigin, QuoteOrigin, RefusedRow, RowRefusal, VariableRefusal, priced_side,
-    variable,
+    OneSidedQuote, ParseRefusal, PrintOrigin, QuoteOrigin, RefusedRow, RowRefusal, VariableRefusal,
+    priced_side, variable,
 };
 use crate::common::market::record::Quote;
 use crate::common::market::trade_bars::{ConditionCode, Correction, Print};
@@ -221,14 +221,6 @@ impl FlatFiles {
         }
         Ok(body)
     }
-}
-
-/// Why a flat file was not read at all.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum ParseRefusal {
-    /// A gzip or CSV error, with the line it stopped on where the reader knows it.
-    #[error("malformed at line {line:?}: {reason}")]
-    Malformed { line: Option<u64>, reason: String },
 }
 
 /// Attempts at one streamed range, each a fresh request, before the stream fails.
