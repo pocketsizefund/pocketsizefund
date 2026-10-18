@@ -9,7 +9,7 @@ use crate::common::constraint::{Constraint, Constraints};
 use crate::common::market::{Price, Shares, Symbol};
 use crate::common::monoid::concatenate;
 use crate::common::playbook::Stretch;
-use crate::common::solver::Solver;
+use crate::common::solver::{Solution, Solver};
 use crate::common::strategy::Target;
 use crate::common::time::calendar::SessionPhase;
 
@@ -221,35 +221,8 @@ impl Risk {
     }
 }
 
-/// A target after risk, with every cut that changed it, in the order they applied.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Restrained {
-    target: Target,
-    cuts: Vec<Cut>,
-    /// `None` on a decision journaled before risk was.
-    risk: Option<Risk>,
-}
-
-impl Restrained {
-    pub(crate) fn new(target: Target, cuts: Vec<Cut>, risk: Risk) -> Self {
-        Self {
-            target,
-            cuts,
-            risk: Some(risk),
-        }
-    }
-
-    pub fn target(&self) -> &Target {
-        &self.target
-    }
-
-    pub fn cuts(&self) -> &[Cut] {
-        &self.cuts
-    }
-}
-
-/// A decision as journaled: the playbook stretch that decided, the strategy's target, the solver asked, and what
-/// risk made of the target, or why risk could not price it.
+/// A decision as journaled: the playbook stretch that decided, the strategy's target, the solver asked, and its
+/// solution, or why risk could not price the book.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TargetDecided {
     /// The end of the decision bar decided at; a bar missed by a late call has no record of its own.
@@ -257,17 +230,16 @@ pub struct TargetDecided {
     /// `None` when the state had no clock, so no stretch decided.
     stretch: Option<Stretch>,
     wanted: Target,
-    /// `None` on a decision journaled before solvers were.
-    solver: Option<Solver>,
+    solver: Solver,
     #[serde(flatten)]
     decision: Decision,
 }
 
-/// Risk's answer as journaled, keyed `restrained` or `refused` beside the wanted target.
+/// The decision's outcome as journaled, keyed `solution` or `refused` beside the wanted target.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum Decision {
-    Restrained(Restrained),
+    Solution(Solution),
     Refused(ValuationRefusal),
 }
 
@@ -277,23 +249,23 @@ impl TargetDecided {
         stretch: Option<Stretch>,
         wanted: Target,
         solver: Solver,
-        restrained: Result<Restrained, ValuationRefusal>,
+        solution: Result<Solution, ValuationRefusal>,
     ) -> Self {
-        let decision = match restrained {
-            Ok(restrained) => Decision::Restrained(restrained),
+        let decision = match solution {
+            Ok(solution) => Decision::Solution(solution),
             Err(refusal) => Decision::Refused(refusal),
         };
         Self {
             bar,
             stretch,
             wanted,
-            solver: Some(solver),
+            solver,
             decision,
         }
     }
 }
 
-/// One way risk lowered a target, with the reading that forced it.
+/// One way a solver lowered a target, with the reading that forced it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Cut {
@@ -389,8 +361,8 @@ mod tests {
         target: Target,
     ) -> Result<(Target, Vec<Cut>), ValuationRefusal> {
         formulate(limits, phase, opening, book, price, target).map(|problem| {
-            let restrained = Solver::Clip.solve(&problem);
-            (restrained.target().clone(), restrained.cuts().to_vec())
+            let solution = Solver::Clip.solve(&problem);
+            (solution.target().clone(), solution.cuts().to_vec())
         })
     }
 
@@ -582,7 +554,7 @@ mod tests {
         let limits = Limits::new(largest, largest, largest, window).unwrap();
         let price = prices(&[("SPY", 10_000_000_000_000), ("AAPL", 10_000_000_000_000)]);
         let wanted = target(&[("SPY", u64::MAX), ("AAPL", u64::MAX)]);
-        let restrained = risk(
+        let solved = risk(
             &limits,
             open(),
             largest,
@@ -591,7 +563,7 @@ mod tests {
             wanted,
         )
         .unwrap();
-        assert!(matches!(restrained.1.last(), Some(Cut::Gross { .. })));
+        assert!(matches!(solved.1.last(), Some(Cut::Gross { .. })));
     }
 
     /// Flat unless the session is open with more than fifteen minutes left; exactly fifteen is already flat.

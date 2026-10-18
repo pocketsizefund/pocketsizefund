@@ -3,7 +3,7 @@
 use crate::common::book::Cash;
 use crate::common::market::Shares;
 use crate::common::problem::{Objective, Problem};
-use crate::common::risk::{Cut, Restrained, Risk, SCALE_GRID};
+use crate::common::risk::{Cut, Risk, SCALE_GRID};
 use crate::common::strategy::Target;
 
 /// One way to solve a problem.
@@ -27,18 +27,41 @@ pub enum Solver {
     Clip,
 }
 
+/// A solver's target, with every cut that lowered it from the objective in the order they applied, and the risk it was
+/// held to.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Solution {
+    target: Target,
+    cuts: Vec<Cut>,
+    risk: Risk,
+}
+
+impl Solution {
+    fn new(target: Target, cuts: Vec<Cut>, risk: Risk) -> Self {
+        Self { target, cuts, risk }
+    }
+
+    pub fn target(&self) -> &Target {
+        &self.target
+    }
+
+    pub fn cuts(&self) -> &[Cut] {
+        &self.cuts
+    }
+}
+
 impl Solver {
-    pub fn solve(self, problem: &Problem) -> Restrained {
+    pub fn solve(self, problem: &Problem) -> Solution {
         match self {
             Self::Clip => clip(problem),
         }
     }
 }
 
-fn clip(problem: &Problem) -> Restrained {
+fn clip(problem: &Problem) -> Solution {
     let risk = problem.risk();
     let (per_name, gross) = match risk {
-        Risk::Flat(flat) => return Restrained::new(Target::default(), vec![Cut::from(flat)], risk),
+        Risk::Flat(flat) => return Solution::new(Target::default(), vec![Cut::from(flat)], risk),
         Risk::Capped { per_name, gross } => (per_name.units(), gross.units()),
     };
     let Objective::Nearest(wanted) = problem.objective();
@@ -71,7 +94,7 @@ fn clip(problem: &Problem) -> Restrained {
         holdings.push((symbol.clone(), kept));
     }
     if worth <= gross {
-        return Restrained::new(Target::new(holdings.into_iter().collect()), cuts, risk);
+        return Solution::new(Target::new(holdings.into_iter().collect()), cuts, risk);
     }
     // Flooring the scale and each holding keeps the cut target's worth at or under the limit.
     let scale = gross
@@ -93,7 +116,7 @@ fn clip(problem: &Problem) -> Restrained {
             })
             .collect(),
     );
-    Restrained::new(target, cuts, risk)
+    Solution::new(target, cuts, risk)
 }
 
 #[cfg(test)]

@@ -460,11 +460,11 @@ mod tests {
             )
     }
 
-    /// The live chain's pure stages: risk's target, the guard over the orders that reach it, and the book after every
-    /// passed order fills at its price.
+    /// The live chain's pure stages: the solution's target, the guard over the orders that reach it, and the book after
+    /// every passed order fills at its price.
     fn chain(decision: &Decision) -> (Target, Guarded, Book) {
         let price = |symbol: &Symbol| decision.prices.get(symbol).copied();
-        let restrained = Solver::Clip.solve(
+        let solution = Solver::Clip.solve(
             &formulate(
                 &decision.limits,
                 decision.phase,
@@ -476,7 +476,7 @@ mod tests {
             .unwrap(),
         );
         let guarded = guard(
-            orders(&decision.book, restrained.target()),
+            orders(&decision.book, solution.target()),
             &decision.readings,
             price,
         );
@@ -496,12 +496,12 @@ mod tests {
                     .unwrap(),
                 )
             })));
-        (restrained.target().clone(), guarded, after)
+        (solution.target().clone(), guarded, after)
     }
 
     proptest! {
-        /// Whatever the readings, the orders still owed from the book the passed fills reach to risk's target are
-        /// exactly the held ones, and with none held that book is the target.
+        /// Whatever the readings, the orders still owed from the book the passed fills reach to the solution's target
+        /// are exactly the held ones, and with none held that book is the target.
         #[test]
         fn property_what_the_guard_holds_is_what_the_chain_leaves_owed(
             decision in arbitrary_decision(prop::sample::select(vec![
@@ -537,7 +537,8 @@ mod tests {
         }
 
         /// Where every symbol trades fractions, only buys under the minimum are held, so the book the chain reaches
-        /// holds no symbol above risk's target and stays within the per-name and gross limits at the decision's prices.
+        /// holds no symbol above the solution's target and stays within the per-name and gross limits at the
+        /// decision's prices.
         #[test]
         fn property_a_fractionable_chain_reaches_no_further_than_risk_allows(
             decision in arbitrary_decision(Just(Some(Tradability::Fractionable))),
