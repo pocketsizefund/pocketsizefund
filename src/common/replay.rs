@@ -774,12 +774,12 @@ mod tests {
     }
 
     /// Risk prices a wanted name only off a close no older than the restraint's staleness, as the live trader does: a
-    /// decision five minutes after AAPL last printed is refused under two minutes and sized under ten.
+    /// decision five minutes after AAPL last printed holds it at zero under two minutes and sizes it under ten.
     #[test]
     fn test_a_stale_close_prices_nothing_under_restraint() {
         let at = before_close(120);
         let decided = at + TimeDelta::minutes(6);
-        for (stale_after, refused) in [
+        for (stale_after, stale) in [
             (TimeDelta::minutes(2), true),
             (TimeDelta::minutes(10), false),
         ] {
@@ -811,12 +811,13 @@ mod tests {
             );
             assert_eq!(
                 replay.restraints()[&decided],
-                match refused {
-                    true => Err(ValuationRefusal::Unpriced {
-                        symbol: symbol("AAPL")
-                    }),
-                    false => Ok(Vec::new()),
-                },
+                Ok(match stale {
+                    true => vec![Cut::Unpriced {
+                        symbol: symbol("AAPL"),
+                        wanted: Shares::from_units(1_000_000),
+                    }],
+                    false => Vec::new(),
+                }),
                 "{stale_after}"
             );
         }

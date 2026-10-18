@@ -301,6 +301,8 @@ pub enum Cut {
     OutsideTradingWindow { phase: SessionPhase },
     /// Flat, as the book has lost `loss` since the session opened, at least the daily limit.
     LossLimit { loss: Cash },
+    /// `symbol` held at zero, as it has no price and the book does not hold it.
+    Unpriced { symbol: Symbol, wanted: Shares },
     /// `symbol` held to the most the per-name limit buys at its price.
     PerName {
         symbol: Symbol,
@@ -746,7 +748,7 @@ mod tests {
     }
 
     #[test]
-    fn test_an_unpriced_holding_or_want_is_refused() {
+    fn test_an_unpriced_holding_is_refused_and_an_unpriced_want_held_at_zero() {
         let price = prices(&[("SPY", 400_000_000)]);
         let unpriced = |raw: &str| {
             Err(ValuationRefusal::Unpriced {
@@ -760,9 +762,15 @@ mod tests {
                 dollars(10_000),
                 &funded(10_000),
                 &price,
-                target(&[("AAPL", 1)])
+                target(&[("AAPL", 2), ("SPY", 1)])
             ),
-            unpriced("AAPL")
+            Ok((
+                target(&[("SPY", 1)]),
+                vec![Cut::Unpriced {
+                    symbol: symbol("AAPL"),
+                    wanted: Shares::from_units(2),
+                }]
+            ))
         );
         let held = Book::reported(dollars(10_000), [(symbol("MSFT"), Position::from_units(1))]);
         assert_eq!(
@@ -775,6 +783,31 @@ mod tests {
                 target(&[("SPY", 1)])
             ),
             unpriced("MSFT")
+        );
+    }
+
+    /// A problem under capped risk excludes its unpriced want, so no solver may hold it, and admits the priced one.
+    #[test]
+    fn test_a_problem_excludes_its_unpriced_want() {
+        let price = prices(&[("SPY", 400_000_000)]);
+        let problem = formulate(
+            &limits(1_000, 1_000),
+            open(),
+            dollars(10_000),
+            &funded(10_000),
+            &price,
+            target(&[("AAPL", 2), ("SPY", 1)]),
+        )
+        .unwrap();
+        assert_eq!(
+            problem
+                .constraints()
+                .admits(&target(&[("AAPL", 1)]), |_| Price::from_ticks(1).ok()),
+            Ok(false)
+        );
+        assert_eq!(
+            problem.constraints().admits(&target(&[("SPY", 1)]), &price),
+            Ok(true)
         );
     }
 
@@ -853,12 +886,13 @@ mod tests {
             );
         }
 
-        /// Formulating then solving with the clip arm reproduces the frozen `risk` on every input, refusals included.
+        /// Formulating then solving with the clip arm reproduces the frozen `risk` over the priced wants, refusals
+        /// included, and cuts each unpriced want to zero unless risk is flat.
         #[test]
         fn property_the_clip_arm_reproduces_risk_before_the_split(
             wanted in arbitrary_target(),
-            listed in prop::collection::vec(prop::option::weighted(0.9, 1..2_000_000_000i64), 4),
-            held in prop::collection::vec(-5_000_000i128..5_000_000, 4),
+            listed in prop::collection::vec(prop::option::weighted(0.75, 1..2_000_000_000i64), 4),
+            held in prop::collection::vec(prop::option::weighted(0.3, -5_000_000i128..5_000_000), 4),
             gross in arbitrary_dollar_scale(),
             per_name in arbitrary_dollar_scale(),
             daily_loss in 1..2_000i128,
@@ -879,7 +913,10 @@ mod tests {
             let price = |symbol: &Symbol| prices.get(symbol).copied();
             let book = Book::reported(
                 dollars(10_000),
-                SYMBOLS.iter().zip(held).map(|(raw, units)| (symbol(raw), Position::from_units(units))),
+                SYMBOLS
+                    .iter()
+                    .zip(held)
+                    .filter_map(|(raw, units)| Some((symbol(raw), Position::from_units(units?)))),
             );
             let limits = Limits::new(
                 dollars(gross),
@@ -888,17 +925,44 @@ mod tests {
                 TimeDelta::minutes(window),
             )
             .unwrap();
-            prop_assert_eq!(
-                risk(&limits, phase, dollars(opening), &book, price, wanted.clone()),
-                risk_before_the_split(&limits, phase, dollars(opening), &book, price, wanted)
+            let priced = Target::new(
+                wanted
+                    .holdings()
+                    .iter()
+                    .filter(|(symbol, _)| price(symbol).is_some())
+                    .map(|(symbol, shares)| (symbol.clone(), *shares))
+                    .collect(),
             );
+            let solved = risk(&limits, phase, dollars(opening), &book, price, wanted.clone());
+            let frozen = risk_before_the_split(&limits, phase, dollars(opening), &book, price, priced);
+            match (solved, frozen) {
+                (Ok((target, cuts)), Ok((frozen_target, frozen_cuts))) => {
+                    let (unpriced, rest): (Vec<Cut>, Vec<Cut>) =
+                        cuts.into_iter().partition(|cut| matches!(cut, Cut::Unpriced { .. }));
+                    prop_assert_eq!(target, frozen_target);
+                    prop_assert_eq!(rest, frozen_cuts.clone());
+                    let flat = matches!(
+                        frozen_cuts.first(),
+                        Some(Cut::OutsideTradingWindow { .. } | Cut::LossLimit { .. })
+                    );
+                    let expected: Vec<Cut> = wanted
+                        .holdings()
+                        .iter()
+                        .filter(|(symbol, _)| !flat && price(symbol).is_none())
+                        .map(|(symbol, shares)| Cut::Unpriced { symbol: symbol.clone(), wanted: *shares })
+                        .collect();
+                    prop_assert_eq!(unpriced, expected);
+                }
+                (solved, frozen) => prop_assert_eq!(solved, frozen),
+            }
         }
 
-        /// The clip arm's target is one the problem's risk admits.
+        /// The clip arm's target is one the problem admits, unpriced names excluded.
         #[test]
-        fn property_the_clip_arm_lands_inside_its_risk(
+        fn property_the_clip_arm_lands_inside_its_problem(
             wanted in arbitrary_target(),
             prices in arbitrary_prices(),
+            unlisted in prop::collection::btree_set(prop::sample::select(SYMBOLS.to_vec()).prop_map(symbol), 0..=2),
             gross in 1..1_000_000i128,
             per_name in 1..1_000_000i128,
             open in prop::bool::ANY,
@@ -907,11 +971,11 @@ mod tests {
                 true => super::tests::open(),
                 false => SessionPhase::AfterClose,
             };
-            let price = |symbol: &Symbol| prices.get(symbol).copied();
+            let price = |symbol: &Symbol| prices.get(symbol).filter(|_| !unlisted.contains(symbol)).copied();
             let problem = formulate(&limits(gross, per_name), phase, dollars(10_000), &funded(10_000), price, wanted)
                 .unwrap();
             let solved = Solver::Clip.solve(&problem);
-            prop_assert_eq!(problem.risk().constraints().admits(solved.target(), price), Ok(true));
+            prop_assert_eq!(problem.constraints().admits(solved.target(), price), Ok(true));
         }
     }
 }

@@ -471,7 +471,7 @@ impl<S: Strategy> Session<S> {
         }
         let restrained = match restrained {
             Ok(restrained) => restrained,
-            // An unpriced exposure cannot be capped, so the book is left as it stands; the refusal is journaled above.
+            // An unpriced holding leaves the loss unread, so the book is left as it stands; the refusal is journaled above.
             Err(_) => return Ok(()),
         };
         let prices: BTreeMap<Symbol, Price> = self
@@ -1014,10 +1014,10 @@ mod tests {
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
-    /// A price older than the settings allow is no price: risk refuses, the decision is journaled with the refusal,
-    /// and nothing is sent.
+    /// A price older than the settings allow is no price: a wanted name the book does not hold is held at zero, so
+    /// the decision is journaled with that cut and nothing is sent.
     #[tokio::test(start_paused = true)]
-    async fn test_a_stale_price_leaves_the_book_alone() {
+    async fn test_a_stale_price_holds_an_unheld_want_at_zero() {
         let funded = Book::funded(Cash::from_units(10_000 * DOLLAR));
         let broker = Filling::new(701_000_000, funded.clone());
         let mut session = session(TimeDelta::minutes(1), funded.clone());
@@ -1029,12 +1029,47 @@ mod tests {
             .advance(&|| at("14:05:02"), &tape, &broker, &mut journal)
             .await
             .unwrap();
-        assert_eq!(journaled(&directory), ["bar_built", "target_decided"]);
         assert_eq!(
-            payloads(&directory)[1]["stretch"],
+            journaled(&directory),
+            ["bar_built", "target_decided", "book_reconciled"]
+        );
+        let decided = &payloads(&directory)[1];
+        assert_eq!(
+            decided["stretch"],
             serde_json::json!({"from": "09:30:00", "progress": 1_000_000})
         );
+        assert_eq!(
+            decided["restrained"]["cuts"],
+            serde_json::json!([{"unpriced": {"symbol": "SPY", "wanted": 1_000_000}}])
+        );
         assert_eq!(session.book(), &funded);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// A stale price on a held name leaves the loss unreadable: risk refuses, the refusal is journaled, and the book is
+    /// left alone.
+    #[tokio::test(start_paused = true)]
+    async fn test_a_stale_price_on_a_holding_leaves_the_book_alone() {
+        let holding = Book::reported(
+            Cash::from_units(10_000 * DOLLAR),
+            [(spy(), crate::common::book::Position::from_units(1_000_000))],
+        );
+        let broker = Filling::new(701_000_000, holding.clone());
+        let mut session = session(TimeDelta::minutes(1), holding.clone());
+        let (mut journal, directory) = journal();
+        let tape = Scripted::default();
+        tape.file(print("14:01:10", 700_000_000));
+        tape.file(print("14:05:01", 700_000_000));
+        session
+            .advance(&|| at("14:05:02"), &tape, &broker, &mut journal)
+            .await
+            .unwrap();
+        assert_eq!(journaled(&directory), ["bar_built", "target_decided"]);
+        assert_eq!(
+            payloads(&directory)[1]["refused"],
+            serde_json::json!({"unpriced": {"symbol": "SPY"}})
+        );
+        assert_eq!(session.book(), &holding);
         std::fs::remove_dir_all(&directory).unwrap();
     }
 

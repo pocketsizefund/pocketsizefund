@@ -2,6 +2,7 @@
 //! nothing; the combine is associative, commutative and idempotent, so constraints fold from any source in any order.
 
 use std::cmp::Ordering;
+use std::collections::BTreeSet;
 
 use crate::common::book::ValuationRefusal;
 use crate::common::market::{DollarVolume, Price, Symbol};
@@ -10,10 +11,12 @@ use crate::common::risk::DollarLimit;
 use crate::common::strategy::Target;
 
 /// One form a solver can read; every form admits the empty target, so no intersection of them excludes flat.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Constraint {
     /// Nothing held.
     Flat,
+    /// Nothing held in the symbol.
+    Excluded(Symbol),
     /// Each holding worth at most the limit.
     PerName(DollarLimit),
     /// The holdings together worth at most the limit.
@@ -21,9 +24,10 @@ pub enum Constraint {
 }
 
 /// The intersection of constraints, each form kept at its tightest.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Constraints {
     flat: bool,
+    excluded: BTreeSet<Symbol>,
     per_name: Bound,
     gross: Bound,
 }
@@ -64,6 +68,10 @@ impl From<Constraint> for Constraints {
                 flat: true,
                 ..anything
             },
+            Constraint::Excluded(symbol) => Self {
+                excluded: BTreeSet::from([symbol]),
+                ..anything
+            },
             Constraint::PerName(limit) => Self {
                 per_name: Bound::AtMost(limit),
                 ..anything
@@ -81,15 +89,18 @@ impl Monoid for Constraints {
     fn empty() -> Self {
         Self {
             flat: false,
+            excluded: BTreeSet::new(),
             per_name: Bound::Unbounded,
             gross: Bound::Unbounded,
         }
     }
 
     /// The targets both admit.
-    fn combine(self, other: Self) -> Self {
+    fn combine(mut self, mut other: Self) -> Self {
+        self.excluded.append(&mut other.excluded);
         Self {
             flat: self.flat || other.flat,
+            excluded: self.excluded,
             per_name: self.per_name.tighter(other.per_name),
             gross: self.gross.tighter(other.gross),
         }
@@ -105,6 +116,13 @@ impl Constraints {
     ) -> Result<bool, ValuationRefusal> {
         if self.flat {
             return Ok(target.holdings().is_empty());
+        }
+        if self
+            .excluded
+            .iter()
+            .any(|symbol| target.holdings().contains_key(symbol))
+        {
+            return Ok(false);
         }
         if (self.per_name, self.gross) == (Bound::Unbounded, Bound::Unbounded) {
             return Ok(true);
@@ -167,13 +185,21 @@ mod tests {
 
     /// Built field by field rather than by `combine`, so a broken combine cannot also break the inputs.
     fn arbitrary_constraints() -> impl Strategy<Value = Constraints> {
-        (any::<bool>(), arbitrary_bound(), arbitrary_bound()).prop_map(|(flat, per_name, gross)| {
-            Constraints {
+        (
+            any::<bool>(),
+            prop::collection::btree_set(
+                prop::sample::select(vec!["A", "B", "C"]).prop_map(symbol),
+                0..=2,
+            ),
+            arbitrary_bound(),
+            arbitrary_bound(),
+        )
+            .prop_map(|(flat, excluded, per_name, gross)| Constraints {
                 flat,
+                excluded,
                 per_name,
                 gross,
-            }
-        })
+            })
     }
 
     /// Holdings in three names of up to five shares each, the bounds above reaching both sides of every limit.
@@ -209,6 +235,16 @@ mod tests {
         let over = target(&[("A", 2_000_000), ("B", 2_000_001)]);
         assert_eq!(constraints.admits(&at, ten_dollars), Ok(true));
         assert_eq!(constraints.admits(&over, ten_dollars), Ok(false));
+    }
+
+    #[test]
+    fn test_excluded_refuses_only_a_target_holding_its_symbol() {
+        let constraints = Constraints::from(Constraint::Excluded(symbol("A")));
+        assert_eq!(
+            constraints.admits(&target(&[("A", 1)]), |_| None),
+            Ok(false)
+        );
+        assert_eq!(constraints.admits(&target(&[("B", 1)]), |_| None), Ok(true));
     }
 
     #[test]
@@ -271,7 +307,7 @@ mod tests {
 
         #[test]
         fn property_combining_is_idempotent(constraints in arbitrary_constraints()) {
-            prop_assert_eq!(constraints.combine(constraints), constraints);
+            prop_assert_eq!(constraints.clone().combine(constraints.clone()), constraints);
         }
 
         #[test]
@@ -280,7 +316,7 @@ mod tests {
             second in arbitrary_constraints(),
             target in arbitrary_target(),
         ) {
-            let both = first.combine(second).admits(&target, ten_dollars)?;
+            let both = first.clone().combine(second.clone()).admits(&target, ten_dollars)?;
             let each = first.admits(&target, ten_dollars)? && second.admits(&target, ten_dollars)?;
             prop_assert_eq!(both, each);
         }
@@ -292,7 +328,7 @@ mod tests {
             target in arbitrary_target(),
         ) {
             let smaller = first.admits(&target, ten_dollars)?;
-            let larger = first.combine(second).admits(&target, ten_dollars)?;
+            let larger = first.clone().combine(second).admits(&target, ten_dollars)?;
             prop_assert!(smaller || !larger);
         }
 
