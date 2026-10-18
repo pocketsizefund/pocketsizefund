@@ -46,12 +46,14 @@ fn clip(problem: &Problem) -> Restrained {
     let mut holdings = Vec::new();
     let mut worth = 0_u128;
     for (symbol, wanted) in wanted.holdings() {
-        let ticks = u128::from(
-            problem
-                .price(symbol)
-                .expect("capped risk prices every wanted symbol")
-                .ticks_unsigned(),
-        );
+        let Some(price) = problem.price(symbol) else {
+            cuts.push(Cut::Unpriced {
+                symbol: symbol.clone(),
+                wanted: *wanted,
+            });
+            continue;
+        };
+        let ticks = u128::from(price.ticks_unsigned());
         let kept = u128::from(wanted.units()).min(per_name / ticks);
         let kept = Shares::from_units(
             u64::try_from(kept).expect("a kept holding is at most the wanted one"),

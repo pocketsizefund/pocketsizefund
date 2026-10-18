@@ -1,9 +1,12 @@
-//! What a decision asks of a solver: the strategy's objective, the risk it is held to, and the prices risk reads.
+//! What a decision asks of a solver: the strategy's objective, the risk it is held to, the wanted names it cannot price,
+//! and the prices risk reads.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::common::book::{Book, Cash, ValuationRefusal};
+use crate::common::constraint::{Constraint, Constraints};
 use crate::common::market::{Price, Symbol};
+use crate::common::monoid::concatenate;
 use crate::common::risk::{Limits, Risk};
 use crate::common::strategy::Target;
 use crate::common::time::calendar::SessionPhase;
@@ -20,7 +23,7 @@ pub enum Objective {
 pub struct Problem {
     objective: Objective,
     risk: Risk,
-    /// Every symbol the objective holds, unless risk is flat and reads none.
+    /// The wanted symbols that have a price, read only when risk is capped.
     prices: BTreeMap<Symbol, Price>,
 }
 
@@ -33,14 +36,38 @@ impl Problem {
         self.risk
     }
 
-    /// The price of a symbol the objective holds, present whenever risk is capped.
+    /// The wanted symbols capped risk could not price, which are held at zero; the book holds none of them, or risk
+    /// would have refused to value it.
+    fn unpriced(&self) -> BTreeSet<&Symbol> {
+        match (self.risk, &self.objective) {
+            (Risk::Flat(_), _) => BTreeSet::new(),
+            (Risk::Capped { .. }, Objective::Nearest(wanted)) => wanted
+                .holdings()
+                .keys()
+                .filter(|symbol| !self.prices.contains_key(*symbol))
+                .collect(),
+        }
+    }
+
+    /// The targets the problem admits: its risk, with every unpriced symbol excluded.
+    pub fn constraints(&self) -> Constraints {
+        concatenate(
+            self.unpriced()
+                .into_iter()
+                .map(|symbol| Constraints::from(Constraint::Excluded(symbol.clone())))
+                .chain([self.risk.constraints()]),
+        )
+    }
+
+    /// The price of a wanted symbol, absent when risk is flat or the symbol is unpriced.
     pub fn price(&self, symbol: &Symbol) -> Option<Price> {
         self.prices.get(symbol).copied()
     }
 }
 
 /// The problem of reaching `wanted` within `limits`, given where the session stands, the equity it opened with, the
-/// book now and a price for every symbol held or wanted; refused when capped risk meets a symbol with no price.
+/// book now and a price for every symbol held or wanted; refused when risk must value a holding with no price, while a
+/// wanted symbol with no price is held at zero.
 pub fn formulate(
     limits: &Limits,
     phase: SessionPhase,
@@ -55,13 +82,8 @@ pub fn formulate(
         Risk::Capped { .. } => wanted
             .holdings()
             .keys()
-            .map(|symbol| {
-                let price = price(symbol).ok_or_else(|| ValuationRefusal::Unpriced {
-                    symbol: symbol.clone(),
-                })?;
-                Ok((symbol.clone(), price))
-            })
-            .collect::<Result<_, _>>()?,
+            .filter_map(|symbol| Some((symbol.clone(), price(symbol)?)))
+            .collect(),
     };
     Ok(Problem {
         objective: Objective::Nearest(wanted),
