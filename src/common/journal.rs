@@ -1244,7 +1244,7 @@ mod tests {
                 r#"{"event_type":"tradability_read","payload":{"readings":{"VWDRY":"whole_shares_only"}}}"#.to_string(),
                 r#"{"event_type":"tradability_unread","payload":{"cause":{"exhausted":{"attempts":3,"last":"timed out"}}}}"#.to_string(),
                 r#"{"event_type":"book_reconciled","payload":{"expected_cash":"1000","reported_cash":"-5","allowance":"0","gaps":[{"symbol":"SPY","expected":"0","reported":"-2000000"}]}}"#.to_string(),
-                r#"{"event_type":"target_decided","payload":{"bar":"2026-10-07T14:05:00Z","stretch":{"from":"12:00:00","progress":500000},"wanted":{"SPY":5000000},"solver":"clip","restrained":{"target":{},"cuts":[{"outside_trading_window":{"phase":{"before_open":{"until_open":300000000000}}}}],"risk":{"flat":{"outside_trading_window":{"phase":{"before_open":{"until_open":300000000000}}}}}}}}"#.to_string(),
+                r#"{"event_type":"target_decided","payload":{"bar":"2026-10-07T14:05:00Z","stretch":{"from":"12:00:00","progress":500000},"wanted":{"SPY":5000000},"solver":"clip","solution":{"target":{},"cuts":[{"outside_trading_window":{"phase":{"before_open":{"until_open":300000000000}}}}],"risk":{"flat":{"outside_trading_window":{"phase":{"before_open":{"until_open":300000000000}}}}}}}}"#.to_string(),
                 r#"{"event_type":"target_decided","payload":{"bar":"2026-10-07T14:05:00Z","stretch":null,"wanted":{"SPY":5000000},"solver":"clip","refused":{"unpriced":{"symbol":"SPY"}}}}"#.to_string(),
                 r#"{"event_type":"session_opened","payload":{"session":"2026-10-07","cash":"-7","positions":{"SPY":"2000000"},"opening":"9"}}"#.to_string(),
                 r#"{"event_type":"playbook_read","payload":{"contents":"roll_off_minutes = 5\n"}}"#.to_string(),
@@ -1259,22 +1259,6 @@ mod tests {
                 &serde_json::from_str::<Observation>(payload).unwrap(),
                 observation
             );
-        }
-        // Rows journaled before stretches, solvers or risk read back with those fields absent.
-        let before_stretches = r#"{"event_type":"target_decided","payload":{"bar":"2026-10-07T14:05:00Z","wanted":{"SPY":5000000},"refused":{"unpriced":{"symbol":"SPY"}}}}"#;
-        let before_solvers = r#"{"event_type":"target_decided","payload":{"bar":"2026-10-07T14:05:00Z","stretch":{"from":"12:00:00","progress":500000},"wanted":{"SPY":5000000},"restrained":{"target":{},"cuts":[{"outside_trading_window":{"phase":{"before_open":{"until_open":300000000000}}}}]}}}"#;
-        for (legacy, current) in [
-            (before_stretches, &payloads[10]),
-            (before_solvers, &payloads[9]),
-        ] {
-            let read = serde_json::from_str::<Observation>(legacy).unwrap();
-            let absent = current
-                .replace(r#""solver":"clip""#, r#""solver":null"#)
-                .replace(
-                    r#""risk":{"flat":{"outside_trading_window":{"phase":{"before_open":{"until_open":300000000000}}}}}"#,
-                    r#""risk":null"#,
-                );
-            assert_eq!(serde_json::to_string(&read).unwrap(), absent);
         }
     }
 

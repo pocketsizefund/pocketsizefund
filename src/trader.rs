@@ -452,7 +452,7 @@ impl<S: Strategy> Session<S> {
         let wanted = self.strategy.decide(&self.state, &self.book);
         let phase = self.calendar.phase_at(now);
         let solver = Solver::Clip;
-        let restrained = formulate(
+        let solution = formulate(
             &self.settings.limits,
             phase,
             self.opening,
@@ -462,15 +462,15 @@ impl<S: Strategy> Session<S> {
         )
         .map(|problem| solver.solve(&problem));
         let stretch = self.strategy.stretch_at(&self.state);
-        let decided = TargetDecided::new(bar, stretch, wanted, solver, restrained.clone());
+        let decided = TargetDecided::new(bar, stretch, wanted, solver, solution.clone());
         if let Err(error) = journal.append(now, Observation::TargetDecided(decided)) {
             self.halt(journal, journal_refused(&error));
             return Err(SessionError::Journal(JournalFailure::before_any_order(
                 error,
             )));
         }
-        let restrained = match restrained {
-            Ok(restrained) => restrained,
+        let solution = match solution {
+            Ok(solution) => solution,
             // An unpriced holding leaves the loss unread, so the book is left as it stands; the refusal is journaled above.
             Err(_) => return Ok(()),
         };
@@ -478,7 +478,7 @@ impl<S: Strategy> Session<S> {
             .book
             .positions()
             .keys()
-            .chain(restrained.target().holdings().keys())
+            .chain(solution.target().holdings().keys())
             .filter_map(|symbol| Some((symbol.clone(), self.fresh_price(symbol, now)?)))
             .collect();
         let executed = execute(
@@ -486,7 +486,7 @@ impl<S: Strategy> Session<S> {
             journal,
             &mut self.sequence,
             &self.book,
-            restrained.target(),
+            solution.target(),
             &prices,
             self.settings.patience,
         )
@@ -1039,7 +1039,7 @@ mod tests {
             serde_json::json!({"from": "09:30:00", "progress": 1_000_000})
         );
         assert_eq!(
-            decided["restrained"]["cuts"],
+            decided["solution"]["cuts"],
             serde_json::json!([{"unpriced": {"symbol": "SPY", "wanted": 1_000_000}}])
         );
         assert_eq!(session.book(), &funded);

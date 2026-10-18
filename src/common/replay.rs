@@ -218,7 +218,7 @@ pub struct Replay {
     fills: Vec<Fill>,
     unfilled: Vec<Unfilled>,
     marks: BTreeMap<DateTime<Utc>, Result<Cash, ValuationRefusal>>,
-    /// Under restraint, what risk cut at each decision, or why it could not judge and nothing was sent.
+    /// Under restraint, what the solver cut at each decision, or why risk could not judge it and nothing was sent.
     restraints: BTreeMap<DateTime<Utc>, Result<Vec<Cut>, ValuationRefusal>>,
     held: Vec<(DateTime<Utc>, OrderGuarded)>,
 }
@@ -273,7 +273,7 @@ impl Replay {
         &self.marks
     }
 
-    /// Under restraint, what risk cut at each decision, or why it could not judge it.
+    /// Under restraint, what the solver cut at each decision, or why risk could not judge it.
     pub fn restraints(&self) -> &BTreeMap<DateTime<Utc>, Result<Vec<Cut>, ValuationRefusal>> {
         &self.restraints
     }
@@ -473,7 +473,7 @@ impl<S: Strategy> Replayer<S> {
                     let price = |symbol: &Symbol| {
                         state.fresh_price(symbol, self.decision, ends, restraint.stale_after)
                     };
-                    let restrained = session_opening(&replay.marks, ends).and_then(|opening| {
+                    let solution = session_opening(&replay.marks, ends).and_then(|opening| {
                         formulate(
                             &restraint.limits,
                             restraint.calendar.phase_at(ends),
@@ -484,12 +484,10 @@ impl<S: Strategy> Replayer<S> {
                         )
                         .map(|problem| Solver::Clip.solve(&problem))
                     });
-                    match restrained {
-                        Ok(restrained) => {
-                            replay
-                                .restraints
-                                .insert(ends, Ok(restrained.cuts().to_vec()));
-                            let wanted = orders(&replay.book, restrained.target());
+                    match solution {
+                        Ok(solution) => {
+                            replay.restraints.insert(ends, Ok(solution.cuts().to_vec()));
+                            let wanted = orders(&replay.book, solution.target());
                             let tradability = restraint.tradability_of(&wanted);
                             let guarded = guard(wanted, &tradability, price);
                             replay
