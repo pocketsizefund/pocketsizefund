@@ -38,7 +38,7 @@ done
 
 # Schedules are UTC: the archiver folds the session that closed the previous Eastern day, and its stop bounds the heal;
 # the trader starts at least an hour before the 09:30 Eastern open and stops past the 16:00 close in either offset.
-# The researcher has no schedule: an operator starts it for one job and the job's end powers it off.
+# The researcher has no schedule: an operator holds and starts it with `host/researcher`, which bounds its run.
 case "$ROLE" in
   archiver)
     INSTANCE_TYPE="r6i.2xlarge"
@@ -440,7 +440,7 @@ if [[ -z "$START_EXPRESSION" ]]; then
   done
   step "Done"
   echo "  Instance: ${INSTANCE_ID}"
-  echo "  Start:    on demand, for the job its fund-job tag names"
+  echo "  Start:    on demand, held by host/researcher"
   [[ "$APPLY" == true ]] || echo "  Dry run. Re-run with --apply to make these changes."
   exit 0
 fi

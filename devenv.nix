@@ -59,6 +59,7 @@ in {
     jq
     markdownlint-cli
     secretspec # run-role reads each profile's secrets through it on every host
+    ssm-session-manager-plugin # researcher tunnels SSH through SSM
     statix
     taplo
     yamllint
@@ -79,6 +80,10 @@ in {
 
   scripts.check-views.exec = ''
     "$DEVENV_ROOT/check-views" "$@"
+  '';
+
+  scripts.researcher.exec = ''
+    "$DEVENV_ROOT/host/researcher" "$@"
   '';
 
   scripts.update-rust-dependencies.exec = ''
@@ -204,6 +209,8 @@ in {
       echo "    start-duckdb                DuckDB with the archive views"
       echo "    check-views                 Fail on any archive view that is empty"
       echo "    mutate-rust <diff>          Mutation-test the lines a diff changes"
+      echo "    researcher <command>        Hold, push to and run studies on the"
+      echo "                                FUND_PROFILE researcher (--help)"
     } >&2
   '';
 }

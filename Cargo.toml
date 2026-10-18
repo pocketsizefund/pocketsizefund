@@ -73,3 +73,13 @@ syn = { version = "3", default-features = false, features = [
   "visit",
 ] }
 tokio = { version = "1.53.1", features = ["test-util", "rt"] }
+
+# Studies iterate on code that changes every build, so our crates compile fast while dependencies stay optimized.
+[profile.study]
+inherits = "release"
+opt-level = 1
+incremental = true
+codegen-units = 256
+
+[profile.study.package."*"]
+opt-level = 3

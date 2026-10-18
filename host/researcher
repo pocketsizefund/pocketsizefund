@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+# Drives the `FUND_PROFILE` researcher from the laptop: hold it up, push this working tree to it, and build and run a
+# study there, over SSH tunnelled through SSM with a key EC2 Instance Connect accepts for 60 seconds.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+usage() {
+  cat <<'EOF'
+Usage: researcher <command>
+  start                               hold the box with fund-hold, start it for at most 12 hours, wait for SSH
+  push                                copy this working tree's files to ~/working-tree on the box
+  run <study> [arguments]             push, then run it on the box with its output here
+  detach <hours> <study> [arguments]  push, then run it in the background, killed after <hours>, then power off
+  log <study>                         follow a detached run's output
+A study is the binary studies/src/bin/<study>.rs, or the script jobs/<study>.sh run with the built binaries on PATH.
+  shell                               an interactive devenv shell in ~/working-tree on the box
+  stop                                release the hold and stop the box
+EOF
+  exit "${1:-0}"
+}
+
+command="${1:-}"
+[[ $# -gt 0 ]] && shift
+case "$command" in
+  start | push | shell | stop) [[ $# -eq 0 ]] || usage 1 ;;
+  run | log) [[ $# -ge 1 ]] || usage 1 ;;
+  detach)
+    if [[ ! "${1:-}" =~ ^([1-9]|1[0-9]|2[0-4])$ ]]; then
+      echo "Error: the hours are \"${1:-}\", not a whole number from 1 to 24" >&2
+      exit 1
+    fi
+    [[ $# -ge 2 ]] || usage 1
+    ;;
+  -h | --help) usage ;;
+  *) usage 1 ;;
+esac
+
+case "$command" in
+  run | detach | log)
+    study="$([[ "$command" == detach ]] && echo "${2:-}" || echo "$1")"
+    if [[ ! "$study" =~ ^[a-z0-9_]+$ ]]; then
+      echo "Error: the study is \"$study\", not a name of lowercase letters, digits and underscores" >&2
+      exit 1
+    fi
+    if [[ "$command" != log && -f "jobs/$study.sh" && -f "studies/src/bin/$study.rs" ]]; then
+      echo "Error: both jobs/$study.sh and studies/src/bin/$study.rs exist, so the study \"$study\" is ambiguous" >&2
+      exit 1
+    fi
+    ;;
+esac
+
+profile="${FUND_PROFILE:-}"
+if [[ ! "$profile" =~ ^(production|development/[a-z0-9][a-z0-9.-]*)$ ]]; then
+  echo "Error: FUND_PROFILE must be production or development/<name>; got \"$profile\"" >&2
+  exit 1
+fi
+
+instance="$(aws ec2 describe-instances \
+  --filters "Name=tag:fund-role,Values=researcher" "Name=tag:fund-profile,Values=$profile" \
+  "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+  --query 'Reservations[].Instances[].InstanceId' --output text)"
+if [[ ! "$instance" =~ ^i-[0-9a-f]+$ ]]; then
+  echo "Error: expected one researcher under $profile; found \"$instance\"" >&2
+  exit 1
+fi
+
+key="$HOME/.ssh/fund-researcher"
+# The box's PATH, profile and pushed commit as `run-host` would set them, since devenv reads the secretspec profile at
+# shell start and the box has no repository for `build.rs` to stamp from.
+# shellcheck disable=SC2016 # expanded on the box
+setup='export PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH" && cd ~/working-tree &&
+  export FUND_COMMIT="$(cat .commit)" FUND_PROFILE='"$(printf '%q' "$profile")"' SECRETSPEC_PROFILE='"$(printf '%q' "$profile")"
+
+connect() {
+  [[ -f "$key" ]] || ssh-keygen -q -t ed25519 -N '' -C fund-researcher -f "$key"
+  aws ec2-instance-connect send-ssh-public-key --instance-id "$instance" --instance-os-user ubuntu \
+    --ssh-public-key "file://$key.pub" >/dev/null
+  ssh -i "$key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+    -o ProxyCommand="aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p" \
+    "ubuntu@$instance" "$@"
+}
+
+# Each argument quoted for the remote bash, which reads ssh's arguments as one command line; none quotes as nothing.
+quoted() {
+  [[ $# -eq 0 ]] || printf '%q ' "$@"
+}
+
+state() {
+  aws ec2 describe-instances --instance-ids "$instance" \
+    --query 'Reservations[].Instances[].State.Name' --output text
+}
+
+held() {
+  [[ -n "$(aws ec2 describe-tags --filters "Name=resource-id,Values=$instance" "Name=key,Values=fund-hold" \
+    --query 'Tags[].Value' --output text)" ]]
+}
+
+# Tracked and untracked files that git does not ignore, plus the gitignored studies and jobs the box runs.
+push() {
+  local commit
+  commit="$(git rev-parse HEAD)"
+  # The same `-dirty` rule `build.rs` applies, since the box has no repository for it to ask.
+  [[ -z "$(git status --porcelain)" ]] || commit="$commit-dirty"
+  {
+    git ls-files -z --cached --others --exclude-standard
+    find studies/src/bin jobs -type f -print0 2>/dev/null || true
+  } | while IFS= read -r -d '' file; do
+    if [[ -f "$file" ]]; then printf '%s\0' "$file"; fi
+  done | COPYFILE_DISABLE=1 tar --no-xattrs --null -T - -czf - |
+    connect "mkdir -p ~/working-tree && cd ~/working-tree &&
+      find . -mindepth 1 -maxdepth 1 ! -name target ! -name '.devenv*' ! -name journal -exec rm -rf {} + &&
+      tar -xzf - --warning=no-unknown-keyword && echo $(quoted "$commit") > .commit"
+  echo "Pushed $commit to $instance"
+}
+
+# The command that builds and runs the study `$1` with the arguments after it.
+program() {
+  local study="$1"
+  shift
+  if [[ -f "jobs/$study.sh" ]]; then
+    echo "cargo build -q --profile study --workspace && PATH=\"\$PWD/target/study:\$PATH\" bash jobs/$study.sh $(quoted "$@")"
+  else
+    echo "cargo run -q --profile study -p studies --bin $(quoted "$study" "$@")"
+  fi
+}
+
+# The command line that runs `$2` whole in the pushed tree under the profile's secrets, giving `$1` as secretspec's
+# reason; `$2` goes through `bash -c` because a job's `&&` would otherwise end the secretspec command at the build.
+remote() {
+  echo "$setup && devenv shell -- secretspec run --profile \"\$FUND_PROFILE\" --reason $(quoted "$1") -- bash -c $(quoted "$2")"
+}
+
+case "$command" in
+  start)
+    current="$(state)"
+    if [[ "$current" != stopped && "$current" != stopping ]] && ! held; then
+      echo "Error: $instance is $current without a hold, so a job is using it; wait for it to power off" >&2
+      exit 1
+    fi
+    # Tagged before the boot, which reads the hold and then runs nothing.
+    aws ec2 create-tags --resources "$instance" --tags Key=fund-hold,Value=operator
+    # A box already up keeps its power-off, which a detached run may have set past 12 hours.
+    ready=true
+    if [[ "$current" == stopped || "$current" == stopping ]]; then
+      aws ec2 wait instance-stopped --instance-ids "$instance"
+      aws ec2 start-instances --instance-ids "$instance" >/dev/null
+      # The held boot cancels its own backstop, so this one is scheduled only after the boot has finished.
+      ready="while [ \"\$(systemctl is-active fund-host.service)\" = activating ]; do sleep 2; done && sudo shutdown -P +720"
+    fi
+    aws ec2 wait instance-running --instance-ids "$instance"
+    echo "Waiting for SSH on $instance"
+    for _ in $(seq 30); do
+      if errors="$(connect "$ready" 2>&1 >/dev/null)"; then
+        echo "Held and reachable: $instance"
+        [[ "$ready" == true ]] || echo "It powers off in 12 hours unless stopped first"
+        exit 0
+      fi
+      sleep 10
+    done
+    echo "Error: $instance is running but SSH did not answer within five minutes; last error: $errors" >&2
+    exit 1
+    ;;
+  push) push ;;
+  run)
+    push
+    connect -t "$(remote "Running the study $1" "$(program "$@")")"
+    ;;
+  detach)
+    hours="$1"
+    shift
+    push
+    # Only the run is backgrounded, so a backstop or directory that fails fails this command rather than the run.
+    connect "sudo shutdown -P +$((hours * 60 + 10)) && mkdir -p ~/runs && { setsid nohup bash -c $(quoted "$(remote "Running the study $1 detached" \
+      "timeout --kill-after=60 ${hours}h bash -c $(quoted "$(program "$@")")"); sudo systemctl poweroff") \
+      > ~/runs/$1.log 2>&1 < /dev/null & }"
+    echo "Started $1 for at most $hours h, then power-off; follow it with: researcher log $1"
+    ;;
+  log) connect -t "tail -n 100 -f ~/runs/$1.log" ;;
+  shell)
+    connect -t "$setup && exec devenv shell"
+    ;;
+  stop)
+    aws ec2 delete-tags --resources "$instance" --tags Key=fund-hold
+    aws ec2 stop-instances --instance-ids "$instance" >/dev/null
+    echo "Released and stopping: $instance"
+    ;;
+esac
