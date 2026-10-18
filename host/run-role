@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Builds and runs one role's work under the `FUND_PROFILE` secrets, the same on any box: `devenv shell -- host/run-role
-# <role> [job] [hours]`, a researcher's job being `jobs/<job>.sh` killed after `hours` (default 6). Run inside devenv;
-# `run-host` is the EC2 wrapper.
+# <role>`. Run inside devenv; `run-host` is the EC2 wrapper.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -21,54 +20,9 @@ if [[ -z "${FUND_PROFILE:-}" ]]; then
   exit 1
 fi
 
-# The value of the variable named `$1` when it is a whole number from 1 to 999999, otherwise `$2`.
-positive_or() {
-  if [[ "${!1:-}" =~ ^[1-9][0-9]{0,5}$ ]]; then echo "${!1}"; else echo "$2"; fi
-}
-
-# A job never runs on an earlier build; `kill -0` polls its PID, where `pgrep -f` would match the poller itself.
 if [[ "$role" == researcher ]]; then
-  job="${2:-}"
-  hours="${3:-6}"
-  # Test seams that shorten the clock and point at a temporary directory; unset, these are the host's values.
-  jobs_directory="${FUND_JOBS_DIRECTORY:-jobs}"
-  poll_seconds="$(positive_or FUND_JOB_POLL_SECONDS 30)"
-  grace_seconds="$(positive_or FUND_JOB_GRACE_SECONDS 60)"
-  seconds_per_hour="$(positive_or FUND_JOB_SECONDS_PER_HOUR 3600)"
-  if [[ ! "$job" =~ ^[a-z0-9_]+$ ]]; then
-    echo "Error: the job is \"$job\", not a name of lowercase letters, digits and underscores"
-    exit 1
-  fi
-  if [[ ! "$hours" =~ ^([1-9]|1[0-9]|2[0-4])$ ]]; then
-    echo "Error: the job's hours are \"$hours\", not a whole number from 1 to 24"
-    exit 1
-  fi
-  if [[ ! -f "$jobs_directory/$job.sh" ]]; then
-    echo "Error: there is no $jobs_directory/$job.sh"
-    exit 1
-  fi
-  cargo build -q --release --workspace
-  # Job control gives the job its own process group, so a timeout reaches every process it started.
-  set -m
-  secretspec run --profile "$FUND_PROFILE" --reason "Running the researcher job $job" -- \
-    env PATH="$PWD/target/release:$PATH" bash "$jobs_directory/$job.sh" &
-  pid=$!
-  deadline=$((SECONDS + hours * seconds_per_hour))
-  while kill -0 "$pid" 2>/dev/null; do
-    if [[ "$SECONDS" -ge "$deadline" ]]; then
-      kill -TERM -- "-$pid" 2>/dev/null || true
-      sleep "$grace_seconds"
-      kill -KILL -- "-$pid" 2>/dev/null || true
-      wait "$pid" || true
-      echo "Job $job timed out after $hours h"
-      exit 124
-    fi
-    sleep "$poll_seconds"
-  done
-  status=0
-  wait "$pid" || status=$?
-  echo "Job $job at $(git rev-parse --short HEAD) exited $status"
-  exit "$status"
+  echo "The researcher runs only what host/researcher sends it; nothing to run"
+  exit 0
 fi
 
 if ! cargo build -q --release --bin "$binary"; then

@@ -1,5 +1,5 @@
-//! What `host/provision-host` and `host/run-role` answer for each role, and what the provisioner writes, run whole
-//! against a scripted `aws` in place of AWS.
+//! What the `host/` scripts answer for each role and command, and what the provisioner writes, run whole against a
+//! scripted `aws` in place of AWS.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -125,43 +125,175 @@ fn test_each_role_is_answered_before_any_build() {
 }
 
 #[test]
-fn test_a_researcher_job_is_refused_before_any_build_unless_named_limited_and_present() {
-    let name = |job: &str| {
+fn test_an_unheld_researcher_runs_nothing_and_builds_nothing() {
+    let directory = std::env::temp_dir().join(format!("run-role-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let cargo = directory.join("cargo");
+    std::fs::write(
+        &cargo,
+        "#!/usr/bin/env bash\necho \"cargo was called\"\nexit 99\n",
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&cargo).unwrap().permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o755);
+    std::fs::set_permissions(&cargo, permissions).unwrap();
+    let output = Command::new("bash")
+        .arg(script("run-role"))
+        .arg("researcher")
+        .env(
+            "PATH",
+            format!("{}:{}", directory.display(), std::env::var("PATH").unwrap()),
+        )
+        .env("FUND_PROFILE", "development/a.b")
+        .output()
+        .unwrap();
+    std::fs::remove_dir_all(&directory).unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "The researcher runs only what host/researcher sends it; nothing to run\n"
+    );
+}
+
+#[test]
+fn test_a_researcher_command_is_refused_before_any_aws_call() {
+    let directory = std::env::temp_dir().join(format!("researcher-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let aws = directory.join("aws");
+    std::fs::write(
+        &aws,
+        "#!/usr/bin/env bash\necho \"aws was called\"\nexit 99\n",
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&aws).unwrap().permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o755);
+    std::fs::set_permissions(&aws, permissions).unwrap();
+    let path = format!("{}:{}", directory.display(), std::env::var("PATH").unwrap());
+    let usage = "Usage: researcher <command>";
+    let study = |study: &str| {
         format!(
-            "Error: the job is \"{job}\", not a name of lowercase letters, digits and underscores"
+            "Error: the study is \"{study}\", not a name of lowercase letters, digits and underscores"
         )
     };
-    let hours = |hours: &str| {
-        format!("Error: the job's hours are \"{hours}\", not a whole number from 1 to 24")
+    let hours =
+        |hours: &str| format!("Error: the hours are \"{hours}\", not a whole number from 1 to 24");
+    let profile = |profile: &str| {
+        format!("Error: FUND_PROFILE must be production or development/<name>; got \"{profile}\"")
     };
-    let absent = "Error: there is no jobs/no_such_job.sh".to_string();
-    for (job, limit, refusal) in [
-        ("", "6", name("")),
-        ("../bin/trader", "6", name("../bin/trader")),
-        ("Study", "6", name("Study")),
-        ("a b", "6", name("a b")),
-        ("no_such_job", "0", hours("0")),
-        ("no_such_job", "25", hours("25")),
-        ("no_such_job", "06", hours("06")),
-        ("no_such_job", "1.5", hours("1.5")),
-        ("no_such_job", "-1", hours("-1")),
-        ("no_such_job", "1", absent.clone()),
-        ("no_such_job", "24", absent.clone()),
-        ("no_such_job", "", absent),
+    for (arguments, fund_profile, refusal) in [
+        (vec![], "development/a.b", usage.to_string()),
+        (vec!["launch"], "development/a.b", usage.to_string()),
+        (vec!["start", "extra"], "development/a.b", usage.to_string()),
+        (vec!["run"], "development/a.b", usage.to_string()),
+        (
+            vec!["run", "../trader"],
+            "development/a.b",
+            study("../trader"),
+        ),
+        (vec!["log", "Study"], "development/a.b", study("Study")),
+        (vec!["detach", "0", "probe"], "development/a.b", hours("0")),
+        (
+            vec!["detach", "25", "probe"],
+            "development/a.b",
+            hours("25"),
+        ),
+        (vec!["detach", "1"], "development/a.b", usage.to_string()),
+        (vec!["detach", "1", "a b"], "development/a.b", study("a b")),
+        (vec!["push"], "", profile("")),
+        (vec!["push"], "development", profile("development")),
+        (vec!["stop"], "staging", profile("staging")),
     ] {
         let output = Command::new("bash")
-            .arg(script("run-role"))
-            .args(["researcher", job, limit])
-            .env("FUND_PROFILE", "development/a.b")
+            .arg(script("researcher"))
+            .args(&arguments)
+            .env("PATH", &path)
+            .env("FUND_PROFILE", fund_profile)
             .output()
             .unwrap();
-        assert_eq!(output.status.code(), Some(1), "{job} {limit}");
-        assert_eq!(
+        let text = format!(
+            "{}{}",
             String::from_utf8_lossy(&output.stdout),
-            format!("{refusal}\n"),
-            "{job} {limit}"
+            String::from_utf8_lossy(&output.stderr)
         );
+        assert_eq!(output.status.code(), Some(1), "{arguments:?}");
+        assert_eq!(text.lines().next(), Some(refusal.as_str()), "{arguments:?}");
     }
+    std::fs::remove_dir_all(&directory).unwrap();
+}
+
+/// What a throwaway `jobs/<name>.sh` run by `researcher run` with `arguments` saw: whether it ran under secretspec,
+/// then its argument count and arguments. `ssh` runs the command it is handed in a temporary home, where `devenv`,
+/// `secretspec` and `cargo` are stubs that pass through.
+fn job_run(arguments: &[&str]) -> Vec<String> {
+    let directory = std::env::temp_dir().join(format!("researcher-{}", uuid::Uuid::new_v4()));
+    let job = format!("probe_{}", uuid::Uuid::new_v4().simple());
+    let body = "printf '%s\\n' \"${UNDER_SECRETSPEC:-no}\" \"$#\" \"$@\" > \"$HOME/job\"\n";
+    std::fs::create_dir_all(directory.join(".ssh")).unwrap();
+    std::fs::write(directory.join(".ssh/fund-researcher"), "").unwrap();
+    std::fs::create_dir_all(directory.join("working-tree/jobs")).unwrap();
+    std::fs::write(directory.join("working-tree/.commit"), "0\n").unwrap();
+    std::fs::write(directory.join(format!("working-tree/jobs/{job}.sh")), body).unwrap();
+    for (name, stub) in [
+        (
+            "aws",
+            "#!/usr/bin/env bash\n[[ \"$1 $2\" != \"ec2 describe-instances\" ]] || echo i-0123abcd\n",
+        ),
+        (
+            "ssh",
+            "#!/usr/bin/env bash\nif [[ \"${@: -1}\" == *secretspec* ]]; then bash -c \"${@: -1}\"; else cat >/dev/null; fi\n",
+        ),
+        (
+            ".nix-profile/bin/devenv",
+            "#!/usr/bin/env bash\nshift 2\nexec \"$@\"\n",
+        ),
+        (
+            ".nix-profile/bin/secretspec",
+            "#!/usr/bin/env bash\nwhile [[ \"$1\" != -- ]]; do shift; done\nshift\nUNDER_SECRETSPEC=yes exec \"$@\"\n",
+        ),
+        (".nix-profile/bin/cargo", "#!/usr/bin/env bash\nexit 0\n"),
+    ] {
+        let path = directory.join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, stub).unwrap();
+        let mut permissions = std::fs::metadata(&path).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o755);
+        std::fs::set_permissions(&path, permissions).unwrap();
+    }
+    let jobs = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    std::fs::create_dir_all(&jobs).unwrap();
+    std::fs::write(jobs.join(format!("{job}.sh")), body).unwrap();
+    let output = Command::new("bash")
+        .arg(script("researcher"))
+        .arg("run")
+        .arg(&job)
+        .args(arguments)
+        .env(
+            "PATH",
+            format!("{}:{}", directory.display(), std::env::var("PATH").unwrap()),
+        )
+        .env("HOME", &directory)
+        .env("FUND_PROFILE", "development/a.b")
+        .output()
+        .unwrap();
+    std::fs::remove_file(jobs.join(format!("{job}.sh"))).unwrap();
+    let seen = std::fs::read_to_string(directory.join("job"));
+    std::fs::remove_dir_all(&directory).unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    seen.unwrap().lines().map(str::to_string).collect()
+}
+
+#[test]
+fn test_a_job_runs_under_secretspec_with_exactly_the_arguments_it_was_given() {
+    assert_eq!(job_run(&[]), ["yes", "0"]);
+    assert_eq!(
+        job_run(&["a b", "it's", ""]),
+        ["yes", "3", "a b", "it's", ""]
+    );
 }
 
 #[test]
@@ -178,102 +310,6 @@ fn test_every_host_is_a_role_of_both_scripts() {
             "{host}: {ran}"
         );
     }
-}
-
-/// A run of `run-role` for the researcher's job `body` limited to one hour of two seconds, with `cargo` and
-/// `secretspec` stubbed on `PATH` and the job in its own directory.
-struct JobRun {
-    code: i32,
-    /// Standard output alone, where run-role reports; bash's job-control warnings go to standard error.
-    output: String,
-    errors: String,
-    directory: PathBuf,
-}
-
-impl JobRun {
-    fn run(body: &str) -> Self {
-        let directory = std::env::temp_dir().join(format!("run-role-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&directory).unwrap();
-        for (name, stub) in [
-            ("cargo", "#!/usr/bin/env bash\nexit 0\n"),
-            (
-                "secretspec",
-                "#!/usr/bin/env bash\nwhile [[ \"$1\" != -- ]]; do shift; done\nshift\nexec \"$@\"\n",
-            ),
-        ] {
-            let path = directory.join(name);
-            std::fs::write(&path, stub).unwrap();
-            let mut permissions = std::fs::metadata(&path).unwrap().permissions();
-            std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o755);
-            std::fs::set_permissions(&path, permissions).unwrap();
-        }
-        std::fs::write(directory.join("probe.sh"), body).unwrap();
-        let path = format!("{}:{}", directory.display(), std::env::var("PATH").unwrap());
-        let output = Command::new("bash")
-            .arg(script("run-role"))
-            .args(["researcher", "probe", "1"])
-            .env("PATH", path)
-            .env("FUND_PROFILE", "development/a.b")
-            .env("FUND_JOBS_DIRECTORY", &directory)
-            .env("FUND_JOB_POLL_SECONDS", "1")
-            .env("FUND_JOB_GRACE_SECONDS", "1")
-            .env("FUND_JOB_SECONDS_PER_HOUR", "2")
-            .output()
-            .unwrap();
-        Self {
-            code: output.status.code().unwrap(),
-            output: String::from_utf8_lossy(&output.stdout).into_owned(),
-            errors: String::from_utf8_lossy(&output.stderr).into_owned(),
-            directory,
-        }
-    }
-}
-
-impl Drop for JobRun {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.directory);
-    }
-}
-
-#[test]
-fn test_a_researcher_job_exits_with_its_own_status() {
-    let sha = String::from_utf8(
-        Command::new("git")
-            .args(["rev-parse", "--short", "HEAD"])
-            .current_dir(env!("CARGO_MANIFEST_DIR"))
-            .output()
-            .unwrap()
-            .stdout,
-    )
-    .unwrap();
-    let sha = sha.trim();
-    for (body, code) in [("exit 0\n", 0), ("exit 3\n", 3)] {
-        let ran = JobRun::run(body);
-        assert_eq!(ran.code, code, "{}{}", ran.output, ran.errors);
-        assert_eq!(
-            ran.output,
-            format!("Job probe at {sha} exited {code}\n"),
-            "{body}"
-        );
-    }
-}
-
-#[test]
-fn test_a_researcher_job_past_its_limit_is_killed_with_every_process_it_started() {
-    let ran = JobRun::run(
-        "sleep 300 >/dev/null 2>&1 &\necho $! > \"$FUND_JOBS_DIRECTORY/child\"\nsleep 20\n",
-    );
-    assert_eq!(ran.code, 124, "{}{}", ran.output, ran.errors);
-    assert_eq!(ran.output, "Job probe timed out after 1 h\n");
-    let child = std::fs::read_to_string(ran.directory.join("child")).unwrap();
-    let alive = Command::new("bash")
-        .args([
-            "-c",
-            &format!("kill -0 {0} 2>/dev/null && kill {0}", child.trim()),
-        ])
-        .status()
-        .unwrap();
-    assert!(!alive.success(), "child {} outlived the job", child.trim());
 }
 
 /// Stands in for the `aws` CLI: answers each call from `STUB_*`, saves every policy, schedule target and lifecycle
