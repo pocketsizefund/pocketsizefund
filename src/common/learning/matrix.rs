@@ -1,6 +1,8 @@
-//! A dense row-major matrix of inputs, and the finite labels a fit reads beside it.
+//! A dense row-major matrix of inputs, and the labels a fit reads beside it under one loss.
 
 use std::num::NonZeroUsize;
+
+use crate::common::learning::loss::{Label, LabelError, Loss};
 
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
 pub enum ShapeError {
@@ -8,11 +10,15 @@ pub enum ShapeError {
     Ragged { values: usize, width: usize },
     #[error("{labels} labels for {rows} rows")]
     LabelCount { labels: usize, rows: usize },
-    #[error("the label at row {row} is {value}, which is not finite")]
-    NonFiniteLabel { row: usize, value: f64 },
+    #[error("the label at row {row} is unreadable")]
+    Label {
+        row: usize,
+        #[source]
+        error: LabelError,
+    },
 }
 
-/// Inputs borrowed row by row; NaN marks a missing value, which every learner routes rather than refuses.
+/// Inputs borrowed row by row; NaN marks a missing value.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Matrix<'a> {
     values: &'a [f64],
@@ -43,36 +49,47 @@ impl<'a> Matrix<'a> {
     }
 }
 
-/// A matrix with one finite label per row.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// A matrix with one label per row, each read under `loss`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Sample<'a> {
     matrix: Matrix<'a>,
-    labels: &'a [f64],
+    labels: Vec<Label>,
+    loss: Loss,
 }
 
 impl<'a> Sample<'a> {
-    pub fn new(matrix: Matrix<'a>, labels: &'a [f64]) -> Result<Self, ShapeError> {
+    pub fn new(matrix: Matrix<'a>, labels: &[f64], loss: Loss) -> Result<Self, ShapeError> {
         if labels.len() != matrix.rows() {
             return Err(ShapeError::LabelCount {
                 labels: labels.len(),
                 rows: matrix.rows(),
             });
         }
-        match labels.iter().position(|label| !label.is_finite()) {
-            Some(row) => Err(ShapeError::NonFiniteLabel {
-                row,
-                value: labels[row],
-            }),
-            None => Ok(Self { matrix, labels }),
-        }
+        let labels = labels
+            .iter()
+            .enumerate()
+            .map(|(row, &value)| {
+                loss.label(value)
+                    .map_err(|error| ShapeError::Label { row, error })
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(Self {
+            matrix,
+            labels,
+            loss,
+        })
     }
 
     pub fn matrix(&self) -> Matrix<'a> {
         self.matrix
     }
 
-    pub fn labels(&self) -> &'a [f64] {
-        self.labels
+    pub fn labels(&self) -> &[Label] {
+        &self.labels
+    }
+
+    pub fn loss(&self) -> Loss {
+        self.loss
     }
 }
 
@@ -99,23 +116,42 @@ mod tests {
     }
 
     #[test]
-    fn test_a_sample_refuses_a_missing_or_non_finite_label() {
+    fn test_a_sample_refuses_a_missing_label_or_one_its_loss_cannot_read() {
         let values = [1.0, 2.0, 3.0, 4.0];
         let matrix = Matrix::new(&values, TWO).unwrap();
         assert_eq!(
-            Sample::new(matrix, &[1.0]),
+            Sample::new(matrix, &[1.0], Loss::SquaredError),
             Err(ShapeError::LabelCount { labels: 1, rows: 2 })
         );
         assert_eq!(
-            Sample::new(matrix, &[1.0, f64::INFINITY]),
-            Err(ShapeError::NonFiniteLabel {
+            Sample::new(matrix, &[1.0, f64::INFINITY], Loss::SquaredError),
+            Err(ShapeError::Label {
                 row: 1,
-                value: f64::INFINITY
+                error: LabelError {
+                    loss: Loss::SquaredError,
+                    value: f64::INFINITY
+                }
             })
         );
         assert_eq!(
-            Sample::new(matrix, &[1.0, 0.0]).unwrap().labels(),
+            Sample::new(matrix, &[0.5, 1.0], Loss::Logistic),
+            Err(ShapeError::Label {
+                row: 0,
+                error: LabelError {
+                    loss: Loss::Logistic,
+                    value: 0.5
+                }
+            })
+        );
+        let sample = Sample::new(matrix, &[1.0, 0.0], Loss::Logistic).unwrap();
+        assert_eq!(
+            sample
+                .labels()
+                .iter()
+                .map(|label| label.get())
+                .collect::<Vec<_>>(),
             [1.0, 0.0]
         );
+        assert_eq!(sample.loss(), Loss::Logistic);
     }
 }

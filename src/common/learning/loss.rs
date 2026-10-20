@@ -1,4 +1,4 @@
-//! Losses as functions of a prediction and a label, with the derivatives every learner descends along.
+//! Losses as functions of a score and a label, with the derivatives every learner descends along.
 
 /// Keeps the logistic base finite when every label agrees.
 const LOGISTIC_CLAMP: f64 = 1e-15;
@@ -30,21 +30,67 @@ impl From<Level> for f64 {
     }
 }
 
-/// The first and second derivatives of a loss with respect to the prediction at one row.
+/// A model's raw output, on the scale a loss descends along: log-odds for `Logistic`, the label's scale otherwise.
+#[derive(
+    Debug, Clone, Copy, PartialEq, PartialOrd, Default, serde::Serialize, serde::Deserialize,
+)]
+#[serde(transparent)]
+pub struct Score(f64);
+
+impl Score {
+    pub fn new(value: f64) -> Self {
+        Self(value)
+    }
+
+    pub fn get(self) -> f64 {
+        self.0
+    }
+}
+
+impl std::ops::Add for Score {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
+
+/// A score mapped onto the label's scale by `Loss::response`: a probability for `Logistic`.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Prediction(f64);
+
+impl Prediction {
+    pub fn get(self) -> f64 {
+        self.0
+    }
+}
+
+/// A finite target that the loss it was read under accepts, made only by `Loss::label`.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Label(f64);
+
+impl Label {
+    pub fn get(self) -> f64 {
+        self.0
+    }
+}
+
+/// The first and second derivatives of a loss with respect to the score at one row.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Derivatives {
     pub gradient: f64,
     pub hessian: f64,
 }
 
+/// A label that is not finite, or for `Logistic` is neither 0 nor 1.
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
-#[error("logistic loss reads labels of 0 or 1, and the label at row {row} is {value}")]
+#[error("{loss:?} cannot read a label of {value}")]
 pub struct LabelError {
-    pub row: usize,
+    pub loss: Loss,
     pub value: f64,
 }
 
-/// What a fit minimizes; a prediction is on the raw scale, log-odds for `Logistic`, until `response` maps it.
+/// What a fit minimizes.
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Loss {
     /// Half the squared error, so the gradient is the residual itself.
@@ -55,37 +101,42 @@ pub enum Loss {
 }
 
 impl Loss {
-    pub fn value(self, prediction: f64, label: f64) -> f64 {
+    pub fn label(self, value: f64) -> Result<Label, LabelError> {
+        let readable = match self {
+            Loss::SquaredError | Loss::Quantile(_) => value.is_finite(),
+            Loss::Logistic => value == 0.0 || value == 1.0,
+        };
+        match readable {
+            true => Ok(Label(value)),
+            false => Err(LabelError { loss: self, value }),
+        }
+    }
+
+    pub fn value(self, Score(score): Score, Label(label): Label) -> f64 {
         match self {
-            Loss::SquaredError => (prediction - label).powi(2) / 2.0,
+            Loss::SquaredError => (score - label).powi(2) / 2.0,
             Loss::Quantile(Level(level)) => {
-                let residual = label - prediction;
+                let residual = label - score;
                 residual * if residual >= 0.0 { level } else { level - 1.0 }
             }
-            // ln(1 + e^p) - y p, with the softplus written so neither tail overflows.
-            Loss::Logistic => {
-                prediction.max(0.0) + (-prediction.abs()).exp().ln_1p() - label * prediction
-            }
+            // ln(1 + e^s) - y s, with the softplus written so neither tail overflows.
+            Loss::Logistic => score.max(0.0) + (-score.abs()).exp().ln_1p() - label * score,
         }
     }
 
     /// The pinball loss has no curvature, so its hessian is one by convention and `renewed` sets its leaves.
-    pub fn derivatives(self, prediction: f64, label: f64) -> Derivatives {
+    pub fn derivatives(self, Score(score): Score, Label(label): Label) -> Derivatives {
         match self {
             Loss::SquaredError => Derivatives {
-                gradient: prediction - label,
+                gradient: score - label,
                 hessian: 1.0,
             },
             Loss::Quantile(Level(level)) => Derivatives {
-                gradient: if label > prediction {
-                    -level
-                } else {
-                    1.0 - level
-                },
+                gradient: if label > score { -level } else { 1.0 - level },
                 hessian: 1.0,
             },
             Loss::Logistic => {
-                let probability = sigmoid(prediction);
+                let probability = sigmoid(score);
                 Derivatives {
                     gradient: probability - label,
                     hessian: probability * (1.0 - probability),
@@ -94,52 +145,44 @@ impl Loss {
         }
     }
 
-    /// Maps a raw prediction to the label's scale: a probability for `Logistic`, the identity otherwise.
-    pub fn response(self, prediction: f64) -> f64 {
+    pub fn response(self, Score(score): Score) -> Prediction {
         match self {
-            Loss::SquaredError | Loss::Quantile(_) => prediction,
-            Loss::Logistic => sigmoid(prediction),
+            Loss::SquaredError | Loss::Quantile(_) => Prediction(score),
+            Loss::Logistic => Prediction(sigmoid(score)),
         }
     }
 
-    /// The constant raw prediction that minimizes the loss over `labels`, or zero when there are none.
-    pub fn base(self, labels: &[f64]) -> f64 {
+    /// The constant score that minimizes the loss over `labels`, or zero when there are none.
+    pub fn base(self, labels: &[Label]) -> Score {
         if labels.is_empty() {
-            return 0.0;
+            return Score(0.0);
         }
-        let mean = labels.iter().sum::<f64>() / labels.len() as f64;
+        let mean = labels.iter().map(|label| label.0).sum::<f64>() / labels.len() as f64;
         match self {
-            Loss::SquaredError => mean,
-            Loss::Quantile(level) => quantile(&mut labels.to_vec(), level),
+            Loss::SquaredError => Score(mean),
+            Loss::Quantile(level) => Score(quantile(
+                &mut labels.iter().map(|label| label.0).collect::<Vec<_>>(),
+                level,
+            )),
             Loss::Logistic => {
                 let clamped = mean.clamp(LOGISTIC_CLAMP, 1.0 - LOGISTIC_CLAMP);
-                (clamped / (1.0 - clamped)).ln()
+                Score((clamped / (1.0 - clamped)).ln())
             }
         }
     }
 
-    /// A leaf value read straight off the residuals, for a loss whose Newton step says nothing; the order of
-    /// `residuals` is not kept.
-    pub fn renewed(self, residuals: &mut [f64]) -> Option<f64> {
+    /// The score increment that minimizes the loss over `rows`, for a loss whose Newton step says nothing, or `None`
+    /// when the Newton step stands or there are no rows.
+    pub fn renewed(self, rows: impl IntoIterator<Item = (Score, Label)>) -> Option<Score> {
         match self {
             Loss::SquaredError | Loss::Logistic => None,
-            Loss::Quantile(level) => (!residuals.is_empty()).then(|| quantile(residuals, level)),
-        }
-    }
-
-    pub fn check(self, labels: &[f64]) -> Result<(), LabelError> {
-        match self {
-            Loss::SquaredError | Loss::Quantile(_) => Ok(()),
-            Loss::Logistic => match labels
-                .iter()
-                .position(|&label| label != 0.0 && label != 1.0)
-            {
-                Some(row) => Err(LabelError {
-                    row,
-                    value: labels[row],
-                }),
-                None => Ok(()),
-            },
+            Loss::Quantile(level) => {
+                let mut residuals: Vec<f64> = rows
+                    .into_iter()
+                    .map(|(Score(score), Label(label))| label - score)
+                    .collect();
+                (!residuals.is_empty()).then(|| Score(quantile(&mut residuals, level)))
+            }
         }
     }
 }
@@ -148,12 +191,11 @@ fn sigmoid(value: f64) -> f64 {
     1.0 / (1.0 + (-value).exp())
 }
 
-/// Linear interpolation between the order statistics either side of `level` times the last index.
+/// The smallest value with at least `level` of `values` at or below it, an order statistic that minimizes the
+/// pinball loss; `values` must not be empty and its order is not kept.
 fn quantile(values: &mut [f64], Level(level): Level) -> f64 {
-    values.sort_unstable_by(f64::total_cmp);
-    let position = level * (values.len() - 1) as f64;
-    let (lower, upper) = (position.floor() as usize, position.ceil() as usize);
-    values[lower] + (values[upper] - values[lower]) * (position - lower as f64)
+    let rank = ((level * values.len() as f64).ceil() as usize).clamp(1, values.len());
+    *values.select_nth_unstable_by(rank - 1, f64::total_cmp).1
 }
 
 #[cfg(test)]
@@ -164,6 +206,17 @@ mod tests {
 
     fn level(value: f64) -> Level {
         Level::try_from(value).unwrap()
+    }
+
+    fn labels(loss: Loss, values: &[f64]) -> Vec<Label> {
+        values
+            .iter()
+            .map(|&value| loss.label(value).unwrap())
+            .collect()
+    }
+
+    fn base(loss: Loss, values: &[f64]) -> f64 {
+        loss.base(&labels(loss, values)).get()
     }
 
     #[test]
@@ -180,49 +233,71 @@ mod tests {
 
     #[test]
     fn test_each_base_is_its_loss_minimizer() {
-        assert_eq!(Loss::SquaredError.base(&[1.0, 2.0, 6.0]), 3.0);
-        assert!((Loss::Quantile(level(0.1)).base(&[5.0, 1.0, 3.0, 2.0, 4.0]) - 1.4).abs() < 1e-12);
-        assert!((Loss::Logistic.base(&[0.0, 0.0, 0.0, 1.0]) - (1.0_f64 / 3.0).ln()).abs() < 1e-12);
-        assert!(Loss::Logistic.base(&[1.0, 1.0]).is_finite());
-        assert_eq!(Loss::SquaredError.base(&[]), 0.0);
-        assert!((Loss::Quantile(level(0.9)).base(&[5.0, 1.0, 3.0, 2.0, 4.0]) - 4.6).abs() < 1e-12);
+        assert_eq!(base(Loss::SquaredError, &[1.0, 2.0, 6.0]), 3.0);
+        assert_eq!(
+            base(Loss::Quantile(level(0.1)), &[5.0, 1.0, 3.0, 2.0, 4.0]),
+            1.0
+        );
+        assert_eq!(base(Loss::Quantile(level(0.1)), &[0.0, 10.0]), 0.0);
+        assert_eq!(base(Loss::Quantile(level(0.5)), &[4.0, 1.0, 3.0, 2.0]), 2.0);
+        assert_eq!(
+            base(Loss::Quantile(level(0.25)), &[4.0, 1.0, 3.0, 2.0]),
+            1.0
+        );
+        assert!((base(Loss::Logistic, &[0.0, 0.0, 0.0, 1.0]) - (1.0_f64 / 3.0).ln()).abs() < 1e-12);
+        assert!(base(Loss::Logistic, &[1.0, 1.0]).is_finite());
+        assert_eq!(base(Loss::SquaredError, &[]), 0.0);
+        assert_eq!(
+            base(Loss::Quantile(level(0.9)), &[5.0, 1.0, 3.0, 2.0, 4.0]),
+            5.0
+        );
     }
 
     #[test]
     fn test_only_the_quantile_loss_renews_its_leaves() {
-        assert_eq!(
-            Loss::Quantile(level(0.5)).renewed(&mut [3.0, -1.0, 1.0]),
-            Some(1.0)
-        );
-        assert_eq!(Loss::Quantile(level(0.5)).renewed(&mut []), None);
-        assert_eq!(Loss::SquaredError.renewed(&mut [3.0]), None);
-        assert_eq!(Loss::Logistic.renewed(&mut [3.0]), None);
+        let median = Loss::Quantile(level(0.5));
+        let rows = [(2.0, 5.0), (1.0, 0.0), (0.0, 1.0)]
+            .map(|(score, label)| (Score::new(score), median.label(label).unwrap()));
+        assert_eq!(median.renewed(rows), Some(Score::new(1.0)));
+        assert_eq!(median.renewed([]), None);
+        let row = [(Score::new(0.0), Loss::Logistic.label(1.0).unwrap())];
+        assert_eq!(Loss::SquaredError.renewed(row), None);
+        assert_eq!(Loss::Logistic.renewed(row), None);
     }
 
     #[test]
-    fn test_logistic_refuses_a_label_that_is_not_binary() {
+    fn test_each_loss_reads_only_the_labels_it_accepts() {
         assert_eq!(
-            Loss::Logistic.check(&[0.0, 1.0, 0.5]),
-            Err(LabelError { row: 2, value: 0.5 })
+            Loss::Logistic.label(0.5),
+            Err(LabelError {
+                loss: Loss::Logistic,
+                value: 0.5
+            })
         );
-        assert_eq!(Loss::Logistic.check(&[0.0, 1.0]), Ok(()));
-        assert_eq!(Loss::SquaredError.check(&[0.5]), Ok(()));
+        assert_eq!(Loss::Logistic.label(1.0).map(Label::get), Ok(1.0));
+        assert_eq!(Loss::SquaredError.label(0.5).map(Label::get), Ok(0.5));
+        for value in [f64::INFINITY, f64::NAN] {
+            assert!(Loss::Quantile(level(0.5)).label(value).is_err(), "{value}");
+            assert!(Loss::SquaredError.label(value).is_err(), "{value}");
+        }
     }
 
     #[test]
     fn test_the_logistic_value_holds_in_both_tails() {
-        assert!((Loss::Logistic.value(0.0, 1.0) - 2.0_f64.ln()).abs() < 1e-12);
-        assert!((Loss::Logistic.value(800.0, 0.0) - 800.0).abs() < 1e-9);
-        assert!(Loss::Logistic.value(-800.0, 0.0) < 1e-300);
-        assert_eq!(Loss::Logistic.response(0.0), 0.5);
+        let [zero, one] = [0.0, 1.0].map(|value| Loss::Logistic.label(value).unwrap());
+        assert!((Loss::Logistic.value(Score::new(0.0), one) - 2.0_f64.ln()).abs() < 1e-12);
+        assert!((Loss::Logistic.value(Score::new(800.0), zero) - 800.0).abs() < 1e-9);
+        assert!(Loss::Logistic.value(Score::new(-800.0), zero) < 1e-300);
+        assert_eq!(Loss::Logistic.response(Score::new(0.0)).get(), 0.5);
         assert_eq!(
-            Loss::Logistic.derivatives(0.0, 1.0),
+            Loss::Logistic.derivatives(Score::new(0.0), one),
             Derivatives {
                 gradient: -0.5,
                 hessian: 0.25
             }
         );
-        let Derivatives { gradient, hessian } = Loss::Logistic.derivatives(3.0_f64.ln(), 0.0);
+        let Derivatives { gradient, hessian } =
+            Loss::Logistic.derivatives(Score::new(3.0_f64.ln()), zero);
         assert!((gradient - 0.75).abs() < 1e-12 && (hessian - 0.1875).abs() < 1e-12);
     }
 
@@ -230,12 +305,12 @@ mod tests {
         /// The gradient is the slope of the value, measured by a central difference away from the pinball's kink.
         #[test]
         fn property_each_gradient_is_the_slope_of_its_value(
-            prediction in -5.0..5.0_f64,
+            score in -5.0..5.0_f64,
             label in -5.0..5.0_f64,
             binary in any::<bool>(),
             quantile_level in 0.05..0.95_f64,
         ) {
-            prop_assume!((prediction - label).abs() > 1e-3);
+            prop_assume!((score - label).abs() > 1e-3);
             let step = 1e-6;
             let losses = [
                 (Loss::SquaredError, label),
@@ -243,16 +318,34 @@ mod tests {
                 (Loss::Logistic, f64::from(u8::from(binary))),
             ];
             for (loss, label) in losses {
-                let slope = (loss.value(prediction + step, label) - loss.value(prediction - step, label)) / (2.0 * step);
-                let derivatives = loss.derivatives(prediction, label);
+                let label = loss.label(label).unwrap();
+                let value = |shifted: f64| loss.value(Score::new(shifted), label);
+                let slope = (value(score + step) - value(score - step)) / (2.0 * step);
+                let derivatives = loss.derivatives(Score::new(score), label);
                 prop_assert!((slope - derivatives.gradient).abs() < 1e-5, "{loss:?}: {slope} against {derivatives:?}");
                 prop_assert!(derivatives.hessian >= 0.0);
             }
         }
 
+        /// The pinball loss is piecewise linear with kinks at the labels, so no label can beat its minimizer.
         #[test]
-        fn property_a_probability_stays_inside_the_unit_interval(prediction in -30.0..30.0_f64) {
-            let probability = Loss::Logistic.response(prediction);
+        fn property_the_quantile_base_minimizes_the_pinball_loss(
+            integers in prop::collection::vec(-20_i32..20, 1..30),
+            quantile_level in 0.01..0.99_f64,
+        ) {
+            let loss = Loss::Quantile(level(quantile_level));
+            let values: Vec<f64> = integers.into_iter().map(f64::from).collect();
+            let labels = labels(loss, &values);
+            let total = |score: Score| labels.iter().map(|&label| loss.value(score, label)).sum::<f64>();
+            let best = total(loss.base(&labels));
+            for &candidate in &values {
+                prop_assert!(best <= total(Score::new(candidate)) + 1e-9, "{best} at {candidate}");
+            }
+        }
+
+        #[test]
+        fn property_a_probability_stays_inside_the_unit_interval(score in -30.0..30.0_f64) {
+            let probability = Loss::Logistic.response(Score::new(score)).get();
             prop_assert!(probability > 0.0 && probability < 1.0);
         }
     }

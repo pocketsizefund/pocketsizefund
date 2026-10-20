@@ -104,8 +104,9 @@ pub fn concatenate<M: Monoid>(values: impl IntoIterator<Item = M>) -> M {
     values.into_iter().fold(M::empty(), M::combine)
 }
 
-/// Folds a monoid over `0..length` in contiguous fragments combined in index order, so an implementation may split
-/// the range however it likes and, by associativity, must return what one fragment over the whole range returns.
+/// Folds a monoid over `0..length` in contiguous fragments combined in index order, however an implementation splits
+/// the range; the result is independent of the split provided the caller's `fragment(a..c)` equals
+/// `fragment(a..b).combine(fragment(b..c))`.
 pub trait Fold {
     fn fold<M: Monoid + Send>(
         &self,
