@@ -16,6 +16,7 @@ pub enum Node {
     /// `missing_left`.
     Split {
         input: Input,
+        #[serde(with = "threshold")]
         threshold: Option<f64>,
         missing_left: bool,
         gain: f64,
@@ -25,6 +26,57 @@ pub enum Node {
     Leaf {
         value: Score,
     },
+}
+
+/// Writes an infinite threshold as "inf" or "-inf": a JSON number cannot hold one, and serde_json would write `null`,
+/// which reads back as `None` and sends every value left. A NaN threshold would still write `null`, but a cut lies
+/// in `[lower, upper)` of two non-NaN values, so a fit never produces one.
+mod threshold {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(untagged)]
+    enum Stored {
+        Number(f64),
+        Infinite(Infinity),
+    }
+
+    #[derive(Serialize, Deserialize)]
+    enum Infinity {
+        #[serde(rename = "inf")]
+        Positive,
+        #[serde(rename = "-inf")]
+        Negative,
+    }
+
+    pub fn serialize<S: Serializer>(
+        threshold: &Option<f64>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        threshold
+            .map(|value| {
+                if value == f64::INFINITY {
+                    Stored::Infinite(Infinity::Positive)
+                } else if value == f64::NEG_INFINITY {
+                    Stored::Infinite(Infinity::Negative)
+                } else {
+                    Stored::Number(value)
+                }
+            })
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<f64>, D::Error> {
+        Ok(
+            Option::<Stored>::deserialize(deserializer)?.map(|stored| match stored {
+                Stored::Number(value) => value,
+                Stored::Infinite(Infinity::Positive) => f64::INFINITY,
+                Stored::Infinite(Infinity::Negative) => f64::NEG_INFINITY,
+            }),
+        )
+    }
 }
 
 /// Nodes with the root first and each child after its parent, so every walk from the root ends at a leaf.
@@ -292,6 +344,8 @@ impl Grower<'_> {
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
+
     use super::*;
     use crate::common::learning::loss::Derivatives;
     use crate::common::learning::matrix::Matrix;
@@ -434,5 +488,29 @@ mod tests {
             (tree.score(&[f64::NAN]).get(), tree.score(&[0.5]).get()),
             (-1.0, 1.0)
         );
+    }
+
+    proptest! {
+        /// Every threshold a split can hold, infinite ones included, reads back as itself.
+        #[test]
+        fn property_a_tree_reads_back_as_itself(
+            threshold in prop_oneof![
+                Just(None),
+                Just(Some(f64::INFINITY)),
+                Just(Some(f64::NEG_INFINITY)),
+                (-1e300..1e300_f64).prop_map(Some),
+            ],
+            missing_left in any::<bool>(),
+        ) {
+            let leaf = |value| Node::Leaf { value: Score::new(value) };
+            let tree = Tree::try_from(vec![
+                Node::Split { input: Input::new(0), threshold, missing_left, gain: 1.0, left: 1, right: 2 },
+                leaf(-1.0),
+                leaf(1.0),
+            ])
+            .unwrap();
+            let text = serde_json::to_string(&tree).unwrap();
+            prop_assert_eq!(serde_json::from_str::<Tree>(&text).unwrap(), tree);
+        }
     }
 }

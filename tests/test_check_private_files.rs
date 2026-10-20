@@ -78,7 +78,7 @@ fn test_each_private_file_fails_and_is_named() {
         "records/2026-10-08.jsonl",
         "data/raw/quotes.jsonl.gz",
         "models/weights.safetensors",
-        "models/tick_fill.weights.json",
+        "models/model.weights.json",
         "data/capital_flows.toml",
         "journal/README.md",
         "studies/src/bin/null_check.rs",

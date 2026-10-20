@@ -26,9 +26,14 @@ impl Ensemble {
     }
 
     pub fn score(&self, row: &[f64]) -> Score {
+        self.score_from(Score::default(), row)
+    }
+
+    /// Adds each tree's score to `base` in fit order, which rounds as the fit's running scores did.
+    pub fn score_from(&self, base: Score, row: &[f64]) -> Score {
         self.0
             .iter()
-            .fold(Score::default(), |score, tree| score + tree.score(row))
+            .fold(base, |score, tree| score + tree.score(row))
     }
 }
 
@@ -194,7 +199,7 @@ impl Booster {
         Ok((0..matrix.rows())
             .map(|row| {
                 self.loss
-                    .response(self.base + self.ensemble.score(matrix.row(row)))
+                    .response(self.ensemble.score_from(self.base, matrix.row(row)))
             })
             .collect())
     }
@@ -673,6 +678,68 @@ mod tests {
                 .to_string()
                 .contains("of rows 1 wide")
         );
+    }
+
+    /// A split below every finite value stores a threshold of -inf, which JSON cannot hold as a number.
+    #[test]
+    fn test_a_split_at_negative_infinity_survives_a_round_trip() {
+        let values = [f64::NEG_INFINITY, f64::NEG_INFINITY, 1.0, 1.0];
+        let settings = Settings {
+            leaves: NonZeroUsize::new(2).unwrap(),
+            learning_rate: Fraction::new(1.0).unwrap(),
+            minimum_rows_per_leaf: NonZeroUsize::MIN,
+            row_fraction: Fraction::new(1.0).unwrap(),
+            penalty: Penalty::new(1e-9).unwrap(),
+            rounds: 1,
+            ..settings()
+        };
+        let booster = fit(
+            Loss::SquaredError,
+            &values,
+            1,
+            &[0.0, 0.0, 10.0, 10.0],
+            &settings,
+        )
+        .unwrap();
+        let read: Booster =
+            serde_json::from_str(&serde_json::to_string(&booster).unwrap()).unwrap();
+        let matrix = Matrix::new(&values, NonZeroUsize::MIN).unwrap();
+        for predictions in [predicted(&booster, &matrix), predicted(&read, &matrix)] {
+            let rounded: Vec<f64> = predictions.iter().map(|value| value.round()).collect();
+            assert_eq!(rounded, [0.0, 0.0, 10.0, 10.0]);
+        }
+    }
+
+    /// Small corrections to a large base round differently summed among themselves first, so prediction adds each
+    /// tree to the base in the order the fit did.
+    #[test]
+    fn test_a_prediction_adds_trees_to_the_base_in_fit_order() {
+        let values: Vec<f64> = (1..=8).map(f64::from).collect();
+        let labels = [
+            1e16 - 16.0,
+            1e16 - 16.0,
+            1e16 - 16.0,
+            1e16 - 16.0,
+            1e16 + 16.0,
+            1e16 + 16.0,
+            1e16 + 16.0,
+            1e16 + 16.0,
+        ];
+        let settings = Settings {
+            leaves: NonZeroUsize::new(2).unwrap(),
+            minimum_rows_per_leaf: NonZeroUsize::MIN,
+            row_fraction: Fraction::new(1.0).unwrap(),
+            rounds: 2,
+            ..settings()
+        };
+        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings).unwrap();
+        let offsets: Vec<f64> =
+            predicted(&booster, &Matrix::new(&values, NonZeroUsize::MIN).unwrap())
+                .iter()
+                .map(|prediction| prediction - 1e16)
+                .collect();
+        assert_eq!(booster.rounds(), 2);
+        assert_eq!(offsets, [-4.0, -4.0, -4.0, -4.0, 4.0, 4.0, 4.0, 4.0]);
     }
 
     proptest! {
