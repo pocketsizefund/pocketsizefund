@@ -53,7 +53,53 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::common::monoid::Sequence;
+    use crate::common::laboratory::permutation::Generator;
+    use crate::common::learning::boosting::Fraction;
+    use crate::common::learning::boosting::Penalty;
+    use crate::common::learning::boosting::ensemble::{Booster, Settings};
+    use crate::common::learning::loss::Loss;
+    use crate::common::learning::matrix::{Matrix, Sample};
+    use crate::common::monoid::{Sequence, Sequential};
+
+    /// Exact integer histograms make the threaded fit identical to the sequential one, not merely close.
+    #[test]
+    fn test_a_threaded_fit_equals_the_sequential_fit() {
+        let mut generator = Generator::new(1);
+        let mut uniform = || (generator.next_u64() >> 11) as f64 / (1_u64 << 53) as f64;
+        let values: Vec<f64> = (0..60_000).map(|_| uniform()).collect();
+        let labels: Vec<f64> = values
+            .chunks(3)
+            .map(|row| row[0] * 2.0 + row[1] * row[2] + uniform() * 0.1)
+            .collect();
+        let width = NonZeroUsize::new(3).unwrap();
+        let sample = Sample::new(
+            Matrix::new(&values, width).unwrap(),
+            &labels,
+            Loss::SquaredError,
+        )
+        .unwrap();
+        let settings = Settings {
+            leaves: NonZeroUsize::new(8).unwrap(),
+            learning_rate: Fraction::new(0.1).unwrap(),
+            minimum_rows_per_leaf: NonZeroUsize::new(10).unwrap(),
+            input_fraction: Fraction::new(0.7).unwrap(),
+            row_fraction: Fraction::new(0.8).unwrap(),
+            penalty: Penalty::new(1.0).unwrap(),
+            rounds: 30,
+            patience: NonZeroUsize::new(5).unwrap(),
+            seed: 2,
+        };
+        let sequential = Booster::fit(&sample, &sample, &settings, &Sequential).unwrap();
+        let threaded = Booster::fit(
+            &sample,
+            &sample,
+            &settings,
+            &Threads::new(NonZeroUsize::new(4).unwrap()),
+        )
+        .unwrap();
+        assert_eq!(sequential.rounds(), 30);
+        assert_eq!(threaded, sequential);
+    }
 
     #[test]
     fn test_an_empty_range_is_one_empty_fragment() {

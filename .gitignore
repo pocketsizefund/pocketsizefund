@@ -19,6 +19,7 @@ capital_flows.toml
 *.jsonl
 *.jsonl.gz
 *.safetensor*
+*.weights.json
 .devenv
 .pre-commit-config.yaml
 
