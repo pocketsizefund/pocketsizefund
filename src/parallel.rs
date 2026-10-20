@@ -72,7 +72,12 @@ mod tests {
             .map(|row| row[0] * 2.0 + row[1] * row[2] + uniform() * 0.1)
             .collect();
         let width = NonZeroUsize::new(3).unwrap();
-        let sample = Sample::new(Matrix::new(&values, width).unwrap(), &labels).unwrap();
+        let sample = Sample::new(
+            Matrix::new(&values, width).unwrap(),
+            &labels,
+            Loss::SquaredError,
+        )
+        .unwrap();
         let settings = Settings {
             leaves: NonZeroUsize::new(8).unwrap(),
             learning_rate: Fraction::new(0.1).unwrap(),
@@ -84,10 +89,8 @@ mod tests {
             patience: NonZeroUsize::new(5).unwrap(),
             seed: 2,
         };
-        let sequential =
-            Booster::fit(Loss::SquaredError, &sample, &sample, &settings, &Sequential).unwrap();
+        let sequential = Booster::fit(&sample, &sample, &settings, &Sequential).unwrap();
         let threaded = Booster::fit(
-            Loss::SquaredError,
             &sample,
             &sample,
             &settings,

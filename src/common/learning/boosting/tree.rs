@@ -6,6 +6,7 @@ use std::num::NonZeroUsize;
 use crate::common::learning::boosting::Penalty;
 use crate::common::learning::boosting::bins::{Bins, Codes, MISSING};
 use crate::common::learning::boosting::histogram::{Histogram, Statistics};
+use crate::common::learning::loss::Score;
 use crate::common::monoid::{Fold, Monoid, concatenate};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -21,7 +22,7 @@ pub enum Node {
         right: usize,
     },
     Leaf {
-        value: f64,
+        value: Score,
     },
 }
 
@@ -78,7 +79,7 @@ impl From<Tree> for Vec<Node> {
 }
 
 impl Tree {
-    pub fn leaf(value: f64) -> Self {
+    pub fn leaf(value: Score) -> Self {
         Self {
             nodes: vec![Node::Leaf { value }],
         }
@@ -88,7 +89,7 @@ impl Tree {
         &self.nodes
     }
 
-    pub fn score(&self, row: &[f64]) -> f64 {
+    pub fn score(&self, row: &[f64]) -> Score {
         let mut index = 0;
         loop {
             match self.nodes[index] {
@@ -151,7 +152,7 @@ impl Grower<'_> {
         rows: Vec<usize>,
         inputs: &[usize],
         fold: &impl Fold,
-        leaf_value: impl Fn(&[usize], Statistics) -> f64,
+        leaf_value: impl Fn(&[usize], Statistics) -> Score,
     ) -> Tree {
         let histogram_of = |rows: &[usize]| {
             fold.fold(rows.len(), |range| {
@@ -161,7 +162,9 @@ impl Grower<'_> {
         let statistics = concatenate(rows.iter().map(|&row| self.statistics[row]));
         let histogram = histogram_of(&rows);
         let split = self.best_split(&histogram, statistics, inputs);
-        let mut nodes = vec![Node::Leaf { value: 0.0 }];
+        let mut nodes = vec![Node::Leaf {
+            value: Score::default(),
+        }];
         let mut leaves = vec![Leaf {
             node: 0,
             rows,
@@ -209,7 +212,14 @@ impl Grower<'_> {
                 left,
                 right,
             };
-            nodes.extend([Node::Leaf { value: 0.0 }, Node::Leaf { value: 0.0 }]);
+            nodes.extend([
+                Node::Leaf {
+                    value: Score::default(),
+                },
+                Node::Leaf {
+                    value: Score::default(),
+                },
+            ]);
             for (node, rows, statistics, histogram) in [
                 (left, left_rows, split.left, left_histogram),
                 (right, right_rows, split.right, right_histogram),
@@ -319,7 +329,9 @@ mod tests {
             (0..values.len()).collect(),
             &[0],
             &Sequential,
-            |_, statistics| -statistics.gradient() / (statistics.hessian() + penalty.get()),
+            |_, statistics| {
+                Score::new(-statistics.gradient() / (statistics.hessian() + penalty.get()))
+            },
         )
     }
 
@@ -340,8 +352,8 @@ mod tests {
             }
             Node::Leaf { .. } => panic!("the root did not split"),
         }
-        assert!((tree.score(&[1.0]) + 5.0).abs() < 1e-6);
-        assert!((tree.score(&[9.0]) - 5.0).abs() < 1e-6);
+        assert!((tree.score(&[1.0]).get() + 5.0).abs() < 1e-6);
+        assert!((tree.score(&[9.0]).get() - 5.0).abs() < 1e-6);
     }
 
     #[test]
@@ -352,9 +364,9 @@ mod tests {
             2,
             1,
         );
-        assert!((tree.score(&[f64::NAN]) - 5.0).abs() < 1e-6);
-        assert!((tree.score(&[1.5]) + 5.0).abs() < 1e-6);
-        assert!((tree.score(&[f64::INFINITY]) + 5.0).abs() < 1e-6);
+        assert!((tree.score(&[f64::NAN]).get() - 5.0).abs() < 1e-6);
+        assert!((tree.score(&[1.5]).get() + 5.0).abs() < 1e-6);
+        assert!((tree.score(&[f64::INFINITY]).get() + 5.0).abs() < 1e-6);
         let text = serde_json::to_string(&tree).unwrap();
         assert_eq!(serde_json::from_str::<Tree>(&text).unwrap(), tree);
     }
@@ -384,7 +396,9 @@ mod tests {
             left,
             right,
         };
-        let leaf = Node::Leaf { value: 1.0 };
+        let leaf = Node::Leaf {
+            value: Score::new(1.0),
+        };
         assert_eq!(Tree::try_from(vec![]), Err(TreeError::Empty));
         assert_eq!(
             Tree::try_from(vec![split(0, 1), leaf.clone()]),
@@ -402,9 +416,19 @@ mod tests {
                 length: 3
             })
         );
-        let tree = Tree::try_from(vec![split(1, 2), Node::Leaf { value: -1.0 }, leaf]).unwrap();
+        let tree = Tree::try_from(vec![
+            split(1, 2),
+            Node::Leaf {
+                value: Score::new(-1.0),
+            },
+            leaf,
+        ])
+        .unwrap();
         let text = serde_json::to_string(&tree).unwrap();
         assert_eq!(serde_json::from_str::<Tree>(&text).unwrap(), tree);
-        assert_eq!((tree.score(&[f64::NAN]), tree.score(&[0.5])), (-1.0, 1.0));
+        assert_eq!(
+            (tree.score(&[f64::NAN]).get(), tree.score(&[0.5]).get()),
+            (-1.0, 1.0)
+        );
     }
 }

@@ -7,7 +7,7 @@ use crate::common::learning::boosting::bins::Bins;
 use crate::common::learning::boosting::histogram::Statistics;
 use crate::common::learning::boosting::tree::{Grower, Node, Tree};
 use crate::common::learning::boosting::{Fraction, Penalty};
-use crate::common::learning::loss::{LabelError, Loss};
+use crate::common::learning::loss::{Label, Loss, Prediction, Score};
 use crate::common::learning::matrix::{Matrix, Sample};
 use crate::common::monoid::{Fold, Monoid, Sequence};
 
@@ -25,8 +25,10 @@ impl Ensemble {
         &self.0
     }
 
-    pub fn score(&self, row: &[f64]) -> f64 {
-        self.0.iter().map(|tree| tree.score(row)).sum()
+    pub fn score(&self, row: &[f64]) -> Score {
+        self.0
+            .iter()
+            .fold(Score::default(), |score, tree| score + tree.score(row))
     }
 }
 
@@ -65,8 +67,8 @@ pub enum FitError {
     Empty { train: usize, validation: usize },
     #[error("training rows are {train} wide and validation rows {validation}")]
     Width { train: usize, validation: usize },
-    #[error(transparent)]
-    Label(#[from] LabelError),
+    #[error("training labels are read under {train:?} and validation labels under {validation:?}")]
+    Loss { train: Loss, validation: Loss },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -82,7 +84,7 @@ pub struct WidthError {
 pub struct Booster {
     loss: Loss,
     width: usize,
-    base: f64,
+    base: Score,
     ensemble: Ensemble,
 }
 
@@ -90,13 +92,18 @@ impl Booster {
     /// Adds one tree per round until `settings.rounds`, stopping early once validation loss has not improved for
     /// `settings.patience` rounds, and keeps the rounds up to its best.
     pub fn fit(
-        loss: Loss,
         train: &Sample,
         validation: &Sample,
         settings: &Settings,
         fold: &impl Fold,
     ) -> Result<Self, FitError> {
-        let (matrix, labels) = (train.matrix(), train.labels());
+        let (matrix, labels, loss) = (train.matrix(), train.labels(), train.loss());
+        if loss != validation.loss() {
+            return Err(FitError::Loss {
+                train: loss,
+                validation: validation.loss(),
+            });
+        }
         if matrix.rows() == 0 || validation.matrix().rows() == 0 {
             return Err(FitError::Empty {
                 train: matrix.rows(),
@@ -109,8 +116,6 @@ impl Booster {
                 validation: validation.matrix().width(),
             });
         }
-        loss.check(labels)?;
-        loss.check(validation.labels())?;
         let bins = Bins::fit(&matrix);
         let codes = bins.quantize(&matrix);
         let base = loss.base(labels);
@@ -136,12 +141,15 @@ impl Booster {
                 penalty: settings.penalty,
             };
             let tree = grower.grow(rows, &inputs, fold, |rows, statistics| {
-                let mut residuals: Vec<f64> =
-                    rows.iter().map(|&row| labels[row] - scores[row]).collect();
-                let step = loss.renewed(&mut residuals).unwrap_or_else(|| {
-                    -statistics.gradient() / (statistics.hessian() + settings.penalty.get())
-                });
-                step * settings.learning_rate.get()
+                let step = loss
+                    .renewed(rows.iter().map(|&row| (scores[row], labels[row])))
+                    .unwrap_or_else(|| {
+                        Score::new(
+                            -statistics.gradient()
+                                / (statistics.hessian() + settings.penalty.get()),
+                        )
+                    });
+                Score::new(step.get() * settings.learning_rate.get())
             });
             add_scores(&mut scores, &tree, &matrix, fold);
             add_scores(&mut validation_scores, &tree, &validation.matrix(), fold);
@@ -163,7 +171,7 @@ impl Booster {
     }
 
     /// Each row's prediction on the label's scale: a probability for `Logistic`.
-    pub fn predict(&self, matrix: &Matrix) -> Result<Vec<f64>, WidthError> {
+    pub fn predict(&self, matrix: &Matrix) -> Result<Vec<Prediction>, WidthError> {
         if matrix.width() != self.width {
             return Err(WidthError {
                 expected: self.width,
@@ -201,7 +209,7 @@ impl Booster {
 struct Parts {
     loss: Loss,
     width: usize,
-    base: f64,
+    base: Score,
     ensemble: Ensemble,
 }
 
@@ -261,16 +269,16 @@ impl From<Booster> for Parts {
     }
 }
 
-fn add_scores(scores: &mut [f64], tree: &Tree, matrix: &Matrix, fold: &impl Fold) {
+fn add_scores(scores: &mut [Score], tree: &Tree, matrix: &Matrix, fold: &impl Fold) {
     let Sequence(added) = fold.fold(matrix.rows(), |range| {
         Sequence(range.map(|row| tree.score(matrix.row(row))).collect())
     });
     for (score, added) in scores.iter_mut().zip(added) {
-        *score += added;
+        *score = *score + added;
     }
 }
 
-fn mean_loss(loss: Loss, scores: &[f64], labels: &[f64]) -> f64 {
+fn mean_loss(loss: Loss, scores: &[Score], labels: &[Label]) -> f64 {
     scores
         .iter()
         .zip(labels)
@@ -321,8 +329,26 @@ mod tests {
         settings: &Settings,
     ) -> Result<Booster, FitError> {
         let matrix = Matrix::new(values, NonZeroUsize::new(width).unwrap()).unwrap();
-        let sample = Sample::new(matrix, labels).unwrap();
-        Booster::fit(loss, &sample, &sample, settings, &Sequential)
+        let sample = Sample::new(matrix, labels, loss).unwrap();
+        Booster::fit(&sample, &sample, settings, &Sequential)
+    }
+
+    fn predicted(booster: &Booster, matrix: &Matrix) -> Vec<f64> {
+        booster
+            .predict(matrix)
+            .unwrap()
+            .into_iter()
+            .map(Prediction::get)
+            .collect()
+    }
+
+    fn mean_squared_error(predictions: &[f64], labels: &[f64]) -> f64 {
+        predictions
+            .iter()
+            .zip(labels)
+            .map(|(prediction, label)| (prediction - label).powi(2))
+            .sum::<f64>()
+            / labels.len() as f64
     }
 
     /// Two inputs, the first carrying a step in the label and the second pure noise, with noise in the label.
@@ -345,7 +371,7 @@ mod tests {
             Ensemble(
                 values
                     .into_iter()
-                    .map(|value| Tree::leaf(f64::from(value) / 8.0))
+                    .map(|value| Tree::leaf(Score::new(f64::from(value) / 8.0)))
                     .collect(),
             )
         })
@@ -366,7 +392,7 @@ mod tests {
         };
         let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings).unwrap();
         let matrix = Matrix::new(&values, NonZeroUsize::MIN).unwrap();
-        let predictions = booster.predict(&matrix).unwrap();
+        let predictions = predicted(&booster, &matrix);
         for (prediction, label) in predictions.iter().zip(labels) {
             assert!(
                 (prediction - label).abs() < 1e-6,
@@ -392,9 +418,7 @@ mod tests {
             ..settings()
         };
         let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings).unwrap();
-        let predictions = booster
-            .predict(&Matrix::new(&values, NonZeroUsize::MIN).unwrap())
-            .unwrap();
+        let predictions = predicted(&booster, &Matrix::new(&values, NonZeroUsize::MIN).unwrap());
         for (prediction, expected) in predictions
             .iter()
             .zip([2.5, 2.5, 2.5, 2.5, 7.5, 7.5, 7.5, 7.5])
@@ -451,9 +475,7 @@ mod tests {
             let booster = fit(loss, &values, 1, &[2.5; 40], &settings()).unwrap();
             let matrix = Matrix::new(&values, NonZeroUsize::MIN).unwrap();
             assert!(
-                booster
-                    .predict(&matrix)
-                    .unwrap()
+                predicted(&booster, &matrix)
                     .iter()
                     .all(|&prediction| prediction == 2.5),
                 "{loss:?}"
@@ -478,9 +500,7 @@ mod tests {
         .unwrap();
         let matrix = Matrix::new(&values, NonZeroUsize::MIN).unwrap();
         assert!(
-            booster
-                .predict(&matrix)
-                .unwrap()
+            predicted(&booster, &matrix)
                 .iter()
                 .all(|prediction| (prediction - 0.25).abs() < 1e-12)
         );
@@ -493,11 +513,11 @@ mod tests {
         let booster = fit(Loss::SquaredError, &values, 2, &labels, &settings()).unwrap();
         let (validation_values, validation_labels) = stepped(1_000, 4);
         let matrix = Matrix::new(&validation_values, NonZeroUsize::new(2).unwrap()).unwrap();
-        let predictions = booster.predict(&matrix).unwrap();
-        assert!(mean_loss(Loss::SquaredError, &predictions, &validation_labels) < 0.05);
+        let predictions = predicted(&booster, &matrix);
+        assert!(mean_squared_error(&predictions, &validation_labels) < 0.1);
         let importance = booster.importance();
         assert!(importance[0] > 20.0 * importance[1], "{importance:?}");
-        let probabilities = fit(
+        let classifier = fit(
             Loss::Logistic,
             &values,
             2,
@@ -507,9 +527,8 @@ mod tests {
                 .collect::<Vec<_>>(),
             &settings(),
         )
-        .unwrap()
-        .predict(&matrix)
         .unwrap();
+        let probabilities = predicted(&classifier, &matrix);
         assert!(
             probabilities
                 .iter()
@@ -532,28 +551,23 @@ mod tests {
         let (train_values, validation_values) = values.split_at(2_400);
         let (train_labels, validation_labels) = labels.split_at(1_200);
         let width = NonZeroUsize::new(2).unwrap();
-        let train = Sample::new(Matrix::new(train_values, width).unwrap(), train_labels).unwrap();
+        let loss = Loss::SquaredError;
+        let train = Sample::new(
+            Matrix::new(train_values, width).unwrap(),
+            train_labels,
+            loss,
+        )
+        .unwrap();
         let validation = Sample::new(
             Matrix::new(validation_values, width).unwrap(),
             validation_labels,
+            loss,
         )
         .unwrap();
-        let booster = Booster::fit(
-            Loss::SquaredError,
-            &train,
-            &validation,
-            &settings(),
-            &Sequential,
-        )
-        .unwrap();
-        let base = mean_loss(
-            Loss::SquaredError,
-            &vec![Loss::SquaredError.base(train_labels); 800],
-            validation_labels,
-        );
-        let fitted = mean_loss(
-            Loss::SquaredError,
-            &booster.predict(&validation.matrix()).unwrap(),
+        let booster = Booster::fit(&train, &validation, &settings(), &Sequential).unwrap();
+        let base = mean_squared_error(&[loss.base(train.labels()).get(); 800], validation_labels);
+        let fitted = mean_squared_error(
+            &predicted(&booster, &validation.matrix()),
             validation_labels,
         );
         assert!(fitted > 0.99 * base, "{fitted} against a base of {base}");
@@ -563,15 +577,15 @@ mod tests {
     #[test]
     fn test_a_fit_refuses_mismatched_or_unusable_samples() {
         let values = [0.0, 1.0, 2.0, 3.0];
+        let matrix = Matrix::new(&values, NonZeroUsize::MIN).unwrap();
+        let [squared, logistic] = [Loss::SquaredError, Loss::Logistic]
+            .map(|loss| Sample::new(matrix, &[0.0, 1.0, 1.0, 0.0], loss).unwrap());
         assert_eq!(
-            fit(
-                Loss::Logistic,
-                &values,
-                1,
-                &[0.0, 1.0, 2.0, 0.0],
-                &settings()
-            ),
-            Err(FitError::Label(LabelError { row: 2, value: 2.0 }))
+            Booster::fit(&squared, &logistic, &settings(), &Sequential),
+            Err(FitError::Loss {
+                train: Loss::SquaredError,
+                validation: Loss::Logistic
+            })
         );
         assert_eq!(
             fit(Loss::SquaredError, &[], 1, &[], &settings()),
@@ -580,21 +594,15 @@ mod tests {
                 validation: 0
             })
         );
-        let train =
-            Sample::new(Matrix::new(&values, NonZeroUsize::MIN).unwrap(), &[0.0; 4]).unwrap();
+        let train = Sample::new(matrix, &[0.0; 4], Loss::SquaredError).unwrap();
         let validation = Sample::new(
             Matrix::new(&values, NonZeroUsize::new(2).unwrap()).unwrap(),
             &[0.0; 2],
+            Loss::SquaredError,
         )
         .unwrap();
         assert_eq!(
-            Booster::fit(
-                Loss::SquaredError,
-                &train,
-                &validation,
-                &settings(),
-                &Sequential
-            ),
+            Booster::fit(&train, &validation, &settings(), &Sequential),
             Err(FitError::Width {
                 train: 1,
                 validation: 2
@@ -627,6 +635,11 @@ mod tests {
         assert_eq!(read, booster);
         let matrix = Matrix::new(&values, NonZeroUsize::new(2).unwrap()).unwrap();
         assert_eq!(read.predict(&matrix), booster.predict(&matrix));
+        let stored = r#"{"loss":"SquaredError","width":1,"base":0.5,"ensemble":[[{"Split":{"input":0,"threshold":1.5,"missing_left":true,"gain":2.0,"left":1,"right":2}},{"Leaf":{"value":-0.25}},{"Leaf":{"value":0.25}}]]}"#;
+        let read = serde_json::from_str::<Booster>(stored).unwrap();
+        assert_eq!(serde_json::to_string(&read).unwrap(), stored);
+        let matrix = Matrix::new(&[1.0, 2.0], NonZeroUsize::MIN).unwrap();
+        assert_eq!(predicted(&read, &matrix), [0.25, 0.75]);
         let narrowed = text.replacen(r#""width":2"#, r#""width":1"#, 1);
         assert!(
             serde_json::from_str::<Booster>(&narrowed)
@@ -644,7 +657,7 @@ mod tests {
             third in any_ensemble(),
         ) {
             prop_assert_eq!(first.clone().combine(second.clone()).score(&[]), first.score(&[]) + second.score(&[]));
-            prop_assert_eq!(Ensemble::empty().score(&[]), 0.0);
+            prop_assert_eq!(Ensemble::empty().score(&[]), Score::new(0.0));
             laws::check_ordered(first, second, third)?;
         }
 
