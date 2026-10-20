@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
+use std::ops::Range;
 
 /// An aggregate whose `combine` is associative and for which `empty` changes nothing it is combined with.
 pub trait Monoid: Sized {
@@ -83,9 +84,49 @@ impl<Key: Ord + std::fmt::Display> std::fmt::Display for Tally<Key> {
     }
 }
 
+/// Items in the order they arrived; combining appends, so it is a monoid that does not commute.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Sequence<T>(pub Vec<T>);
+
+impl<T> Monoid for Sequence<T> {
+    fn empty() -> Self {
+        Self(Vec::new())
+    }
+
+    fn combine(mut self, other: Self) -> Self {
+        self.0.extend(other.0);
+        self
+    }
+}
+
 /// Folds any number of fragments, returning `empty` for none.
 pub fn concatenate<M: Monoid>(values: impl IntoIterator<Item = M>) -> M {
     values.into_iter().fold(M::empty(), M::combine)
+}
+
+/// Folds a monoid over `0..length` in contiguous fragments combined in index order, however an implementation splits
+/// the range; the result is independent of the split provided the caller's `fragment(a..c)` equals
+/// `fragment(a..b).combine(fragment(b..c))`.
+pub trait Fold {
+    fn fold<M: Monoid + Send>(
+        &self,
+        length: usize,
+        fragment: impl Fn(Range<usize>) -> M + Sync,
+    ) -> M;
+}
+
+/// The whole range as one fragment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Sequential;
+
+impl Fold for Sequential {
+    fn fold<M: Monoid + Send>(
+        &self,
+        length: usize,
+        fragment: impl Fn(Range<usize>) -> M + Sync,
+    ) -> M {
+        fragment(0..length)
+    }
 }
 
 #[cfg(test)]
@@ -162,6 +203,18 @@ mod tests {
         assert_eq!(Tally::<&str>::empty().to_string(), "");
     }
 
+    #[test]
+    fn test_a_sequence_keeps_the_order_it_was_combined_in() {
+        assert_eq!(
+            concatenate([Sequence(vec![2, 0]), Sequence::empty(), Sequence(vec![1])]),
+            Sequence(vec![2, 0, 1])
+        );
+        assert_eq!(
+            Sequential.fold(3, |range| Sequence(range.collect())),
+            Sequence(vec![0, 1, 2])
+        );
+    }
+
     /// A zero count would make a tally unequal to the one that never saw the key, so it does not read.
     #[test]
     fn test_a_tally_refuses_a_zero_count() {
@@ -190,6 +243,15 @@ mod tests {
         fn property_a_tally_reads_back_as_itself(tally in any_tally()) {
             let text = serde_json::to_string(&tally).unwrap();
             prop_assert_eq!(serde_json::from_str::<Tally<u8>>(&text).unwrap(), tally);
+        }
+
+        #[test]
+        fn property_a_sequence_is_a_monoid(
+            first in prop::collection::vec(0_u8..9, 0..5),
+            second in prop::collection::vec(0_u8..9, 0..5),
+            third in prop::collection::vec(0_u8..9, 0..5),
+        ) {
+            laws::check_ordered(Sequence(first), Sequence(second), Sequence(third))?;
         }
 
         /// Counting in any order gives the same tally, and its total is the number of sightings.

@@ -7,6 +7,7 @@ pub mod heal;
 pub mod ingest;
 pub mod journal;
 pub mod laboratory;
+pub mod parallel;
 pub mod parameter;
 pub mod records;
 pub mod storage;
