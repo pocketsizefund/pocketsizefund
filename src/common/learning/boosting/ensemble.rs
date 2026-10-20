@@ -4,11 +4,11 @@ use std::num::NonZeroUsize;
 
 use crate::common::laboratory::permutation::Generator;
 use crate::common::learning::boosting::bins::Bins;
-use crate::common::learning::boosting::histogram::Statistics;
+use crate::common::learning::boosting::histogram::{DerivativeError, Statistics};
 use crate::common::learning::boosting::tree::{Grower, Node, Tree};
 use crate::common::learning::boosting::{Fraction, Penalty};
 use crate::common::learning::loss::{Label, Loss, Prediction, Score};
-use crate::common::learning::matrix::{Matrix, Sample};
+use crate::common::learning::matrix::{Input, Matrix, Sample};
 use crate::common::monoid::{Fold, Monoid, Sequence};
 
 /// Trees in the order they were fit; combining concatenates, and a combination scores the sum of the parts' scores.
@@ -67,6 +67,12 @@ pub enum FitError {
     Empty { train: usize, validation: usize },
     #[error("training rows are {train} wide and validation rows {validation}")]
     Width { train: usize, validation: usize },
+    #[error("the derivative at row {row} is out of range")]
+    Derivative {
+        row: usize,
+        #[source]
+        error: DerivativeError,
+    },
     #[error("training labels are read under {train:?} and validation labels under {validation:?}")]
     Loss { train: Loss, validation: Loss },
 }
@@ -128,10 +134,17 @@ impl Booster {
             let statistics: Vec<Statistics> = scores
                 .iter()
                 .zip(labels)
-                .map(|(&score, &label)| Statistics::of(loss.derivatives(score, label)))
-                .collect();
+                .enumerate()
+                .map(|(row, (&score, &label))| {
+                    Statistics::of(loss.derivatives(score, label))
+                        .map_err(|error| FitError::Derivative { row, error })
+                })
+                .collect::<Result<_, _>>()?;
             let rows = draw(&mut generator, matrix.rows(), settings.row_fraction);
-            let inputs = draw(&mut generator, matrix.width(), settings.input_fraction);
+            let inputs: Vec<Input> = draw(&mut generator, matrix.width(), settings.input_fraction)
+                .into_iter()
+                .map(Input::new)
+                .collect();
             let grower = Grower {
                 bins: &bins,
                 codes: &codes,
@@ -196,7 +209,7 @@ impl Booster {
         let mut importance = vec![0.0; self.width];
         for node in self.ensemble.trees().iter().flat_map(Tree::nodes) {
             match node {
-                Node::Split { input, gain, .. } => importance[*input] += gain,
+                Node::Split { input, gain, .. } => importance[input.index()] += gain,
                 Node::Leaf { .. } => {}
             }
         }
@@ -214,9 +227,9 @@ struct Parts {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("a split reads input {input} of rows {width} wide")]
+#[error("a split reads input {} of rows {width} wide", input.index())]
 pub struct InputError {
-    pub input: usize,
+    pub input: Input,
     pub width: usize,
 }
 
@@ -233,7 +246,7 @@ impl TryFrom<Parts> for Booster {
     ) -> Result<Self, Self::Error> {
         for node in ensemble.trees().iter().flat_map(Tree::nodes) {
             match node {
-                Node::Split { input, .. } if *input >= width => {
+                Node::Split { input, .. } if input.index() >= width => {
                     return Err(InputError {
                         input: *input,
                         width,
@@ -585,6 +598,19 @@ mod tests {
             Err(FitError::Loss {
                 train: Loss::SquaredError,
                 validation: Loss::Logistic
+            })
+        );
+        assert_eq!(
+            fit(
+                Loss::SquaredError,
+                &values[..3],
+                1,
+                &[0.0, 0.0, 1.2e16],
+                &settings()
+            ),
+            Err(FitError::Derivative {
+                row: 2,
+                error: DerivativeError { value: -8e15 }
             })
         );
         assert_eq!(

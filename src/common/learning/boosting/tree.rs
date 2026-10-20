@@ -4,9 +4,10 @@
 use std::num::NonZeroUsize;
 
 use crate::common::learning::boosting::Penalty;
-use crate::common::learning::boosting::bins::{Bins, Codes, MISSING};
+use crate::common::learning::boosting::bins::{Bins, Code, Codes};
 use crate::common::learning::boosting::histogram::{Histogram, Statistics};
 use crate::common::learning::loss::Score;
+use crate::common::learning::matrix::Input;
 use crate::common::monoid::{Fold, Monoid, concatenate};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -14,7 +15,7 @@ pub enum Node {
     /// A value at or below `threshold` goes left, every value does when it is `None`, and a missing one follows
     /// `missing_left`.
     Split {
-        input: usize,
+        input: Input,
         threshold: Option<f64>,
         missing_left: bool,
         gain: f64,
@@ -102,7 +103,7 @@ impl Tree {
                     right,
                     ..
                 } => {
-                    let value = row[input];
+                    let value = row[input.index()];
                     let goes_left = if value.is_nan() {
                         missing_left
                     } else {
@@ -118,8 +119,8 @@ impl Tree {
 /// The best boundary found in one leaf: codes up to `code` go left, and the missing bin goes where `missing_left` says.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Split {
-    input: usize,
-    code: u8,
+    input: Input,
+    code: Code,
     missing_left: bool,
     gain: f64,
     left: Statistics,
@@ -150,7 +151,7 @@ impl Grower<'_> {
     pub fn grow(
         &self,
         rows: Vec<usize>,
-        inputs: &[usize],
+        inputs: &[Input],
         fold: &impl Fold,
         leaf_value: impl Fn(&[usize], Statistics) -> Score,
     ) -> Tree {
@@ -187,8 +188,8 @@ impl Grower<'_> {
                 parent
                     .rows
                     .iter()
-                    .partition(|&&row| match self.codes.row(row)[split.input] {
-                        MISSING => split.missing_left,
+                    .partition(|&&row| match self.codes.code(row, split.input) {
+                        Code::MISSING => split.missing_left,
                         code => code <= split.code,
                     });
             let left_smaller = left_rows.len() <= right_rows.len();
@@ -251,17 +252,16 @@ impl Grower<'_> {
         &self,
         histogram: &Histogram,
         parent: Statistics,
-        inputs: &[usize],
+        inputs: &[Input],
     ) -> Option<Split> {
         let minimum = self.minimum_rows_per_leaf.get() as u64;
         let parent_score = self.score(parent);
         let mut best: Option<Split> = None;
         for &input in inputs {
-            let slots = histogram.input(input);
-            let missing = slots[usize::from(MISSING)];
+            let missing = histogram.slot(input, Code::MISSING);
             let mut values_left = Statistics::empty();
-            for (code, &slot) in slots.iter().enumerate().take(self.bins.count(input)) {
-                values_left = values_left.combine(slot);
+            for code in self.bins.codes(input) {
+                values_left = values_left.combine(histogram.slot(input, code));
                 for missing_left in [false, true] {
                     let left = if missing_left {
                         values_left.combine(missing)
@@ -276,7 +276,7 @@ impl Grower<'_> {
                     if gain > best.map_or(0.0, |best| best.gain) {
                         best = Some(Split {
                             input,
-                            code: code as u8,
+                            code,
                             missing_left,
                             gain,
                             left,
@@ -314,6 +314,7 @@ mod tests {
                     gradient,
                     hessian: 1.0,
                 })
+                .unwrap()
             })
             .collect();
         let penalty = Penalty::new(1e-9).unwrap();
@@ -327,7 +328,7 @@ mod tests {
         };
         grower.grow(
             (0..values.len()).collect(),
-            &[0],
+            &[Input::new(0)],
             &Sequential,
             |_, statistics| {
                 Score::new(-statistics.gradient() / (statistics.hessian() + penalty.get()))
@@ -347,7 +348,10 @@ mod tests {
                 gain,
                 ..
             } => {
-                assert_eq!((input, threshold, missing_left), (0, Some(2.5), false));
+                assert_eq!(
+                    (input, threshold, missing_left),
+                    (Input::new(0), Some(2.5), false)
+                );
                 assert!((gain - 100.0).abs() < 1e-6, "{gain}");
             }
             Node::Leaf { .. } => panic!("the root did not split"),
@@ -389,7 +393,7 @@ mod tests {
     #[test]
     fn test_a_tree_refuses_a_child_that_is_not_after_its_parent() {
         let split = |left, right| Node::Split {
-            input: 0,
+            input: Input::new(0),
             threshold: Some(0.0),
             missing_left: true,
             gain: 1.0,
