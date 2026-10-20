@@ -1,12 +1,22 @@
 //! Derivative sums and row counts per input and bin, held as exact integers so they combine in any grouping and a
 //! sibling's histogram is its parent's minus the child's.
 
-use crate::common::learning::boosting::bins::{BINS, Codes};
+use crate::common::learning::boosting::bins::{BINS, Code, Codes};
 use crate::common::learning::loss::Derivatives;
+use crate::common::learning::matrix::Input;
 use crate::common::monoid::Monoid;
 
 /// Fixed-point scale for derivatives: 2^32, so a row's gradient is rounded to within 2^-33.
 const SCALE: f64 = 4_294_967_296.0;
+/// The largest derivative a row may carry, 2^52, so a row's fixed-point value is at most 2^84 and sums of fewer than
+/// 2^43 rows stay inside an `i128`.
+const LIMIT: f64 = 4_503_599_627_370_496.0;
+
+#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
+#[error("a derivative of {value} lies outside the ±2^52 a histogram holds")]
+pub struct DerivativeError {
+    pub value: f64,
+}
 
 /// The summed derivatives and the count of a set of rows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -17,12 +27,16 @@ pub struct Statistics {
 }
 
 impl Statistics {
-    pub fn of(derivatives: Derivatives) -> Self {
-        Self {
-            gradient: (derivatives.gradient * SCALE).round() as i128,
-            hessian: (derivatives.hessian * SCALE).round() as i128,
+    pub fn of(derivatives: Derivatives) -> Result<Self, DerivativeError> {
+        let fixed = |value: f64| match value.abs() <= LIMIT {
+            true => Ok((value * SCALE).round() as i128),
+            false => Err(DerivativeError { value }),
+        };
+        Ok(Self {
+            gradient: fixed(derivatives.gradient)?,
+            hessian: fixed(derivatives.hessian)?,
             count: 1,
-        }
+        })
     }
 
     pub fn gradient(&self) -> f64 {
@@ -70,20 +84,22 @@ pub struct Histogram(Vec<Statistics>);
 
 impl Histogram {
     /// Folds each listed row's statistics into its bin for every one of `inputs`, leaving the others zero.
-    pub fn of(codes: &Codes, statistics: &[Statistics], rows: &[usize], inputs: &[usize]) -> Self {
+    pub fn of(codes: &Codes, statistics: &[Statistics], rows: &[usize], inputs: &[Input]) -> Self {
         let mut slots = vec![Statistics::default(); codes.width() * BINS];
         for &row in rows {
-            let row_codes = codes.row(row);
             for &input in inputs {
-                slots[input * BINS + usize::from(row_codes[input])].add(statistics[row]);
+                slots[slot(input, codes.code(row, input))].add(statistics[row]);
             }
         }
         Self(slots)
     }
 
-    /// One input's slots, indexed by code; empty for the empty histogram.
-    pub fn input(&self, input: usize) -> &[Statistics] {
-        self.0.get(input * BINS..(input + 1) * BINS).unwrap_or(&[])
+    /// The rows of `input` that fell in `code`; none for the empty histogram.
+    pub fn slot(&self, input: Input, code: Code) -> Statistics {
+        match self.0.is_empty() {
+            true => Statistics::default(),
+            false => self.0[slot(input, code)],
+        }
     }
 
     /// What remains once `part`, built from a subset of these rows over the same inputs, is taken out.
@@ -91,15 +107,22 @@ impl Histogram {
         match (self.0.is_empty(), part.0.is_empty()) {
             (_, true) => self,
             (true, false) => panic!("a part cannot be taken from the empty histogram"),
-            (false, false) => Self(
-                self.0
-                    .into_iter()
-                    .zip(part.0)
-                    .map(|(whole, part)| whole.without(part))
-                    .collect(),
-            ),
+            (false, false) => {
+                assert_eq!(self.0.len(), part.0.len(), "histograms of different widths");
+                Self(
+                    self.0
+                        .into_iter()
+                        .zip(part.0)
+                        .map(|(whole, part)| whole.without(part))
+                        .collect(),
+                )
+            }
         }
     }
+}
+
+fn slot(input: Input, code: Code) -> usize {
+    input.index() * BINS + code.index()
 }
 
 impl Monoid for Histogram {
@@ -141,6 +164,10 @@ mod tests {
     use crate::common::learning::matrix::Matrix;
     use crate::common::monoid::{concatenate, laws};
 
+    fn statistics(gradient: f64, hessian: f64) -> Statistics {
+        Statistics::of(Derivatives { gradient, hessian }).unwrap()
+    }
+
     fn any_statistics() -> impl Strategy<Value = Statistics> {
         (-1_000_000_i128..1_000_000, 0_i128..1_000_000, 0_u64..1_000).prop_map(
             |(gradient, hessian, count)| Statistics {
@@ -167,9 +194,7 @@ mod tests {
                     |derivatives| {
                         derivatives
                             .into_iter()
-                            .map(|(gradient, hessian)| {
-                                Statistics::of(Derivatives { gradient, hessian })
-                            })
+                            .map(|(gradient, hessian)| statistics(gradient, hessian))
                             .collect()
                     },
                 ),
@@ -179,49 +204,75 @@ mod tests {
 
     #[test]
     fn test_statistics_hold_derivatives_in_fixed_point() {
-        let statistics = Statistics::of(Derivatives {
-            gradient: -0.75,
-            hessian: 0.25,
-        })
-        .combine(Statistics::of(Derivatives {
-            gradient: 0.5,
-            hessian: 0.25,
-        }));
+        let sum = statistics(-0.75, 0.25).combine(statistics(0.5, 0.25));
         assert_eq!(
-            (
-                statistics.gradient(),
-                statistics.hessian(),
-                statistics.count()
-            ),
+            (sum.gradient(), sum.hessian(), sum.count()),
             (-0.25, 0.5, 2)
         );
+    }
+
+    /// A derivative at the limit holds exactly and sums without overflow; one beyond it, or not finite, is refused
+    /// rather than clipped.
+    #[test]
+    fn test_statistics_refuse_a_derivative_beyond_their_exact_range() {
+        let limit = 2.0_f64.powi(52);
+        let edge = statistics(-limit, limit);
+        assert_eq!((edge.gradient(), edge.hessian()), (-limit, limit));
+        assert_eq!(concatenate([edge; 4]).gradient(), -4.0 * limit);
+        for value in [1e30, -2.0 * limit, f64::NAN, f64::INFINITY] {
+            assert_eq!(
+                Statistics::of(Derivatives {
+                    gradient: value,
+                    hessian: 1.0
+                })
+                .map_err(|error| error.value.to_bits()),
+                Err(value.to_bits()),
+                "{value}"
+            );
+            assert!(
+                Statistics::of(Derivatives {
+                    gradient: 0.0,
+                    hessian: value
+                })
+                .is_err(),
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "histograms of different widths")]
+    fn test_subtracting_a_histogram_of_another_width_panics() {
+        let one = [1.0];
+        let two = [1.0, 2.0];
+        let histogram = |values: &[f64], width: usize| {
+            let matrix = Matrix::new(values, NonZeroUsize::new(width).unwrap()).unwrap();
+            let codes = Bins::fit(&matrix).quantize(&matrix);
+            Histogram::of(&codes, &[statistics(1.0, 1.0)], &[0], &[Input::new(0)])
+        };
+        let _ = histogram(&two, 2).without(histogram(&one, 1));
     }
 
     #[test]
     fn test_a_histogram_bins_each_row_under_each_listed_input_only() {
         let values = [1.0, 10.0, 2.0, f64::NAN];
         let matrix = Matrix::new(&values, NonZeroUsize::new(2).unwrap()).unwrap();
-        let codes = Bins::fit(&matrix).quantize(&matrix);
-        let statistics = [
-            Statistics::of(Derivatives {
-                gradient: 1.0,
-                hessian: 1.0,
-            }),
-            Statistics::of(Derivatives {
-                gradient: -3.0,
-                hessian: 1.0,
-            }),
-        ];
-        let histogram = Histogram::of(&codes, &statistics, &[0, 1], &[1]);
+        let bins = Bins::fit(&matrix);
+        let codes = bins.quantize(&matrix);
+        let rows = [statistics(1.0, 1.0), statistics(-3.0, 1.0)];
+        let [first, second] = [0, 1].map(Input::new);
+        let histogram = Histogram::of(&codes, &rows, &[0, 1], &[second]);
         assert!(
-            histogram
-                .input(0)
-                .iter()
-                .all(|slot| *slot == Statistics::default())
+            bins.codes(first)
+                .chain([Code::MISSING])
+                .all(|code| histogram.slot(first, code) == Statistics::default())
         );
-        assert_eq!(histogram.input(1)[0], statistics[0]);
-        assert_eq!(histogram.input(1)[255], statistics[1]);
-        assert_eq!(Histogram::empty().input(0), []);
+        assert_eq!(histogram.slot(second, bins.code(second, 10.0)), rows[0]);
+        assert_eq!(histogram.slot(second, Code::MISSING), rows[1]);
+        assert_eq!(
+            Histogram::empty().slot(first, Code::MISSING),
+            Statistics::default()
+        );
     }
 
     proptest! {
@@ -240,19 +291,21 @@ mod tests {
         #[test]
         fn property_a_histogram_is_a_homomorphism_from_row_sets((values, statistics) in any_rows(), cut in 0.0..1.0_f64) {
             let matrix = Matrix::new(&values, NonZeroUsize::new(2).unwrap()).unwrap();
-            let codes = Bins::fit(&matrix).quantize(&matrix);
+            let bins = Bins::fit(&matrix);
+            let codes = bins.quantize(&matrix);
             let rows: Vec<usize> = (0..statistics.len()).collect();
             let boundary = (cut * rows.len() as f64) as usize;
             let (left, right) = rows.split_at(boundary);
-            let inputs = [0, 1];
+            let inputs = [Input::new(0), Input::new(1)];
             let whole = Histogram::of(&codes, &statistics, &rows, &inputs);
             let parts = [left, right].map(|part| Histogram::of(&codes, &statistics, part, &inputs));
             prop_assert_eq!(&concatenate(parts.clone()), &whole);
             prop_assert_eq!(whole.clone().without(parts[0].clone()), parts[1].clone());
-            laws::check(whole, parts[0].clone(), parts[1].clone())?;
+            laws::check(whole.clone(), parts[0].clone(), parts[1].clone())?;
             let total = concatenate(statistics.iter().copied());
             for input in inputs {
-                prop_assert_eq!(concatenate(Histogram::of(&codes, &statistics, &rows, &inputs).input(input).iter().copied()), total);
+                let slots = bins.codes(input).chain([Code::MISSING]).map(|code| whole.slot(input, code));
+                prop_assert_eq!(concatenate(slots), total);
             }
         }
     }
