@@ -18,6 +18,23 @@ pub enum ShapeError {
     },
 }
 
+/// One column of a matrix, by position.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(transparent)]
+pub struct Input(usize);
+
+impl Input {
+    pub const fn new(index: usize) -> Self {
+        Self(index)
+    }
+
+    pub fn index(self) -> usize {
+        self.0
+    }
+}
+
 /// Inputs borrowed row by row; NaN marks a missing value.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Matrix<'a> {
@@ -38,6 +55,10 @@ impl<'a> Matrix<'a> {
 
     pub fn width(&self) -> usize {
         self.width.get()
+    }
+
+    pub fn inputs(&self) -> impl Iterator<Item = Input> + use<> {
+        (0..self.width.get()).map(Input)
     }
 
     pub fn rows(&self) -> usize {
@@ -104,6 +125,10 @@ mod tests {
         let values = [1.0, 2.0, 3.0, f64::NAN];
         let matrix = Matrix::new(&values, TWO).unwrap();
         assert_eq!((matrix.rows(), matrix.width()), (2, 2));
+        assert_eq!(
+            matrix.inputs().collect::<Vec<_>>(),
+            [Input::new(0), Input::new(1)]
+        );
         assert_eq!(matrix.row(0), [1.0, 2.0]);
         assert!(matrix.row(1)[1].is_nan());
         assert_eq!(
