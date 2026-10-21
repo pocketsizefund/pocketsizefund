@@ -286,6 +286,7 @@ pub(crate) mod tests {
     use crate::common::risk::Limits;
     use crate::common::strategy::Target;
     use crate::laboratory::dataset::tests::{calendar, dataset, minute_dataset};
+    use crate::laboratory::source::Source;
 
     /// $1,000 on every dollar limit over the test dataset's calendar, flat `flat_before_close_minutes` before the close.
     pub(crate) fn restrained(
@@ -459,7 +460,12 @@ pub(crate) mod tests {
     #[test]
     fn test_a_replay_is_journaled_as_one_experiment() {
         let directory = std::env::temp_dir().join(format!("fund-replay-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("replay check").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("replay check").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let dataset = dataset(study.run_id());
         let replayer = Replayer::new(
             OneShare,
@@ -557,7 +563,12 @@ pub(crate) mod tests {
     #[test]
     fn test_a_replay_that_would_misreport_is_refused() {
         let directory = std::env::temp_dir().join(format!("fund-replay-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("replay check").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("replay check").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let dataset = dataset(study.run_id());
         let fill_model =
             FillModel::new(FillStyle::Aggressive, BasisPoints::new(10.0).unwrap()).unwrap();
@@ -589,11 +600,11 @@ pub(crate) mod tests {
         ));
         assert!(
             !directory.exists()
-                || std::fs::read_dir(&directory).unwrap().all(|entry| {
-                    std::fs::read_to_string(entry.unwrap().path())
-                        .unwrap()
-                        .is_empty()
-                })
+                || std::fs::read_dir(&directory)
+                    .unwrap()
+                    .map(|entry| entry.unwrap().path())
+                    .filter(|path| path.is_file())
+                    .all(|file| std::fs::read_to_string(file).unwrap().is_empty())
         );
         let _ = std::fs::remove_dir_all(&directory);
     }

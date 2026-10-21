@@ -824,6 +824,10 @@ fn test_a_new_researcher_reads_the_archive_writes_its_records_and_scratch_and_is
                 "s3:GetObject",
                 format!("{records}/records/logs/producer=researcher/*")
             ),
+            grant(
+                "s3:GetObject",
+                format!("{records}/records/sources/producer=researcher/*")
+            ),
             grant("s3:GetObject", format!("{records}/scratch/*")),
             grant(
                 "s3:ListBucket",
@@ -838,9 +842,21 @@ fn test_a_new_researcher_reads_the_archive_writes_its_records_and_scratch_and_is
                 "s3:PutObject",
                 format!("{records}/records/logs/producer=researcher/*")
             ),
+            grant(
+                "s3:PutObject",
+                format!("{records}/records/sources/producer=researcher/*")
+            ),
             grant("s3:PutObject", format!("{records}/scratch/*")),
         ]
     );
+    let policy = provisioned.json("policy-researcher.json");
+    for prefix in Host::Researcher.writable_prefixes() {
+        let resource = format!("{records}/{prefix}*");
+        assert!(
+            allows(&policy, "s3:PutObject", &resource),
+            "{resource} is not writable: {policy}"
+        );
+    }
 
     let calls = provisioned.calls();
     assert!(

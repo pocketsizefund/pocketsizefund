@@ -4,6 +4,7 @@
 pub mod compare;
 pub mod dataset;
 pub mod replay;
+pub mod source;
 
 use std::io;
 use std::num::NonZeroU32;
@@ -16,19 +17,21 @@ use uuid::Uuid;
 use crate::common::journal::{Observation, RunId};
 use crate::common::laboratory::dataset::Fingerprint;
 use crate::common::laboratory::experiment::{
-    DatasetRead, Elapsed, ExperimentRan, Label, Machine, Outputs, Parameters,
+    DatasetRead, Elapsed, ExperimentRan, Label, Machine, Outputs, Parameters, SourceDigest,
 };
-use crate::common::storage::{Host, JournalKey, Key};
+use crate::common::storage::{Host, JournalKey, Key, ObjectKey, SourceKey};
 use crate::common::time::SessionDate;
 use crate::journal::{Journal, file_name};
 use crate::laboratory::dataset::Lineage;
+use crate::laboratory::source::{Source, digest_of};
 use crate::records::{RESHIPPED_DAYS, ShipFailure, contents, merge_into};
-use crate::storage::Bucket;
+use crate::storage::{Bucket, BucketError};
 
-/// One run of study code: its journal, what it is about, the machine it runs on, and when it opened.
+/// One run of study code: its journal, what it is about, the code it runs, the machine it runs on, and when it opened.
 pub struct Study {
     journal: Journal,
     label: Label,
+    source_digest: SourceDigest,
     machine: Machine,
     opened: Instant,
 }
@@ -43,8 +46,9 @@ pub enum StudyError {
 }
 
 impl Study {
-    /// Opens a run journaling into `directory`, named for this machine's hostname.
-    pub fn open(label: Label, directory: impl Into<PathBuf>) -> io::Result<Self> {
+    /// Opens a run journaling into `directory`, named for this machine's hostname, and writes `source` into its `sources`
+    /// subdirectory for `finish` to ship; a study binary opens through `study!`, which captures `source`.
+    pub fn open(label: Label, directory: impl Into<PathBuf>, source: Source) -> io::Result<Self> {
         let output = std::process::Command::new("hostname").output()?;
         if !output.status.success() {
             return Err(io::Error::other(format!(
@@ -60,9 +64,21 @@ impl Study {
             NonZeroU32::try_from(cores).unwrap_or(NonZeroU32::MAX),
         )
         .map_err(|refusal| io::Error::new(io::ErrorKind::InvalidData, refusal.to_string()))?;
+        let journal = Journal::open(directory, RunId::new(Uuid::new_v4()))?;
+        let sources = journal.directory().join(SOURCES);
+        std::fs::create_dir_all(&sources)?;
+        let source_digest = source.digest();
+        // Written aside and renamed, so a concurrent `finish` never reads a partial source.
+        let partial = sources.join(format!(".{}.{}", source_digest.as_str(), journal.run_id()));
+        std::fs::write(&partial, source.encode())?;
+        std::fs::rename(
+            &partial,
+            sources.join(format!("{}.{SOURCE_EXTENSION}", source_digest.as_str())),
+        )?;
         Ok(Self {
-            journal: Journal::open(directory, RunId::new(Uuid::new_v4()))?,
+            journal,
             label,
+            source_digest,
             machine,
             opened: Instant::now(),
         })
@@ -109,17 +125,70 @@ impl Study {
             Elapsed::from_milliseconds(
                 u64::try_from(self.opened.elapsed().as_millis()).unwrap_or(u64::MAX),
             ),
+            self.source_digest.clone(),
         );
         self.journal
             .append(Utc::now(), Observation::ExperimentRan(Box::new(ran)))
             .map_err(StudyError::Journal)
     }
 
-    /// Merges each recent session file in the journal directory into its researcher object in `profile`, so studies
-    /// from other directories or machines that shipped the same session keep their records.
-    pub async fn finish(self, profile: &Bucket) -> Vec<(Key, Result<(), ShipFailure>)> {
-        let today = SessionDate::at(Utc::now());
+    /// Stores each source kept in the journal directory under its digest, then merges each recent session file there
+    /// into its researcher object in `profile`, so studies from other directories or machines that shipped the same
+    /// session keep their records.
+    pub async fn finish(self, profile: &Bucket) -> Vec<(Shipment, Result<(), ShipFailure>)> {
         let mut shipped = Vec::new();
+        let sources = self.journal.directory().join(SOURCES);
+        match std::fs::read_dir(&sources) {
+            Ok(entries) => {
+                for entry in entries {
+                    let path = match entry {
+                        Ok(entry)
+                            if entry
+                                .path()
+                                .extension()
+                                .is_some_and(|extension| extension == SOURCE_EXTENSION) =>
+                        {
+                            entry.path()
+                        }
+                        Ok(..) => continue,
+                        Err(error) => {
+                            let failure = ShipFailure::Read {
+                                path: sources.clone(),
+                                error,
+                            };
+                            shipped.push((Shipment::Local(sources.clone()), Err(failure)));
+                            continue;
+                        }
+                    };
+                    match std::fs::read(&path) {
+                        Ok(encoded) => {
+                            let key = SourceKey::new(digest_of(&encoded));
+                            let outcome = store_source(profile, &key, encoded).await;
+                            if outcome.is_ok()
+                                && let Err(error) = std::fs::remove_file(&path)
+                            {
+                                tracing::warn!(path = %path.display(), %error, "Shipped source not removed");
+                            }
+                            shipped.push((Shipment::Source(key), outcome));
+                        }
+                        Err(error) => {
+                            shipped.push((
+                                Shipment::Local(path.clone()),
+                                Err(ShipFailure::Read { path, error }),
+                            ));
+                        }
+                    }
+                }
+            }
+            Err(error) => shipped.push((
+                Shipment::Local(sources.clone()),
+                Err(ShipFailure::Read {
+                    path: sources,
+                    error,
+                }),
+            )),
+        }
+        let today = SessionDate::at(Utc::now());
         for days in 0..RESHIPPED_DAYS {
             let session = today.plus_calendar_days(-days);
             let key = JournalKey::new(Host::Researcher, session);
@@ -128,9 +197,52 @@ impl Study {
                 Some(Err(failure)) => Err(failure),
                 None => continue,
             };
-            shipped.push((key.into(), outcome));
+            shipped.push((Shipment::Journal(key), outcome));
         }
         shipped
+    }
+}
+
+/// What one outcome of `finish` is about: a source stored under its key, a journal session merged into its key, or a
+/// local path in the sources directory that could not be read, so no key was derived for it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Shipment {
+    Source(SourceKey),
+    Journal(JournalKey),
+    Local(PathBuf),
+}
+
+impl std::fmt::Display for Shipment {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Source(key) => formatter.write_str(&key.path()),
+            Self::Journal(key) => formatter.write_str(&Key::from(*key).path()),
+            Self::Local(path) => write!(formatter, "{}", path.display()),
+        }
+    }
+}
+
+/// The subdirectory of a journal directory holding each source a study there opened with and no `finish` has stored
+/// yet; one that failed to store stays for the next `finish`.
+const SOURCES: &str = "sources";
+
+const SOURCE_EXTENSION: &str = "json";
+
+/// Creates `encoded` under `key`; a taken key counts as stored only when it reads back as these bytes, since a create
+/// can also be contended by a concurrent delete.
+async fn store_source(
+    profile: &Bucket,
+    key: &SourceKey,
+    encoded: Vec<u8>,
+) -> Result<(), ShipFailure> {
+    match profile.create(key, encoded.clone()).await {
+        Ok(()) => Ok(()),
+        Err(BucketError::Contended { path }) => match profile.get(key).await {
+            Ok(Some(held)) if held == encoded => Ok(()),
+            Ok(Some(..) | None) => Err(ShipFailure::Unmatched { path }),
+            Err(error) => Err(ShipFailure::Bucket(error)),
+        },
+        Err(error) => Err(ShipFailure::Bucket(error)),
     }
 }
 
@@ -138,7 +250,48 @@ impl Study {
 mod tests {
     use super::*;
 
-    /// Two studies in different directories ship the same session; the object keeps both runs' records.
+    #[test]
+    fn test_a_shipment_displays_the_path_it_names() {
+        let session =
+            SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 21).unwrap());
+        let digest = SourceDigest::new(&"0a".repeat(32)).unwrap();
+        assert_eq!(
+            Shipment::Source(SourceKey::new(digest)).to_string(),
+            "records/sources/producer=researcher/\
+             sha256=0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a/source.json"
+        );
+        assert_eq!(
+            Shipment::Journal(JournalKey::new(Host::Researcher, session)).to_string(),
+            "records/journal/producer=researcher/year=2026/month=10/day=21/data.parquet"
+        );
+        assert_eq!(
+            Shipment::Local(PathBuf::from("journal/sources")).to_string(),
+            "journal/sources"
+        );
+    }
+
+    #[test]
+    fn test_a_study_keeps_its_source_beside_its_journal_until_it_ships() {
+        let directory = std::env::temp_dir().join(format!("fund-study-{}", Uuid::new_v4()));
+        let source = Source::new("kept.rs", "fn main() {}");
+        Study::open(Label::new("kept").unwrap(), &directory, source.clone()).unwrap();
+        let kept: Vec<_> = std::fs::read_dir(directory.join("sources"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        assert_eq!(
+            kept,
+            [directory.join(
+                "sources/5c44ba654f4225378bdd19b74298a74f21cd7f31077f66d91f1a7f10e3119c51.json"
+            )]
+        );
+        assert_eq!(std::fs::read(&kept[0]).unwrap(), source.encode());
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    /// Two studies in different directories ship the same session and source; the object keeps both runs' records,
+    /// the second finds its source already stored, a study abandoned before `finish` has its source shipped by the next
+    /// one in its directory, and each stored source leaves the directory.
     #[tokio::test]
     #[ignore = "writes researcher journal objects to the bucket AWS_S3_PROFILE_BUCKET_NAME names, which must be a \
                 development bucket"]
@@ -150,20 +303,55 @@ mod tests {
         );
         let configuration = aws_config::load_from_env().await;
         let profile = Bucket::profile(&configuration).unwrap();
+        let source = Source::new("live merge check.rs", &Uuid::new_v4().to_string());
+        let abandoned = Source::new("live merge check.rs", &Uuid::new_v4().to_string());
         let mut runs = Vec::new();
-        for _ in 0..2 {
+        for iteration in 0..2 {
             let directory = std::env::temp_dir().join(format!("fund-study-{}", Uuid::new_v4()));
-            let mut study =
-                Study::open(Label::new("live merge check").unwrap(), &directory).unwrap();
+            if iteration == 0 {
+                Study::open(
+                    Label::new("live merge check").unwrap(),
+                    &directory,
+                    abandoned.clone(),
+                )
+                .unwrap();
+            }
+            let mut study = Study::open(
+                Label::new("live merge check").unwrap(),
+                &directory,
+                source.clone(),
+            )
+            .unwrap();
             study
                 .experiment(Parameters::default(), &[], Outputs::default())
                 .unwrap();
             runs.push(study.run_id());
-            for (key, outcome) in study.finish(&profile).await {
-                assert!(outcome.is_ok(), "{}: {outcome:?}", key.path());
+            let shipped = study.finish(&profile).await;
+            assert!(shipped.iter().any(
+                |(shipment, _)| *shipment == Shipment::Source(SourceKey::new(source.digest()))
+            ));
+            for (shipment, outcome) in shipped {
+                assert!(outcome.is_ok(), "{shipment}: {outcome:?}");
             }
+            assert_eq!(
+                std::fs::read_dir(directory.join("sources"))
+                    .unwrap()
+                    .count(),
+                0
+            );
             std::fs::remove_dir_all(&directory).unwrap();
         }
+        assert_eq!(
+            profile.get(&SourceKey::new(source.digest())).await.unwrap(),
+            Some(source.encode())
+        );
+        assert_eq!(
+            profile
+                .get(&SourceKey::new(abandoned.digest()))
+                .await
+                .unwrap(),
+            Some(abandoned.encode())
+        );
         let key = JournalKey::new(Host::Researcher, SessionDate::at(Utc::now()));
         let held = crate::storage::journal::decode(
             &key,
