@@ -5,6 +5,7 @@
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 
+use crate::common::laboratory::experiment::SourceDigest;
 use crate::common::market::record::BarInterval;
 use crate::common::time::SessionDate;
 
@@ -93,6 +94,30 @@ impl ObjectKey for ConfigurationKey {
         match self {
             Self::Playbook => StorageClass::Standard,
         }
+    }
+}
+
+/// A study's captured source, keyed by its digest so an unchanged rerun names the object already written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceKey(SourceDigest);
+
+impl SourceKey {
+    pub fn new(digest: SourceDigest) -> Self {
+        Self(digest)
+    }
+}
+
+impl ObjectKey for SourceKey {
+    fn path(&self) -> String {
+        format!(
+            "{RECORDS_ROOT}/sources/producer={}/sha256={}/source.json",
+            Host::Researcher,
+            self.0.as_str()
+        )
+    }
+
+    fn storage_class(&self) -> StorageClass {
+        StorageClass::Standard
     }
 }
 
@@ -584,12 +609,18 @@ impl Key {
 impl Host {
     /// The prefixes this host may write; `tests/test_host.rs` checks its IAM grant allows each.
     pub fn writable_prefixes(self) -> Vec<String> {
-        let records = ["journal", "logs"]
-            .map(|kind| format!("{RECORDS_ROOT}/{kind}/producer={self}/"))
-            .to_vec();
+        let records = |kinds: &[&str]| {
+            kinds
+                .iter()
+                .map(|kind| format!("{RECORDS_ROOT}/{kind}/producer={self}/"))
+                .collect::<Vec<_>>()
+        };
         match self {
-            Self::Archiver => [vec![format!("{DATA_ROOT}/")], records].concat(),
-            Self::Trader | Self::Researcher => records,
+            Self::Archiver => {
+                [vec![format!("{DATA_ROOT}/")], records(&["journal", "logs"])].concat()
+            }
+            Self::Trader => records(&["journal", "logs"]),
+            Self::Researcher => records(&["journal", "logs", "sources"]),
         }
     }
 }
@@ -943,6 +974,30 @@ pub(crate) mod tests {
                 "records/journal/producer=trader/",
                 "records/logs/producer=trader/"
             ]
+        );
+        assert_eq!(
+            Host::Researcher.writable_prefixes(),
+            [
+                "records/journal/producer=researcher/",
+                "records/logs/producer=researcher/",
+                "records/sources/producer=researcher/"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_a_source_is_keyed_by_its_digest_under_the_researcher() {
+        let key = SourceKey::new(SourceDigest::new(&"0a".repeat(32)).unwrap());
+        assert_eq!(
+            key.path(),
+            "records/sources/producer=researcher/\
+             sha256=0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a/source.json"
+        );
+        assert!(
+            Host::Researcher
+                .writable_prefixes()
+                .iter()
+                .any(|prefix| key.path().starts_with(prefix))
         );
     }
 

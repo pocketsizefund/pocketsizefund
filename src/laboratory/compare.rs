@@ -167,6 +167,7 @@ mod tests {
     use crate::common::market::{Shares, Symbol};
     use crate::common::strategy::Target;
     use crate::laboratory::dataset::tests::dataset;
+    use crate::laboratory::source::Source;
 
     /// Wants one share of AAPL, whatever it has seen.
     struct OneShare;
@@ -245,7 +246,12 @@ mod tests {
     #[test]
     fn test_a_comparison_is_journaled_as_one_experiment_naming_both_arms() {
         let directory = std::env::temp_dir().join(format!("fund-compare-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("compare check").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("compare check").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let dataset = dataset(study.run_id());
         let candidate = Arm::new(
             OneShare,
@@ -353,7 +359,12 @@ mod tests {
     #[test]
     fn test_a_strategy_against_itself_differs_by_nothing() {
         let directory = std::env::temp_dir().join(format!("fund-compare-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("compare check").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("compare check").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let dataset = dataset(study.run_id());
         let arm = || Arm::new(OneShare, "one_share", &Parameters::default()).unwrap();
         let comparison = compare(
@@ -385,7 +396,12 @@ mod tests {
     #[test]
     fn test_a_restrained_comparison_restrains_both_arms() {
         let directory = std::env::temp_dir().join(format!("fund-compare-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("compare check").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("compare check").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let dataset = crate::laboratory::dataset::tests::minute_dataset(study.run_id());
         let untradable = BTreeMap::from([(
             Symbol::new("AAPL").unwrap(),
@@ -426,7 +442,12 @@ mod tests {
     #[test]
     fn test_a_comparison_with_nothing_to_decide_on_is_refused() {
         let directory = std::env::temp_dir().join(format!("fund-compare-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("compare check").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("compare check").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let dataset = dataset(study.run_id());
         let refused = compare(
             &mut study,

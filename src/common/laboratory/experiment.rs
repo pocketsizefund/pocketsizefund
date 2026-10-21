@@ -287,6 +287,52 @@ pub struct ExperimentRan {
     /// Cumulative from the study's opening, not this experiment's own time, which is the difference from the
     /// experiment recorded before it.
     since_opened: Elapsed,
+    /// `None` on records journaled before studies captured their source.
+    #[serde(default)]
+    source_digest: Option<SourceDigest>,
+}
+
+/// The SHA-256 of a study's captured source as 64 lowercase hexadecimal digits, which keys the object holding it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct SourceDigest(String);
+
+/// Why a source digest was refused.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum SourceDigestRefusal {
+    #[error("`{raw}` is not 64 lowercase hexadecimal digits")]
+    Malformed { raw: String },
+}
+
+impl SourceDigest {
+    pub fn new(raw: &str) -> Result<Self, SourceDigestRefusal> {
+        let hexadecimal = |byte: u8| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte);
+        if raw.len() == 64 && raw.bytes().all(hexadecimal) {
+            Ok(Self(raw.to_string()))
+        } else {
+            Err(SourceDigestRefusal::Malformed {
+                raw: raw.to_string(),
+            })
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for SourceDigest {
+    type Error = SourceDigestRefusal;
+
+    fn try_from(raw: String) -> Result<Self, Self::Error> {
+        Self::new(&raw)
+    }
+}
+
+impl From<SourceDigest> for String {
+    fn from(digest: SourceDigest) -> Self {
+        digest.0
+    }
 }
 
 /// The outputs an experiment reports, kept apart from its inputs so a caller names each once.
@@ -341,6 +387,7 @@ impl ExperimentRan {
         fingerprints: Vec<Fingerprint>,
         outputs: Outputs,
         since_opened: Elapsed,
+        source_digest: SourceDigest,
     ) -> Self {
         Self {
             label,
@@ -350,6 +397,7 @@ impl ExperimentRan {
             estimates: outputs.estimates,
             metrics: outputs.metrics,
             since_opened,
+            source_digest: Some(source_digest),
         }
     }
 
@@ -379,6 +427,10 @@ impl ExperimentRan {
 
     pub fn since_opened(&self) -> Elapsed {
         self.since_opened
+    }
+
+    pub fn source_digest(&self) -> Option<&SourceDigest> {
+        self.source_digest.as_ref()
     }
 }
 
@@ -544,6 +596,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_a_source_digest_is_64_lowercase_hexadecimal_digits() {
+        assert_eq!(
+            SourceDigest::new(&"a1".repeat(32)).unwrap().as_str(),
+            "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+        );
+        for raw in [
+            "A1".repeat(32),
+            "a1".repeat(31),
+            "a1".repeat(33),
+            "g1".repeat(32),
+        ] {
+            assert_eq!(
+                SourceDigest::new(&raw),
+                Err(SourceDigestRefusal::Malformed { raw: raw.clone() })
+            );
+        }
+    }
+
+    #[test]
+    fn test_an_experiment_journaled_before_sources_reads_back_without_one() {
+        let ran: ExperimentRan = serde_json::from_str(
+            r#"{"label":"overnight gap","machine":{"hostname":"laptop","architecture":"aarch64",
+            "operating_system":"macos","cores":8},"parameters":{},"fingerprints":[],"estimates":{},
+            "metrics":{},"since_opened":5}"#,
+        )
+        .unwrap();
+        assert_eq!(ran.source_digest(), None);
+        assert_eq!(ran.since_opened(), Elapsed::from_milliseconds(5));
+    }
+
     proptest! {
         /// An experiment reads back from the journal as written, estimates and all.
         #[test]
@@ -569,6 +652,7 @@ mod tests {
                     .metric("hit rate", metric)
                     .unwrap(),
                 Elapsed::from_milliseconds(milliseconds),
+                SourceDigest::new(&"0f".repeat(32)).unwrap(),
             );
             let encoded = serde_json::to_string(&ran).unwrap();
             prop_assert_eq!(serde_json::from_str::<ExperimentRan>(&encoded).unwrap(), ran);

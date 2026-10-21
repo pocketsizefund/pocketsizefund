@@ -250,6 +250,7 @@ pub(crate) mod tests {
     use crate::common::storage::{EntityTag, Host, JournalKey};
     use crate::common::time::calendar::TradingSession;
     use crate::ingest::alpaca::Alpaca;
+    use crate::laboratory::source::Source;
 
     fn session(day: i64) -> SessionDate {
         SessionDate::from_date(NaiveDate::from_ymd_opt(2026, 3, 2).unwrap()).plus_calendar_days(day)
@@ -443,7 +444,12 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn test_a_session_keeping_no_symbol_is_read_without_bars() {
         let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("subset").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("subset").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let symbols = Symbols::only([Symbol::new("AAPL").unwrap()].into()).unwrap();
         let dataset = load(
             DatasetLeg::DailyTradeBars,
@@ -504,7 +510,12 @@ pub(crate) mod tests {
     #[test]
     fn test_a_study_catalogs_what_it_read_and_ran() {
         let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("bar counts").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("bar counts").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let dataset = dataset(study.run_id());
         study.read(dataset.fingerprint()).unwrap();
         let series = dataset.series(|bars| Some(bars.len() as f64)).unwrap();
@@ -584,7 +595,12 @@ pub(crate) mod tests {
     #[test]
     fn test_an_experiment_refuses_a_dataset_another_run_read() {
         let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
-        let mut study = Study::open(Label::new("bar counts").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("bar counts").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let elsewhere = RunId::new(uuid::Uuid::new_v4());
         assert!(matches!(
             study.experiment(Parameters::default(), &[dataset(elsewhere).lineage()], Outputs::default()),
@@ -613,8 +629,12 @@ pub(crate) mod tests {
         let range = SessionRange::new(session(10, 5), session(10, 13)).unwrap();
         let calendar = alpaca.calendar(range).await.unwrap();
         let directory = std::env::temp_dir().join(format!("fund-study-{}", uuid::Uuid::new_v4()));
-        let mut study =
-            Study::open(Label::new("live trade bar check").unwrap(), &directory).unwrap();
+        let mut study = Study::open(
+            Label::new("live trade bar check").unwrap(),
+            &directory,
+            Source::new("test.rs", ""),
+        )
+        .unwrap();
         let dataset = trade_bars(
             &archive,
             &calendar,

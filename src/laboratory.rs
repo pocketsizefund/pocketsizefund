@@ -4,6 +4,7 @@
 pub mod compare;
 pub mod dataset;
 pub mod replay;
+pub mod source;
 
 use std::io;
 use std::num::NonZeroU32;
@@ -18,17 +19,19 @@ use crate::common::laboratory::dataset::Fingerprint;
 use crate::common::laboratory::experiment::{
     DatasetRead, Elapsed, ExperimentRan, Label, Machine, Outputs, Parameters,
 };
-use crate::common::storage::{Host, JournalKey, Key};
+use crate::common::storage::{Host, JournalKey, Key, ObjectKey, SourceKey};
 use crate::common::time::SessionDate;
 use crate::journal::{Journal, file_name};
 use crate::laboratory::dataset::Lineage;
+use crate::laboratory::source::Source;
 use crate::records::{RESHIPPED_DAYS, ShipFailure, contents, merge_into};
-use crate::storage::Bucket;
+use crate::storage::{Bucket, BucketError};
 
-/// One run of study code: its journal, what it is about, the machine it runs on, and when it opened.
+/// One run of study code: its journal, what it is about, the code it runs, the machine it runs on, and when it opened.
 pub struct Study {
     journal: Journal,
     label: Label,
+    source: Source,
     machine: Machine,
     opened: Instant,
 }
@@ -43,8 +46,9 @@ pub enum StudyError {
 }
 
 impl Study {
-    /// Opens a run journaling into `directory`, named for this machine's hostname.
-    pub fn open(label: Label, directory: impl Into<PathBuf>) -> io::Result<Self> {
+    /// Opens a run journaling into `directory`, named for this machine's hostname; a study binary opens through
+    /// `study!`, which captures `source` from the files compiled into it.
+    pub fn open(label: Label, directory: impl Into<PathBuf>, source: Source) -> io::Result<Self> {
         let output = std::process::Command::new("hostname").output()?;
         if !output.status.success() {
             return Err(io::Error::other(format!(
@@ -63,6 +67,7 @@ impl Study {
         Ok(Self {
             journal: Journal::open(directory, RunId::new(Uuid::new_v4()))?,
             label,
+            source,
             machine,
             opened: Instant::now(),
         })
@@ -109,17 +114,25 @@ impl Study {
             Elapsed::from_milliseconds(
                 u64::try_from(self.opened.elapsed().as_millis()).unwrap_or(u64::MAX),
             ),
+            self.source.digest(),
         );
         self.journal
             .append(Utc::now(), Observation::ExperimentRan(Box::new(ran)))
             .map_err(StudyError::Journal)
     }
 
-    /// Merges each recent session file in the journal directory into its researcher object in `profile`, so studies
-    /// from other directories or machines that shipped the same session keep their records.
-    pub async fn finish(self, profile: &Bucket) -> Vec<(Key, Result<(), ShipFailure>)> {
+    /// Stores the source under its digest, then merges each recent session file in the journal directory into its
+    /// researcher object in `profile`, so studies from other directories or machines that shipped the same session keep
+    /// their records; each outcome is named by the path it wrote.
+    pub async fn finish(self, profile: &Bucket) -> Vec<(String, Result<(), ShipFailure>)> {
+        let source = SourceKey::new(self.source.digest());
+        // The key is the content's digest, so an object already under it holds these bytes.
+        let stored = match profile.create(&source, self.source.encode()).await {
+            Ok(()) | Err(BucketError::Contended { .. }) => Ok(()),
+            Err(error) => Err(ShipFailure::Bucket(error)),
+        };
+        let mut shipped = vec![(source.path(), stored)];
         let today = SessionDate::at(Utc::now());
-        let mut shipped = Vec::new();
         for days in 0..RESHIPPED_DAYS {
             let session = today.plus_calendar_days(-days);
             let key = JournalKey::new(Host::Researcher, session);
@@ -128,7 +141,7 @@ impl Study {
                 Some(Err(failure)) => Err(failure),
                 None => continue,
             };
-            shipped.push((key.into(), outcome));
+            shipped.push((Key::from(key).path(), outcome));
         }
         shipped
     }
@@ -138,7 +151,8 @@ impl Study {
 mod tests {
     use super::*;
 
-    /// Two studies in different directories ship the same session; the object keeps both runs' records.
+    /// Two studies in different directories ship the same session and source; the object keeps both runs' records and
+    /// the second finds its source already stored.
     #[tokio::test]
     #[ignore = "writes researcher journal objects to the bucket AWS_S3_PROFILE_BUCKET_NAME names, which must be a \
                 development bucket"]
@@ -150,20 +164,31 @@ mod tests {
         );
         let configuration = aws_config::load_from_env().await;
         let profile = Bucket::profile(&configuration).unwrap();
+        let source = Source::new("live merge check.rs", &Uuid::new_v4().to_string());
         let mut runs = Vec::new();
         for _ in 0..2 {
             let directory = std::env::temp_dir().join(format!("fund-study-{}", Uuid::new_v4()));
-            let mut study =
-                Study::open(Label::new("live merge check").unwrap(), &directory).unwrap();
+            let mut study = Study::open(
+                Label::new("live merge check").unwrap(),
+                &directory,
+                source.clone(),
+            )
+            .unwrap();
             study
                 .experiment(Parameters::default(), &[], Outputs::default())
                 .unwrap();
             runs.push(study.run_id());
-            for (key, outcome) in study.finish(&profile).await {
-                assert!(outcome.is_ok(), "{}: {outcome:?}", key.path());
+            let shipped = study.finish(&profile).await;
+            assert_eq!(shipped[0].0, SourceKey::new(source.digest()).path());
+            for (path, outcome) in shipped {
+                assert!(outcome.is_ok(), "{path}: {outcome:?}");
             }
             std::fs::remove_dir_all(&directory).unwrap();
         }
+        assert_eq!(
+            profile.get(&SourceKey::new(source.digest())).await.unwrap(),
+            Some(source.encode())
+        );
         let key = JournalKey::new(Host::Researcher, SessionDate::at(Utc::now()));
         let held = crate::storage::journal::decode(
             &key,
