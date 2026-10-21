@@ -134,8 +134,8 @@ impl Study {
 
     /// Stores each source kept in the journal directory under its digest, then merges each recent session file there
     /// into its researcher object in `profile`, so studies from other directories or machines that shipped the same
-    /// session keep their records; each outcome is named by the path it wrote.
-    pub async fn finish(self, profile: &Bucket) -> Vec<(String, Result<(), ShipFailure>)> {
+    /// session keep their records.
+    pub async fn finish(self, profile: &Bucket) -> Vec<(Shipment, Result<(), ShipFailure>)> {
         let mut shipped = Vec::new();
         let sources = self.journal.directory().join(SOURCES);
         match std::fs::read_dir(&sources) {
@@ -156,7 +156,7 @@ impl Study {
                                 path: sources.clone(),
                                 error,
                             };
-                            shipped.push((sources.display().to_string(), Err(failure)));
+                            shipped.push((Shipment::Local(sources.clone()), Err(failure)));
                             continue;
                         }
                     };
@@ -169,11 +169,11 @@ impl Study {
                             {
                                 tracing::warn!(path = %path.display(), %error, "Shipped source not removed");
                             }
-                            shipped.push((key.path(), outcome));
+                            shipped.push((Shipment::Source(key), outcome));
                         }
                         Err(error) => {
                             shipped.push((
-                                path.display().to_string(),
+                                Shipment::Local(path.clone()),
                                 Err(ShipFailure::Read { path, error }),
                             ));
                         }
@@ -181,7 +181,7 @@ impl Study {
                 }
             }
             Err(error) => shipped.push((
-                sources.display().to_string(),
+                Shipment::Local(sources.clone()),
                 Err(ShipFailure::Read {
                     path: sources,
                     error,
@@ -197,9 +197,28 @@ impl Study {
                 Some(Err(failure)) => Err(failure),
                 None => continue,
             };
-            shipped.push((Key::from(key).path(), outcome));
+            shipped.push((Shipment::Journal(key), outcome));
         }
         shipped
+    }
+}
+
+/// What one outcome of `finish` is about: a source stored under its key, a journal session merged into its key, or a
+/// local path in the sources directory that could not be read, so no key was derived for it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Shipment {
+    Source(SourceKey),
+    Journal(JournalKey),
+    Local(PathBuf),
+}
+
+impl std::fmt::Display for Shipment {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Source(key) => formatter.write_str(&key.path()),
+            Self::Journal(key) => formatter.write_str(&Key::from(*key).path()),
+            Self::Local(path) => write!(formatter, "{}", path.display()),
+        }
     }
 }
 
@@ -230,6 +249,26 @@ async fn store_source(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_a_shipment_displays_the_path_it_names() {
+        let session =
+            SessionDate::from_date(chrono::NaiveDate::from_ymd_opt(2026, 10, 21).unwrap());
+        let digest = SourceDigest::new(&"0a".repeat(32)).unwrap();
+        assert_eq!(
+            Shipment::Source(SourceKey::new(digest)).to_string(),
+            "records/sources/producer=researcher/\
+             sha256=0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a/source.json"
+        );
+        assert_eq!(
+            Shipment::Journal(JournalKey::new(Host::Researcher, session)).to_string(),
+            "records/journal/producer=researcher/year=2026/month=10/day=21/data.parquet"
+        );
+        assert_eq!(
+            Shipment::Local(PathBuf::from("journal/sources")).to_string(),
+            "journal/sources"
+        );
+    }
 
     #[test]
     fn test_a_study_keeps_its_source_beside_its_journal_until_it_ships() {
@@ -288,13 +327,11 @@ mod tests {
                 .unwrap();
             runs.push(study.run_id());
             let shipped = study.finish(&profile).await;
-            assert!(
-                shipped
-                    .iter()
-                    .any(|(path, _)| *path == SourceKey::new(source.digest()).path())
-            );
-            for (path, outcome) in shipped {
-                assert!(outcome.is_ok(), "{path}: {outcome:?}");
+            assert!(shipped.iter().any(
+                |(shipment, _)| *shipment == Shipment::Source(SourceKey::new(source.digest()))
+            ));
+            for (shipment, outcome) in shipped {
+                assert!(outcome.is_ok(), "{shipment}: {outcome:?}");
             }
             assert_eq!(
                 std::fs::read_dir(directory.join("sources"))
