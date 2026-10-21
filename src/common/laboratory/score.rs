@@ -2,38 +2,71 @@
 //! `Series`, so two models' scores over the same sessions compare through `paired`.
 
 use crate::common::laboratory::series::{Series, SeriesRefusal};
+use crate::common::laboratory::share::Share;
 use crate::common::time::SessionDate;
 
 /// Names an instant needs before its score is read.
 pub const MINIMUM_NAMES: usize = 20;
 
-/// One name's forecast and the outcome that followed, on scales whose order is all a score reads.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Pair {
-    forecast: f64,
-    outcome: f64,
-}
+/// What a model forecast for one name, on a scale whose order is what a score reads; always finite.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Forecast(f64);
+
+/// What followed a forecast for one name, on the forecast's scale; always finite.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Outcome(f64);
 
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
-#[error("a pair is finite, and forecast {forecast} with outcome {outcome} is not")]
-pub struct PairRefusal {
-    pub forecast: f64,
-    pub outcome: f64,
-}
+#[error("a forecast is finite, and {0} is not")]
+pub struct ForecastRefusal(pub f64);
 
-impl Pair {
-    pub fn new(forecast: f64, outcome: f64) -> Result<Self, PairRefusal> {
-        match forecast.is_finite() && outcome.is_finite() {
-            true => Ok(Self { forecast, outcome }),
-            false => Err(PairRefusal { forecast, outcome }),
+#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
+#[error("an outcome is finite, and {0} is not")]
+pub struct OutcomeRefusal(pub f64);
+
+impl Forecast {
+    pub fn new(value: f64) -> Result<Self, ForecastRefusal> {
+        match value.is_finite() {
+            true => Ok(Self(value)),
+            false => Err(ForecastRefusal(value)),
         }
     }
 
-    pub fn forecast(self) -> f64 {
+    pub fn get(self) -> f64 {
+        self.0
+    }
+}
+
+impl Outcome {
+    pub fn new(value: f64) -> Result<Self, OutcomeRefusal> {
+        match value.is_finite() {
+            true => Ok(Self(value)),
+            false => Err(OutcomeRefusal(value)),
+        }
+    }
+
+    pub fn get(self) -> f64 {
+        self.0
+    }
+}
+
+/// One name's forecast and the outcome that followed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Pair {
+    forecast: Forecast,
+    outcome: Outcome,
+}
+
+impl Pair {
+    pub fn new(forecast: Forecast, outcome: Outcome) -> Self {
+        Self { forecast, outcome }
+    }
+
+    pub fn forecast(self) -> Forecast {
         self.forecast
     }
 
-    pub fn outcome(self) -> f64 {
+    pub fn outcome(self) -> Outcome {
         self.outcome
     }
 }
@@ -81,8 +114,8 @@ impl Measure {
         }
         match self {
             Self::InformationCoefficient => {
-                let forecast = average_ranks(pairs.iter().map(|pair| pair.forecast));
-                let outcome = average_ranks(pairs.iter().map(|pair| pair.outcome));
+                let forecast = average_ranks(pairs.iter().map(|pair| pair.forecast.0));
+                let outcome = average_ranks(pairs.iter().map(|pair| pair.outcome.0));
                 match (deviations(&forecast), deviations(&outcome)) {
                     (None, _) => Err(Undefined::ForecastConstant { names }),
                     (_, None) => Err(Undefined::OutcomeConstant { names }),
@@ -92,15 +125,13 @@ impl Measure {
             Self::HitRate => {
                 let directional: Vec<bool> = pairs
                     .iter()
-                    .filter(|pair| pair.forecast != 0.0 && pair.outcome != 0.0)
-                    .map(|pair| (pair.forecast > 0.0) == (pair.outcome > 0.0))
+                    .filter(|pair| pair.forecast.0 != 0.0 && pair.outcome.0 != 0.0)
+                    .map(|pair| (pair.forecast.0 > 0.0) == (pair.outcome.0 > 0.0))
                     .collect();
-                match directional.len() {
-                    0 => Err(Undefined::NoDirection { names }),
-                    total => {
-                        let agreed = directional.iter().filter(|agreed| **agreed).count();
-                        Ok(agreed as f64 / total as f64)
-                    }
+                let agreed = directional.iter().filter(|agreed| **agreed).count();
+                match Share::of(agreed as u64, directional.len() as u64) {
+                    Some(share) => Ok(share.get()),
+                    None => Err(Undefined::NoDirection { names }),
                 }
             }
         }
@@ -130,8 +161,8 @@ impl SessionScores {
     }
 
     /// The share of instants without a score, `None` when no instant was read.
-    pub fn undefined_share(&self) -> Option<f64> {
-        (self.instants > 0).then(|| self.undefined.len() as f64 / self.instants as f64)
+    pub fn undefined_share(&self) -> Option<Share> {
+        Share::of(self.undefined.len() as u64, self.instants)
     }
 }
 
@@ -222,7 +253,12 @@ mod tests {
         forecasts
             .iter()
             .zip(outcomes)
-            .map(|(forecast, outcome)| Pair::new(*forecast, *outcome).unwrap())
+            .map(|(forecast, outcome)| {
+                Pair::new(
+                    Forecast::new(*forecast).unwrap(),
+                    Outcome::new(*outcome).unwrap(),
+                )
+            })
             .collect()
     }
 
@@ -231,12 +267,16 @@ mod tests {
     }
 
     #[test]
-    fn test_a_pair_refuses_what_cannot_be_ranked() {
+    fn test_a_forecast_and_an_outcome_refuse_what_cannot_be_ranked() {
         assert_eq!(
-            Pair::new(f64::NAN, 1.0).map_err(|refusal| refusal.to_string()),
-            Err("a pair is finite, and forecast NaN with outcome 1 is not".to_string())
+            Forecast::new(f64::NAN).map_err(|refusal| refusal.to_string()),
+            Err("a forecast is finite, and NaN is not".to_string())
         );
-        assert!(Pair::new(1.0, f64::INFINITY).is_err());
+        assert_eq!(
+            Outcome::new(f64::INFINITY).map_err(|refusal| refusal.to_string()),
+            Err("an outcome is finite, and inf is not".to_string())
+        );
+        assert_eq!(Forecast::new(-0.5).map(Forecast::get), Ok(-0.5));
     }
 
     #[test]
@@ -351,7 +391,7 @@ mod tests {
                 (session(1), Undefined::ForecastConstant { names: 20 }),
             ]
         );
-        assert_eq!(scores.undefined_share(), Some(0.5));
+        assert_eq!(scores.undefined_share().map(Share::get), Some(0.5));
         let empty = score_sessions(Measure::HitRate, std::iter::empty()).unwrap();
         assert_eq!(empty.undefined_share(), None);
     }

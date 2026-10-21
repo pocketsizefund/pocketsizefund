@@ -10,6 +10,7 @@ pub mod haircut;
 pub mod permutation;
 pub mod score;
 pub mod series;
+pub mod share;
 
 /// The largest reading magnitude a series admits; no measured quantity comes near it, and below it every sum, square
 /// and Welch term stays finite.
