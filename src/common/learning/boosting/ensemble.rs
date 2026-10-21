@@ -60,16 +60,28 @@ pub struct Settings {
     /// The share of rows each tree is grown from, drawn afresh per tree.
     pub row_fraction: Fraction,
     pub penalty: Penalty,
-    pub rounds: usize,
-    /// Rounds without a better validation loss before the fit stops and keeps its best.
-    pub patience: NonZeroUsize,
     pub seed: u64,
+}
+
+/// When a fit stops adding trees.
+#[derive(Debug, Clone, Copy)]
+pub enum Stopping<'a> {
+    /// Up to `rounds`, ending once `validation` loss has not improved for `patience` rounds and keeping its best.
+    Early {
+        validation: &'a Sample<'a>,
+        rounds: usize,
+        patience: NonZeroUsize,
+    },
+    /// Exactly `rounds` trees, reading no validation rows.
+    Fixed { rounds: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
 pub enum FitError {
-    #[error("a fit needs training and validation rows, and has {train} and {validation}")]
-    Empty { train: usize, validation: usize },
+    #[error("a fit needs training rows")]
+    NoTrainingRows,
+    #[error("early stopping needs validation rows")]
+    NoValidationRows,
     #[error("training rows are {train} wide and validation rows {validation}")]
     Width { train: usize, validation: usize },
     #[error("the derivative at row {row} is out of range")]
@@ -100,42 +112,59 @@ pub struct Booster {
 }
 
 impl Booster {
-    /// Adds one tree per round until `settings.rounds`, stopping early once validation loss has not improved for
-    /// `settings.patience` rounds, and keeps the rounds up to its best.
+    /// Adds one tree per round until `stopping` ends the fit.
     pub fn fit(
         train: &Sample,
-        validation: &Sample,
+        stopping: Stopping,
         settings: &Settings,
         fold: &impl Fold,
     ) -> Result<Self, FitError> {
         let (matrix, labels, loss) = (train.matrix(), train.labels(), train.loss());
-        if loss != validation.loss() {
-            return Err(FitError::Loss {
-                train: loss,
-                validation: validation.loss(),
-            });
+        if matrix.rows() == 0 {
+            return Err(FitError::NoTrainingRows);
         }
-        if matrix.rows() == 0 || validation.matrix().rows() == 0 {
-            return Err(FitError::Empty {
-                train: matrix.rows(),
-                validation: validation.matrix().rows(),
-            });
-        }
-        if matrix.width() != validation.matrix().width() {
-            return Err(FitError::Width {
-                train: matrix.width(),
-                validation: validation.matrix().width(),
-            });
-        }
+        let base = loss.base(labels);
+        let (rounds, mut watch) = match stopping {
+            Stopping::Early {
+                validation,
+                rounds,
+                patience,
+            } => {
+                if loss != validation.loss() {
+                    return Err(FitError::Loss {
+                        train: loss,
+                        validation: validation.loss(),
+                    });
+                }
+                if validation.matrix().rows() == 0 {
+                    return Err(FitError::NoValidationRows);
+                }
+                if matrix.width() != validation.matrix().width() {
+                    return Err(FitError::Width {
+                        train: matrix.width(),
+                        validation: validation.matrix().width(),
+                    });
+                }
+                let scores = vec![base; validation.matrix().rows()];
+                let best = (mean_loss(loss, &scores, validation.labels()), 0);
+                (
+                    rounds,
+                    Some(Watch {
+                        validation,
+                        patience,
+                        scores,
+                        best,
+                    }),
+                )
+            }
+            Stopping::Fixed { rounds } => (rounds, None),
+        };
         let bins = Bins::fit(&matrix);
         let codes = bins.quantize(&matrix);
-        let base = loss.base(labels);
         let mut scores = vec![base; matrix.rows()];
-        let mut validation_scores = vec![base; validation.matrix().rows()];
-        let mut best = (mean_loss(loss, &validation_scores, validation.labels()), 0);
         let mut generator = Generator::new(settings.seed);
         let mut trees = Vec::new();
-        for round in 1..=settings.rounds {
+        for round in 1..=rounds {
             let statistics: Vec<Statistics> = scores
                 .iter()
                 .zip(labels)
@@ -170,16 +199,18 @@ impl Booster {
                 Score::new(step.get() * settings.learning_rate.get())
             });
             add_scores(&mut scores, &tree, &matrix, fold);
-            add_scores(&mut validation_scores, &tree, &validation.matrix(), fold);
+            let stop = match &mut watch {
+                Some(watch) => watch.stops_after(&tree, round, loss, fold),
+                None => false,
+            };
             trees.push(tree);
-            let current = mean_loss(loss, &validation_scores, validation.labels());
-            if current < best.0 {
-                best = (current, round);
-            } else if round - best.1 >= settings.patience.get() {
+            if stop {
                 break;
             }
         }
-        trees.truncate(best.1);
+        if let Some(watch) = watch {
+            trees.truncate(watch.best.1);
+        }
         Ok(Self {
             loss,
             width: matrix.width(),
@@ -305,6 +336,26 @@ fn mean_loss(loss: Loss, scores: &[Score], labels: &[Label]) -> f64 {
         / labels.len() as f64
 }
 
+/// Early stopping's running state: the validation scores and the best loss with the round that reached it.
+struct Watch<'a> {
+    validation: &'a Sample<'a>,
+    patience: NonZeroUsize,
+    scores: Vec<Score>,
+    best: (f64, usize),
+}
+
+impl Watch<'_> {
+    /// Adds `tree` to the validation scores and says whether `patience` rounds have now passed without a better loss.
+    fn stops_after(&mut self, tree: &Tree, round: usize, loss: Loss, fold: &impl Fold) -> bool {
+        add_scores(&mut self.scores, tree, &self.validation.matrix(), fold);
+        let current = mean_loss(loss, &self.scores, self.validation.labels());
+        if current < self.best.0 {
+            self.best = (current, round);
+        }
+        round - self.best.1 >= self.patience.get()
+    }
+}
+
 /// The sorted indices of a uniform draw of `fraction` of `population`, drawing nothing when it keeps everything.
 fn draw(generator: &mut Generator, population: usize, fraction: Fraction) -> Vec<usize> {
     let mut indices: Vec<usize> = (0..population).collect();
@@ -333,8 +384,6 @@ mod tests {
             input_fraction: Fraction::new(1.0).unwrap(),
             row_fraction: Fraction::new(0.8).unwrap(),
             penalty: Penalty::new(1.0).unwrap(),
-            rounds: 200,
-            patience: NonZeroUsize::new(20).unwrap(),
             seed: 7,
         }
     }
@@ -345,10 +394,19 @@ mod tests {
         width: usize,
         labels: &[f64],
         settings: &Settings,
+        rounds: usize,
     ) -> Result<Booster, FitError> {
         let matrix = Matrix::new(values, NonZeroUsize::new(width).unwrap()).unwrap();
         let sample = Sample::new(matrix, labels, loss).unwrap();
-        Booster::fit(&sample, &sample, settings, &Sequential)
+        Booster::fit(&sample, Stopping::Fixed { rounds }, settings, &Sequential)
+    }
+
+    fn early<'a>(validation: &'a Sample<'a>) -> Stopping<'a> {
+        Stopping::Early {
+            validation,
+            rounds: 200,
+            patience: NonZeroUsize::new(20).unwrap(),
+        }
     }
 
     fn predicted(booster: &Booster, matrix: &Matrix) -> Vec<f64> {
@@ -405,10 +463,9 @@ mod tests {
             minimum_rows_per_leaf: NonZeroUsize::MIN,
             row_fraction: Fraction::new(1.0).unwrap(),
             penalty: Penalty::new(1e-9).unwrap(),
-            rounds: 1,
             ..settings()
         };
-        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings).unwrap();
+        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings, 1).unwrap();
         let matrix = Matrix::new(&values, NonZeroUsize::MIN).unwrap();
         let predictions = predicted(&booster, &matrix);
         for (prediction, label) in predictions.iter().zip(labels) {
@@ -432,10 +489,9 @@ mod tests {
             minimum_rows_per_leaf: NonZeroUsize::MIN,
             row_fraction: Fraction::new(1.0).unwrap(),
             penalty: Penalty::new(1e-9).unwrap(),
-            rounds: 1,
             ..settings()
         };
-        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings).unwrap();
+        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings, 1).unwrap();
         let predictions = predicted(&booster, &Matrix::new(&values, NonZeroUsize::MIN).unwrap());
         for (prediction, expected) in predictions
             .iter()
@@ -458,10 +514,9 @@ mod tests {
             minimum_rows_per_leaf: NonZeroUsize::MIN,
             row_fraction: Fraction::new(1.0).unwrap(),
             penalty: Penalty::new(2.0).unwrap(),
-            rounds: 1,
             ..settings()
         };
-        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings).unwrap();
+        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings, 1).unwrap();
         assert!(
             (booster.importance()[0] - 800.0 / 6.0).abs() < 1e-6,
             "{:?}",
@@ -490,7 +545,7 @@ mod tests {
             Loss::SquaredError,
             Loss::Quantile(Level::try_from(0.9).unwrap()),
         ] {
-            let booster = fit(loss, &values, 1, &[2.5; 40], &settings()).unwrap();
+            let booster = fit(loss, &values, 1, &[2.5; 40], &settings(), 200).unwrap();
             let matrix = Matrix::new(&values, NonZeroUsize::MIN).unwrap();
             assert!(
                 predicted(&booster, &matrix)
@@ -510,10 +565,8 @@ mod tests {
             &values,
             1,
             &[0.0, 0.0, 0.0, 1.0],
-            &Settings {
-                rounds: 0,
-                ..settings()
-            },
+            &settings(),
+            0,
         )
         .unwrap();
         let matrix = Matrix::new(&values, NonZeroUsize::MIN).unwrap();
@@ -528,7 +581,7 @@ mod tests {
     #[test]
     fn test_a_fit_learns_the_step_and_credits_the_input_that_carries_it() {
         let (values, labels) = stepped(2_000, 3);
-        let booster = fit(Loss::SquaredError, &values, 2, &labels, &settings()).unwrap();
+        let booster = fit(Loss::SquaredError, &values, 2, &labels, &settings(), 200).unwrap();
         let (validation_values, validation_labels) = stepped(1_000, 4);
         let matrix = Matrix::new(&validation_values, NonZeroUsize::new(2).unwrap()).unwrap();
         let predictions = predicted(&booster, &matrix);
@@ -544,6 +597,7 @@ mod tests {
                 .map(|&label| f64::from(u8::from(label > 0.0)))
                 .collect::<Vec<_>>(),
             &settings(),
+            200,
         )
         .unwrap();
         let probabilities = predicted(&classifier, &matrix);
@@ -582,7 +636,7 @@ mod tests {
             loss,
         )
         .unwrap();
-        let booster = Booster::fit(&train, &validation, &settings(), &Sequential).unwrap();
+        let booster = Booster::fit(&train, early(&validation), &settings(), &Sequential).unwrap();
         let base = mean_squared_error(&[loss.base(train.labels()).get(); 800], validation_labels);
         let fitted = mean_squared_error(
             &predicted(&booster, &validation.matrix()),
@@ -592,6 +646,59 @@ mod tests {
         assert!(booster.rounds() < 20, "{} rounds", booster.rounds());
     }
 
+    /// A walk-forward refit relies on this: the trees early stopping keeps are the ones a fixed fit of that many grows.
+    #[test]
+    fn test_an_early_fit_equals_a_fixed_fit_of_the_rounds_it_kept() {
+        let (values, mut labels) = stepped(2_000, 11);
+        let mut generator = Generator::new(12);
+        for label in &mut labels {
+            *label += 6.0 * ((generator.next_u64() >> 11) as f64 / (1_u64 << 53) as f64 - 0.5);
+        }
+        let (train_values, validation_values) = values.split_at(2_400);
+        let (train_labels, validation_labels) = labels.split_at(1_200);
+        let width = NonZeroUsize::new(2).unwrap();
+        let loss = Loss::SquaredError;
+        let train = Sample::new(
+            Matrix::new(train_values, width).unwrap(),
+            train_labels,
+            loss,
+        )
+        .unwrap();
+        let validation = Sample::new(
+            Matrix::new(validation_values, width).unwrap(),
+            validation_labels,
+            loss,
+        )
+        .unwrap();
+        let stopped = Booster::fit(&train, early(&validation), &settings(), &Sequential).unwrap();
+        let rounds = stopped.rounds();
+        assert!(rounds > 0 && rounds < 200, "{rounds} rounds");
+        let validation_loss = |rounds| {
+            let booster =
+                Booster::fit(&train, Stopping::Fixed { rounds }, &settings(), &Sequential).unwrap();
+            mean_squared_error(
+                &predicted(&booster, &validation.matrix()),
+                validation_labels,
+            )
+        };
+        let losses: Vec<f64> = (0..=rounds + 20).map(validation_loss).collect();
+        let best = (0..losses.len())
+            .min_by(|&a, &b| losses[a].total_cmp(&losses[b]))
+            .unwrap();
+        assert_eq!(best, rounds, "{losses:?}");
+        let fixed =
+            Booster::fit(&train, Stopping::Fixed { rounds }, &settings(), &Sequential).unwrap();
+        assert_eq!(fixed, stopped);
+        let longer = Booster::fit(
+            &train,
+            Stopping::Fixed { rounds: 200 },
+            &settings(),
+            &Sequential,
+        )
+        .unwrap();
+        assert_eq!(longer.rounds(), 200);
+    }
+
     #[test]
     fn test_a_fit_refuses_mismatched_or_unusable_samples() {
         let values = [0.0, 1.0, 2.0, 3.0];
@@ -599,7 +706,7 @@ mod tests {
         let [squared, logistic] = [Loss::SquaredError, Loss::Logistic]
             .map(|loss| Sample::new(matrix, &[0.0, 1.0, 1.0, 0.0], loss).unwrap());
         assert_eq!(
-            Booster::fit(&squared, &logistic, &settings(), &Sequential),
+            Booster::fit(&squared, early(&logistic), &settings(), &Sequential),
             Err(FitError::Loss {
                 train: Loss::SquaredError,
                 validation: Loss::Logistic
@@ -611,7 +718,8 @@ mod tests {
                 &values[..3],
                 1,
                 &[0.0, 0.0, 1.2e16],
-                &settings()
+                &settings(),
+                200
             ),
             Err(FitError::Derivative {
                 row: 2,
@@ -619,11 +727,18 @@ mod tests {
             })
         );
         assert_eq!(
-            fit(Loss::SquaredError, &[], 1, &[], &settings()),
-            Err(FitError::Empty {
-                train: 0,
-                validation: 0
-            })
+            fit(Loss::SquaredError, &[], 1, &[], &settings(), 200),
+            Err(FitError::NoTrainingRows)
+        );
+        let empty = Sample::new(
+            Matrix::new(&[], NonZeroUsize::MIN).unwrap(),
+            &[],
+            Loss::SquaredError,
+        )
+        .unwrap();
+        assert_eq!(
+            Booster::fit(&squared, early(&empty), &settings(), &Sequential),
+            Err(FitError::NoValidationRows)
         );
         let train = Sample::new(matrix, &[0.0; 4], Loss::SquaredError).unwrap();
         let validation = Sample::new(
@@ -633,13 +748,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            Booster::fit(&train, &validation, &settings(), &Sequential),
+            Booster::fit(&train, early(&validation), &settings(), &Sequential),
             Err(FitError::Width {
                 train: 1,
                 validation: 2
             })
         );
-        let booster = fit(Loss::SquaredError, &values, 1, &[0.0; 4], &settings()).unwrap();
+        let booster = fit(Loss::SquaredError, &values, 1, &[0.0; 4], &settings(), 200).unwrap();
         assert_eq!(
             booster.predict(&validation.matrix()),
             Err(WidthError {
@@ -658,6 +773,7 @@ mod tests {
             2,
             &labels,
             &settings(),
+            200,
         )
         .unwrap();
         assert!(booster.rounds() > 0);
@@ -690,7 +806,6 @@ mod tests {
             minimum_rows_per_leaf: NonZeroUsize::MIN,
             row_fraction: Fraction::new(1.0).unwrap(),
             penalty: Penalty::new(1e-9).unwrap(),
-            rounds: 1,
             ..settings()
         };
         let booster = fit(
@@ -699,6 +814,7 @@ mod tests {
             1,
             &[0.0, 0.0, 10.0, 10.0],
             &settings,
+            1,
         )
         .unwrap();
         let read: Booster =
@@ -729,10 +845,9 @@ mod tests {
             leaves: NonZeroUsize::new(2).unwrap(),
             minimum_rows_per_leaf: NonZeroUsize::MIN,
             row_fraction: Fraction::new(1.0).unwrap(),
-            rounds: 2,
             ..settings()
         };
-        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings).unwrap();
+        let booster = fit(Loss::SquaredError, &values, 1, &labels, &settings, 2).unwrap();
         let offsets: Vec<f64> =
             predicted(&booster, &Matrix::new(&values, NonZeroUsize::MIN).unwrap())
                 .iter()
@@ -759,10 +874,10 @@ mod tests {
         fn property_an_increasing_transform_of_an_input_leaves_the_fit_unchanged(seed in 0_u64..1_000) {
             let (values, labels) = stepped(200, seed);
             let transformed: Vec<f64> = values.chunks(2).flat_map(|row| [row[0] * 4.0 + 1.0, row[1]]).collect();
-            let settings = Settings { rounds: 20, ..settings() };
+            let settings = settings();
             let width = NonZeroUsize::new(2).unwrap();
-            let original = fit(Loss::SquaredError, &values, 2, &labels, &settings).unwrap();
-            let mapped = fit(Loss::SquaredError, &transformed, 2, &labels, &settings).unwrap();
+            let original = fit(Loss::SquaredError, &values, 2, &labels, &settings, 20).unwrap();
+            let mapped = fit(Loss::SquaredError, &transformed, 2, &labels, &settings, 20).unwrap();
             prop_assert_eq!(
                 original.predict(&Matrix::new(&values, width).unwrap()).unwrap(),
                 mapped.predict(&Matrix::new(&transformed, width).unwrap()).unwrap()
