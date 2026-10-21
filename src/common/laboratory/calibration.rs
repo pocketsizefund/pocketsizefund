@@ -133,7 +133,6 @@ impl Coverage {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Calibration {
     levels: Levels,
-    overall: Coverage,
     by_width: [Coverage; WIDTH_DECILES],
 }
 
@@ -143,7 +142,10 @@ impl Calibration {
     }
 
     pub fn overall(&self) -> Coverage {
-        self.overall
+        self.by_width
+            .iter()
+            .copied()
+            .fold(Coverage::empty(), Coverage::combine)
     }
 
     pub fn by_width(&self) -> &[Coverage; WIDTH_DECILES] {
@@ -167,14 +169,7 @@ pub fn calibrate(levels: Levels, bands: &[Band]) -> Calibration {
             .fold(Coverage::empty(), Coverage::combine);
         start = end;
     }
-    Calibration {
-        levels,
-        overall: by_width
-            .iter()
-            .copied()
-            .fold(Coverage::empty(), Coverage::combine),
-        by_width,
-    }
+    Calibration { levels, by_width }
 }
 
 #[cfg(test)]

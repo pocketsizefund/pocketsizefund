@@ -117,8 +117,8 @@ impl Measure {
                 let forecast = average_ranks(pairs.iter().map(|pair| pair.forecast.0));
                 let outcome = average_ranks(pairs.iter().map(|pair| pair.outcome.0));
                 match (deviations(&forecast), deviations(&outcome)) {
-                    (None, _) => Err(Undefined::ForecastConstant { names }),
-                    (_, None) => Err(Undefined::OutcomeConstant { names }),
+                    (None, None) | (None, Some(..)) => Err(Undefined::ForecastConstant { names }),
+                    (Some(..), None) => Err(Undefined::OutcomeConstant { names }),
                     (Some(forecast), Some(outcome)) => Ok(correlation(&forecast, &outcome)),
                 }
             }
@@ -363,7 +363,8 @@ mod tests {
         }
     }
 
-    /// Session one averages its two defined instants and counts the third; session two has no defined instant.
+    /// Session one averages its three defined instants, +1, +1 and -1, to 1/3 and counts the fourth, which a mean over
+    /// every instant would read as 1/4; session two has no defined instant.
     #[test]
     fn test_sessions_average_their_defined_instants_and_count_the_rest() {
         let ascending = line(20);
@@ -371,6 +372,7 @@ mod tests {
         let first = [
             pairs(&ascending, &ascending),
             pairs(&ascending, &ascending),
+            pairs(&ascending, &descending),
             pairs(&line(3), &line(3)),
         ];
         let second = [pairs(&[1.0; 20], &descending)];
@@ -381,9 +383,9 @@ mod tests {
         .unwrap();
         assert_eq!(
             scores.series(),
-            &Series::new([(session(0), Some(1.0)), (session(1), None)]).unwrap()
+            &Series::new([(session(0), Some(1.0 / 3.0)), (session(1), None)]).unwrap()
         );
-        assert_eq!(scores.instants(), 4);
+        assert_eq!(scores.instants(), 5);
         assert_eq!(
             scores.undefined(),
             [
@@ -391,7 +393,7 @@ mod tests {
                 (session(1), Undefined::ForecastConstant { names: 20 }),
             ]
         );
-        assert_eq!(scores.undefined_share().map(Share::get), Some(0.5));
+        assert_eq!(scores.undefined_share().map(Share::get), Some(0.4));
         let empty = score_sessions(Measure::HitRate, std::iter::empty()).unwrap();
         assert_eq!(empty.undefined_share(), None);
     }
@@ -450,7 +452,10 @@ mod tests {
             );
             match (original, mapped) {
                 (Ok(original), Ok(mapped)) => prop_assert!((original - mapped).abs() < 1e-12),
-                (original, mapped) => prop_assert_eq!(original, mapped),
+                (Err(original), Err(mapped)) => prop_assert_eq!(original, mapped),
+                (Ok(..), Err(..)) | (Err(..), Ok(..)) => {
+                    prop_assert!(false, "{original:?} against {mapped:?}")
+                }
             }
         }
 
@@ -460,12 +465,19 @@ mod tests {
             let (forecast, outcome) = split(&values);
             let negated: Vec<f64> = forecast.iter().map(|value| -value).collect();
             let coefficient = Measure::InformationCoefficient;
-            if let (Ok(original), Ok(reversed)) = (
+            let (original, reversed) = (
                 coefficient.score(&pairs(&forecast, &outcome)),
                 coefficient.score(&pairs(&negated, &outcome)),
-            ) {
-                prop_assert!((original + reversed).abs() < 1e-12);
-                prop_assert!((-1.0..=1.0).contains(&original));
+            );
+            match (original, reversed) {
+                (Ok(original), Ok(reversed)) => {
+                    prop_assert!((original + reversed).abs() < 1e-12);
+                    prop_assert!((-1.0..=1.0).contains(&original));
+                }
+                (Err(original), Err(reversed)) => prop_assert_eq!(original, reversed),
+                (Ok(..), Err(..)) | (Err(..), Ok(..)) => {
+                    prop_assert!(false, "{original:?} against {reversed:?}")
+                }
             }
             let directional: Vec<(f64, f64)> = values
                 .iter()
