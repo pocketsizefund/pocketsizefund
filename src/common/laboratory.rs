@@ -1,12 +1,14 @@
 //! The pieces a study composes: a dataset folds to a `Series`, a series summarizes to an `Estimate`, and an estimate is
 //! judged against a cost, a haircut and a permutation null.
 
+pub mod calibration;
 pub mod cost;
 pub mod dataset;
 pub mod estimate;
 pub mod experiment;
 pub mod haircut;
 pub mod permutation;
+pub mod score;
 pub mod series;
 
 /// The largest reading magnitude a series admits; no measured quantity comes near it, and below it every sum, square
