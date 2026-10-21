@@ -183,6 +183,9 @@ pub enum ShipFailure {
     /// Another writer changed the object on each of this many attempts.
     #[error("another writer changed the object on each of {attempts} attempts")]
     Contended { attempts: u32 },
+    /// A create found the key taken, and reading it back returned other bytes or none.
+    #[error("{path} was taken, and reading it back did not return these bytes")]
+    Unmatched { path: String },
 }
 
 /// Each recent journal and log file that exists, encoded under its key, or why it could not be.

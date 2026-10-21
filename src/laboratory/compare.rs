@@ -201,8 +201,12 @@ mod tests {
     /// The one `experiment_ran` the study in `directory` journaled.
     fn journaled(directory: &std::path::Path) -> ExperimentRan {
         let mut ran = Vec::new();
-        for entry in std::fs::read_dir(directory).unwrap() {
-            for line in read(&std::fs::read_to_string(entry.unwrap().path()).unwrap()) {
+        let files = std::fs::read_dir(directory)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.is_file());
+        for file in files {
+            for line in read(&std::fs::read_to_string(file).unwrap()) {
                 match line {
                     ReadLine::Read(record) => match record.observation() {
                         Observation::ExperimentRan(experiment) => ran.push((**experiment).clone()),
@@ -467,11 +471,11 @@ mod tests {
         ));
         assert!(
             !directory.exists()
-                || std::fs::read_dir(&directory).unwrap().all(|entry| {
-                    std::fs::read_to_string(entry.unwrap().path())
-                        .unwrap()
-                        .is_empty()
-                })
+                || std::fs::read_dir(&directory)
+                    .unwrap()
+                    .map(|entry| entry.unwrap().path())
+                    .filter(|path| path.is_file())
+                    .all(|file| std::fs::read_to_string(file).unwrap().is_empty())
         );
         let _ = std::fs::remove_dir_all(&directory);
     }

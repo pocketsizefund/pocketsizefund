@@ -31,10 +31,15 @@ impl Source {
     }
 
     pub fn digest(&self) -> SourceDigest {
-        let hash = Sha256::digest(self.encode());
-        let hexadecimal: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
-        SourceDigest::new(&hexadecimal).expect("SHA-256 prints 64 lowercase hexadecimal digits")
+        digest_of(&self.encode())
     }
+}
+
+/// The digest of an encoded source, so stored bytes are keyed by what they hold rather than by what names them.
+pub fn digest_of(encoded: &[u8]) -> SourceDigest {
+    let hash = Sha256::digest(encoded);
+    let hexadecimal: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
+    SourceDigest::new(&hexadecimal).expect("SHA-256 prints 64 lowercase hexadecimal digits")
 }
 
 /// Opens a `Study` that captures the calling file and each named sibling, given relative to the calling file. The

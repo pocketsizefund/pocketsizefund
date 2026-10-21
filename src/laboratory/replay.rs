@@ -600,11 +600,11 @@ pub(crate) mod tests {
         ));
         assert!(
             !directory.exists()
-                || std::fs::read_dir(&directory).unwrap().all(|entry| {
-                    std::fs::read_to_string(entry.unwrap().path())
-                        .unwrap()
-                        .is_empty()
-                })
+                || std::fs::read_dir(&directory)
+                    .unwrap()
+                    .map(|entry| entry.unwrap().path())
+                    .filter(|path| path.is_file())
+                    .all(|file| std::fs::read_to_string(file).unwrap().is_empty())
         );
         let _ = std::fs::remove_dir_all(&directory);
     }
