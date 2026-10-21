@@ -56,7 +56,7 @@ mod tests {
     use crate::common::laboratory::permutation::Generator;
     use crate::common::learning::boosting::Fraction;
     use crate::common::learning::boosting::Penalty;
-    use crate::common::learning::boosting::ensemble::{Booster, Settings};
+    use crate::common::learning::boosting::ensemble::{Booster, Settings, Stopping};
     use crate::common::learning::loss::Loss;
     use crate::common::learning::matrix::{Matrix, Sample};
     use crate::common::monoid::{Sequence, Sequential};
@@ -85,14 +85,17 @@ mod tests {
             input_fraction: Fraction::new(0.7).unwrap(),
             row_fraction: Fraction::new(0.8).unwrap(),
             penalty: Penalty::new(1.0).unwrap(),
-            rounds: 30,
-            patience: NonZeroUsize::new(5).unwrap(),
             seed: 2,
         };
-        let sequential = Booster::fit(&sample, &sample, &settings, &Sequential).unwrap();
+        let stopping = Stopping::Early {
+            validation: &sample,
+            rounds: 30,
+            patience: NonZeroUsize::new(5).unwrap(),
+        };
+        let sequential = Booster::fit(&sample, stopping, &settings, &Sequential).unwrap();
         let threaded = Booster::fit(
             &sample,
-            &sample,
+            stopping,
             &settings,
             &Threads::new(NonZeroUsize::new(4).unwrap()),
         )
