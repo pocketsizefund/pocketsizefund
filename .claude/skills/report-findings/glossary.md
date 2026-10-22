@@ -22,8 +22,9 @@ these. Add terms here as they appear, and record a value a study measures in `me
 - **Effective sample size** — how many independent observations the data is really worth after correlation.
   **Good:** report it beside the row count; the row count flatters.
 - **Null / permutation null / shuffled-label null** — the same pipeline run on data where the effect has been
-  deliberately destroyed (labels shuffled), so whatever it reports is the machinery's own bias. **Good:** near zero,
-  and the real reading must clear it by a margin.
+  deliberately destroyed (labels shuffled), so whatever it reports is the machinery's own bias. **Good:** near the
+  metric's no-signal value (0 for IC, 0.5 for AUC), and the real reading must beat it by a margin in the metric's
+  better direction.
 - **Oracle** — an arm that is handed the true answer, giving the ceiling no model can beat. **Good:** shows how much
   room there is; a model near the oracle is suspicious.
 - **Trivial baseline / trivial arm** — the simplest thing that could be done instead (do nothing, predict the
@@ -104,7 +105,8 @@ these. Add terms here as they appear, and record a value a study measures in `me
 - **Net bp per trade / per session** — average profit after costs per trade, or per trading day. **Good:** positive
   under the conservative fill bound and at least 2 SE from zero.
 - **Long-short (top/bottom decile) portfolio** — buy the names ranked highest, short those ranked lowest, equal
-  dollars each side, so the market's direction cancels.
+  dollars each side; that makes it dollar-neutral, which is not beta-neutral when the two sides move with the market
+  by different amounts.
 - **Market-net target** — a name's return minus the market's, so the model predicts the stock and not the index.
 - **Volatility-scaled target** — a return divided by the name's typical volatility, so quiet and wild stocks count
   alike.
