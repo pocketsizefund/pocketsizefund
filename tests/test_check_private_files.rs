@@ -52,7 +52,7 @@ fn check(paths: &[&str]) -> (i32, String) {
     )
 }
 
-const PUBLIC: [&str; 7] = [
+const PUBLIC: [&str; 8] = [
     "src/journal.rs",
     "src/common/journal.rs",
     "src/common/journal/record.rs",
@@ -60,6 +60,7 @@ const PUBLIC: [&str; 7] = [
     "data/equity_details.csv",
     "secretspec.toml",
     "views.sql",
+    ".claude/skills/report-findings/glossary.md",
 ];
 
 #[test]
@@ -84,6 +85,7 @@ fn test_each_private_file_fails_and_is_named() {
         "studies/src/bin/null_check.rs",
         "jobs/parse_ticks.sh",
         ".scratchpad/plan.md",
+        ".claude/skills/report-findings/measurements.md",
         "journal/échange.md",
         "data/équité.parquet",
     ] {

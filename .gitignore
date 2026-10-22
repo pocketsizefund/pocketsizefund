@@ -8,6 +8,7 @@
 !/tests/**/*.json
 .claude/tasks/
 .claude/settings.local.json*
+.claude/skills/*/measurements.md
 .scratchpad/
 /studies/src/bin/
 /jobs/
