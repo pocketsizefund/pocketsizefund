@@ -21,7 +21,7 @@ This is a collection of guidelines and references.
   `check-private-files` refuses only the patterns it names, so a new private format needs adding there
 - Read the `experiments` view (`start-duckdb`) before starting a study to see what has already been tried, under each
   profile or with `SET VARIABLE profile_bucket` set to the other bucket, and journal every experiment through a `Study`;
-  the catalog records the work and gates none of it, so holdouts are designed per study
+  the catalog records the work and gates none of it, so confirm sets are designed per study
 - Studies are throwaway binaries in the gitignored `studies/src/bin/`, run with `cargo run -p studies --bin <name>`,
   and a `Study` journals into the gitignored `journal/` at the root, which `finish` ships to the profile bucket
 - Measure a replaceable component through `laboratory::compare` against its trivial arm (the null strategy or the
@@ -175,6 +175,12 @@ This is a collection of guidelines and references.
   does it carry a dimension nothing else does
 - Split the sample and test the difference between the halves, never whether both halves point the same way
 - Fix every free choice before looking at the result, and record each one with the number it produced
+- A confirm set answers a question only if reading it could not have shaped that question; data that suggested a
+  hypothesis may train or validate it, never confirm it
+- Split a study's data by session, never by row, since names on one session share the market move, and confirm on
+  a contiguous block later than everything fit or chosen on, since interleaved weeks share a regime
+- Journal every candidate sent to a confirm set through its `Study` and raise the significance bar with the count
+  the `experiments` view shows; an automated search never reads a confirm set
 - Scope a kill precisely — say exactly what was refuted and under what conditions, because over-claiming a
   refutation closes doors that are still open and under-claiming reopens ones that are shut
 - Correcting an instance does not generalise the lesson; run the check deliberately against each new
