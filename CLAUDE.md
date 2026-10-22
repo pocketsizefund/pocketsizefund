@@ -180,7 +180,8 @@ This is a collection of guidelines and references.
 - Split a study's data by session, never by row, since names on one session share the market move, and confirm on
   a contiguous block later than everything fit or chosen on, since interleaved weeks share a regime
 - Journal every candidate sent to a confirm set through its `Study` and raise the significance bar with the count
-  the `experiments` view shows; an automated search never reads a confirm set
+  the `experiments` view shows plus every candidate journaled locally but not yet shipped, since the view reads only
+  what `finish` has shipped; an automated search never reads a confirm set
 - Scope a kill precisely — say exactly what was refuted and under what conditions, because over-claiming a
   refutation closes doors that are still open and under-claiming reopens ones that are shut
 - Correcting an instance does not generalise the lesson; run the check deliberately against each new
