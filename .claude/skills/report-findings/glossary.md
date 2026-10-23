@@ -20,9 +20,12 @@ these. Add terms here as they appear, and record a value a study measures in `me
 - **Session-clustered standard error** — a standard error that treats each trading day as one observation, because
   trades on the same day move together. **Good:** this is the honest one; 10,000 trades over 5 sessions is closer to 5
   observations than to 10,000.
-- **t-statistic (t)** — an estimate divided by its standard error. **Good:** |t| ≥ 2 clears the usual bar.
-- **p-value** — the chance of a result at least this extreme if there were no effect. **Good:** |t| ≥ 2 is roughly
-  p below 0.05; it says nothing about whether the effect is large enough to pay.
+- **t-statistic (t)** — an estimate divided by its standard error. **Good:** |t| ≥ 2 clears the usual bar when
+  observations are many; with few sessions it needs to be larger (see p-value).
+- **p-value** — the chance of a result at least this extreme if there were no effect. **Good:** with many independent
+  observations |t| ≥ 2 is roughly p below 0.05, but with five sessions the same t is p near 0.12, so read p from the t
+  distribution with sessions minus one degrees of freedom; either way it says nothing about whether the effect is
+  large enough to pay.
 - **Multiple testing** — trying many candidates until one passes, so some pass by luck alone (20 tries at p 0.05
   expect one). **Good:** raise the bar with the count of candidates tried.
 - **Statistical power** — the chance a test detects an effect that is really there; an injected-signal check
