@@ -4,7 +4,7 @@ use std::num::NonZeroU32;
 
 use serde::{Deserialize, Serialize};
 
-/// A non-negative, finite width or charge in basis points.
+/// A non-negative, finite width or charge in basis points, with a negative zero stored as zero.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(try_from = "f64")]
 pub struct BasisPoints(f64);
@@ -19,7 +19,7 @@ pub struct BasisPointsRefusal {
 impl BasisPoints {
     pub fn new(value: f64) -> Result<Self, BasisPointsRefusal> {
         match value.is_finite() && value >= 0.0 {
-            true => Ok(Self(value)),
+            true => Ok(Self(value + 0.0)),
             false => Err(BasisPointsRefusal { value }),
         }
     }
@@ -201,6 +201,13 @@ mod tests {
         assert!(
             serde_json::from_str::<CostModel>(r#"{"fill_style":"aggressive","names":0}"#).is_err()
         );
+    }
+
+    #[test]
+    fn test_a_negative_zero_reading_is_stored_and_named_as_zero() {
+        let negative = basis_points(-0.0);
+        assert!(negative.value().is_sign_positive());
+        assert_eq!(negative.to_string(), "0bp");
     }
 
     #[test]

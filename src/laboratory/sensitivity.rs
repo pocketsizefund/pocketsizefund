@@ -76,10 +76,10 @@ pub fn sensitivity<C: Strategy + Clone, B: Strategy + Clone>(
 ) -> Result<Sensitivity, ReplayStudyError> {
     let declared: Vec<String> = perturbations.iter().map(ToString::to_string).collect();
     // A repeat would only be refused as a duplicate output once every replay had run.
-    if let Some((index, _)) = declared
+    if let Some((index, _)) = perturbations
         .iter()
         .enumerate()
-        .find(|(index, name)| declared[..*index].contains(name))
+        .find(|(index, perturbation)| perturbations[..*index].contains(perturbation))
     {
         return Err(ReplayStudyError::Experiment(ExperimentRefusal::Duplicate {
             name: format!("{DIFFERENCE}_{}", declared[index]),
@@ -333,6 +333,32 @@ mod tests {
             panic!("not refused as a duplicate: {refused:?}");
         };
         assert_eq!(name, "session_return_difference_later_start_3_sessions");
+    }
+
+    /// Signed zeros are one spread, so declaring both is refused as a repeat under the zero spread's name.
+    #[test]
+    fn test_signed_zero_spreads_are_one_perturbation() {
+        let directory =
+            std::env::temp_dir().join(format!("fund-sensitivity-{}", uuid::Uuid::new_v4()));
+        let mut study = study(&directory);
+        let dataset = dataset(study.run_id());
+        let refused = sensitivity(
+            &mut study,
+            &dataset,
+            &Arm::new(OneShare, "one_share", &Parameters::default()).unwrap(),
+            &Arm::new(Flat, "flat", &Parameters::default()).unwrap(),
+            fill_model(),
+            BarInterval::OneDay,
+            opening(),
+            Controls::Unrestrained,
+            &[later(3), spread(0.0), spread(-0.0)],
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+        let Err(ReplayStudyError::Experiment(ExperimentRefusal::Duplicate { name })) = refused
+        else {
+            panic!("not refused as a duplicate: {refused:?}");
+        };
+        assert_eq!(name, "session_return_difference_quoted_spread_0bp");
     }
 
     /// A spread equal to the comparison's own is refused before anything replays, so a start past every session never
