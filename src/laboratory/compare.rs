@@ -9,12 +9,15 @@ use crate::common::replay::{Controls, FillModel, Replay, Replayer};
 use crate::common::strategy::Strategy;
 use crate::laboratory::Study;
 use crate::laboratory::dataset::Dataset;
-use crate::laboratory::replay::{Opening, ReplayStudyError, beside, metrics, run, settings};
+use crate::laboratory::replay::{Opening, ReplayStudyError, beside, metrics, run_after, settings};
+
+/// The estimate a comparison's paired difference is journaled under.
+pub(super) const DIFFERENCE: &str = "session_return_difference";
 
 /// Which arm of a comparison a setting or output belongs to, by the name it is journaled under.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
-enum ArmSide {
+pub(super) enum ArmSide {
     Candidate,
     Baseline,
 }
@@ -45,6 +48,10 @@ impl<S: Strategy> Arm<S> {
 
     pub fn name(&self) -> &Name {
         &self.name
+    }
+
+    pub(super) fn strategy(&self) -> &S {
+        &self.strategy
     }
 }
 
@@ -96,13 +103,56 @@ pub fn compare<C: Strategy, B: Strategy>(
         ],
         settings(fill_model, decision, &controls, opening),
     )?;
-    let candidate =
-        Replayer::controlled(candidate.strategy, fill_model, decision, controls.clone())
-            .map_err(ReplayStudyError::Controls)?;
-    let baseline = Replayer::controlled(baseline.strategy, fill_model, decision, controls.clone())
+    let (comparison, candidate_returns, baseline_returns) = replay_arms(
+        dataset,
+        candidate.strategy,
+        baseline.strategy,
+        fill_model,
+        decision,
+        &controls,
+        opening,
+        0,
+    )?;
+    let outputs = outputs(
+        [
+            (
+                ArmSide::Candidate,
+                &comparison.candidate,
+                &candidate_returns,
+            ),
+            (ArmSide::Baseline, &comparison.baseline, &baseline_returns),
+        ],
+        &controls,
+        opening,
+        comparison.difference,
+    )?;
+    study
+        .experiment(parameters, &[dataset.lineage()], outputs)
+        .map_err(ReplayStudyError::Study)?;
+    Ok(comparison)
+}
+
+/// Both arms replayed past the dataset's first `skipped` sessions, with the candidate's and the baseline's returns.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "each is one condition both arms share, named at the call so none is mistaken for another"
+)]
+pub(super) fn replay_arms<C: Strategy, B: Strategy>(
+    dataset: &Dataset,
+    candidate: C,
+    baseline: B,
+    fill_model: FillModel,
+    decision: BarInterval,
+    controls: &Controls,
+    opening: Opening,
+    skipped: usize,
+) -> Result<(Comparison, Series, Series), ReplayStudyError> {
+    let candidate = Replayer::controlled(candidate, fill_model, decision, controls.clone())
         .map_err(ReplayStudyError::Controls)?;
-    let candidate = run(dataset, &candidate, opening)?;
-    let baseline = run(dataset, &baseline, opening)?;
+    let baseline = Replayer::controlled(baseline, fill_model, decision, controls.clone())
+        .map_err(ReplayStudyError::Controls)?;
+    let candidate = run_after(dataset, &candidate, opening, skipped)?;
+    let baseline = run_after(dataset, &baseline, opening, skipped)?;
     let returns = |replay: &Replay| {
         replay
             .session_returns(opening.cash())
@@ -111,23 +161,15 @@ pub fn compare<C: Strategy, B: Strategy>(
     let (candidate_returns, baseline_returns) = (returns(&candidate)?, returns(&baseline)?);
     let difference = paired(Treatment(&candidate_returns), Control(&baseline_returns))
         .map_err(ReplayStudyError::Estimate)?;
-    let outputs = outputs(
-        [
-            (ArmSide::Candidate, &candidate, &candidate_returns),
-            (ArmSide::Baseline, &baseline, &baseline_returns),
-        ],
-        &controls,
-        opening,
-        difference,
-    )?;
-    study
-        .experiment(parameters, &[dataset.lineage()], outputs)
-        .map_err(ReplayStudyError::Study)?;
-    Ok(Comparison {
-        candidate,
-        baseline,
-        difference,
-    })
+    Ok((
+        Comparison {
+            candidate,
+            baseline,
+            difference,
+        },
+        candidate_returns,
+        baseline_returns,
+    ))
 }
 
 /// The difference, each arm's own session return, and each arm's replay metrics under its side's prefix.
@@ -138,7 +180,7 @@ fn outputs(
     difference: Estimate,
 ) -> Result<Outputs, ReplayStudyError> {
     let mut outputs = Outputs::default()
-        .estimate("session_return_difference", difference)
+        .estimate(DIFFERENCE, difference)
         .map_err(ReplayStudyError::Experiment)?;
     for (side, replay, returns) in arms {
         let own = Estimate::from_summary(summarize(returns)).map_err(ReplayStudyError::Estimate)?;
@@ -155,7 +197,7 @@ fn outputs(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
@@ -170,7 +212,8 @@ mod tests {
     use crate::laboratory::source::Source;
 
     /// Wants one share of AAPL, whatever it has seen.
-    struct OneShare;
+    #[derive(Clone)]
+    pub(crate) struct OneShare;
 
     impl Strategy for OneShare {
         fn decide(&self, _: &MarketState, _: &Book) -> Target {
@@ -182,7 +225,8 @@ mod tests {
     }
 
     /// Wants nothing.
-    struct Flat;
+    #[derive(Clone)]
+    pub(crate) struct Flat;
 
     impl Strategy for Flat {
         fn decide(&self, _: &MarketState, _: &Book) -> Target {
@@ -190,16 +234,16 @@ mod tests {
         }
     }
 
-    fn fill_model() -> FillModel {
+    pub(crate) fn fill_model() -> FillModel {
         FillModel::new(FillStyle::Aggressive, BasisPoints::new(10.0).unwrap()).unwrap()
     }
 
-    fn opening() -> Opening {
+    pub(crate) fn opening() -> Opening {
         Opening::new(Cash::from_units(100 * 1_000_000_000_000)).unwrap()
     }
 
     /// The one `experiment_ran` the study in `directory` journaled.
-    fn journaled(directory: &std::path::Path) -> ExperimentRan {
+    pub(crate) fn journaled(directory: &std::path::Path) -> ExperimentRan {
         let mut ran = Vec::new();
         let files = std::fs::read_dir(directory)
             .unwrap()
