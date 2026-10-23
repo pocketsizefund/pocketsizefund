@@ -221,18 +221,13 @@ fn test_a_researcher_command_is_refused_before_any_aws_call() {
     std::fs::remove_dir_all(&directory).unwrap();
 }
 
-/// What a throwaway `jobs/<name>.sh` run by `researcher run` with `arguments` saw: whether it ran under secretspec,
-/// then its argument count and arguments. `ssh` runs the command it is handed in a temporary home, where `devenv`,
-/// `secretspec` and `cargo` are stubs that pass through.
-fn job_run(arguments: &[&str]) -> Vec<String> {
+/// A temporary home for `researcher`, where `ssh` runs the command it is handed with the upload on its input, so a
+/// push really unpacks into `working-tree`, and `devenv`, `secretspec`, `cargo` and `flock` are stubs; `cargo` writes
+/// its arguments to `cargo`, and `flock` refuses while the file `locked` exists and writes to `held` the file it holds
+/// over a command.
+fn researcher_home() -> PathBuf {
     let directory = std::env::temp_dir().join(format!("researcher-{}", uuid::Uuid::new_v4()));
-    let job = format!("probe_{}", uuid::Uuid::new_v4().simple());
-    let body = "printf '%s\\n' \"${UNDER_SECRETSPEC:-no}\" \"$#\" \"$@\" > \"$HOME/job\"\n";
-    std::fs::create_dir_all(directory.join(".ssh")).unwrap();
-    std::fs::write(directory.join(".ssh/fund-researcher"), "").unwrap();
-    std::fs::create_dir_all(directory.join("working-tree/jobs")).unwrap();
-    std::fs::write(directory.join("working-tree/.commit"), "0\n").unwrap();
-    std::fs::write(directory.join(format!("working-tree/jobs/{job}.sh")), body).unwrap();
+    std::fs::create_dir_all(&directory).unwrap();
     for (name, stub) in [
         (
             "aws",
@@ -240,7 +235,15 @@ fn job_run(arguments: &[&str]) -> Vec<String> {
         ),
         (
             "ssh",
-            "#!/usr/bin/env bash\nif [[ \"${@: -1}\" == *secretspec* ]]; then bash -c \"${@: -1}\"; else cat >/dev/null; fi\n",
+            "#!/usr/bin/env bash\ncd \"$HOME\"\nexec bash -c \"${@: -1}\"\n",
+        ),
+        (
+            "ssh-keygen",
+            "#!/usr/bin/env bash\ntouch \"${@: -1}\" \"${@: -1}.pub\"\n",
+        ),
+        (
+            "flock",
+            "#!/usr/bin/env bash\n[[ ! -e \"$HOME/locked\" ]] || exit 1\n[[ $# -eq 2 ]] || echo \"$2\" > \"$HOME/held\"\nshift 2\n[[ $# -eq 0 ]] || exec \"$@\"\n",
         ),
         (
             ".nix-profile/bin/devenv",
@@ -250,7 +253,10 @@ fn job_run(arguments: &[&str]) -> Vec<String> {
             ".nix-profile/bin/secretspec",
             "#!/usr/bin/env bash\nwhile [[ \"$1\" != -- ]]; do shift; done\nshift\nUNDER_SECRETSPEC=yes exec \"$@\"\n",
         ),
-        (".nix-profile/bin/cargo", "#!/usr/bin/env bash\nexit 0\n"),
+        (
+            ".nix-profile/bin/cargo",
+            "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$HOME/cargo\"\n",
+        ),
     ] {
         let path = directory.join(name);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -259,30 +265,50 @@ fn job_run(arguments: &[&str]) -> Vec<String> {
         std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o755);
         std::fs::set_permissions(&path, permissions).unwrap();
     }
-    let jobs = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("jobs");
-    std::fs::create_dir_all(&jobs).unwrap();
-    std::fs::write(jobs.join(format!("{job}.sh")), body).unwrap();
-    let output = Command::new("bash")
+    directory
+}
+
+/// Runs `researcher` with `arguments` from the repository against the stubs in `home`.
+fn researcher(home: &PathBuf, arguments: &[&str]) -> std::process::Output {
+    Command::new("bash")
         .arg(script("researcher"))
-        .arg("run")
-        .arg(&job)
         .args(arguments)
         .env(
             "PATH",
-            format!("{}:{}", directory.display(), std::env::var("PATH").unwrap()),
+            format!("{}:{}", home.display(), std::env::var("PATH").unwrap()),
         )
-        .env("HOME", &directory)
+        .env("HOME", home)
         .env("FUND_PROFILE", "development/a.b")
         .output()
-        .unwrap();
+        .unwrap()
+}
+
+/// What a throwaway `jobs/<name>.sh` pushed and run by `researcher run` with `arguments` saw: whether it ran under
+/// secretspec, then its argument count and arguments.
+fn job_run(arguments: &[&str]) -> Vec<String> {
+    let home = researcher_home();
+    let job = format!("probe_{}", uuid::Uuid::new_v4().simple());
+    let body = "printf '%s\\n' \"${UNDER_SECRETSPEC:-no}\" \"$#\" \"$@\" > \"$HOME/job\"\n";
+    let jobs = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("jobs");
+    std::fs::create_dir_all(&jobs).unwrap();
+    std::fs::write(jobs.join(format!("{job}.sh")), body).unwrap();
+    let output = researcher(&home, &[&["run", job.as_str()], arguments].concat());
     std::fs::remove_file(jobs.join(format!("{job}.sh"))).unwrap();
-    let seen = std::fs::read_to_string(directory.join("job"));
-    std::fs::remove_dir_all(&directory).unwrap();
+    let seen = std::fs::read_to_string(home.join("job"));
+    let uploaded = home.join(format!("working-tree/jobs/{job}.sh")).exists();
+    let held = std::fs::read_to_string(home.join("held"));
+    std::fs::remove_dir_all(&home).unwrap();
     assert_eq!(
         output.status.code(),
         Some(0),
         "{}",
         String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(uploaded, "the job was not unpacked into the working tree");
+    assert_eq!(
+        held.unwrap().trim_end(),
+        home.join("working-tree.lock").to_str().unwrap(),
+        "the run did not hold the working tree's lock"
     );
     seen.unwrap().lines().map(str::to_string).collect()
 }
@@ -294,6 +320,55 @@ fn test_a_job_runs_under_secretspec_with_exactly_the_arguments_it_was_given() {
         job_run(&["a b", "it's", ""]),
         ["yes", "3", "a b", "it's", ""]
     );
+}
+
+#[test]
+fn test_a_study_receives_its_arguments_after_cargo_has_read_its_own() {
+    let home = researcher_home();
+    let output = researcher(&home, &["run", "probe", "--help", "a b"]);
+    let cargo = std::fs::read_to_string(home.join("cargo"));
+    let key = home.join(".ssh/fund-researcher").exists();
+    std::fs::remove_dir_all(&home).unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(key, "no key was generated in a home without ~/.ssh");
+    assert_eq!(
+        cargo.unwrap().lines().collect::<Vec<_>>(),
+        [
+            "run",
+            "-q",
+            "--profile",
+            "study",
+            "-p",
+            "studies",
+            "--bin",
+            "probe",
+            "--",
+            "--help",
+            "a b"
+        ]
+    );
+}
+
+#[test]
+fn test_a_push_refuses_while_a_study_holds_the_working_tree() {
+    let home = researcher_home();
+    std::fs::create_dir_all(home.join("working-tree")).unwrap();
+    std::fs::write(home.join("working-tree/running"), "").unwrap();
+    std::fs::write(home.join("locked"), "").unwrap();
+    let output = researcher(&home, &["push"]);
+    let kept = home.join("working-tree/running").exists();
+    std::fs::remove_dir_all(&home).unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr).lines().next(),
+        Some("Error: a study is still running in ~/working-tree; wait for it or stop the box")
+    );
+    assert!(kept, "the running study's files were replaced");
 }
 
 #[test]
