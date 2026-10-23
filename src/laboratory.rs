@@ -4,6 +4,7 @@
 pub mod compare;
 pub mod dataset;
 pub mod replay;
+pub mod sensitivity;
 pub mod source;
 
 use std::io;
