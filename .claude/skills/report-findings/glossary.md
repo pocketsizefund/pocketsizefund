@@ -9,6 +9,8 @@ these. Add terms here as they appear, and record a value a study measures in `me
 - **Information coefficient (IC)** — the rank correlation, within one session, between what a model forecast for each
   name and what each name then did; averaged over sessions. **Good:** 0 is noise; what pays depends on the cost a
   trade must clear; above 0.10 is rare anywhere.
+- **Spearman vs Pearson correlation** — correlation of ranks versus correlation of raw values. **Good:** the IC is
+  Spearman, so one extreme name cannot dominate it.
 - **AUC (area under the ROC curve)** — the chance a model scores a random positive case above a random negative one.
   **Good:** 0.5 is a coin; 0.7+ is useful.
 - **Basis point (bp)** — one hundredth of a percent; 10bp on $10,000 is $10. **Good:** depends on the cost it must
@@ -19,8 +21,16 @@ these. Add terms here as they appear, and record a value a study measures in `me
   trades on the same day move together. **Good:** this is the honest one; 10,000 trades over 5 sessions is closer to 5
   observations than to 10,000.
 - **t-statistic (t)** — an estimate divided by its standard error. **Good:** |t| ≥ 2 clears the usual bar.
+- **p-value** — the chance of a result at least this extreme if there were no effect. **Good:** |t| ≥ 2 is roughly
+  p below 0.05; it says nothing about whether the effect is large enough to pay.
+- **Multiple testing** — trying many candidates until one passes, so some pass by luck alone (20 tries at p 0.05
+  expect one). **Good:** raise the bar with the count of candidates tried.
+- **Statistical power** — the chance a test detects an effect that is really there; an injected-signal check
+  measures it. **Good:** confirm the test can see a planted effect before trusting it to report none.
 - **Effective sample size** — how many independent observations the data is really worth after correlation.
   **Good:** report it beside the row count; the row count flatters.
+- **Autocorrelation** — a series resembling its own recent past, so neighbouring observations are not independent.
+  **Good:** near zero in returns; positive autocorrelation shrinks the effective sample size.
 - **Null / permutation null / shuffled-label null** — the same pipeline run on data where the effect has been
   deliberately destroyed (labels shuffled), so whatever it reports is the machinery's own bias. **Good:** near the
   metric's no-signal value (0 for IC, 0.5 for AUC), and the real reading must beat it by a margin in the metric's
@@ -54,6 +64,8 @@ these. Add terms here as they appear, and record a value a study measures in `me
   never to touch until the end. **Good:** a result counts only on sessions the model never saw.
 - **Split-sample (halves) test** — compare the effect in the first and second half and test whether they differ.
   **Good:** no significant difference; "both halves positive" is not the test.
+- **Regression to the mean** — the best-scoring arm on one sample tends to score lower on the next with nothing
+  changed, because part of its lead was luck. **Good:** expect it; judge a winner on data that did not pick it.
 - **Mutual information (as share of entropy)** — how much knowing one variable reduces uncertainty about another,
   as a fraction of the total uncertainty. **Good:** compare against the permutation null; a few percent is typical.
 - **Undefined share** — the fraction of inputs where an estimate could not be computed. **Good:** small and always
@@ -63,6 +75,9 @@ these. Add terms here as they appear, and record a value a study measures in `me
 - **Sharpe ratio** — average return divided by its volatility, annualised. **Good:** above 1 is good, above 2 is
   excellent and rare after costs.
 - **Sortino ratio** — Sharpe that penalises only downside volatility. **Good:** read like Sharpe, usually higher.
+- **Fundamental law of active management** — the information ratio (excess return over its volatility) is roughly IC
+  times the square root of breadth, the number of independent bets. **Good:** a small IC can still pay over many
+  independent bets; correlated bets count as fewer.
 - **Grid / off-grid evaluation** — scoring a model on the fixed set of decision times it was designed for (grid)
   versus times between them (off-grid). **Good:** off-grid close to grid; a large drop means it learned the grid.
 
