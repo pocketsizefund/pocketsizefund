@@ -85,6 +85,12 @@ pub fn sensitivity<C: Strategy + Clone, B: Strategy + Clone>(
             name: format!("{DIFFERENCE}_{}", declared[index]),
         }));
     }
+    // A run identical to the unperturbed one cannot turn, so it would only pad the count of stable readings.
+    if perturbations.contains(&Perturbation::QuotedSpread(fill_model.quoted_spread())) {
+        return Err(ReplayStudyError::UnperturbedSpread {
+            quoted_spread: fill_model.quoted_spread(),
+        });
+    }
     let parameters = beside(
         [
             (
@@ -327,6 +333,32 @@ mod tests {
             panic!("not refused as a duplicate: {refused:?}");
         };
         assert_eq!(name, "session_return_difference_later_start_3_sessions");
+    }
+
+    /// A spread equal to the comparison's own is refused before anything replays, so a start past every session never
+    /// runs.
+    #[test]
+    fn test_the_comparisons_own_spread_is_refused() {
+        let directory =
+            std::env::temp_dir().join(format!("fund-sensitivity-{}", uuid::Uuid::new_v4()));
+        let mut study = study(&directory);
+        let dataset = dataset(study.run_id());
+        let refused = sensitivity(
+            &mut study,
+            &dataset,
+            &Arm::new(OneShare, "one_share", &Parameters::default()).unwrap(),
+            &Arm::new(Flat, "flat", &Parameters::default()).unwrap(),
+            fill_model(),
+            BarInterval::OneDay,
+            opening(),
+            Controls::Unrestrained,
+            &[later(3), spread(10.0)],
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+        let Err(ReplayStudyError::UnperturbedSpread { quoted_spread }) = refused else {
+            panic!("not refused as unperturbed: {refused:?}");
+        };
+        assert_eq!(quoted_spread.value(), 10.0);
     }
 
     /// A later start past every session leaves nothing to decide on, and is refused rather than read as no effect.

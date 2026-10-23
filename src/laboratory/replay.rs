@@ -2,7 +2,7 @@
 //! decision interval and the opening cash among its parameters.
 
 use crate::common::book::{Book, Cash};
-use crate::common::laboratory::cost::CostRefusal;
+use crate::common::laboratory::cost::{BasisPoints, CostRefusal};
 use crate::common::laboratory::estimate::EstimateRefusal;
 use crate::common::laboratory::experiment::{ExperimentRefusal, Outputs, Parameters};
 use crate::common::laboratory::series::SeriesRefusal;
@@ -30,6 +30,11 @@ pub enum ReplayStudyError {
     Controls(ControlsRefusal),
     #[error("the fill model was refused: {0}")]
     Cost(CostRefusal),
+    /// A perturbed quoted spread equal to the comparison's own, which would repeat the unperturbed run.
+    #[error(
+        "a perturbed quoted spread of {quoted_spread} is the comparison's own and perturbs nothing"
+    )]
+    UnperturbedSpread { quoted_spread: BasisPoints },
     #[error("the returns were refused: {0}")]
     Series(SeriesRefusal),
     #[error("the estimate was refused: {0}")]
