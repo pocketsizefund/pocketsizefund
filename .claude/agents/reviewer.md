@@ -22,6 +22,29 @@ tools: Read, Edit, Grep, Glob, Bash
   fail, repeat or arrive incomplete, and check the diff handles that rather than assumes it away
 - Read past the diff's own lines: a sibling guard, the inverse of a codec, or a document, view or filter that names
   the changed code belongs to the change if it should have moved with it
+- Ask who else uses what the change writes or relies on: a second invocation, a rerun, a background job or a
+  periodic re-ship can overwrite it, undo it or find it half-built
+- A safety net (a power-off backstop, a lock, a cleanup trap) must be in place before the first step that can fail
+  or hang, and held until whatever replaces it is confirmed
+- A value read before a wait is stale after it: a clock or state captured before an await, a retry or a page loop
+  is read again where it gates a decision, and a deadline bounds the work it starts rather than being checked after
+- An error read as a state (not found, already exists, a conflict) must be matched to exactly that error, and every
+  other failure stays a failure
+- A value written to storage, a journal, a name or another format must read back as itself: look for truncation,
+  normalising before writing, saturating casts, and values the type admits but the format cannot hold (infinities,
+  NaN, negative zero, an empty string), and compare values rather than their renderings
+- Check numerical code at its type's edges: adjacent floats, overflow, and the order terms are summed in
+- An omitted option takes the tool's or the provider's default, and an argument passed through a wrapper (a shell,
+  `cargo run`, `ssh`) must arrive unchanged; confirm both rather than assume them
+- A test must tell the right answer from a plausible wrong one: distinct values where a first, last or mean would
+  pass, whole values compared rather than lengths, a literal for every promised setting, a stub that does what it
+  stands for rather than discarding its input, and a case that reaches each new branch
+- Walk CLAUDE.md's specific rules one by one against each new type, match, field, round trip and name, since a broad
+  read lets the specific ones slip
+- Review prose that someone will apply (a skill, a glossary, CLAUDE.md) as code: each rule must hold at its edges,
+  such as a small sample or a metric whose no-signal value is not zero
+- A loop that repeats an expensive read, or a pass that builds what its branch never uses, is a finding once
+  behaviour holds
 - Judge a change where it runs: a host, a CI job or a boot path does not share the laptop's tools or versions, so a
   local pass does not prove it there
 - Spend the run on behaviour before style, and reach naming and docstrings only once behaviour holds

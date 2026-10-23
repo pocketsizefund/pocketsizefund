@@ -72,7 +72,7 @@ setup='export PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PA
   export FUND_COMMIT="$(cat .commit)" FUND_PROFILE='"$(printf '%q' "$profile")"' SECRETSPEC_PROFILE='"$(printf '%q' "$profile")"
 
 connect() {
-  [[ -f "$key" ]] || ssh-keygen -q -t ed25519 -N '' -C fund-researcher -f "$key"
+  [[ -f "$key" ]] || { [[ -d "$HOME/.ssh" ]] || mkdir -m 700 "$HOME/.ssh"; ssh-keygen -q -t ed25519 -N '' -C fund-researcher -f "$key"; }
   aws ec2-instance-connect send-ssh-public-key --instance-id "$instance" --instance-os-user ubuntu \
     --ssh-public-key "file://$key.pub" >/dev/null
   ssh -i "$key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
@@ -95,6 +95,17 @@ held() {
     --query 'Tags[].Value' --output text)" ]]
 }
 
+# Takes the working tree's lock on fd 9 for the rest of a remote command, whose children keep it, so a push refuses
+# rather than replacing the files of a study that is still running.
+# shellcheck disable=SC2016 # expanded on the box
+claim='exec 9>"$HOME/working-tree.lock" && if ! flock -n 9; then
+  echo "Error: a study is still running in ~/working-tree; wait for it or stop the box" >&2; exit 1; fi'
+
+# Names this invocation's push in `.upload`, so a run refuses a tree that another push replaced in between.
+upload="$(date +%s)-$$-$RANDOM"
+owned="$claim && if [ \"\$(cat ~/working-tree/.upload 2>/dev/null)\" != $(quoted "$upload")]; then
+  echo 'Error: another push replaced this upload before it could run' >&2; exit 1; fi"
+
 # Tracked and untracked files that git does not ignore, plus the gitignored studies and jobs the box runs.
 push() {
   local commit
@@ -107,9 +118,9 @@ push() {
   } | while IFS= read -r -d '' file; do
     if [[ -f "$file" ]]; then printf '%s\0' "$file"; fi
   done | COPYFILE_DISABLE=1 tar --no-xattrs --null -T - -czf - |
-    connect "mkdir -p ~/working-tree && cd ~/working-tree &&
+    connect "$claim && mkdir -p ~/working-tree && cd ~/working-tree &&
       find . -mindepth 1 -maxdepth 1 ! -name target ! -name '.devenv*' ! -name journal -exec rm -rf {} + &&
-      tar -xzf - --warning=no-unknown-keyword && echo $(quoted "$commit") > .commit"
+      tar -xzf - --warning=no-unknown-keyword && echo $(quoted "$commit") > .commit && echo $(quoted "$upload") > .upload"
   echo "Pushed $commit to $instance"
 }
 
@@ -120,7 +131,7 @@ program() {
   if [[ -f "jobs/$study.sh" ]]; then
     echo "cargo build -q --profile study --workspace && PATH=\"\$PWD/target/study:\$PATH\" bash jobs/$study.sh $(quoted "$@")"
   else
-    echo "cargo run -q --profile study -p studies --bin $(quoted "$study" "$@")"
+    echo "cargo run -q --profile study -p studies --bin $(quoted "$study")-- $(quoted "$@")"
   fi
 }
 
@@ -143,14 +154,21 @@ case "$command" in
     ready=true
     if [[ "$current" == stopped || "$current" == stopping ]]; then
       aws ec2 wait instance-stopped --instance-ids "$instance"
+      # The held boot cancels its own backstop, so the box stays up with no power-off until this one is scheduled.
+      # Retried because EC2 refuses to stop an instance that is still pending.
+      trap 'echo "Stopping $instance, which has no power-off scheduled" >&2
+        for _ in $(seq 12); do aws ec2 stop-instances --instance-ids "$instance" >/dev/null && break; sleep 10; done' EXIT
+      trap 'exit 1' INT TERM HUP
       aws ec2 start-instances --instance-ids "$instance" >/dev/null
-      # The held boot cancels its own backstop, so this one is scheduled only after the boot has finished.
-      ready="while [ \"\$(systemctl is-active fund-host.service)\" = activating ]; do sleep 2; done && sudo shutdown -P +720"
+      # Scheduled once the boot's run-host has exited, which a oneshot unit's exit timestamp marks for this boot.
+      ready="{ timeout 120 bash -c 'until [ \"\$(systemctl show -p ExecMainExitTimestampMonotonic --value fund-host.service || echo 0)\" -gt 0 ] 2>/dev/null; do sleep 2; done' ||
+        { echo 'fund-host.service had not exited after 120 s' >&2; false; }; } && sudo shutdown -P +720"
     fi
     aws ec2 wait instance-running --instance-ids "$instance"
     echo "Waiting for SSH on $instance"
     for _ in $(seq 30); do
       if errors="$(connect "$ready" 2>&1 >/dev/null)"; then
+        trap - EXIT
         echo "Held and reachable: $instance"
         [[ "$ready" == true ]] || echo "It powers off in 12 hours unless stopped first"
         exit 0
@@ -163,14 +181,14 @@ case "$command" in
   push) push ;;
   run)
     push
-    connect -t "$(remote "Running the study $1" "$(program "$@")")"
+    connect -t "$owned && bash -c $(quoted "$(remote "Running the study $1" "$(program "$@")")")"
     ;;
   detach)
     hours="$1"
     shift
     push
     # Only the run is backgrounded, so a backstop or directory that fails fails this command rather than the run.
-    connect "sudo shutdown -P +$((hours * 60 + 10)) && mkdir -p ~/runs && { setsid nohup bash -c $(quoted "$(remote "Running the study $1 detached" \
+    connect "$owned && sudo shutdown -P +$((hours * 60 + 10)) && mkdir -p ~/runs && { setsid nohup bash -c $(quoted "$(remote "Running the study $1 detached" \
       "timeout --kill-after=60 ${hours}h bash -c $(quoted "$(program "$@")")"); sudo systemctl poweroff") \
       > ~/runs/$1.log 2>&1 < /dev/null & }"
     echo "Started $1 for at most $hours h, then power-off; follow it with: researcher log $1"
