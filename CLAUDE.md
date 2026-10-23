@@ -9,8 +9,6 @@ This is a collection of guidelines and references.
 - Every host runs on AWS EC2 and builds from `master` when it boots
 - Secrets are managed via [secretspec](https://secretspec.dev/) with the `awsps` provider, stored in AWS
   Systems Manager Parameter Store as standard-tier `SecureString` parameters at `/secretspec/{project}/{profile}/{key}`
-- Use `devenv tasks run checks:rust` for comprehensive Rust checks; `devenv tasks run` supports prefix group
-  execution, so `checks:rust` runs every `checks:rust:*` subtask, and `checks:all` is the full check
 - `src/common/` holds the crate's shared pure code as `module.rs` beside `module/`; its modules and the pure
   `decide`/`solve` take no clients, are not `async`, read no clock or randomness, and import no `tokio`, `reqwest`, `aws_sdk_*`,
   `std::fs` or `std::net`, and name only allowlisted crates, which `tests/test_purity.rs` enforces
@@ -21,13 +19,10 @@ This is a collection of guidelines and references.
   `check-private-files` refuses only the patterns it names, so a new private format needs adding there
 - Read the `experiments` view (`start-duckdb`) before starting a study to see what has already been tried, under each
   profile or with `SET VARIABLE profile_bucket` set to the other bucket, and journal every experiment through a `Study`;
-  the catalog records the work and gates none of it, so confirm sets are designed per study
+  the catalog records the work and gates none of it
 - Studies are throwaway binaries in the gitignored `studies/src/bin/`, run with `cargo run -p studies --bin <name>`,
   and a `Study` journals into the gitignored `journal/` at the root, which `finish` ships to the profile bucket
-- Measure a replaceable component through `laboratory::compare` against its trivial arm (the null strategy or the
-  component it replaces) over the same replayed sessions, so the paired difference lands in one experiment
 - Introduce new dependencies only after approval
-- Use Polars for [Rust](https://docs.rs/polars/latest/polars/) dataframes
 - See `README.md` "Principles" section for developer philosophy
 - Docstrings are one sentence on what the item is for, plus at most two more for a caveat, invariant, or
   assumption a caller cannot read off the signature; module documentation is three lines maximum, and an
@@ -39,32 +34,27 @@ This is a collection of guidelines and references.
   argues it
 - Name things in our own vocabulary rather than a vendor's, and keep sibling names consistent (`Bar` beside
   `BarInterval`, not `Ohlc`)
-- Spell identifiers out fully in code (variables, functions, fields, modules): prefer `dataframe` over
-  `df`, `message` over `msg`, `quantity` over `qty`, `index` over `idx`, `value` over `val`, `column` over
-  `col`, and `volatility` over `vol`
-- Expand metric and domain acronyms in identifiers too: `root_mean_squared_error` (not `rmse`),
-  `mean_absolute_error` (not `mae`), `continuous_ranked_probability_score` (not `crps`), and `end_of_day`
-  (not `eod`)
-- Keep only universally-understood acronyms as-is: formats, protocols, and identity (`csv`, `json`, `sql`,
-  `http`, `url`, `uri`, `io`, `id`, `uuid`, `api`) and established domain or proper-noun terms (`aws`,
-  `utc`, `etf`, `ohlcv`); case acronyms as ordinary words per language convention
-- Never rename fixed external identifiers: the `awsps` secretspec provider, environment variables and
-  secret keys, library import aliases, linter directives, and external library fields and parameters
+- Spell identifiers out fully in code (variables, functions, fields, modules), metric and domain acronyms included:
+  `dataframe` not `df`, `message` not `msg`, `quantity` not `qty`, `index` not `idx`, `value` not `val`, `column`
+  not `col`, `volatility` not `vol`, `root_mean_squared_error` not `rmse`, `mean_absolute_error` not `mae`,
+  `continuous_ranked_probability_score` not `crps`, and `end_of_day` not `eod`; apply it to new code and to
+  identifiers you touch
+- Keep only universally-understood acronyms as-is, cased as ordinary words per language convention: formats,
+  protocols, and identity (`csv`, `json`, `sql`, `http`, `url`, `uri`, `io`, `id`, `uuid`, `api`) and established
+  domain or proper-noun terms (`aws`, `utc`, `etf`, `ohlcv`); never rename fixed external identifiers (the `awsps`
+  secretspec provider, environment variables and secret keys, library import aliases, linter directives, external
+  library fields and parameters), and treat already-shipped schema identifiers and stored values as fixed, changed
+  only via an explicit migration
 - Three EC2 hosts do the work and each has one name, used for the instance, its tags, its scripts, and the
-  `producer=` partition its journals and logs are written under: `archiver` collects data, `trader`
-  executes, and `researcher` runs experiments and model training
-- The host name is the anchor and a module name is never a host name — `researcher` runs every
-  `laboratory_*` binary and would run training beside them, so the module appears in the finer key
-  (`service=` for a log, `experiment_type=` for an experiment) rather than in the host's name
-- `fund-role` and `fund-profile` are different axes and neither absorbs the other: the role is which kind
-  of host (`archiver`), the profile is which environment (`production`), and provisioning filters on both
-  so a second environment cannot adopt the first's box
-- "Profile" means an environment (secretspec's `production`, `development/<name>`) and nothing else, so never
-  give it a second sense; a record's host partition is `producer=`
-- `producer=` names a host, or `operator` for a change a person makes by hand (a playbook upload), which no
-  host makes and which never names an instance
-- Apply the spell-it-out rule to new code and to identifiers you touch; already-shipped schema identifiers
-  and stored values are effectively fixed and change only via an explicit migration
+  `producer=` partition its journals and logs are written under: `archiver` collects data, `trader` executes, and
+  `researcher` runs experiments and model training; `producer=operator` marks a change a person makes by hand (a
+  playbook upload), which no host makes and which never names an instance
+- The host name is the anchor and a module name is never a host name — `researcher` runs every `laboratory_*`
+  binary, so the module appears in the finer key (`service=` for a log) rather than in the host's name
+- `fund-role` and `fund-profile` are different axes and neither absorbs the other: the role is which kind of host
+  (`archiver`), the profile is which environment (secretspec's `production`, `development/<name>`), and
+  provisioning filters on both so a second environment cannot adopt the first's box; "profile" means an
+  environment and nothing else, so never give it a second sense
 - Structured log messages should be short sentences with sentence case (e.g., "Starting data sync" not
   "STARTING DATA SYNC")
 - Encode domain constraints in the type system: use enums with per-variant data to make invalid states
@@ -94,26 +84,22 @@ This is a collection of guidelines and references.
   agree only by coincidence
 - Design structs to be flat and normalized: each struct represents one concept with only its own fields;
   avoid deep nesting or struct embedding as a substitute for inheritance
-- Prefer transformations that compose: a mapping that preserves structure, an operation with an identity
-  and an associative combine, and a round trip that returns the original are the shapes worth reaching for
-- Test those laws (identity, associativity, round trip) with proptest rather than hand-picked examples
+- Prefer transformations that compose — a mapping that preserves structure, an operation with an identity and an
+  associative combine, a round trip that returns the original — and test those laws with proptest rather than
+  hand-picked examples
 - Time has exactly two kinds and they never mix: an instant is a moment on the timeline and is always UTC
-  (`DateTime<Utc>`, and a UTC timestamp wherever it is stored), while a session is a trading day and is
-  always an `America/New_York` calendar date — that is what the exchange's day is, not a display preference
-- A session is a `SessionDate`, never a bare `NaiveDate`: derive one from an instant with
-  `SessionDate::at` and convert back with `.midnight()`/`.bounds()`, never via `Utc::now().date_naive()`
-  or a hardcoded offset
-- `SessionDate::from_date` is for dates already expressed in Eastern terms, so transport modules keep
-  `NaiveDate` and the wrap happens at the domain boundary; `.midnight()` is for genuinely date-only values
-  and never for a daily bar, which is stamped at the 16:00 Eastern close
+  (`DateTime<Utc>`, and a UTC timestamp wherever it is stored), while a session is a trading day and is always an
+  `America/New_York` calendar date — that is what the exchange's day is, not a display preference; write `Eastern`
+  or `America/New_York`, never `EST` or `EDT`, which each name only half the year
+- A session is a `SessionDate`, never a bare `NaiveDate`: derive one from an instant with `SessionDate::at` and
+  convert back with `.midnight()`/`.bounds()`, never via `Utc::now().date_naive()` or a hardcoded offset;
+  `SessionDate::from_date` is for dates already in Eastern terms, so transport modules keep `NaiveDate` and the wrap
+  happens at the domain boundary, and `.midnight()` is for genuinely date-only values and never for a daily bar,
+  which is stamped at the 16:00 Eastern close
 - `SessionDate` guarantees the timezone, not tradability: weekends and holidays are representable and
-  `plus_calendar_days` will land on them, so only `TradingCalendar::is_trading_day` answers whether a date
-  trades — never infer it from the type
-- Write `Eastern` or `America/New_York`, never `EST` or `EDT` — each names only half the year; elapsed
-  durations and timeouts carry no zone, so measure them on a monotonic clock (`tokio::time::Instant`), and
-  schedule trading jobs with a UTC cron expression gated on the Eastern wall clock
-- Guard against division by zero when computing ratios or percentages from DataFrame aggregations, and
-  handle the `None` that Polars `Series.sum()` returns on an empty or all-null series
+  `plus_calendar_days` will land on them, so only `TradingCalendar::is_trading_day` answers whether a date trades,
+  never the type; elapsed durations and timeouts carry no zone, so measure them on a monotonic clock
+  (`tokio::time::Instant`), and schedule trading jobs with a UTC cron expression gated on the Eastern wall clock
 - Judge new code on whether a mutation to it fails a test rather than on the coverage line rate alone; CI does
   not run mutations, so run `mutate-rust <diff>` locally over a slice's diff when it adds logic worth guarding,
   and expect a function that only wraps a network call to survive
@@ -121,8 +107,6 @@ This is a collection of guidelines and references.
   the fix
 - Pin test expectations to literals, never to the constant or list the test is checking — an expectation
   derived from the value under test moves with it and can never fail
-- Prove a new assertion is load-bearing before trusting it: break the code it covers, watch the test fail,
-  restore
 - Assert the key set before comparing values — "for every element of the result" is vacuously true when the
   result is empty
 - Never build a fixture from the belief under test; probe the live payload before typing a struct against
@@ -131,63 +115,47 @@ This is a collection of guidelines and references.
   be jointly broken
 - Assert mathematical properties the output must have as an object (mass integrates to one, no negative
   probabilities, a mean that lands on the forward) rather than agreement with a fixture
-- Before believing a result, actively attempt to produce it from nothing — permute the labels, shuffle the
-  target, or feed the pipeline noise, and confirm the effect disappears
-- Run the identical pipeline on an input that cannot contain the effect; whatever it reports is the
-  machinery's own bias, and every real reading has to clear it
+- Prove an instrument can see before trusting it: break the code a new assertion covers, watch the test fail and
+  restore it, and before trusting a measurement that reports nothing, confirm it reports something when something
+  is there
+- Before believing a result, try to produce it from nothing — permute the labels, shuffle the target, feed the
+  pipeline noise, or run it on an input that cannot contain the effect — and confirm the effect disappears;
+  whatever it still reports is the machinery's own bias, and every real reading has to clear it
 - A control must differ from the treatment in exactly one respect, and it must be able to vary — a control
   that cannot fail is not a control
+- State the trivial baseline before reading any metric and quote skill against it rather than as a raw score;
+  measure a replaceable component through `laboratory::compare` against its trivial arm (the null strategy or the
+  component it replaces) over the same replayed sessions, so the paired difference lands in one experiment
 - A baseline's free choices are fixed by an external specification or swept across a declared range, never
   chosen by us, and every arm carries its own parameters in its name
 - Prefer the instrument that can lower your own number — a screen that costs a fifth of the panel and
   changes no answer is a result, and an instrument that can only flatter is not a measurement
-- Before trusting a measurement that reports nothing, confirm the instrument reports something when
-  something is there
-- State the trivial baseline before reading any metric, and quote skill against a named baseline rather
-  than a raw score
-- Start a study as simply as you can provided the main effects are in, get the insights, then evolve
-  it to the fully detailed run — a full-scale simulation disguises the system
-- A data source stays a study's own until a study shows it adds value: fetch it raw (from the provider, or a restored
-  archive object) into a gitignored directory or the profile bucket's `scratch/` prefix, clean it as often as the
-  study needs, and write nothing to the archive bucket
-- Promoting a source makes it permanent in the archive bucket: its raw bytes are kept in Deep Archive unless a licence
-  forbids it or they are re-derivable from what we hold, and its parsed form is a fixed transform of those bytes by
-  code in the repo, so it can be rebuilt from raw at any time; a new source adds its `Key` variant
-- Give every archive family exactly one writer, the `archiver`, the `researcher` or an `operator`, and grant it only
-  that family's prefix; a development profile never writes the archive bucket
-- At promotion, record the source's facts (recurring or fixed, perishable or still on sale, whether rows carry a
-  publication time for `known_at`, and its consumer) and let them set the rest: schedule a fetch only for a recurring
-  source that is perishable or read at decision time, parse at write time only what execution reads, and parse at
-  read time otherwise
-- A source has one of three consumers: execution (risk, the guard, fills), which must be exact and typed;
-  decision-time features, which must be available live and point-in-time; and training-only inputs, which shape a
-  model's parameters but are never read when deciding, and which must be reproducible but never live
-- Volume of output is a poor substitute for an intimate feeling for the situation being simulated —
-  prefer fewer runs read carefully over many runs summarized
+- Start a study as simply as you can provided the main effects are in, get the insights, then evolve it to the
+  fully detailed run — a full-scale simulation disguises the system, and fewer runs read carefully beat many runs
+  summarized
 - Unusually low variance across seeds is a warning rather than a quality signal — it means the metric is
   pinned by the shape of the data rather than by anything the model learned
 - Magnitude before significance: ask whether the effect could pay for itself at measured cost before asking
   whether it is real
-- A net figure is only as reliable as its least reliable input — quote a candidate's net edge with the cost and fill
-  models' error rather than the signal's standard error alone, so an edge inside the cost error cannot pass
-- Spend measurement effort on the inputs nothing corrects — the cost and fill models are open loop, while a parameter
-  refit every session is corrected by its own feedback
+- Quote a candidate's net edge with the cost and fill models' error rather than the signal's standard error alone,
+  since a net figure is only as reliable as its least reliable input and an edge inside the cost error must not
+  pass; spend measurement effort on the inputs nothing corrects — the cost and fill models are open loop, while a
+  parameter refit every session is corrected by its own feedback
 - Judge a component by the output of the system it feeds rather than by its own metric — a forecast by net P&L
   through the decision rule and costs, not its information coefficient; an archive by what the trader and studies
   could read in time, not the objects written
 - Assume an automated search or fit has exploited its metric's blind spots, and before reading a winner's score look
   for how it could have — names with an undefined or zero cost, sessions a filter dropped
-- State a new direction's admission criteria before opening it — a returns bar, a reachable size, an
-  underserved gap, and a capability we actually hold — and record which of them it fails, because failing
-  three of four is a legitimate answer
-- Admit a dataset on the same questions: does it raise the average information, is it re-derivable, and
-  does it carry a dimension nothing else does
-- Split the sample and test the difference between the halves, never whether both halves point the same way
-- Fix every free choice before looking at the result, and record each one with the number it produced
-- A confirm set answers a question only if reading it could not have shaped that question; data that suggested a
-  hypothesis may train or validate it, never confirm it
+- State a new direction's admission criteria before opening it — a returns bar, a reachable size, an underserved
+  gap, and a capability we actually hold — and record which of them it fails, because failing three of four is a
+  legitimate answer; admit a dataset on the same footing: does it raise the average information, is it
+  re-derivable, and does it carry a dimension nothing else does
+- Fix every free choice before looking at the result and record each one with the number it produced; a confirm
+  set, designed per study, answers a question only if reading it could not have shaped that question, so data that
+  suggested a hypothesis may train or validate it, never confirm it
 - Split a study's data by session, never by row, since names on one session share the market move, and confirm on
-  a contiguous block later than everything fit or chosen on, since interleaved weeks share a regime
+  a contiguous block later than everything fit or chosen on, since interleaved weeks share a regime; split the
+  sample and test the difference between the halves, never whether both halves point the same way
 - Journal every candidate sent to a confirm set through its `Study` and raise the significance bar with the count
   the `experiments` view shows plus every candidate journaled locally but not yet shipped, since the view reads only
   what `finish` has shipped; an automated search never reads a confirm set
@@ -220,32 +188,36 @@ This is a collection of guidelines and references.
   session never captured are purchases, while compute, storage and throughput are rentals
 - Before reading a vendor field as a signal, record what the vendor produces it for (billing, display, record keeping),
   since a field gathered for another purpose measures that purpose
-- Before filtering a provider feed by date, check whether the filter matches the event's own date or the
-  provider's record time — Alpaca's activity `date=`/`after=` match record time, so a date-only row dated
-  D is returned by a query for D+1
-- If something goes wrong during a task, stop immediately and re-plan rather than continuing
+- A data source stays a study's own until a study shows it adds value: fetch it raw (from the provider, or a restored
+  archive object) into a gitignored directory or the profile bucket's `scratch/` prefix, clean it as often as the
+  study needs, and write nothing to the archive bucket
+- Promoting a source makes it permanent in the archive bucket under its own `Key` variant: its raw bytes are kept in
+  Deep Archive unless a licence forbids it or they are re-derivable from what we hold, and its parsed form is a fixed
+  transform of those bytes by code in the repo, so it can be rebuilt from raw at any time; every archive family has
+  exactly one writer, the `archiver`, the `researcher` or an `operator`, granted only that family's prefix, and a
+  development profile never writes the archive bucket
+- At promotion, record the source's facts (recurring or fixed, perishable or still on sale, whether rows carry a
+  publication time for `known_at`, and its consumer) and let them set the rest: schedule a fetch only for a recurring
+  source that is perishable or read at decision time, parse at write time only what execution reads, and parse at
+  read time otherwise; the consumer is execution (risk, the guard, fills), which must be exact and typed,
+  decision-time features, which must be available live and point-in-time, or training-only inputs, which shape a
+  model's parameters but are never read when deciding, and which must be reproducible but never live
 - Before building, ask what the result will be used for and check the request serves it — the problem as stated is
   rarely the real problem
 - When moving a process onto a new tool, define equivalence by what its consumer reads, then redesign the process for
   the tool rather than reproduce the old one step by step
-- For non-trivial changes, pause and ask "Is there a more elegant way?" before implementing
 - For work larger than one slice, agree the types, signatures and module layout before writing any bodies
 - Do not introduce abstractions for single-use code
-- Use subagents to keep main context window clean and offload research, exploration, and analysis work
-- Invoke skills and suggest commands based on conversational context rather than waiting for explicit slash
-  commands
 - Prove changes work before marking tasks complete — run targeted `cargo test` while iterating and
-  `devenv tasks run checks:all` once before each push, compare behavior, demonstrate correctness; the pre-commit
-  hook runs `checks:rust` and each lint only when a commit stages a file it covers, so `checks:all` is the
-  whole-tree pass
+  `devenv tasks run checks:all` once before each push, compare behavior, demonstrate correctness; `devenv tasks run`
+  executes prefix groups, so `checks:rust` runs every `checks:rust:*` subtask, and the pre-commit hook runs
+  `checks:rust` and each lint only when a commit stages a file it covers, so `checks:all` is the whole-tree pass
 - The ignored `live_` tests reach real providers, the S3 buckets or the Alpaca paper account and never run in CI;
   run one deliberately when a change touches its seam, confirming `ALPACA_IS_PAPER=true` before any that trades
 - Verify against real data before reporting done, and say which route was used: `secretspec run -- curl`
-  against a provider, DuckDB over the S3 parquet, or a researcher run read back from `/var/log/fund/`;
-  when only fixtures were exercised, say so plainly, and ask to be pointed at real data rather than
-  inferring
-- When debugging or fixing bugs, check structured logs and error log files in `/var/log/fund/` to
-  understand what happened
+  against a provider, DuckDB over the S3 parquet, or a researcher run read back from `/var/log/fund/`, whose
+  structured and error logs are also the first stop when debugging; when only fixtures were exercised, say so
+  plainly, and ask to be pointed at real data rather than inferring
 - A bug-fix commit message states the root cause and the fix rather than restating the diff
 - When creating GitHub issues or pull requests, use the templates in the `.github/` directory and follow
   commented instructions
