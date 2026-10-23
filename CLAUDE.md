@@ -168,6 +168,15 @@ This is a collection of guidelines and references.
   pinned by the shape of the data rather than by anything the model learned
 - Magnitude before significance: ask whether the effect could pay for itself at measured cost before asking
   whether it is real
+- A net figure is only as reliable as its least reliable input — quote a candidate's net edge with the cost and fill
+  models' error rather than the signal's standard error alone, so an edge inside the cost error cannot pass
+- Spend measurement effort on the inputs nothing corrects — the cost and fill models are open loop, while a parameter
+  refit every session is corrected by its own feedback
+- Judge a component by the output of the system it feeds rather than by its own metric — a forecast by net P&L
+  through the decision rule and costs, not its information coefficient; an archive by what the trader and studies
+  could read in time, not the objects written
+- Assume an automated search or fit has exploited its metric's blind spots, and before reading a winner's score look
+  for how it could have — names with an undefined or zero cost, sessions a filter dropped
 - State a new direction's admission criteria before opening it — a returns bar, a reachable size, an
   underserved gap, and a capability we actually hold — and record which of them it fails, because failing
   three of four is a legitimate answer
@@ -183,7 +192,8 @@ This is a collection of guidelines and references.
   the `experiments` view shows plus every candidate journaled locally but not yet shipped, since the view reads only
   what `finish` has shipped; an automated search never reads a confirm set
 - Scope a kill precisely — say exactly what was refuted and under what conditions, because over-claiming a
-  refutation closes doors that are still open and under-claiming reopens ones that are shut
+  refutation closes doors that are still open and under-claiming reopens ones that are shut; record what would reopen
+  it (a cost level, a data source, a latency), since a change in what we can do undoes a refutation that rested on it
 - Correcting an instance does not generalise the lesson; run the check deliberately against each new
   measurement rather than remembering it as a past mistake
 - A tooling trap or a recurring review comment that a check could detect is owed a check, not a memory — a
@@ -208,10 +218,16 @@ This is a collection of guidelines and references.
   and the set measured over are different questions with different answers
 - Buy what gets more expensive with time and rent what gets cheaper — a lapsing tick subscription and a
   session never captured are purchases, while compute, storage and throughput are rentals
+- Before reading a vendor field as a signal, record what the vendor produces it for (billing, display, record keeping),
+  since a field gathered for another purpose measures that purpose
 - Before filtering a provider feed by date, check whether the filter matches the event's own date or the
   provider's record time — Alpaca's activity `date=`/`after=` match record time, so a date-only row dated
   D is returned by a query for D+1
 - If something goes wrong during a task, stop immediately and re-plan rather than continuing
+- Before building, ask what the result will be used for and check the request serves it — the problem as stated is
+  rarely the real problem
+- When moving a process onto a new tool, define equivalence by what its consumer reads, then redesign the process for
+  the tool rather than reproduce the old one step by step
 - For non-trivial changes, pause and ask "Is there a more elegant way?" before implementing
 - For work larger than one slice, agree the types, signatures and module layout before writing any bodies
 - Do not introduce abstractions for single-use code
@@ -237,6 +253,8 @@ This is a collection of guidelines and references.
   or a diff grows past that, propose splitting it into stacked slices
 - Before opening a pull request or pushing to one, spawn the `reviewer` subagent over the diff and let it fix
   what it finds, without waiting on the user, then record its fixes in the commit message that carries them
+- When reviewers disagree (the `reviewer` subagent, Greptile, another bot), the pull request's author judges each
+  finding on its merits, never by majority or by splitting the difference
 - When naming branches, use an all-lowercase, hyphenated, and concise summary of the work being done
 - Only use existing repository labels for GitHub issues and pull requests
 - Do not use emojis in commit messages, GitHub issues, or pull requests - maintain a professional tone
