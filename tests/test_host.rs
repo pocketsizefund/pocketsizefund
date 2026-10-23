@@ -222,9 +222,10 @@ fn test_a_researcher_command_is_refused_before_any_aws_call() {
 }
 
 /// A temporary home for `researcher`, where `ssh` runs the command it is handed with the upload on its input, so a
-/// push really unpacks into `working-tree`, and `devenv`, `secretspec`, `cargo` and `flock` are stubs; `cargo` writes
-/// its arguments to `cargo`, and `flock` refuses while the file `locked` exists and writes to `held` the file it holds
-/// over a command.
+/// push really unpacks into `working-tree`, and `devenv`, `secretspec`, `cargo`, `sudo` and `flock` are stubs; `cargo`
+/// and a failing `sudo` write their arguments to `cargo` and `sudoed`, `flock -n <fd>` takes a real lock through Perl
+/// since macOS has no `flock`, and `ssh` rewrites the tree's `.upload` before any command but a push while the file
+/// `replace` exists.
 fn researcher_home() -> PathBuf {
     let directory = std::env::temp_dir().join(format!("researcher-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&directory).unwrap();
@@ -235,15 +236,19 @@ fn researcher_home() -> PathBuf {
         ),
         (
             "ssh",
-            "#!/usr/bin/env bash\ncd \"$HOME\"\nexec bash -c \"${@: -1}\"\n",
+            "#!/usr/bin/env bash\ncd \"$HOME\"\nif [[ -e replace && \"${@: -1}\" != *\"> .upload\"* ]]; then echo other > working-tree/.upload; fi\nexec bash -c \"${@: -1}\"\n",
         ),
         (
             "ssh-keygen",
             "#!/usr/bin/env bash\ntouch \"${@: -1}\" \"${@: -1}.pub\"\n",
         ),
         (
+            "sudo",
+            "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$HOME/sudoed\"\nexit 1\n",
+        ),
+        (
             "flock",
-            "#!/usr/bin/env bash\n[[ ! -e \"$HOME/locked\" ]] || exit 1\n[[ $# -eq 2 ]] || echo \"$2\" > \"$HOME/held\"\nshift 2\n[[ $# -eq 0 ]] || exec \"$@\"\n",
+            "#!/usr/bin/env bash\n[[ \"$1 $#\" == \"-n 2\" ]] || exit 2\nexec perl -MFcntl=:flock -e 'open(my $lock, \">&=\", $ARGV[0]) or exit 2; flock($lock, LOCK_EX | LOCK_NB) or exit 1' \"$2\"\n",
         ),
         (
             ".nix-profile/bin/devenv",
@@ -268,6 +273,9 @@ fn researcher_home() -> PathBuf {
     directory
 }
 
+/// Held by each test that pushes, since a push tars the repository while `job_run` adds a job to it and removes it.
+static PUSHING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Runs `researcher` with `arguments` from the repository against the stubs in `home`.
 fn researcher(home: &PathBuf, arguments: &[&str]) -> std::process::Output {
     Command::new("bash")
@@ -284,11 +292,16 @@ fn researcher(home: &PathBuf, arguments: &[&str]) -> std::process::Output {
 }
 
 /// What a throwaway `jobs/<name>.sh` pushed and run by `researcher run` with `arguments` saw: whether it ran under
-/// secretspec, then its argument count and arguments.
+/// secretspec, whether the working tree's lock was held, then its argument count and arguments.
 fn job_run(arguments: &[&str]) -> Vec<String> {
+    let _pushing = PUSHING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let home = researcher_home();
     let job = format!("probe_{}", uuid::Uuid::new_v4().simple());
-    let body = "printf '%s\\n' \"${UNDER_SECRETSPEC:-no}\" \"$#\" \"$@\" > \"$HOME/job\"\n";
+    let body = format!(
+        "printf '%s\\n' \"${{UNDER_SECRETSPEC:-no}}\" \"$({TRY_LOCK} \"$HOME/working-tree.lock\")\" \"$#\" \"$@\" > \"$HOME/job\"\n"
+    );
     let jobs = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("jobs");
     std::fs::create_dir_all(&jobs).unwrap();
     std::fs::write(jobs.join(format!("{job}.sh")), body).unwrap();
@@ -296,7 +309,6 @@ fn job_run(arguments: &[&str]) -> Vec<String> {
     std::fs::remove_file(jobs.join(format!("{job}.sh"))).unwrap();
     let seen = std::fs::read_to_string(home.join("job"));
     let uploaded = home.join(format!("working-tree/jobs/{job}.sh")).exists();
-    let held = std::fs::read_to_string(home.join("held"));
     std::fs::remove_dir_all(&home).unwrap();
     assert_eq!(
         output.status.code(),
@@ -305,25 +317,23 @@ fn job_run(arguments: &[&str]) -> Vec<String> {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(uploaded, "the job was not unpacked into the working tree");
-    assert_eq!(
-        held.unwrap().trim_end(),
-        home.join("working-tree.lock").to_str().unwrap(),
-        "the run did not hold the working tree's lock"
-    );
     seen.unwrap().lines().map(str::to_string).collect()
 }
 
 #[test]
 fn test_a_job_runs_under_secretspec_with_exactly_the_arguments_it_was_given() {
-    assert_eq!(job_run(&[]), ["yes", "0"]);
+    assert_eq!(job_run(&[]), ["yes", "held", "0"]);
     assert_eq!(
         job_run(&["a b", "it's", ""]),
-        ["yes", "3", "a b", "it's", ""]
+        ["yes", "held", "3", "a b", "it's", ""]
     );
 }
 
 #[test]
 fn test_a_study_receives_its_arguments_after_cargo_has_read_its_own() {
+    let _pushing = PUSHING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let home = researcher_home();
     let output = researcher(&home, &["run", "probe", "--help", "a b"]);
     let cargo = std::fs::read_to_string(home.join("cargo"));
@@ -354,21 +364,94 @@ fn test_a_study_receives_its_arguments_after_cargo_has_read_its_own() {
     );
 }
 
+/// A shell command that prints `held` when another open file holds the lock on the file it is given, else `free`.
+const TRY_LOCK: &str = "perl -MFcntl=:flock -e 'open(my $lock, \">>\", $ARGV[0]) or die; print flock($lock, LOCK_EX | LOCK_NB) ? \"free\" : \"held\"'";
+
 #[test]
-fn test_a_push_refuses_while_a_study_holds_the_working_tree() {
+fn test_a_push_refuses_while_a_study_holds_the_working_tree_and_proceeds_once_it_ends() {
+    let _pushing = PUSHING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let home = researcher_home();
     std::fs::create_dir_all(home.join("working-tree")).unwrap();
     std::fs::write(home.join("working-tree/running"), "").unwrap();
-    std::fs::write(home.join("locked"), "").unwrap();
-    let output = researcher(&home, &["push"]);
+    let mut study = Command::new("perl")
+        .args([
+            "-MFcntl=:flock",
+            "-e",
+            "open(my $lock, '>>', $ARGV[0]) or die; flock($lock, LOCK_EX) or die; $| = 1; print \"held\\n\"; <STDIN>",
+        ])
+        .arg(home.join("working-tree.lock"))
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut held = String::new();
+    std::io::BufRead::read_line(
+        &mut std::io::BufReader::new(study.stdout.take().unwrap()),
+        &mut held,
+    )
+    .unwrap();
+    assert_eq!(held, "held\n");
+    let refused = researcher(&home, &["push"]);
     let kept = home.join("working-tree/running").exists();
+    drop(study.stdin.take());
+    study.wait().unwrap();
+    let pushed = researcher(&home, &["push"]);
+    let replaced = !home.join("working-tree/running").exists();
     std::fs::remove_dir_all(&home).unwrap();
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(refused.status.code(), Some(1));
     assert_eq!(
-        String::from_utf8_lossy(&output.stderr).lines().next(),
+        String::from_utf8_lossy(&refused.stderr).lines().next(),
         Some("Error: a study is still running in ~/working-tree; wait for it or stop the box")
     );
     assert!(kept, "the running study's files were replaced");
+    assert_eq!(
+        pushed.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&pushed.stderr)
+    );
+    assert!(replaced, "the push after the study ended left the old tree");
+}
+
+#[test]
+fn test_a_run_refuses_a_tree_another_push_replaced_before_it_ran() {
+    let _pushing = PUSHING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let home = researcher_home();
+    std::fs::write(home.join("replace"), "").unwrap();
+    let output = researcher(&home, &["run", "probe"]);
+    let ran = home.join("cargo").exists();
+    std::fs::remove_dir_all(&home).unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr).lines().last(),
+        Some("Error: another push replaced this upload before it could run")
+    );
+    assert!(!ran, "the study ran from another push's files");
+}
+
+#[test]
+fn test_a_detach_refuses_a_tree_another_push_replaced_before_it_started() {
+    let _pushing = PUSHING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let home = researcher_home();
+    std::fs::write(home.join("replace"), "").unwrap();
+    let output = researcher(&home, &["detach", "1", "probe"]);
+    let started = home.join("runs").exists() || home.join("sudoed").exists();
+    std::fs::remove_dir_all(&home).unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr).lines().last(),
+        Some("Error: another push replaced this upload before it could run")
+    );
+    assert!(
+        !started,
+        "the detached run started from another push's files"
+    );
 }
 
 #[test]

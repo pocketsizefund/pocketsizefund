@@ -95,9 +95,16 @@ held() {
     --query 'Tags[].Value' --output text)" ]]
 }
 
-# Held by a run for as long as it uses the pushed tree, so a push refuses rather than replacing a running study's files.
+# Takes the working tree's lock on fd 9 for the rest of a remote command, whose children keep it, so a push refuses
+# rather than replacing the files of a study that is still running.
 # shellcheck disable=SC2016 # expanded on the box
-lock='$HOME/working-tree.lock'
+claim='exec 9>"$HOME/working-tree.lock" && if ! flock -n 9; then
+  echo "Error: a study is still running in ~/working-tree; wait for it or stop the box" >&2; exit 1; fi'
+
+# Names this invocation's push in `.upload`, so a run refuses a tree that another push replaced in between.
+upload="$(date +%s)-$$-$RANDOM"
+owned="$claim && if [ \"\$(cat ~/working-tree/.upload 2>/dev/null)\" != $(quoted "$upload")]; then
+  echo 'Error: another push replaced this upload before it could run' >&2; exit 1; fi"
 
 # Tracked and untracked files that git does not ignore, plus the gitignored studies and jobs the box runs.
 push() {
@@ -111,11 +118,9 @@ push() {
   } | while IFS= read -r -d '' file; do
     if [[ -f "$file" ]]; then printf '%s\0' "$file"; fi
   done | COPYFILE_DISABLE=1 tar --no-xattrs --null -T - -czf - |
-    connect "exec 9>$lock && if ! flock -n 9; then
-        echo 'Error: a study is still running in ~/working-tree; wait for it or stop the box' >&2; exit 1; fi &&
-      mkdir -p ~/working-tree && cd ~/working-tree &&
+    connect "$claim && mkdir -p ~/working-tree && cd ~/working-tree &&
       find . -mindepth 1 -maxdepth 1 ! -name target ! -name '.devenv*' ! -name journal -exec rm -rf {} + &&
-      tar -xzf - --warning=no-unknown-keyword && echo $(quoted "$commit") > .commit"
+      tar -xzf - --warning=no-unknown-keyword && echo $(quoted "$commit") > .commit && echo $(quoted "$upload") > .upload"
   echo "Pushed $commit to $instance"
 }
 
@@ -156,7 +161,7 @@ case "$command" in
       trap 'exit 1' INT TERM HUP
       aws ec2 start-instances --instance-ids "$instance" >/dev/null
       # Scheduled once the boot's run-host has exited, which a oneshot unit's exit timestamp marks for this boot.
-      ready="{ timeout 120 bash -c 'until [ \"\$(systemctl show -p ExecMainExitTimestampMonotonic --value fund-host.service)\" != 0 ]; do sleep 2; done' ||
+      ready="{ timeout 120 bash -c 'until [ \"\$(systemctl show -p ExecMainExitTimestampMonotonic --value fund-host.service || echo 0)\" -gt 0 ] 2>/dev/null; do sleep 2; done' ||
         { echo 'fund-host.service had not exited after 120 s' >&2; false; }; } && sudo shutdown -P +720"
     fi
     aws ec2 wait instance-running --instance-ids "$instance"
@@ -176,14 +181,14 @@ case "$command" in
   push) push ;;
   run)
     push
-    connect -t "flock -n $lock bash -c $(quoted "$(remote "Running the study $1" "$(program "$@")")")"
+    connect -t "$owned && bash -c $(quoted "$(remote "Running the study $1" "$(program "$@")")")"
     ;;
   detach)
     hours="$1"
     shift
     push
     # Only the run is backgrounded, so a backstop or directory that fails fails this command rather than the run.
-    connect "sudo shutdown -P +$((hours * 60 + 10)) && mkdir -p ~/runs && { setsid nohup flock -n $lock bash -c $(quoted "$(remote "Running the study $1 detached" \
+    connect "$owned && sudo shutdown -P +$((hours * 60 + 10)) && mkdir -p ~/runs && { setsid nohup bash -c $(quoted "$(remote "Running the study $1 detached" \
       "timeout --kill-after=60 ${hours}h bash -c $(quoted "$(program "$@")")"); sudo systemctl poweroff") \
       > ~/runs/$1.log 2>&1 < /dev/null & }"
     echo "Started $1 for at most $hours h, then power-off; follow it with: researcher log $1"
