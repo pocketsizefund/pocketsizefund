@@ -36,25 +36,26 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Schedules are UTC: the archiver folds the session that closed the previous Eastern day, and its stop bounds the heal;
-# the trader starts at least an hour before the 09:30 Eastern open and stops past the 16:00 close in either offset.
+# Schedules are Eastern wall clock, clear of the 01:00-02:59 a transition skips or repeats: the archiver starts at
+# 03:00, the trader an hour before the 09:30 open, and each stop is a backstop behind the run's own power-off.
 # The researcher has no schedule: an operator holds and starts it with `host/researcher`, which bounds its run.
+SCHEDULE_TIMEZONE="America/New_York"
 case "$ROLE" in
   archiver)
     INSTANCE_TYPE="r6i.2xlarge"
     ARCHITECTURE="amd64"
     VOLUME_SIZE_GB=100
     BUILD="--bin archive_nightly"
-    START_EXPRESSION="cron(0 7 * * ? *)"
-    STOP_EXPRESSION="cron(0 12 * * ? *)"
+    START_EXPRESSION="cron(0 3 * * ? *)"
+    STOP_EXPRESSION="cron(0 8 * * ? *)"
     ;;
   trader)
     INSTANCE_TYPE="m7g.large"
     ARCHITECTURE="arm64"
     VOLUME_SIZE_GB=50
     BUILD="--bin trader"
-    START_EXPRESSION="cron(30 12 ? * MON-FRI *)"
-    STOP_EXPRESSION="cron(30 21 ? * MON-FRI *)"
+    START_EXPRESSION="cron(30 8 ? * MON-FRI *)"
+    STOP_EXPRESSION="cron(30 16 ? * MON-FRI *)"
     ;;
   researcher)
     INSTANCE_TYPE="r6i.2xlarge"
@@ -481,7 +482,7 @@ fi
 
 put_schedule() {
   local name="$1" expression="$2" action="$3" description="$4" verb target lookup
-  changed "ensure $name at $expression ($action)"
+  changed "ensure $name at $expression $SCHEDULE_TIMEZONE ($action)"
   [[ "$APPLY" == true ]] || return 0
   target="{\"Arn\":\"arn:aws:scheduler:::aws-sdk:ec2:${action}\",\"RoleArn\":\"arn:aws:iam::${ACCOUNT_ID}:role/${SCHEDULER_ROLE}\",\"Input\":\"{\\\"InstanceIds\\\":[\\\"${INSTANCE_ID}\\\"]}\"}"
   if lookup="$(aws scheduler get-schedule --region "$REGION" --name "$name" 2>&1 >/dev/null)"; then
@@ -495,7 +496,7 @@ put_schedule() {
   # Scheduler checks it can assume the role, and a fresh trust policy reaches it late.
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
     if aws scheduler "$verb" --region "$REGION" --name "$name" --state ENABLED --description "$description" \
-      --schedule-expression "$expression" --schedule-expression-timezone UTC \
+      --schedule-expression "$expression" --schedule-expression-timezone "$SCHEDULE_TIMEZONE" \
       --flexible-time-window '{"Mode":"OFF"}' --target "$target" >/dev/null; then
       return 0
     fi
@@ -513,6 +514,6 @@ put_schedule "$NAME-stop" "$STOP_EXPRESSION" stopInstances \
 
 step "Done"
 echo "  Instance: ${INSTANCE_ID}"
-echo "  Start:    ${START_EXPRESSION} UTC"
-echo "  Stop:     ${STOP_EXPRESSION} UTC"
+echo "  Start:    ${START_EXPRESSION} ${SCHEDULE_TIMEZONE}"
+echo "  Stop:     ${STOP_EXPRESSION} ${SCHEDULE_TIMEZONE}"
 [[ "$APPLY" == true ]] || echo "  Dry run. Re-run with --apply to make these changes."

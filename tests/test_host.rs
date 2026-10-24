@@ -505,7 +505,9 @@ case "$1 $2" in
     value_of --lifecycle-configuration "$@" > "$STUB_DIRECTORY/lifecycle-$(value_of --bucket "$@").json"
     value_of --transition-default-minimum-object-size "$@" > "$STUB_DIRECTORY/lifecycle-$(value_of --bucket "$@").size" ;;
   "scheduler create-schedule" | "scheduler update-schedule")
-    value_of --target "$@" > "$STUB_DIRECTORY/target-$(value_of --name "$@").json" ;;
+    value_of --target "$@" > "$STUB_DIRECTORY/target-$(value_of --name "$@").json"
+    echo "$(value_of --schedule-expression "$@") $(value_of --schedule-expression-timezone "$@")" \
+      > "$STUB_DIRECTORY/schedule-$(value_of --name "$@").txt" ;;
   *) echo None ;;
 esac
 "#;
@@ -568,6 +570,15 @@ impl Provisioned {
     fn json(&self, name: &str) -> serde_json::Value {
         let text = std::fs::read_to_string(self.directory.join(name)).unwrap();
         serde_json::from_str(&text).unwrap_or_else(|error| panic!("{name}: {error}: {text}"))
+    }
+
+    /// The expression and timezone the schedule `name` was last written with, space-separated.
+    fn schedule(&self, name: &str) -> String {
+        let path = self.directory.join(format!("schedule-{name}.txt"));
+        std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("{name}: {error}"))
+            .trim_end()
+            .to_string()
     }
 }
 
@@ -796,6 +807,14 @@ fn test_a_new_archiver_is_granted_its_prefixes_and_scheduled_once_bootstrapped()
             serde_json::from_str(target["Input"].as_str().unwrap()).unwrap();
         assert_eq!(input, serde_json::json!({"InstanceIds": ["i-0new"]}));
     }
+    assert_eq!(
+        provisioned.schedule("fund-archiver-production-start"),
+        "cron(0 3 * * ? *) America/New_York"
+    );
+    assert_eq!(
+        provisioned.schedule("fund-archiver-production-stop"),
+        "cron(0 8 * * ? *) America/New_York"
+    );
 
     let calls = provisioned.calls();
     let granted_at = calls
@@ -1117,11 +1136,13 @@ fn test_a_new_trader_reads_its_playbook_and_writes_only_its_own_records() {
         start["Arn"],
         "arn:aws:scheduler:::aws-sdk:ec2:startInstances"
     );
-    assert!(
-        provisioned.output.contains("cron(30 12 ? * MON-FRI *)")
-            && provisioned.output.contains("cron(30 21 ? * MON-FRI *)"),
-        "{}",
-        provisioned.output
+    assert_eq!(
+        provisioned.schedule("fund-trader-development-a-b-start"),
+        "cron(30 8 ? * MON-FRI *) America/New_York"
+    );
+    assert_eq!(
+        provisioned.schedule("fund-trader-development-a-b-stop"),
+        "cron(30 16 ? * MON-FRI *) America/New_York"
     );
 }
 

@@ -99,7 +99,8 @@ This is a collection of guidelines and references.
 - `SessionDate` guarantees the timezone, not tradability: weekends and holidays are representable and
   `plus_calendar_days` will land on them, so only `TradingCalendar::is_trading_day` answers whether a date trades,
   never the type; elapsed durations and timeouts carry no zone, so measure them on a monotonic clock
-  (`tokio::time::Instant`), and schedule trading jobs with a UTC cron expression gated on the Eastern wall clock
+  (`tokio::time::Instant`), and schedule host starts and stops in `America/New_York` outside the 01:00-02:59 a
+  transition skips or repeats, with the run itself gating on the published calendar
 - Judge new code on whether a mutation to it fails a test rather than on the coverage line rate alone; CI does
   not run mutations, so run `mutate-rust <diff>` locally over a slice's diff when it adds logic worth guarding,
   and expect a function that only wraps a network call to survive
